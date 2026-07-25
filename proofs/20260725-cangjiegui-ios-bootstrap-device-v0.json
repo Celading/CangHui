@@ -1,0 +1,35 @@
+{
+  "schema": "cangjiegui-proof-receipt-v1",
+  "id": "20260725-cangjiegui-ios-bootstrap-device-v0",
+  "createdAt": "2026-07-25T19:55:56+08:00",
+  "matrixVersion": "CangjieGUI.20260725.4",
+  "frameworkBaseline": "CangjieGUI@de865df",
+  "toolchain": {
+    "cangjie": "1.3.0-alpha.20260725010033",
+    "cjpm": "1.2.0-beta.rc2",
+    "xcode": "16.4",
+    "iosSdk": "18.5"
+  },
+  "verification": {
+    "frameworkBuild": "pass: Cangjie 1.1.3 cjpm build",
+    "frameworkTests": "pass: 193/193",
+    "galleryBuild": "pass: examples/component-gallery cjpm build",
+    "deviceStaticLibrary": "pass: aarch64-apple-ios",
+    "simulatorStaticLibrary": "pass: aarch64-apple-ios-simulator",
+    "exportedSymbol": "pass: cangjiegui_ios_host_abi_version",
+    "xcodeDeviceBuild": "pass: automatic development signing",
+    "deviceInstall": "pass: physical iPad Pro 11-inch (iPad8,3)",
+    "deviceLaunch": "pass: Objective-C host called Cangjie ABI and process exited 0"
+  },
+  "abi": {
+    "symbol": "cangjiegui_ios_host_abi_version",
+    "expectedValue": 1
+  },
+  "nonClaims": [
+    "no UIKit lifecycle, safe-area or touch adapter",
+    "no iOS renderer or native-surface backend",
+    "no simulator launch acceptance",
+    "no ExplorerX-CUI iOS acceptance",
+    "no release or LTS claim"
+  ]
+}

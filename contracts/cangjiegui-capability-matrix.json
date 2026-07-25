@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangjieGUI.20260725.3",
+  "matrixVersion": "CangjieGUI.20260725.4",
   "project": "CangjieGUI",
   "version": "0.3.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
     "proofs/20260725-cangjiegui-kmode-v0.json",
-    "proofs/20260725-cangjiegui-mobile-host-contracts-v0.json"
+    "proofs/20260725-cangjiegui-mobile-host-contracts-v0.json",
+    "proofs/20260725-cangjiegui-ios-bootstrap-device-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -74,10 +75,20 @@
     {
       "id": "mobile-host-contracts",
       "version": "0.1.0",
-      "state": "source-test-proven; ios-runtime-unproven",
+      "state": "source-test-proven; ios-bootstrap-device-call-proven; ios-renderer-unproven",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
         "src/host/mobile_host_contracts_test.cj"
+      ]
+    },
+    {
+      "id": "ios-host-bootstrap",
+      "version": "abi-v1",
+      "state": "device-call-proven; renderer-unproven",
+      "codeRefs": [
+        "src/host/ios_host_bootstrap.cj",
+        "scripts/build-ios-host-staticlibs.sh",
+        "platform/ios"
       ]
     }
   ],
@@ -95,7 +106,7 @@
     "Implement and independently verify an external SoonLink Channel v1 KModeChannelModule before claiming relay-backed operation.",
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
     "Do not claim Android or iOS runtime support from desktop layout previews.",
-    "Obtain the matching Cangjie iOS SDK and prove a static library inside an Xcode simulator host before implementing an iOS renderer adapter.",
+    "Implement UIKit lifecycle, safe-area, touch and native-surface adapters after the static host bootstrap.",
     "Keep ExplorerX models, SoonLink endpoints, credentials and file-manager screens in the application; use it as an acceptance consumer rather than framework source."
   ]
 }

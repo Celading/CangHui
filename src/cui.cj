@@ -147,6 +147,7 @@ public import cui.host.TouchEvent
 public import cui.host.TouchPhase
 public import cui.host.TouchPoint
 public import cui.host.appLifecycleStateName
+public import cui.host.iosHostAbiVersion
 public import cui.host.systemThemePreferenceName
 public import cui.host.touchPhaseName
 public import cui.kmode.KMODE_PROTOCOL

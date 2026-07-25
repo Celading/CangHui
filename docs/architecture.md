@@ -296,9 +296,10 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 文件选择结果使用 `PlatformResourceRef`，其中 locator 由宿主解释，可以对应路径、安全域 URL、bookmark
 或其他不透明令牌。这样公共组件无需知道 UIKit、PhotoKit、Keychain 或 Harmony 平台类型。
 
-iOS 当前采用静态库嵌入 Xcode 宿主的演进方向。平台包负责应用生命周期桥接、触摸事件、safe area、
-权限与原生资源引用，母体框架负责稳定合同和公共组件。renderer/native-surface 适配、CJMP 镜像、
-模拟器和真机证明必须在独立平台包完成，不能由桌面 SDL 预览代替。
+iOS 采用静态库嵌入 Xcode 宿主。母体框架提供可独立交叉编译的 host-contract 源集、稳定的
+`cangjiegui_ios_host_abi_version` C ABI 与 device/simulator 构建脚本；Xcode 宿主负责运行时静态库链接、
+签名和应用生命周期。当前真机证据证明 Objective-C 可以进入仓颉 host package 并正常返回，尚不证明
+renderer/native-surface、UIKit 生命周期、触摸、safe area、IME、无障碍或 ExplorerX-CUI 已适配。
 
 ## kMode 无界面控制面
 
