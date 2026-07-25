@@ -1,6 +1,6 @@
 # iOS Host Bootstrap
 
-CangjieGUI embeds its platform-neutral host contracts into an Xcode application as a Cangjie static library. The bootstrap surface contains no C source shim: Objective-C, Objective-C++ or Swift hosts call the exported C ABI directly.
+CangjieGUI embeds its platform-neutral host contracts into an Xcode application as a Cangjie static library. The platform host may be Objective-C, Objective-C++ or Swift; no handwritten C shim is required. Calls from native threads must still enter through the Cangjie N2C foreign-thread gate after runtime and package initialization.
 
 ## Build
 
@@ -26,6 +26,18 @@ For the selected device or simulator target:
 2. Add `section.o`, then `cjstart.o`, then `-lc++` to Other Linker Flags in that exact order.
 3. Set Dead Code Stripping to `No`.
 4. With Xcode 15 or later, add `-Wl,-no_compact_unwind` when the linker reports compact-unwind overflow.
-5. Include `platform/ios/include/CangjieGUIHost.h` and call `cangjiegui_ios_host_abi_version()`. ABI version `1` confirms the Cangjie host-contract package was entered successfully.
+5. Include `platform/ios/include/CangjieGUIHost.h`. Do not call the exported function as an ordinary C function from an arbitrary UIKit thread; initialize the Cangjie runtime, establish the fixed scheduler thread, complete static-package initialization and invoke through the N2C foreign-thread gate.
 
-The Xcode host still owns application lifecycle delivery, safe-area and touch adapters, UIKit/native-surface integration, signing and packaging. This bootstrap does not initialize a renderer or claim complete iOS GUI support.
+The current device probe proves runtime initialization, a fixed background UI scheduler and an N2C call into a minimal Cangjie static package. The CangjieGUI package call is still blocked in static-package initialization, so ABI version `1` has not yet been observed on device.
+
+## Surface Proxy
+
+The iOS backend follows an XComponent-like proxy model:
+
+- UIKit owns a `UIView` backed by `CAMetalLayer` or `MTKView`.
+- UIKit forwards lifecycle, safe-area, touch, IME, accessibility, surface-generation and `CADisplayLink` events.
+- `HostNativeSurfaceService` publishes the host-owned surface descriptor.
+- `NativeSurfaceRenderer` keeps layout, state and drawing on the Cangjie side.
+- Native callbacks are marshalled through N2C onto the fixed Cangjie scheduler thread.
+
+The host still owns signing and packaging. The proxy contract does not by itself initialize the runtime, static package or renderer.

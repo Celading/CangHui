@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangjieGUI.20260725.4",
+  "matrixVersion": "CangjieGUI.20260725.5",
   "project": "CangjieGUI",
   "version": "0.3.0",
   "surfaceTier": "mother-framework-incubating",
@@ -75,7 +75,7 @@
     {
       "id": "mobile-host-contracts",
       "version": "0.1.0",
-      "state": "source-test-proven; ios-bootstrap-device-call-proven; ios-renderer-unproven",
+      "state": "source-test-proven; ios-runtime-n2c-proven; ios-package-init-blocked; ios-renderer-unproven",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
         "src/host/mobile_host_contracts_test.cj"
@@ -84,11 +84,21 @@
     {
       "id": "ios-host-bootstrap",
       "version": "abi-v1",
-      "state": "device-call-proven; renderer-unproven",
+      "state": "runtime-scheduler-n2c-proven; cangjiegui-package-init-blocked; abi-return-unproven",
       "codeRefs": [
         "src/host/ios_host_bootstrap.cj",
         "scripts/build-ios-host-staticlibs.sh",
         "platform/ios"
+      ]
+    },
+    {
+      "id": "native-surface-proxy",
+      "version": "0.1.0",
+      "state": "source-test-contract; ios-and-harmony-runtime-adapters-unproven",
+      "codeRefs": [
+        "src/host/native_surface_proxy.cj",
+        "src/host/native_surface_proxy_test.cj",
+        "platform/ios/README.md"
       ]
     }
   ],
@@ -106,7 +116,7 @@
     "Implement and independently verify an external SoonLink Channel v1 KModeChannelModule before claiming relay-backed operation.",
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
     "Do not claim Android or iOS runtime support from desktop layout previews.",
-    "Implement UIKit lifecycle, safe-area, touch and native-surface adapters after the static host bootstrap.",
+    "Implement the UIKit CAMetalLayer/MTKView surface proxy after the static-package bootstrap protocol is available.",
     "Keep ExplorerX models, SoonLink endpoints, credentials and file-manager screens in the application; use it as an acceptance consumer rather than framework source."
   ]
 }

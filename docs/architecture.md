@@ -298,8 +298,25 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 
 iOS 采用静态库嵌入 Xcode 宿主。母体框架提供可独立交叉编译的 host-contract 源集、稳定的
 `cangjiegui_ios_host_abi_version` C ABI 与 device/simulator 构建脚本；Xcode 宿主负责运行时静态库链接、
-签名和应用生命周期。当前真机证据证明 Objective-C 可以进入仓颉 host package 并正常返回，尚不证明
-renderer/native-surface、UIKit 生命周期、触摸、safe area、IME、无障碍或 ExplorerX-CUI 已适配。
+签名和应用生命周期。当前真机证据已证明 runtime 初始化、固定后台 UI scheduler 和 N2C foreign-thread
+调用门可用，也已成功调用一个最小仓颉静态包；但 CangjieGUI `cui.host` 静态包仍卡在正式包初始化协议，
+因此尚不声称 ABI 函数已返回，也不证明 UIKit 生命周期、触摸、safe area、IME、无障碍或
+ExplorerX-CUI 已适配。
+
+### XComponent-like 原生表面代理
+
+iOS 后端不复制一套 UIKit 布局树，而是采用与 HarmonyOS `XComponent` 同构的原生表面代理：
+
+- UIKit 主线程持有 `UIView + CAMetalLayer/MTKView`，只负责 lifecycle、safe area、touch、IME、
+  accessibility、surface 创建/重建与 `CADisplayLink` 帧时钟；
+- `HostNativeSurfaceService` 把不透明 handle、逻辑/像素尺寸、scale 和 generation 通知给仓颉侧；
+- `NativeSurfaceRenderer` 由仓颉侧实现，掌握布局、绘制和状态；宿主不承接业务视图；
+- surface 重建时 generation 必须递增，旧帧和旧 handle 不得继续提交；
+- 所有原生回调通过 N2C 门转发到固定的仓颉 UI scheduler 线程，UIKit 主线程不直接运行
+  仓颉 scheduler。
+
+HarmonyOS 可将同一合同映射到 `XComponent/OHNativeWindow`，iOS 映射到 `CAMetalLayer`。这条路线
+解决渲染承载与多平台统一，但不代替仓颉 runtime 和静态包 bootstrap。
 
 ## kMode 无界面控制面
 

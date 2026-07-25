@@ -32,6 +32,7 @@ build_target() {
         "$CJC" \
             "$ROOT_DIR/src/host/host_capabilities.cj" \
             "$ROOT_DIR/src/host/mobile_host_contracts.cj" \
+            "$ROOT_DIR/src/host/native_surface_proxy.cj" \
             "$ROOT_DIR/src/host/ios_host_bootstrap.cj" \
             --target="$target" \
             --output-type=staticlib \

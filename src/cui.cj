@@ -134,12 +134,18 @@ public import cui.host.HostBackgroundTaskService
 public import cui.host.HostFilePickerService
 public import cui.host.HostLifecycleService
 public import cui.host.HostNotificationService
+public import cui.host.HostNativeSurfaceService
 public import cui.host.HostSecureStorage
 public import cui.host.HostSystemThemeService
 public import cui.host.HostTouchService
 public import cui.host.HostViewportMetrics
 public import cui.host.HostViewportService
 public import cui.host.LocalNotificationRequest
+public import cui.host.NativeSurfaceBackend
+public import cui.host.NativeSurfaceDescriptor
+public import cui.host.NativeSurfaceEvent
+public import cui.host.NativeSurfaceFrame
+public import cui.host.NativeSurfaceRenderer
 public import cui.host.PlatformResourceRef
 public import cui.host.SafeAreaInsets
 public import cui.host.SystemThemePreference
@@ -147,6 +153,7 @@ public import cui.host.TouchEvent
 public import cui.host.TouchPhase
 public import cui.host.TouchPoint
 public import cui.host.appLifecycleStateName
+public import cui.host.nativeSurfaceBackendName
 public import cui.host.iosHostAbiVersion
 public import cui.host.systemThemePreferenceName
 public import cui.host.touchPhaseName
