@@ -11,4 +11,5 @@ bench/results/
 .vscode/
 *.user
 cjpm.lock
+proofs/snapshots/
 sdl/.sdl3/*.dylib

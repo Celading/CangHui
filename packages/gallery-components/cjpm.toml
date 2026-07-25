@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "cangjiegui_gallery_components"
+version = "0.1.0"
+output-type = "static"
+description = "Reference platform-neutral component package for CangjieGUI."
+
+[dependencies]
+cui = { path = "../.." }

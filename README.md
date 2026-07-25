@@ -211,6 +211,21 @@ CUI 将矢量图元绘制到高分辨率离屏纹理，再以线性过滤缩放�
 - 实现 `Resource` 的对象应交由 `DesktopApp.manage` 管理，或由调用方显式关闭。
 - 应用通常只需从 `cui` 根包显式导入所需 API；底层图形应用可直接依赖 `sdl`。
 
+## 多平台组件母体
+
+CangjieGUI `0.3.0` 提供平台无关的组件母体合同：
+
+- `HostProfile` 描述宿主平台与真实可用能力，组件通过 `HostCapability` 声明需求；
+- `ComponentPackageDescriptor` 提供静态组件包身份、版本、平台和能力兼容性检查；
+- `ComponentContext` 与 `ViewportSpec` 把宿主事实和逻辑视口注入同一份组件源码；
+- `Compact / Medium / Expanded` 响应式分级与桌面预览矩阵用于公共布局回归。
+
+组件包仍是普通 CJPM 源码依赖。平台原生窗口、生命周期、IME、无障碍、签名和打包由宿主适配层
+负责，不进入公共组件。`packages/gallery-components` 与 `examples/component-gallery` 给出最小参考，
+可用 `scripts/capture-component-gallery.sh` 批量生成布局快照。
+
+Android、HarmonyOS 与 iOS 预览只证明公共布局，不代表对应平台运行时或发布支持。
+
 ## 许可证
 
 本项目（含 `sdl` 模块与全部示例）以 [MIT 许可证](LICENSE) 发布。

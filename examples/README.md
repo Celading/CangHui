@@ -11,6 +11,11 @@
 
 ## 示例清单
 
+### [`component-gallery`](component-gallery/README.md)：多平台组件预览
+
+以独立 CJPM 组件包验证 `HostProfile`、能力声明、组件描述符和 Compact/Medium/Expanded
+响应式布局。Android、HarmonyOS 与 iOS 条目是桌面公共布局预览，不替代真实平台适配证明。
+
 ### [`calculator`](calculator/README.md)：计算器
 
 展示由链式 `.flex(weight)` 构成的等宽按键网格、跨两列按键、枚举化按键与集中样式映射、

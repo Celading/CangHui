@@ -1,0 +1,11 @@
+{
+  "$schema": "../../contracts/cangjiegui-component-package-v0.schema.json",
+  "id": "cangjiegui.gallery.common",
+  "displayName": "CangjieGUI Gallery Common Components",
+  "version": "0.1.0",
+  "minimumCuiVersion": "0.1.0",
+  "platforms": ["common"],
+  "requiredCapabilities": [],
+  "assets": [],
+  "nativeArtifacts": []
+}
