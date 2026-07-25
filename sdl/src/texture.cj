@@ -89,6 +89,60 @@ public class Texture <: Resource {
 }
 
 extend Renderer {
+    /** Creates an RGBA render-target texture at the renderer's current logical scale. */
+    public func createTargetTexture(logicalWidth: Float32, logicalHeight: Float32): Texture {
+        if (logicalWidth <= 0.0 || logicalHeight <= 0.0) {
+            throw CuiException("Target texture dimensions must be greater than 0.")
+        }
+        if (ptr.isNull()) {
+            throw CuiException("A headless renderer cannot create a target texture.")
+        }
+        let pixelWidth = Int32(max(1.0, logicalWidth * currentScaleX()) + 0.5)
+        let pixelHeight = Int32(max(1.0, logicalHeight * currentScaleY()) + 0.5)
+        let raw = unsafe {
+            SDL_CreateTexture(ptr, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, pixelWidth, pixelHeight)
+        }
+        if (raw.isNull()) {
+            throw CuiException("SDL_CreateTexture target failed: ${lastSdlError()}")
+        }
+        let _ = unsafe { SDL_SetTextureScaleMode(raw, SDL_SCALEMODE_LINEAR) }
+        let _ = unsafe { SDL_SetTextureBlendMode(raw, SDL_BLENDMODE_BLEND) }
+        Texture(raw)
+    }
+
+    /** Draws one logical frame into `texture`, restoring the previous target and scale. */
+    public func renderToTexture(
+        texture: Texture,
+        logicalWidth: Float32,
+        logicalHeight: Float32,
+        clearColor: Color,
+        draw: () -> Unit
+    ): Unit {
+        if (texture.isClosed()) {
+            throw CuiException("Cannot render into a closed texture.")
+        }
+        if (logicalWidth <= 0.0 || logicalHeight <= 0.0) {
+            throw CuiException("Target texture logical dimensions must be greater than 0.")
+        }
+        if (ptr.isNull()) {
+            return
+        }
+        let previousTarget = unsafe { SDL_GetRenderTarget(ptr) }
+        let previousScaleX = currentScaleX()
+        let previousScaleY = currentScaleY()
+        try {
+            ensureSdl(unsafe { SDL_SetRenderTarget(ptr, texture.ptr) }, "SDL_SetRenderTarget")
+            setScale(texture.width / logicalWidth, texture.height / logicalHeight)
+            resetClipStack()
+            clear(clearColor)
+            draw()
+        } finally {
+            let _ = unsafe { SDL_SetRenderTarget(ptr, previousTarget) }
+            setScale(previousScaleX, previousScaleY)
+            resetClipStack()
+        }
+    }
+
     /**
      * Throws `CuiException` when the source surface is closed or SDL cannot create a texture.
      */

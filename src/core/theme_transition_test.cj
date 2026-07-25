@@ -21,3 +21,14 @@ func themeTransitionAdvancesAndCompletesDeterministically(): Unit {
     @Expect(transition.isComplete())
     @Expect(complete.bg.r, Theme.light().bg.r)
 }
+
+@Test
+func themeTransitionRevealRadiusStartsAtOriginAndCoversFarthestCorner(): Unit {
+    let transition = ThemeTransition(Theme.dark(), Theme.light(), 10.0, 20.0, durationMs: UInt64(100))
+    @Expect(transition.revealRadius(100.0, 80.0), Float32(0.0))
+
+    let _ = transition.advance(UInt64(100))
+    let radius = transition.revealRadius(100.0, 80.0)
+    @Expect(radius > Float32(110.0))
+    @Expect(radius < Float32(111.0))
+}

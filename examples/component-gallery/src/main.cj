@@ -56,6 +56,18 @@ private func initialDarkMode(): Bool {
     true
 }
 
+private func transitionThemeArgument(): ?Bool {
+    let args = getCommandLine()
+    var i = 0
+    while (i < args.size - 1) {
+        if (args[i] == "--transition-theme") {
+            return Some(args[i + 1] == "dark")
+        }
+        i += 1
+    }
+    None
+}
+
 private func previewIndex(value: String): Int64 {
     match (value) {
         case "android" => 0
@@ -73,12 +85,23 @@ main(): Int64 {
     }
     let previews = commonPreviewMatrix()
     let selectedPreview = State<Int64>(initialPreviewIndex())
-    let darkMode = State<Bool>(initialDarkMode())
+    let transitionTarget = transitionThemeArgument()
+    let startsDark = match (transitionTarget) {
+        case Some(targetDark) => !targetDark
+        case None => initialDarkMode()
+    }
+    let darkMode = State<Bool>(startsDark)
     let galleryState = GallerySurfaceState()
     let app = DesktopApp(
         WindowSpec("CangjieGUI Component Gallery", 1500, 980, scale: 1.0),
         theme: if (darkMode.value) { Theme.dark() } else { Theme.light() }
     )
+    match (transitionTarget) {
+        case Some(_) =>
+            // Drive the real IconButton route so the proof includes its local InkWell.
+            app.queuePointerClick(1338.0, 52.0)
+        case None => ()
+    }
     app.setMinimumSize(1000, 760)
     app.run {
         let active = previews[selectedPreview.value]

@@ -1,9 +1,9 @@
 package cui.core
 
 import std.math.sqrt
-import sdl.{Pen, Renderer}
+import sdl.{Rect, Renderer, Texture}
 
-/** Pointer-origin theme transition with an expanding InkWell-like wash. */
+/** Pointer-origin theme transition composed from frozen old/new interface frames. */
 public class ThemeTransition {
     private let fromTheme: Theme
     private let toTheme: Theme
@@ -11,6 +11,10 @@ public class ThemeTransition {
     private let originY: Float32
     private let durationMs: UInt64
     private var elapsedMs: UInt64 = UInt64(0)
+    private var oldFrame: ?Texture = None
+    private var newFrame: ?Texture = None
+    private var snapshotWidth: Float32 = 0.0
+    private var snapshotHeight: Float32 = 0.0
 
     public init(fromTheme: Theme, toTheme: Theme, originX: Float32, originY: Float32,
         durationMs!: UInt64 = UInt64(560)) {
@@ -47,20 +51,99 @@ public class ThemeTransition {
         elapsedMs >= durationMs
     }
 
-    /** Draws a fading radial wash over the already interpolated widget tree. */
+    public func sourceTheme(): Theme {
+        fromTheme
+    }
+
+    public func targetTheme(): Theme {
+        toTheme
+    }
+
+    /**
+     * Captures one side per frame: the click frame freezes the old tree, and the
+     * following rebuilt frame freezes the new tree. This preserves stateful icon and
+     * content changes instead of rendering both themes from one stale widget tree.
+     */
+    public func prepareNextSnapshot(
+        renderer: Renderer,
+        width: Float32,
+        height: Float32,
+        renderOld: () -> Unit,
+        renderNew: () -> Unit
+    ): Bool {
+        if (!sameSnapshotSize(width, height)) {
+            closeSnapshots()
+        }
+        if (oldFrame.isNone()) {
+            let texture = renderer.createTargetTexture(width, height)
+            try {
+                renderer.renderToTexture(texture, width, height, fromTheme.bg, renderOld)
+                oldFrame = Some(texture)
+                snapshotWidth = width
+                snapshotHeight = height
+            } catch (error: Exception) {
+                texture.close()
+                throw error
+            }
+            return false
+        }
+        if (newFrame.isNone()) {
+            let texture = renderer.createTargetTexture(width, height)
+            try {
+                renderer.renderToTexture(texture, width, height, toTheme.bg, renderNew)
+                newFrame = Some(texture)
+            } catch (error: Exception) {
+                texture.close()
+                throw error
+            }
+        }
+        snapshotsReady()
+    }
+
+    /** Draws the frozen old frame, then reveals the new frame through a growing circle. */
     public func draw(renderer: Renderer, width: Float32, height: Float32): Unit {
-        let p = easedProgress()
-        let radius = farthestCornerRadius(width, height) * p
-        let fade = max(0.0, 1.0 - progress())
-        let washAlpha = Int64(58.0 * fade)
-        let ringAlpha = Int64(150.0 * fade)
-        if (radius > 0.0 && washAlpha > 0) {
-            renderer.fillCircle(originX, originY, radius, toTheme.accentSoft.withAlpha(washAlpha))
+        match ((oldFrame, newFrame)) {
+            case (Some(oldTexture), Some(newTexture)) =>
+                let frame = Rect(0.0, 0.0, width, height)
+                renderer.texture(oldTexture, frame)
+                let opacity = progress()
+                renderer.texturedCircle(newTexture, originX, originY, revealRadius(width, height), width, height,
+                    feather: 1.4, opacity: opacity)
+            case (Some(oldTexture), None) =>
+                renderer.texture(oldTexture, Rect(0.0, 0.0, width, height))
+            case _ => ()
         }
-        if (radius > 1.0 && ringAlpha > 0) {
-            renderer.strokeCircle(originX, originY, radius,
-                Pen(width: 2.0, color: toTheme.accent.withAlpha(ringAlpha)), segments: 96)
+    }
+
+    public func revealRadius(width: Float32, height: Float32): Float32 {
+        farthestCornerRadius(width, height) * easedProgress()
+    }
+
+    public func close(): Unit {
+        closeSnapshots()
+    }
+
+    public func snapshotsReady(): Bool {
+        oldFrame.isSome() && newFrame.isSome()
+    }
+
+    private func sameSnapshotSize(width: Float32, height: Float32): Bool {
+        oldFrame.isNone() || (snapshotWidth == width && snapshotHeight == height)
+    }
+
+    private func closeSnapshots(): Unit {
+        match (oldFrame) {
+            case Some(texture) => texture.close()
+            case None => ()
         }
+        match (newFrame) {
+            case Some(texture) => texture.close()
+            case None => ()
+        }
+        oldFrame = None
+        newFrame = None
+        snapshotWidth = 0.0
+        snapshotHeight = 0.0
     }
 
     private func farthestCornerRadius(width: Float32, height: Float32): Float32 {
@@ -70,6 +153,6 @@ public class ThemeTransition {
         let bottom = max(0.0, height - originY)
         let dx = max(left, right)
         let dy = max(top, bottom)
-        Float32(sqrt(Float64(dx * dx + dy * dy)))
+        Float32(sqrt(Float64(dx * dx + dy * dy))) + 2.0
     }
 }

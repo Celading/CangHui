@@ -1,11 +1,35 @@
 package cui.core
 
 import std.collection.ArrayList
-import sdl.{Color, FrameInfo, Insets, Rect, Renderer, SurfaceStyle, UiEvent}
+import sdl.{Color, FrameInfo, Insets, Pen, Rect, Renderer, SurfaceStyle, UiEvent}
 
 // A second press within this window and distance of the previous one continues a multi-click.
 private let MULTI_CLICK_MS: UInt64 = 400
 private let MULTI_CLICK_DIST: Float32 = 4.0
+private let INK_RIPPLE_MS: UInt64 = 420
+
+private class InkRippleOverlay {
+    let id: String
+    let frame: Rect
+    let originX: Float32
+    let originY: Float32
+    let startedAtMs: UInt64
+
+    init(id: String, frame: Rect, originX: Float32, originY: Float32, startedAtMs: UInt64) {
+        this.id = id
+        this.frame = frame
+        this.originX = originX
+        this.originY = originY
+        this.startedAtMs = startedAtMs
+    }
+
+    func progress(nowMs: UInt64): Float32 {
+        if (nowMs <= startedAtMs) {
+            return 0.0
+        }
+        min(1.0, Float32(nowMs - startedAtMs) / Float32(INK_RIPPLE_MS))
+    }
+}
 
 public struct Theme {
     public let bg: Color
@@ -237,6 +261,7 @@ public class UiContext {
     // draws each layer's content, so a popup opened inside a dialog registers — and
     // paints — above it. Events walk the stack top-down (see `dispatchOverlay`).
     private let overlays = ArrayList<Overlay>()
+    private let inkRipples = ArrayList<InkRippleOverlay>()
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
     /** User font scale applied to `fp` lengths; `1.0` keeps `fp` equal to `vp`. */
@@ -277,6 +302,41 @@ public class UiContext {
 
     public func requestClose(): Unit {
         shouldClose = true
+    }
+
+    /** Starts or restarts one button-local InkWell ripple. */
+    public func startInkRipple(id: String, frame: Rect, x: Float32, y: Float32): Unit {
+        var i = inkRipples.size - 1
+        while (i >= 0) {
+            if (inkRipples[i].id == id) {
+                inkRipples.remove(at: i)
+            }
+            i -= 1
+        }
+        inkRipples.add(InkRippleOverlay(id, frame, x, y, this.frame.elapsedMs))
+    }
+
+    /** Paints active ripples above page snapshots and drops completed entries. */
+    public func drawInkRipples(): Unit {
+        var i = inkRipples.size - 1
+        while (i >= 0) {
+            let ripple = inkRipples[i]
+            let p = ripple.progress(frame.elapsedMs)
+            if (p >= 1.0) {
+                inkRipples.remove(at: i)
+            } else {
+                let eased = 1.0 - (1.0 - p) * (1.0 - p) * (1.0 - p)
+                let radius = 2.0 + max(ripple.frame.w, ripple.frame.h) * 0.52 * eased
+                let fade = if (p < 0.35) { Float32(1.0) } else { max(0.0, (1.0 - p) / 0.65) }
+                renderer.pushClip(ripple.frame.inset(1.0))
+                renderer.fillCircle(ripple.originX, ripple.originY, radius,
+                    theme.accent.withAlpha(Int64(Float32(76.0) * fade)))
+                renderer.strokeCircle(ripple.originX, ripple.originY, radius,
+                    Pen(width: 1.2, color: theme.accent.withAlpha(Int64(Float32(145.0) * fade))), segments: 40)
+                renderer.popClip()
+            }
+            i -= 1
+        }
     }
 
     /*

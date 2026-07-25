@@ -162,6 +162,7 @@ public class IconButton <: Widget {
                 if (frame.contains(x, y)) {
                     ctx.focus(controlId)
                     ctx.press(controlId)
+                    ctx.startInkRipple(controlId, frame, x, y)
                     return true
                 }
             case UiEvent.MouseUp(MouseButton.Left, x, y) =>
@@ -173,11 +174,13 @@ public class IconButton <: Widget {
                 }
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
                     onClick()
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
                     onClick()
                     return true
                 }

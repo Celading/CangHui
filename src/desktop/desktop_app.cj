@@ -1,6 +1,7 @@
 package cui.desktop
 
 import std.collection.ArrayList
+import std.convert.*
 import std.env.getCommandLine
 import sdl.{FrameInfo, Key, MouseButton, Rect, SdlWindow, UiEvent, WindowSpec}
 import sdl.input.{Cursor, Keyboard, SystemCursor}
@@ -22,8 +23,10 @@ public class DesktopApp {
     private let ctx: UiContext
     private let frameDelay: UInt32
     private let resources = ArrayList<Resource>()
+    private let queuedEvents = ArrayList<UiEvent>()
     private let stateStore = StateStore()
     private let snapshotPath: ?String
+    private let snapshotFrame: UInt64
     // Per-phase frame timing, enabled with `--profile`; None (and zero cost) in a normal run.
     private let profiler: ?FrameProfiler
     private var frames: UInt64 = 0
@@ -49,6 +52,7 @@ public class DesktopApp {
         this.ctx.fontScale = max(0.1, fontScale)
         this.frameDelay = frameDelay
         this.snapshotPath = snapshotArgument()
+        this.snapshotFrame = snapshotFrameArgument()
         this.profiler = if (profileEnabled()) {
             Some(FrameProfiler(60))
         } else {
@@ -90,8 +94,15 @@ public class DesktopApp {
         stateStore.clear()
     }
 
+    /** Queues a pointer click through the normal CUI hit-test and event route. */
+    public func queuePointerClick(x: Float32, y: Float32): Unit {
+        queuedEvents.add(UiEvent.MouseDown(MouseButton.Left, x, y))
+        queuedEvents.add(UiEvent.MouseUp(MouseButton.Left, x, y))
+    }
+
     /** Applies a theme immediately and cancels any active animated transition. */
     public func setTheme(theme: Theme): Unit {
+        closeThemeTransition()
         themeTransition = None
         ctx.theme = theme
     }
@@ -100,7 +111,25 @@ public class DesktopApp {
     public func transitionTheme(theme: Theme, durationMs!: UInt64 = UInt64(560)): Unit {
         let x = if (ctx.mouseX > 0.0) { ctx.mouseX } else { Float32(window.width) - 42.0 }
         let y = if (ctx.mouseY > 0.0) { ctx.mouseY } else { Float32(42.0) }
-        themeTransition = Some(ThemeTransition(ctx.theme, theme, x, y, durationMs: durationMs))
+        transitionThemeAt(theme, x, y, durationMs: durationMs)
+    }
+
+    /** Starts a theme reveal from an explicit logical-pixel origin. */
+    public func transitionThemeAt(
+        theme: Theme,
+        originX: Float32,
+        originY: Float32,
+        durationMs!: UInt64 = UInt64(560)
+    ): Unit {
+        let source = match (themeTransition) {
+            case Some(active) =>
+                let current = active.currentTheme()
+                active.close()
+                current
+            case None => ctx.theme
+        }
+        ctx.theme = source
+        themeTransition = Some(ThemeTransition(source, theme, originX, originY, durationMs: durationMs))
     }
 
     public func openFileDialog(options!: FileDialogOptions = FileDialogOptions()): FileDialogRequest {
@@ -151,19 +180,27 @@ public class DesktopApp {
                 }
             }
         } finally {
+            closeThemeTransition()
             closeManagedResources()
             window.close()
         }
     }
 
     private func drainEvents(widget: Widget): Unit {
+        while (!queuedEvents.isEmpty()) {
+            routePreparedEvent(widget, queuedEvents.remove(at: 0))
+        }
         var current = window.pollEvent()
         while (let Some(event) <- current) {
-            preparePointer(event)
-            routeEvent(widget, event)
-            completePointer(event)
+            routePreparedEvent(widget, event)
             current = window.pollEvent()
         }
+    }
+
+    private func routePreparedEvent(widget: Widget, event: UiEvent): Unit {
+        preparePointer(event)
+        routeEvent(widget, event)
+        completePointer(event)
     }
 
     /*
@@ -231,24 +268,19 @@ public class DesktopApp {
         let t0 = FrameProfiler.now()
         ctx.renderer.beginScene(Float32(window.width), Float32(window.height), ctx.theme.bg)
         let t1 = FrameProfiler.now()
-        // Cleared before the tree so only a control hovered this frame shows a tooltip; the
-        // tree registers into the slot during draw, and the overlay is painted last, on top.
-        ctx.clearTooltip()
-        // Cleared before the tree so a closed popup leaves no overlay; each open control
-        // re-registers during draw, and the stack is painted last, above the tree —
-        // bottom-up, so a popup opened inside a dialog paints above the dialog.
-        ctx.clearActiveOverlay()
-        // Cleared before the tree so only this frame's focused caret (re-reported during
-        // draw, including inside dialog overlays) anchors the IME candidate window.
-        ctx.clearTextInputAnchor()
-        widget.draw(ctx)
-        drawThemeTransition()
-        // Tooltips yield to an open popup or dialog — standard desktop behaviour, and it
-        // stops a background control's bubble from ghosting through the modal backdrop.
-        if (!ctx.hasOverlay()) {
-            drawTooltip(ctx, Float32(window.width), Float32(window.height))
+        let width = Float32(window.width)
+        let height = Float32(window.height)
+        if (!drawThemeTransition(widget, width, height)) {
+            clearDrawRegistrations()
+            widget.draw(ctx)
+            ctx.drawInkRipples()
+            // Tooltips yield to an open popup or dialog — standard desktop behaviour, and it
+            // stops a background control's bubble from ghosting through the modal backdrop.
+            if (!ctx.hasOverlay()) {
+                drawTooltip(ctx, width, height)
+            }
+            ctx.drawActiveOverlay()
         }
-        ctx.drawActiveOverlay()
         applyTextInputAnchor()
         let t2 = FrameProfiler.now()
         ctx.renderer.endScene()
@@ -261,18 +293,56 @@ public class DesktopApp {
 
     private func advanceThemeTransition(deltaMs: UInt64): Unit {
         match (themeTransition) {
-            case Some(transition) => ctx.theme = transition.advance(deltaMs)
+            case Some(transition) where transition.snapshotsReady() => let _ = transition.advance(deltaMs)
+            case Some(_) => ()
             case None => ()
         }
     }
 
-    private func drawThemeTransition(): Unit {
+    private func drawThemeTransition(widget: Widget, width: Float32, height: Float32): Bool {
         match (themeTransition) {
             case Some(transition) =>
-                transition.draw(ctx.renderer, Float32(window.width), Float32(window.height))
-                if (transition.isComplete()) {
+                let ready = transition.prepareNextSnapshot(
+                    ctx.renderer,
+                    width,
+                    height,
+                    { =>
+                        ctx.theme = transition.sourceTheme()
+                        clearDrawRegistrations()
+                        widget.draw(ctx)
+                        ctx.drawActiveOverlay()
+                    },
+                    { =>
+                        ctx.theme = transition.targetTheme()
+                        clearDrawRegistrations()
+                        widget.draw(ctx)
+                        ctx.drawActiveOverlay()
+                    }
+                )
+                ctx.theme = transition.sourceTheme()
+                transition.draw(ctx.renderer, width, height)
+                ctx.drawInkRipples()
+                if (ready && transition.isComplete()) {
+                    let target = transition.targetTheme()
+                    transition.close()
                     themeTransition = None
+                    ctx.theme = target
                 }
+                true
+            case None => false
+        }
+    }
+
+    private func clearDrawRegistrations(): Unit {
+        // Each frame (and each transition snapshot) owns fresh transient draw registrations.
+        ctx.clearTooltip()
+        ctx.clearActiveOverlay()
+        ctx.clearTextInputAnchor()
+    }
+
+    private func closeThemeTransition(): Unit {
+        match (themeTransition) {
+            case Some(transition) => transition.close()
             case None => ()
         }
     }
@@ -302,7 +372,7 @@ public class DesktopApp {
     // settles, writes the frame to a BMP, then quits. Handy for visual tests and docs.
     private func maybeSnapshot(): Unit {
         match (snapshotPath) {
-            case Some(path) where frames >= SNAPSHOT_SETTLE_FRAMES =>
+            case Some(path) where frames >= snapshotFrame =>
                 ctx.renderer.captureBmp(path)
                 ctx.requestClose()
             case _ => ()
@@ -434,6 +504,25 @@ internal func tickDelta(previousTick: UInt64, currentTick: UInt64): UInt64 {
     } else {
         UInt64(0)
     }
+}
+
+private func snapshotFrameArgument(): UInt64 {
+    let args = getCommandLine()
+    var i = 0
+    while (i < args.size - 1) {
+        if (args[i] == "--snapshot-frame") {
+            try {
+                let value = UInt64.parse(args[i + 1])
+                if (value > UInt64(0)) {
+                    return value
+                }
+            } catch (_: Exception) {
+                return SNAPSHOT_SETTLE_FRAMES
+            }
+        }
+        i += 1
+    }
+    SNAPSHOT_SETTLE_FRAMES
 }
 
 private func snapshotArgument(): ?String {

@@ -226,6 +226,59 @@ internal class GeometryBatch {
         flushWith(texture)
     }
 
+    /** Draws a full-frame texture through a feathered circular mask. */
+    func texturedCircle(
+        renderer: CPointer<Unit>,
+        texture: CPointer<Unit>,
+        center: Point,
+        radius: Float32,
+        logicalWidth: Float32,
+        logicalHeight: Float32,
+        feather: Float32,
+        opacity: Float32
+    ): Unit {
+        if (renderer.isNull() || texture.isNull() || radius <= 0.0 || logicalWidth <= 0.0 ||
+            logicalHeight <= 0.0 || opacity <= 0.0) {
+            return
+        }
+        let alpha = min(1.0, opacity)
+        let edge = max(0.5, feather)
+        let innerRadius = max(0.0, radius - edge / 2.0)
+        let outerRadius = radius + edge / 2.0
+        let steps = max(Int64(24), arcSteps(outerRadius, GEOM_TAU))
+        begin(renderer, Color.rgb(255, 255, 255), 1 + steps * 2, steps * 9)
+        pushTexturedVertex(center.x, center.y, center.x / logicalWidth, center.y / logicalHeight, alpha)
+        var i: Int64 = 0
+        while (i < steps) {
+            let angle = GEOM_TAU * Float64(i) / Float64(steps)
+            let px = center.x + Float32(cos(angle)) * innerRadius
+            let py = center.y + Float32(sin(angle)) * innerRadius
+            pushTexturedVertex(px, py, px / logicalWidth, py / logicalHeight, alpha)
+            i += 1
+        }
+        i = 0
+        while (i < steps) {
+            let angle = GEOM_TAU * Float64(i) / Float64(steps)
+            let px = center.x + Float32(cos(angle)) * outerRadius
+            let py = center.y + Float32(sin(angle)) * outerRadius
+            pushTexturedVertex(px, py, px / logicalWidth, py / logicalHeight, 0.0)
+            i += 1
+        }
+        i = 0
+        while (i < steps) {
+            let next = (i + 1) % steps
+            let inner = 1 + i
+            let innerNext = 1 + next
+            let outer = 1 + steps + i
+            let outerNext = 1 + steps + next
+            pushTriangle(0, inner, innerNext)
+            pushTriangle(inner, outer, outerNext)
+            pushTriangle(inner, outerNext, innerNext)
+            i += 1
+        }
+        flushWith(texture)
+    }
+
     /**
      * Frees the native vertex/index buffers. Safe to call repeatedly; the batch simply
      * reallocates on next use, so this is called when the owning renderer shuts down.

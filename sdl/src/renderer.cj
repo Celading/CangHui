@@ -328,6 +328,31 @@ public class Renderer {
         scaleY = scale
     }
 
+    /** Internal two-axis scale used while temporarily rendering into a target texture. */
+    internal func setScale(scaleX: Float32, scaleY: Float32): Unit {
+        if (scaleX <= 0.0 || scaleY <= 0.0) {
+            throw CuiException("Renderer scales must be greater than 0.")
+        }
+        if (!ptr.isNull()) {
+            ensureSdl(unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }, "SDL_SetRenderScale")
+        }
+        this.scaleX = scaleX
+        this.scaleY = scaleY
+    }
+
+    internal func currentScaleX(): Float32 {
+        scaleX
+    }
+
+    internal func currentScaleY(): Float32 {
+        scaleY
+    }
+
+    internal func resetClipStack(): Unit {
+        clipStack.clear()
+        applyClip()
+    }
+
     public func setVSync(vsync: Int32): Unit {
         if (ptr.isNull()) {
             return
@@ -537,6 +562,32 @@ public class Renderer {
 
     public func fillCircle(cx: Float32, cy: Float32, radius: Float32, color: Color): Unit {
         geometry.fillCircle(ptr, Point(cx, cy), radius, color)
+    }
+
+    /** Reveals a full-frame texture through one anti-aliased circular mesh. */
+    public func texturedCircle(
+        texture: Texture,
+        cx: Float32,
+        cy: Float32,
+        radius: Float32,
+        logicalWidth: Float32,
+        logicalHeight: Float32,
+        feather!: Float32 = 1.2,
+        opacity!: Float32 = 1.0
+    ): Unit {
+        if (texture.isClosed()) {
+            throw CuiException("Cannot render a closed texture.")
+        }
+        geometry.texturedCircle(
+            ptr,
+            texture.ptr,
+            Point(cx, cy),
+            radius,
+            logicalWidth,
+            logicalHeight,
+            feather,
+            opacity
+        )
     }
 
     /**
