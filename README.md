@@ -226,6 +226,16 @@ CangjieGUI `0.3.0` 提供平台无关的组件母体合同：
 
 Android、HarmonyOS 与 iOS 预览只证明公共布局，不代表对应平台运行时或发布支持。
 
+## kMode 无界面检测
+
+Debug 或受监管运行可通过 `@KModeLink["endpoint"]` 注册 `(String) -> String` 函数，并由 `cuic kmode`
+直接调用，不创建窗口、不遍历布局。Component Gallery 提供 `gallery.api.version` 与
+`gallery.viewport.class` 两个参考端点。重复端点由 `cuic kmode diff`、宏生成符号和运行时注册表三层拒绝。
+
+远程缓存/转发通过可选 `KModeChannelModule` 覆写接入。公开框架只定义
+`connect/send/poll/ack/resumeCursor` 边界和 `contracts/canghui-kmode-v0.schema.json`，不内置 SoonLink
+地址、claim、session 或凭据。
+
 ## 许可证
 
 本项目（含 `sdl` 模块与全部示例）以 [MIT 许可证](LICENSE) 发布。

@@ -1,8 +1,24 @@
 package cangjiegui_component_gallery
 
 import std.env.getCommandLine
+import std.convert.*
 import cui.*
+import cui.kmode.macros.*
 import cangjiegui_gallery_components.*
+
+@KModeLink["gallery.api.version"]
+func galleryApiVersion(_: String): String {
+    componentApiVersion()
+}
+
+@KModeLink["gallery.viewport.class"]
+func galleryViewportClass(value: String): String {
+    match (classifyViewport(Float32.parse(value))) {
+        case ViewportClass.Compact => "compact"
+        case ViewportClass.Medium => "medium"
+        case ViewportClass.Expanded => "expanded"
+    }
+}
 
 private func previewLabels(): Array<String> {
     ["Android", "Harmony", "Tablet", "Desktop", "iOS layout"]
@@ -40,6 +56,9 @@ private func previewIndex(value: String): Int64 {
 }
 
 main(): Int64 {
+    if (runKModeStdioIfRequested()) {
+        return 0
+    }
     let previews = commonPreviewMatrix()
     let selectedPreview = State<Int64>(initialPreviewIndex())
     let galleryState = GallerySurfaceState()

@@ -283,3 +283,20 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), fontScale: 1.0, m
 `fontScale` 作用于全部 `fp` 尺寸；`WindowSpec.scale` 决定 `px` 与 `vp` 的换算。
 
 底层重新导出类型与方法的完整定义见 [SDL API 参考](../sdl/docs/api-reference.md)。
+
+## 12. kMode 无界面控制面
+
+应用从 `cui.kmode.macros.*` 导入 `KModeLink`，把一个顶层 `(String) -> String` 函数注册为端点：
+
+```cangjie
+@KModeLink["app.echo"]
+func echo(payload: String): String { payload }
+```
+
+`runKModeStdioIfRequested()` 必须位于 `DesktopApp` 构造之前。根包导出 `KModeRequest`、
+`KModeResponse`、`KModePolicy`、`dispatchKModeRequest`、stdio codec/host 以及
+`KModeChannelModule`。初始操作为 `health`、`list`、`describe`、`invoke`、`shutdown`；初始端点 ABI
+只接受字符串并返回字符串，应用可在字符串内承载自己的 JSON schema。
+
+`KModeChannelModule` 提供 `connect/send/poll/ack/resumeCursor`。覆写只允许在启用且具有 Admin 能力
+的策略下发生；框架不提供 SoonLink URL、凭据或默认网络实现。

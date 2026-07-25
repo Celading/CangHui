@@ -1,11 +1,12 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangjieGUI.20260725.1",
+  "matrixVersion": "CangjieGUI.20260725.2",
   "project": "CangjieGUI",
   "version": "0.3.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
-    "proofs/20260725-cangjiegui-mother-framework-v0.json"
+    "proofs/20260725-cangjiegui-mother-framework-v0.json",
+    "proofs/20260725-cangjiegui-kmode-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -13,7 +14,9 @@
       "platform-neutral host and capability contracts",
       "typed component package descriptors and compatibility checks",
       "compact, medium and expanded responsive viewport contracts",
-      "desktop common-layout preview matrix and reference component package"
+      "desktop common-layout preview matrix and reference component package",
+      "debug and supervised kMode registry, protocol and headless stdio host",
+      "optional transparent channel module boundary without bundled credentials"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
@@ -55,6 +58,16 @@
       "version": "0.1.0",
       "state": "build-test-snapshot-proven",
       "codeRefs": ["packages/gallery-components", "examples/component-gallery"]
+    },
+    {
+      "id": "kmode-headless-control-plane",
+      "version": "canghui.kmode.v0",
+      "state": "source-test-cli-e2e-proven",
+      "codeRefs": [
+        "src/kmode",
+        "contracts/canghui-kmode-v0.schema.json",
+        "examples/component-gallery/src/main.cj"
+      ]
     }
   ],
   "platformImplementations": [
@@ -68,6 +81,8 @@
     "Define an explicit compatibility and sync protocol between the mother framework and HarmonyHap/CangHUI.",
     "Prove a platform adapter consuming the CangjieGUI 0.3.0 mother contracts without source duplication.",
     "Add lifecycle, IME, accessibility and native-surface service interfaces before claiming a complete platform host abstraction.",
+    "Implement and independently verify an external SoonLink Channel v1 KModeChannelModule before claiming relay-backed operation.",
+    "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
     "Do not claim Android or iOS runtime support from desktop layout previews."
   ]
 }

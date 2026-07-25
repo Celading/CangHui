@@ -291,6 +291,26 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 组件包可以附带符合 `contracts/cangjiegui-component-package-v0.schema.json` 的元数据，供工具链
 发现资源与原生制品；运行时 API 仍以强类型 Cangjie 接口为准。
 
+## kMode 无界面控制面
+
+kMode 是母体框架拥有的 Debug/受监管控制面，不依赖布局树。应用使用
+`@KModeLink["stable.endpoint"]` 把一个 `(String) -> String` 顶层函数注册为稳定端点；宏按端点名
+生成确定性符号，同包重名会在编译期报重复定义，注册表再对跨包重名做运行期拒绝。
+
+应用必须在创建 `DesktopApp` 之前调用 `runKModeStdioIfRequested()`。由 `cuic` 设置
+`CANGHUI_KMODE=1` 与 `CANGHUI_KMODE_TRANSPORT=stdio` 时，进程只运行 `health/list/describe/invoke/shutdown`
+协议循环并直接退出，不初始化 SDL 或窗口。编译器 `debug` 条件也会启用 kMode；普通受监管运行仍需显式
+环境开关，发布构建不因 CLI 命令而隐式开放管理能力。
+
+`KModeChannelModule` 是可覆写的透明通道 SPI，只在启用且具备 Admin 能力时允许安装。SoonLink Channel v1
+适配器应在框架外实现 claim/handshake/send/poll/cursor/ACK，把
+`contracts/canghui-kmode-v0.schema.json` 的 JSON 值作为 opaque payload 中继。ACK 只表示消息已被消费，
+业务成功由 kMode response 表达；cursor 仅在持久消费后推进，凭据不得写入日志、配置或仓库。
+`KModeChannelConfig.protocol` 表示 `soonlink.channel.v1` 中继协议，`payloadProtocol/schemaRef` 分别表示
+`canghui.kmode.v0` 业务协议及其 schema；二者不得混为一个版本号。
+
+控制面只分派已注册函数，收到的 payload 不会被转换为任意 shell 命令或不受限文件系统操作。
+
 ## 设计依据与演进边界
 
 当前设计参考以下一手资料，而非复刻某个框架的表层语法：
