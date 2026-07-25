@@ -1,12 +1,13 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangjieGUI.20260725.2",
+  "matrixVersion": "CangjieGUI.20260725.3",
   "project": "CangjieGUI",
   "version": "0.3.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
-    "proofs/20260725-cangjiegui-kmode-v0.json"
+    "proofs/20260725-cangjiegui-kmode-v0.json",
+    "proofs/20260725-cangjiegui-mobile-host-contracts-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -16,7 +17,8 @@
       "compact, medium and expanded responsive viewport contracts",
       "desktop common-layout preview matrix and reference component package",
       "debug and supervised kMode registry, protocol and headless stdio host",
-      "optional transparent channel module boundary without bundled credentials"
+      "optional transparent channel module boundary without bundled credentials",
+      "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
@@ -68,6 +70,15 @@
         "contracts/canghui-kmode-v0.schema.json",
         "examples/component-gallery/src/main.cj"
       ]
+    },
+    {
+      "id": "mobile-host-contracts",
+      "version": "0.1.0",
+      "state": "source-test-proven; ios-runtime-unproven",
+      "codeRefs": [
+        "src/host/mobile_host_contracts.cj",
+        "src/host/mobile_host_contracts_test.cj"
+      ]
     }
   ],
   "platformImplementations": [
@@ -83,6 +94,8 @@
     "Add lifecycle, IME, accessibility and native-surface service interfaces before claiming a complete platform host abstraction.",
     "Implement and independently verify an external SoonLink Channel v1 KModeChannelModule before claiming relay-backed operation.",
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
-    "Do not claim Android or iOS runtime support from desktop layout previews."
+    "Do not claim Android or iOS runtime support from desktop layout previews.",
+    "Obtain the matching Cangjie iOS SDK and prove a static library inside an Xcode simulator host before implementing an iOS renderer adapter.",
+    "Keep ExplorerX models, SoonLink endpoints, credentials and file-manager screens in the application; use it as an acceptance consumer rather than framework source."
   ]
 }

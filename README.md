@@ -226,6 +226,11 @@ CangjieGUI `0.3.0` 提供平台无关的组件母体合同：
 
 Android、HarmonyOS 与 iOS 预览只证明公共布局，不代表对应平台运行时或发布支持。
 
+移动宿主的 S0 合同位于 `cui.host`：生命周期、逻辑视口与安全区、触摸输入、文件选择、应用存储、
+安全存储、系统主题、通知和后台任务均以平台无关接口表达。iOS 适配器应由 Xcode/CJMP 宿主实现这些接口，
+公共组件不得直接依赖 UIKit、PhotoKit 或 Keychain 类型。当前仓库尚未包含 iOS renderer、Xcode 工程或
+真机证明，因此这些合同不构成 iOS 运行支持声明。
+
 ## kMode 无界面检测
 
 Debug 或受监管运行可通过 `@KModeLink["endpoint"]` 注册 `(String) -> String` 函数，并由 `cuic kmode`

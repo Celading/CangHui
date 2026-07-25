@@ -291,6 +291,15 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 组件包可以附带符合 `contracts/cangjiegui-component-package-v0.schema.json` 的元数据，供工具链
 发现资源与原生制品；运行时 API 仍以强类型 Cangjie 接口为准。
 
+移动宿主的第一层合同由 `cui.host` 提供：`AppLifecycleState`、`HostViewportMetrics`、
+`SafeAreaInsets`、`TouchEvent` 以及文件选择、应用存储、安全存储、系统主题、通知和后台任务 SPI。
+文件选择结果使用 `PlatformResourceRef`，其中 locator 由宿主解释，可以对应路径、安全域 URL、bookmark
+或其他不透明令牌。这样公共组件无需知道 UIKit、PhotoKit、Keychain 或 Harmony 平台类型。
+
+iOS 当前采用静态库嵌入 Xcode 宿主的演进方向。平台包负责应用生命周期桥接、触摸事件、safe area、
+权限与原生资源引用，母体框架负责稳定合同和公共组件。renderer/native-surface 适配、CJMP 镜像、
+模拟器和真机证明必须在独立平台包完成，不能由桌面 SDL 预览代替。
+
 ## kMode 无界面控制面
 
 kMode 是母体框架拥有的 Debug/受监管控制面，不依赖布局树。应用使用

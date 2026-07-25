@@ -35,6 +35,12 @@ public enum HostCapability <: Equatable<HostCapability> {
     | Notifications
     | Network
     | OpenUrl
+    | TouchInput
+    | SafeArea
+    | ApplicationStorage
+    | SystemTheme
+    | BackgroundTasks
+    | MediaLibrary
 
     public operator func ==(other: HostCapability): Bool {
         hostCapabilityName(this) == hostCapabilityName(other)
@@ -105,6 +111,12 @@ public func hostCapabilityName(capability: HostCapability): String {
         case HostCapability.Notifications => "notifications"
         case HostCapability.Network => "network"
         case HostCapability.OpenUrl => "open-url"
+        case HostCapability.TouchInput => "touch-input"
+        case HostCapability.SafeArea => "safe-area"
+        case HostCapability.ApplicationStorage => "application-storage"
+        case HostCapability.SystemTheme => "system-theme"
+        case HostCapability.BackgroundTasks => "background-tasks"
+        case HostCapability.MediaLibrary => "media-library"
     }
 }
 

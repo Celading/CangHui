@@ -19,5 +19,8 @@ func hostProfileDeduplicatesAndReportsMissingCapabilities(): Unit {
 func platformAndCapabilityNamesStayManifestFriendly(): Unit {
     @Expect(hostPlatformName(HostPlatform.Android), "android")
     @Expect(hostPlatformName(HostPlatform.HarmonyOS), "harmonyos")
+    @Expect(hostPlatformName(HostPlatform.IOS), "ios")
     @Expect(hostCapabilityName(HostCapability.NativeSurface), "native-surface")
+    @Expect(hostCapabilityName(HostCapability.SafeArea), "safe-area")
+    @Expect(hostCapabilityName(HostCapability.BackgroundTasks), "background-tasks")
 }
