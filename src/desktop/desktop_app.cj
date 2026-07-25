@@ -11,7 +11,7 @@ import sdl.system.AppMetadata
 import sdl.system.ApplicationMetadata
 import sdl.system.SdlHintSetting
 import sdl.system.SdlHints
-import cui.core.{CursorShape, StateStore, Theme, UiContext, Widget, buildRoot, drawTooltip}
+import cui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot, drawTooltip}
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
@@ -33,6 +33,7 @@ public class DesktopApp {
     private var appliedShape: ?CursorShape = None
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
     private var appliedInputAnchor: ?Rect = None
+    private var themeTransition: ?ThemeTransition = None
 
     public init(
         spec: WindowSpec,
@@ -89,6 +90,19 @@ public class DesktopApp {
         stateStore.clear()
     }
 
+    /** Applies a theme immediately and cancels any active animated transition. */
+    public func setTheme(theme: Theme): Unit {
+        themeTransition = None
+        ctx.theme = theme
+    }
+
+    /** Starts an InkWell-like theme reveal from the current pointer position. */
+    public func transitionTheme(theme: Theme, durationMs!: UInt64 = UInt64(560)): Unit {
+        let x = if (ctx.mouseX > 0.0) { ctx.mouseX } else { Float32(window.width) - 42.0 }
+        let y = if (ctx.mouseY > 0.0) { ctx.mouseY } else { Float32(42.0) }
+        themeTransition = Some(ThemeTransition(ctx.theme, theme, x, y, durationMs: durationMs))
+    }
+
     public func openFileDialog(options!: FileDialogOptions = FileDialogOptions()): FileDialogRequest {
         FileDialogs.openFile(options: options, window: Some(window))
     }
@@ -115,6 +129,7 @@ public class DesktopApp {
                 let frame = nextFrame(previousTick)
                 previousTick = frame.elapsedMs
                 ctx.frame = frame
+                advanceThemeTransition(frame.deltaMs)
                 ctx.viewportWidth = Float32(window.width)
                 ctx.viewportHeight = Float32(window.height)
                 let tBuild = FrameProfiler.now()
@@ -227,6 +242,7 @@ public class DesktopApp {
         // draw, including inside dialog overlays) anchors the IME candidate window.
         ctx.clearTextInputAnchor()
         widget.draw(ctx)
+        drawThemeTransition()
         // Tooltips yield to an open popup or dialog — standard desktop behaviour, and it
         // stops a background control's bubble from ghosting through the modal backdrop.
         if (!ctx.hasOverlay()) {
@@ -241,6 +257,24 @@ public class DesktopApp {
         ctx.renderer.present()
         let t4 = FrameProfiler.now()
         (t1 - t0, t2 - t1, t3 - t2, t4 - t3)
+    }
+
+    private func advanceThemeTransition(deltaMs: UInt64): Unit {
+        match (themeTransition) {
+            case Some(transition) => ctx.theme = transition.advance(deltaMs)
+            case None => ()
+        }
+    }
+
+    private func drawThemeTransition(): Unit {
+        match (themeTransition) {
+            case Some(transition) =>
+                transition.draw(ctx.renderer, Float32(window.width), Float32(window.height))
+                if (transition.isComplete()) {
+                    themeTransition = None
+                }
+            case None => ()
+        }
     }
 
     /*

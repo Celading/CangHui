@@ -17,6 +17,8 @@ public enum IconName {
     | Calculator
     | ChevronLeft
     | ChevronRight
+    | Sun
+    | Moon
 }
 
 /*
@@ -42,6 +44,36 @@ public func drawIcon(r: Renderer, icon: IconName, rect: Rect, color: Color, weig
         case IconName.Calculator => drawCalculatorIcon(r, rect, pen)
         case IconName.ChevronLeft => drawChevronIcon(r, rect, pen, 15.0, 9.0)
         case IconName.ChevronRight => drawChevronIcon(r, rect, pen, 9.0, 15.0)
+        case IconName.Sun => drawSunIcon(r, rect, pen)
+        case IconName.Moon => drawMoonIcon(r, rect, pen)
+    }
+}
+
+private func drawSunIcon(r: Renderer, rect: Rect, pen: Pen): Unit {
+    r.strokeCircle(rect.centerX(), rect.centerY(), s(rect, 4.2), pen, segments: 32)
+    r.strokeLine(x(rect, 12.0), y(rect, 2.0), x(rect, 12.0), y(rect, 5.0), pen)
+    r.strokeLine(x(rect, 12.0), y(rect, 19.0), x(rect, 12.0), y(rect, 22.0), pen)
+    r.strokeLine(x(rect, 2.0), y(rect, 12.0), x(rect, 5.0), y(rect, 12.0), pen)
+    r.strokeLine(x(rect, 19.0), y(rect, 12.0), x(rect, 22.0), y(rect, 12.0), pen)
+    r.strokeLine(x(rect, 4.8), y(rect, 4.8), x(rect, 7.0), y(rect, 7.0), pen)
+    r.strokeLine(x(rect, 17.0), y(rect, 17.0), x(rect, 19.2), y(rect, 19.2), pen)
+    r.strokeLine(x(rect, 17.0), y(rect, 7.0), x(rect, 19.2), y(rect, 4.8), pen)
+    r.strokeLine(x(rect, 4.8), y(rect, 19.2), x(rect, 7.0), y(rect, 17.0), pen)
+}
+
+private func drawMoonIcon(r: Renderer, rect: Rect, pen: Pen): Unit {
+    let points = [
+        Point(x(rect, 16.0), y(rect, 3.5)), Point(x(rect, 12.0), y(rect, 5.0)),
+        Point(x(rect, 9.0), y(rect, 8.0)), Point(x(rect, 8.0), y(rect, 12.0)),
+        Point(x(rect, 9.0), y(rect, 16.0)), Point(x(rect, 12.0), y(rect, 19.0)),
+        Point(x(rect, 17.0), y(rect, 20.5)), Point(x(rect, 14.0), y(rect, 17.0)),
+        Point(x(rect, 13.0), y(rect, 13.0)), Point(x(rect, 14.0), y(rect, 8.5)),
+        Point(x(rect, 16.0), y(rect, 3.5))
+    ]
+    var i = 0
+    while (i < points.size - 1) {
+        r.strokeLine(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y, pen)
+        i += 1
     }
 }
 

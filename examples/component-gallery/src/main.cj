@@ -44,6 +44,18 @@ private func initialPreviewIndex(): Int64 {
     1
 }
 
+private func initialDarkMode(): Bool {
+    let args = getCommandLine()
+    var i = 0
+    while (i < args.size - 1) {
+        if (args[i] == "--theme") {
+            return args[i + 1] != "light"
+        }
+        i += 1
+    }
+    true
+}
+
 private func previewIndex(value: String): Int64 {
     match (value) {
         case "android" => 0
@@ -61,10 +73,11 @@ main(): Int64 {
     }
     let previews = commonPreviewMatrix()
     let selectedPreview = State<Int64>(initialPreviewIndex())
+    let darkMode = State<Bool>(initialDarkMode())
     let galleryState = GallerySurfaceState()
     let app = DesktopApp(
         WindowSpec("CangjieGUI Component Gallery", 1500, 980, scale: 1.0),
-        theme: Theme.dark()
+        theme: if (darkMode.value) { Theme.dark() } else { Theme.light() }
     )
     app.setMinimumSize(1000, 760)
     app.run {
@@ -76,6 +89,12 @@ main(): Int64 {
                     Label("${active.label} / common-layout preview", muted: true)
                 }.spacing(2.vp).hug()
                 Spacer()
+                Tooltip(text: if (darkMode.value) { "切换到浅色" } else { "切换到深色" }) {
+                    IconButton(if (darkMode.value) { IconName.Sun } else { IconName.Moon }) {
+                        darkMode.value = !darkMode.value
+                        app.transitionTheme(if (darkMode.value) { Theme.dark() } else { Theme.light() })
+                    }.id("gallery-theme-toggle")
+                }
                 Label("CUI API ${componentApiVersion()}", muted: true)
             }.hug()
             SegmentedControl(previewLabels(), selectedPreview, id: "preview-target")

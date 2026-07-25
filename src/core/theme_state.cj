@@ -106,6 +106,30 @@ public struct Theme {
         )
     }
 
+    /** Linearly blends every visual token toward `other`. */
+    public func lerp(other: Theme, t: Float32): Theme {
+        let k = max(0.0, min(1.0, t))
+        Theme(
+            bg.lerp(other.bg, k),
+            panel.lerp(other.panel, k),
+            panelEdge.lerp(other.panelEdge, k),
+            text.lerp(other.text, k),
+            mutedText.lerp(other.mutedText, k),
+            accent.lerp(other.accent, k),
+            accentText.lerp(other.accentText, k),
+            danger.lerp(other.danger, k),
+            field.lerp(other.field, k),
+            fieldActive.lerp(other.fieldActive, k),
+            panelRaised: panelRaised.lerp(other.panelRaised, k),
+            accentSoft: accentSoft.lerp(other.accentSoft, k),
+            shadow: shadow.lerp(other.shadow, k),
+            radius: radius + (other.radius - radius) * k,
+            smallRadius: smallRadius + (other.smallRadius - smallRadius) * k,
+            controlRadius: controlRadius + (other.controlRadius - controlRadius) * k,
+            borderWidth: borderWidth + (other.borderWidth - borderWidth) * k
+        )
+    }
+
     public func panelSurface(): SurfaceStyle {
         SurfaceStyle(
             panel,
@@ -187,7 +211,7 @@ public struct Theme {
 
 public class UiContext {
     public let renderer: Renderer
-    public let theme: Theme
+    public var theme: Theme
     public var focusId: String = ""
     // Whether the focused control should paint a ring: true when focus last moved by keyboard
     // (Tab traversal or autofocus), false when a pointer press claimed it — the :focus-visible

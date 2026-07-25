@@ -86,6 +86,7 @@ public import cui.core.Overlay
 public import cui.core.Tooltip
 public import cui.controls.Dropdown
 public import cui.core.Theme
+public import cui.core.ThemeTransition
 public import cui.core.UiContext
 public import cui.core.VStack
 public import cui.core.Widget
