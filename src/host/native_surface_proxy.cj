@@ -25,6 +25,42 @@ public func nativeSurfaceBackendName(backend: NativeSurfaceBackend): String {
     }
 }
 
+/** Whether the framework owns an SDL window or is embedded in a native view. */
+public enum HostPresentationMode <: Equatable<HostPresentationMode> {
+    | OwnedWindow
+    | EmbeddedSurface
+
+    public operator func ==(other: HostPresentationMode): Bool {
+        hostPresentationModeName(this) == hostPresentationModeName(other)
+    }
+
+    public operator func !=(other: HostPresentationMode): Bool {
+        !(this == other)
+    }
+}
+
+public func hostPresentationModeName(mode: HostPresentationMode): String {
+    match (mode) {
+        case HostPresentationMode.OwnedWindow => "owned-window"
+        case HostPresentationMode.EmbeddedSurface => "embedded-surface"
+    }
+}
+
+/** Result returned by an SDL-style callback-driven application loop. */
+public enum HostLoopResult {
+    | Continue
+    | Success
+    | Failure(String)
+}
+
+public func hostLoopResultName(result: HostLoopResult): String {
+    match (result) {
+        case HostLoopResult.Continue => "continue"
+        case HostLoopResult.Success => "success"
+        case HostLoopResult.Failure(_) => "failure"
+    }
+}
+
 /**
  * Host-owned surface identity. `opaqueHandle` is interpreted only by the
  * matching platform backend; `generation` prevents reuse after recreation.
@@ -110,8 +146,19 @@ public interface NativeSurfaceRenderer {
  * Callbacks must be marshalled onto the fixed Cangjie UI scheduler thread.
  */
 public interface HostNativeSurfaceService {
+    func presentationMode(): HostPresentationMode
     func current(): ?NativeSurfaceDescriptor
     func observe(handler: (NativeSurfaceEvent) -> Unit): Unit
     func bind(renderer: NativeSurfaceRenderer): Unit
     func requestFrame(): Unit
+}
+
+/**
+ * Callback application loop shared by SDL-owned windows and embedded hosts.
+ * Input and lifecycle continue to arrive through the focused host services.
+ */
+public interface HostApplicationLoop {
+    func onInitialize(): HostLoopResult
+    func onIterate(frame: NativeSurfaceFrame): HostLoopResult
+    func onShutdown(result: HostLoopResult): Unit
 }

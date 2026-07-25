@@ -135,6 +135,9 @@ public import cui.host.HostFilePickerService
 public import cui.host.HostLifecycleService
 public import cui.host.HostNotificationService
 public import cui.host.HostNativeSurfaceService
+public import cui.host.HostApplicationLoop
+public import cui.host.HostLoopResult
+public import cui.host.HostPresentationMode
 public import cui.host.HostSecureStorage
 public import cui.host.HostSystemThemeService
 public import cui.host.HostTouchService
@@ -154,6 +157,8 @@ public import cui.host.TouchPhase
 public import cui.host.TouchPoint
 public import cui.host.appLifecycleStateName
 public import cui.host.nativeSurfaceBackendName
+public import cui.host.hostLoopResultName
+public import cui.host.hostPresentationModeName
 public import cui.host.iosHostAbiVersion
 public import cui.host.systemThemePreferenceName
 public import cui.host.touchPhaseName

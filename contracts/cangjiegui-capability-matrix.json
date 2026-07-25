@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangjieGUI.20260725.5",
+  "matrixVersion": "CangjieGUI.20260725.6",
   "project": "CangjieGUI",
   "version": "0.3.0",
   "surfaceTier": "mother-framework-incubating",
@@ -8,7 +8,8 @@
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
     "proofs/20260725-cangjiegui-kmode-v0.json",
     "proofs/20260725-cangjiegui-mobile-host-contracts-v0.json",
-    "proofs/20260725-cangjiegui-ios-bootstrap-device-v0.json"
+    "proofs/20260725-cangjiegui-ios-bootstrap-device-v0.json",
+    "proofs/20260725-cangjiegui-sdl3-apple-host-reference-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -100,6 +101,16 @@
         "src/host/native_surface_proxy_test.cj",
         "platform/ios/README.md"
       ]
+    },
+    {
+      "id": "mobile-host-presentation-modes",
+      "version": "0.1.0",
+      "state": "source-test-contract; sdl-callback-runtime-binding-deferred",
+      "codeRefs": [
+        "src/host/native_surface_proxy.cj",
+        "src/host/native_surface_proxy_test.cj",
+        "docs/reference-intake-sdl3-apple-host.md"
+      ]
     }
   ],
   "platformImplementations": [
@@ -117,6 +128,7 @@
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
     "Do not claim Android or iOS runtime support from desktop layout previews.",
     "Implement the UIKit CAMetalLayer/MTKView surface proxy after the static-package bootstrap protocol is available.",
+    "Bind SDL_EnterAppMainCallbacks for OwnedWindow mode only after Cangjie static-package initialization is established.",
     "Keep ExplorerX models, SoonLink endpoints, credentials and file-manager screens in the application; use it as an acceptance consumer rather than framework source."
   ]
 }

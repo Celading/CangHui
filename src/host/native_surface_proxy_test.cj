@@ -7,6 +7,19 @@ func nativeSurfaceBackendNamesStayStable(): Unit {
 }
 
 @Test
+func hostPresentationModesSeparateOwnedAndEmbeddedApplications(): Unit {
+    @Expect(hostPresentationModeName(HostPresentationMode.OwnedWindow), "owned-window")
+    @Expect(hostPresentationModeName(HostPresentationMode.EmbeddedSurface), "embedded-surface")
+}
+
+@Test
+func hostLoopResultsStayCompatibleWithCallbackDrivers(): Unit {
+    @Expect(hostLoopResultName(HostLoopResult.Continue), "continue")
+    @Expect(hostLoopResultName(HostLoopResult.Success), "success")
+    @Expect(hostLoopResultName(HostLoopResult.Failure("render failed")), "failure")
+}
+
+@Test
 func nativeSurfaceDescriptorCarriesLogicalAndPixelGeometry(): Unit {
     let surface = NativeSurfaceDescriptor(
         "main",

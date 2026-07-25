@@ -41,3 +41,15 @@ The iOS backend follows an XComponent-like proxy model:
 - Native callbacks are marshalled through N2C onto the fixed Cangjie scheduler thread.
 
 The host still owns signing and packaging. The proxy contract does not by itself initialize the runtime, static package or renderer.
+
+## Host Modes
+
+- `OwnedWindow` follows SDL3's callback application model. SDL owns the iOS
+  window, event pump and renderer; this is preferred for a standalone app.
+- `EmbeddedSurface` keeps the UIKit `CAMetalLayer/MTKView` proxy described
+  above; this is preferred when CangjieGUI is one surface inside an existing
+  application.
+
+Both modes require a launch screen, high-pixel-density configuration, bundled
+resources and correctly embedded or statically linked dependencies. The
+current package-initialization blocker applies to both modes.

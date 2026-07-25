@@ -318,6 +318,19 @@ iOS 后端不复制一套 UIKit 布局树，而是采用与 HarmonyOS `XComponen
 HarmonyOS 可将同一合同映射到 `XComponent/OHNativeWindow`，iOS 映射到 `CAMetalLayer`。这条路线
 解决渲染承载与多平台统一，但不代替仓颉 runtime 和静态包 bootstrap。
 
+### OwnedWindow 与 EmbeddedSurface
+
+参考 SDL3 callback application 与 SwiftSDL 的宿主分层后，移动端明确保留两种模式：
+
+- `OwnedWindow`：SDL3 管理应用 callback、事件泵、window 和 renderer，适用于独立 CangjieGUI
+  应用；`HostApplicationLoop` 映射 `init/iterate/quit`，输入仍通过专用 host service 进入。
+- `EmbeddedSurface`：既有 UIKit/Harmony 应用拥有原生 view，以 generation-bearing surface 代理
+  接入仓颉渲染器。
+
+两种模式共用组件树、布局、状态和宿主能力合同，但不共用虚假的窗口所有权。
+Apple bundle 还必须提供 LaunchScreen、high-DPI 声明、bundle resource 布局和正确的静态/嵌入式
+依赖。详细参考 `docs/reference-intake-sdl3-apple-host.md`。
+
 ## kMode 无界面控制面
 
 kMode 是母体框架拥有的 Debug/受监管控制面，不依赖布局树。应用使用
