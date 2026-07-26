@@ -1,6 +1,7 @@
 package cui.desktop
 
 import std.collection.ArrayList
+import std.convert.*
 import std.env.getCommandLine
 import sdl.{FrameInfo, Key, MouseButton, Rect, SdlWindow, UiEvent, WindowSpec}
 import sdl.input.{Cursor, Keyboard, SystemCursor}
@@ -11,28 +12,43 @@ import sdl.system.AppMetadata
 import sdl.system.ApplicationMetadata
 import sdl.system.SdlHintSetting
 import sdl.system.SdlHints
-import cui.core.{CursorShape, StateStore, Theme, UiContext, Widget, buildRoot, drawTooltip}
+import cui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot,
+    currentStateGeneration, drawTooltip}
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
 private let SNAPSHOT_SETTLE_FRAMES: UInt64 = 48
 
+/*
+ * The desktop shell: owns the SDL window and runs the frame loop that rebuilds the widget tree from
+ * `run`'s body, lays it out, dispatches input, and draws. Idle frames are skipped — a frame is only
+ * rendered on input, a `State` write, a resize, or a widget's `ctx.requestFrame()`, so time-driven
+ * animation must request frames or it freezes. The loop brackets pointer dispatch with the context's
+ * focus/hover/click-count protocols, routes events to open overlays before the tree, and paints the
+ * tooltip and overlay passes above the tree. Resources registered with `manage` are closed in reverse
+ * order, then the window — even when a widget throws out of the loop.
+ */
 public class DesktopApp {
     private let window: SdlWindow
     private let ctx: UiContext
     private let frameDelay: UInt32
     private let resources = ArrayList<Resource>()
+    private let queuedEvents = ArrayList<UiEvent>()
     private let stateStore = StateStore()
     private let snapshotPath: ?String
+    private let snapshotFrame: UInt64
     // Per-phase frame timing, enabled with `--profile`; None (and zero cost) in a normal run.
     private let profiler: ?FrameProfiler
     private var frames: UInt64 = 0
     private var baseCursor: ?Cursor = None
     private var pointerCursor: ?Cursor = None
     private var textCursor: ?Cursor = None
+    private var resizeHCursor: ?Cursor = None
+    private var resizeVCursor: ?Cursor = None
     private var appliedShape: ?CursorShape = None
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
     private var appliedInputAnchor: ?Rect = None
+    private var themeTransition: ?ThemeTransition = None
 
     public init(
         spec: WindowSpec,
@@ -48,6 +64,7 @@ public class DesktopApp {
         this.ctx.fontScale = max(0.1, fontScale)
         this.frameDelay = frameDelay
         this.snapshotPath = snapshotArgument()
+        this.snapshotFrame = snapshotFrameArgument()
         this.profiler = if (profileEnabled()) {
             Some(FrameProfiler(60))
         } else {
@@ -89,6 +106,46 @@ public class DesktopApp {
         stateStore.clear()
     }
 
+    /** Queues a pointer click through the normal CUI hit-test and event route. */
+    public func queuePointerClick(x: Float32, y: Float32): Unit {
+        queuedEvents.add(UiEvent.MouseDown(MouseButton.Left, x, y))
+        queuedEvents.add(UiEvent.MouseUp(MouseButton.Left, x, y))
+    }
+
+    /** Applies a theme immediately and cancels any active animated transition. */
+    public func setTheme(theme: Theme): Unit {
+        closeThemeTransition()
+        themeTransition = None
+        ctx.theme = theme
+        ctx.requestFrame()
+    }
+
+    /** Starts an InkWell-like theme reveal from the current pointer position. */
+    public func transitionTheme(theme: Theme, durationMs!: UInt64 = UInt64(560)): Unit {
+        let x = if (ctx.mouseX > 0.0) { ctx.mouseX } else { Float32(window.width) - 42.0 }
+        let y = if (ctx.mouseY > 0.0) { ctx.mouseY } else { Float32(42.0) }
+        transitionThemeAt(theme, x, y, durationMs: durationMs)
+    }
+
+    /** Starts a theme reveal from an explicit logical-pixel origin. */
+    public func transitionThemeAt(
+        theme: Theme,
+        originX: Float32,
+        originY: Float32,
+        durationMs!: UInt64 = UInt64(560)
+    ): Unit {
+        let source = match (themeTransition) {
+            case Some(active) =>
+                let current = active.currentTheme()
+                active.close()
+                current
+            case None => ctx.theme
+        }
+        ctx.theme = source
+        themeTransition = Some(ThemeTransition(source, theme, originX, originY, durationMs: durationMs))
+        ctx.requestFrame()
+    }
+
     public func openFileDialog(options!: FileDialogOptions = FileDialogOptions()): FileDialogRequest {
         FileDialogs.openFile(options: options, window: Some(window))
     }
@@ -111,43 +168,89 @@ public class DesktopApp {
                 case None => ()
             }
             var previousTick = window.ticks()
+            // Dirty-frame skipping (档 0): a frame is built, laid out, and drawn only when something can
+            // have changed — the first frame, pending input, a state write since the last render, a
+            // resize, or a continuous-frame request (a blinking caret, a tooltip counting down, a
+            // per-frame FrameHandler). Otherwise the loop keeps polling input at the frame cadence but
+            // leaves the last presented frame on screen, so an idle window costs nothing to build, lay
+            // out, or draw. State is snapshotted at the TOP of each rendered frame, so a write made
+            // during that frame's layout/dispatch/draw reliably triggers the reflecting render next.
+            var lastRenderedGen = currentStateGeneration()
+            var continuousRequested = true // force the first frame
+            var renderedWidth: Int32 = -1
+            var renderedHeight: Int32 = -1
             while (!ctx.shouldClose) {
                 let frame = nextFrame(previousTick)
                 previousTick = frame.elapsedMs
                 ctx.frame = frame
-                ctx.viewportWidth = Float32(window.width)
-                ctx.viewportHeight = Float32(window.height)
-                let tBuild = FrameProfiler.now()
-                let widget = buildRoot(body, stateStore)
-                let tLayout = FrameProfiler.now()
-                ctx.adoptFocusRing(stateStore.focusRing())
-                widget.layout(ctx, Rect(0.0, 0.0, Float32(window.width), Float32(window.height)))
-                let tEvents = FrameProfiler.now()
-                drainEvents(widget)
-                dispatchEvent(widget, UiEvent.Frame(frame))
-                let tDraw = FrameProfiler.now()
-                frames += 1
-                let (beginNs, treeNs, resolveNs, presentNs) = draw(widget)
-                window.delay(frameDelay)
-                match (profiler) {
-                    case Some(p) => p.record(tLayout - tBuild, tEvents - tLayout, tDraw - tEvents, beginNs, treeNs,
-                        resolveNs, presentNs)
-                    case None => ()
+                advanceThemeTransition(frame.deltaMs)
+                let viewportW = window.width
+                let viewportH = window.height
+                ctx.viewportWidth = Float32(viewportW)
+                ctx.viewportHeight = Float32(viewportH)
+
+                let events = collectPendingEvents()
+                let stateGen = currentStateGeneration()
+                let mustRender = continuousRequested || !events.isEmpty() || stateGen != lastRenderedGen ||
+                    viewportW != renderedWidth || viewportH != renderedHeight || snapshotPath.isSome() ||
+                    profiler.isSome() || themeTransition.isSome()
+
+                if (mustRender) {
+                    let tBuild = FrameProfiler.now()
+                    let widget = buildRoot(body, stateStore)
+                    let tLayout = FrameProfiler.now()
+                    ctx.adoptFocusRing(stateStore.focusRing())
+                    widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
+                    let tEvents = FrameProfiler.now()
+                    dispatchCollectedEvents(widget, events)
+                    dispatchEvent(widget, UiEvent.Frame(frame))
+                    let tDraw = FrameProfiler.now()
+                    frames += 1
+                    let (beginNs, treeNs, resolveNs, presentNs) = draw(widget)
+                    lastRenderedGen = stateGen
+                    continuousRequested = ctx.takeFrameRequest() || themeTransition.isSome()
+                    renderedWidth = viewportW
+                    renderedHeight = viewportH
+                    match (profiler) {
+                        case Some(p) => p.record(tLayout - tBuild, tEvents - tLayout, tDraw - tEvents, beginNs, treeNs,
+                            resolveNs, presentNs)
+                        case None => ()
+                    }
+                } else {
+                    continuousRequested = ctx.takeFrameRequest()
                 }
+                window.delay(frameDelay)
             }
         } finally {
+            closeThemeTransition()
             closeManagedResources()
             window.close()
         }
     }
 
-    private func drainEvents(widget: Widget): Unit {
+    // Polls every event SDL has queued into a buffer, so the render decision can tell whether any input
+    // arrived before deciding whether to build a frame at all. Dispatch is deferred (see below).
+    private func collectPendingEvents(): ArrayList<UiEvent> {
+        let events = ArrayList<UiEvent>()
+        while (!queuedEvents.isEmpty()) {
+            events.add(queuedEvents.remove(at: 0))
+        }
         var current = window.pollEvent()
         while (let Some(event) <- current) {
+            events.add(event)
+            current = window.pollEvent()
+        }
+        events
+    }
+
+    // Dispatches the collected events in arrival order against the freshly built tree, bracketing each
+    // with the same pointer bookkeeping the loop used to do inline — the per-event sequence
+    // (prepare, route, complete) is unchanged, only deferred past the render decision.
+    private func dispatchCollectedEvents(widget: Widget, events: ArrayList<UiEvent>): Unit {
+        for (event in events) {
             preparePointer(event)
             routeEvent(widget, event)
             completePointer(event)
-            current = window.pollEvent()
         }
     }
 
@@ -216,23 +319,17 @@ public class DesktopApp {
         let t0 = FrameProfiler.now()
         ctx.renderer.beginScene(Float32(window.width), Float32(window.height), ctx.theme.bg)
         let t1 = FrameProfiler.now()
-        // Cleared before the tree so only a control hovered this frame shows a tooltip; the
-        // tree registers into the slot during draw, and the overlay is painted last, on top.
-        ctx.clearTooltip()
-        // Cleared before the tree so a closed popup leaves no overlay; each open control
-        // re-registers during draw, and the stack is painted last, above the tree —
-        // bottom-up, so a popup opened inside a dialog paints above the dialog.
-        ctx.clearActiveOverlay()
-        // Cleared before the tree so only this frame's focused caret (re-reported during
-        // draw, including inside dialog overlays) anchors the IME candidate window.
-        ctx.clearTextInputAnchor()
-        widget.draw(ctx)
-        // Tooltips yield to an open popup or dialog — standard desktop behaviour, and it
-        // stops a background control's bubble from ghosting through the modal backdrop.
-        if (!ctx.hasOverlay()) {
-            drawTooltip(ctx, Float32(window.width), Float32(window.height))
+        let width = Float32(window.width)
+        let height = Float32(window.height)
+        if (!drawThemeTransition(widget, width, height)) {
+            clearDrawRegistrations()
+            widget.draw(ctx)
+            ctx.drawInkRipples()
+            if (!ctx.hasOverlay()) {
+                drawTooltip(ctx, width, height)
+            }
+            ctx.drawActiveOverlay()
         }
-        ctx.drawActiveOverlay()
         applyTextInputAnchor()
         let t2 = FrameProfiler.now()
         ctx.renderer.endScene()
@@ -241,6 +338,61 @@ public class DesktopApp {
         ctx.renderer.present()
         let t4 = FrameProfiler.now()
         (t1 - t0, t2 - t1, t3 - t2, t4 - t3)
+    }
+
+    private func advanceThemeTransition(deltaMs: UInt64): Unit {
+        match (themeTransition) {
+            case Some(transition) where transition.snapshotsReady() => let _ = transition.advance(deltaMs)
+            case Some(_) => ()
+            case None => ()
+        }
+    }
+
+    private func drawThemeTransition(widget: Widget, width: Float32, height: Float32): Bool {
+        match (themeTransition) {
+            case Some(transition) =>
+                let ready = transition.prepareNextSnapshot(
+                    ctx.renderer,
+                    width,
+                    height,
+                    { =>
+                        ctx.theme = transition.sourceTheme()
+                        clearDrawRegistrations()
+                        widget.draw(ctx)
+                        ctx.drawActiveOverlay()
+                    },
+                    { =>
+                        ctx.theme = transition.targetTheme()
+                        clearDrawRegistrations()
+                        widget.draw(ctx)
+                        ctx.drawActiveOverlay()
+                    }
+                )
+                ctx.theme = transition.sourceTheme()
+                transition.draw(ctx.renderer, width, height)
+                ctx.drawInkRipples()
+                if (ready && transition.isComplete()) {
+                    let target = transition.targetTheme()
+                    transition.close()
+                    themeTransition = None
+                    ctx.theme = target
+                }
+                true
+            case None => false
+        }
+    }
+
+    private func clearDrawRegistrations(): Unit {
+        ctx.clearTooltip()
+        ctx.clearActiveOverlay()
+        ctx.clearTextInputAnchor()
+    }
+
+    private func closeThemeTransition(): Unit {
+        match (themeTransition) {
+            case Some(transition) => transition.close()
+            case None => ()
+        }
     }
 
     /*
@@ -268,7 +420,7 @@ public class DesktopApp {
     // settles, writes the frame to a BMP, then quits. Handy for visual tests and docs.
     private func maybeSnapshot(): Unit {
         match (snapshotPath) {
-            case Some(path) where frames >= SNAPSHOT_SETTLE_FRAMES =>
+            case Some(path) where frames >= snapshotFrame =>
                 ctx.renderer.captureBmp(path)
                 ctx.requestClose()
             case _ => ()
@@ -304,6 +456,8 @@ public class DesktopApp {
             case CursorShape.Default => ensureCursor(SystemCursor.Default)
             case CursorShape.Interactive => ensurePointerCursor()
             case CursorShape.Text => ensureTextCursor()
+            case CursorShape.ResizeH => ensureResizeHCursor()
+            case CursorShape.ResizeV => ensureResizeVCursor()
         }
     }
 
@@ -331,6 +485,24 @@ public class DesktopApp {
             case None =>
                 textCursor = createCursor(SystemCursor.Text)
                 textCursor
+        }
+    }
+
+    private func ensureResizeHCursor(): ?Cursor {
+        match (resizeHCursor) {
+            case Some(cursor) => Some(cursor)
+            case None =>
+                resizeHCursor = createCursor(SystemCursor.EwResize)
+                resizeHCursor
+        }
+    }
+
+    private func ensureResizeVCursor(): ?Cursor {
+        match (resizeVCursor) {
+            case Some(cursor) => Some(cursor)
+            case None =>
+                resizeVCursor = createCursor(SystemCursor.NsResize)
+                resizeVCursor
         }
     }
 
@@ -385,6 +557,25 @@ public class DesktopApp {
             i -= 1
         }
     }
+}
+
+private func snapshotFrameArgument(): UInt64 {
+    let args = getCommandLine()
+    var i = 0
+    while (i < args.size - 1) {
+        if (args[i] == "--snapshot-frame") {
+            try {
+                let value = UInt64.parse(args[i + 1])
+                if (value > UInt64(0)) {
+                    return value
+                }
+            } catch (_: Exception) {
+                return SNAPSHOT_SETTLE_FRAMES
+            }
+        }
+        i += 1
+    }
+    SNAPSHOT_SETTLE_FRAMES
 }
 
 private func sameAnchorRect(applied: ?Rect, next: Rect): Bool {

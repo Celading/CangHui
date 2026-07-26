@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "cui_cangcui"
+version = "0.1.0"
+output-type = "executable"
+description = "CUI verdant landscape scroll (framework namesake art)."
+
+[dependencies]
+cui = { path = "../.." }

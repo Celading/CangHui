@@ -1,14 +1,67 @@
 package cui.controls
 
-import sdl.{FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, CUI_CONTROL_H, CursorShape, Spring, UiContext, Widget, requireControlId, claimHoverIfInside, drawFocusRing,
-    drawSurface, emit, focusableControlIdentity, localState, reregisterFocusable, registerFocusable}
+import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
+import cui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, CursorShape, Motion, Spring, UiContext, Widget,
+    requireControlId, claimHoverIfInside, drawFocusRing, drawSurface, emit, focusableControlIdentity,
+    handlePointerClick, localState, reregisterFocusable, registerFocusable, resolveControlKey}
 
 private let SWITCH_TRACK_W: Float32 = 40.0
 private let SWITCH_TRACK_H: Float32 = 22.0
 private let PICKER_MIN_W: Float32 = 120.0
 private let PICKER_BUTTON_W: Float32 = 34.0
 private let STEPPER_BUTTON_W: Float32 = 36.0
+
+private class DirectionalTextMotion {
+    private var currentText: String
+    private var previousText: String
+    private var direction: Float32 = 1.0
+    private let animator = Animator(1.0)
+
+    init(text: String) {
+        currentText = text
+        previousText = text
+    }
+
+    func change(next: String, delta: Int64): Unit {
+        if (next == currentText) {
+            return
+        }
+        previousText = currentText
+        currentText = next
+        direction = if (delta >= 0) { 1.0 } else { -1.0 }
+        animator.reset(0.0)
+    }
+
+    func sync(next: String): Unit {
+        if (next != currentText && animator.settled()) {
+            currentText = next
+            previousText = next
+            animator.reset(1.0)
+        }
+    }
+
+    func draw(ctx: UiContext, frame: Rect, color: Color): Unit {
+        sync(currentText)
+        let t = animator.animate(ctx, target: 1.0,
+            spec: AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate))
+        if (t >= 0.999) {
+            drawTextAt(ctx, currentText, frame, frame.centerY(), color)
+            return
+        }
+        let travel = min(18.0, frame.h * 0.5)
+        drawTextAt(ctx, previousText, frame, frame.centerY() - direction * travel * t,
+            color.withAlpha(Int64(255.0 * (1.0 - t))))
+        drawTextAt(ctx, currentText, frame, frame.centerY() + direction * travel * (1.0 - t),
+            color.withAlpha(Int64(255.0 * min(1.0, 0.35 + t))))
+    }
+
+    private func drawTextAt(ctx: UiContext, text: String, frame: Rect, centerY: Float32, color: Color): Unit {
+        let width = ctx.renderer.textWidth(text, pointSize: FontSizes.CONTROL)
+        let height = ctx.renderer.textHeight(pointSize: FontSizes.CONTROL)
+        ctx.renderer.text(text, frame.centerX() - width / 2.0, centerY - height / 2.0,
+            color, pointSize: FontSizes.CONTROL)
+    }
+}
 
 /** A binary desktop switch bound to a Boolean state. */
 public class Switch <: Widget {
@@ -36,7 +89,7 @@ public class Switch <: Widget {
     }
 
     /** Sets an explicit focus and press identity; defaults are unique per build. */
-    public func id(value: String): Switch {
+    public func key(value: String): Switch {
         validateControlId(value, "Switch")
         reregisterFocusable(controlId, value)
         controlId = value
@@ -57,9 +110,9 @@ public class Switch <: Widget {
         } else {
             0.0
         }
-        let t = knobSpring.animate(target: goal, deltaMs: ctx.frame.deltaMs)
+        let t = knobSpring.animate(ctx, target: goal)
 
-        let track = Rect(frame.x, frame.centerY() - SWITCH_TRACK_H / 2.0, SWITCH_TRACK_W, SWITCH_TRACK_H)
+        let track = trackFrame()
         // Track colour and knob position share the spring, so both cross together smoothly.
         ctx.renderer.fillRoundedRect(track, SWITCH_TRACK_H / 2.0, ctx.theme.panelEdge.lerp(ctx.theme.accent, t))
         let offX = track.x + 11.0
@@ -75,12 +128,22 @@ public class Switch <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        toggleInteraction(ctx, event, frame, controlId, {=> checked.value = !checked.value})
+        let track = trackFrame()
+        toggleInteraction(ctx, event, frame, controlId, {=> checked.value = !checked.value},
+            track, SWITCH_TRACK_H / 2.0)
     }
 
     public func focusableId(): ?String {
         Some(controlId)
     }
+
+    private func trackFrame(): Rect {
+        switchTrackFrame(frame)
+    }
+}
+
+internal func switchTrackFrame(frame: Rect): Rect {
+    Rect(frame.x, frame.centerY() - SWITCH_TRACK_H / 2.0, SWITCH_TRACK_W, SWITCH_TRACK_H)
 }
 
 /** One option in a mutually exclusive integer-valued selection group. */
@@ -109,7 +172,7 @@ public class RadioButton <: Widget {
     }
 
     /** Sets an explicit focus and press identity; defaults are unique per build. */
-    public func id(value: String): RadioButton {
+    public func key(value: String): RadioButton {
         validateControlId(value, "RadioButton")
         reregisterFocusable(controlId, value)
         controlId = value
@@ -130,7 +193,7 @@ public class RadioButton <: Widget {
         } else {
             0.0
         }
-        let t = dotSpring.animate(target: goal, deltaMs: ctx.frame.deltaMs)
+        let t = dotSpring.animate(ctx, target: goal)
         let centerX = frame.x + 9.0
         let centerY = frame.centerY()
         ctx.renderer.fillCircle(centerX, centerY, 9.0, ctx.theme.field)
@@ -148,7 +211,8 @@ public class RadioButton <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        toggleInteraction(ctx, event, frame, controlId, {=> selected.value = optionValue})
+        let indicator = Rect(frame.x, frame.centerY() - 9.0, 18.0, 18.0)
+        toggleInteraction(ctx, event, frame, controlId, {=> selected.value = optionValue}, indicator, 9.0)
     }
 
     public func focusableId(): ?String {
@@ -165,14 +229,18 @@ public class Picker <: Widget {
     private let id: String
     private let items: Array<String>
     private let selected: Bindable<Int64>
+    private let textMotion: DirectionalTextMotion
     private var frame = Rect.zero()
 
-    public init(id: String, items: Array<String>, selected: Bindable<Int64>) {
-        validateControlId(id, "Picker")
-        this.id = id
+    public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = None) {
+        this.id = resolveControlKey(key, "Picker")
         this.items = items
         this.selected = selected
-        registerFocusable(id)
+        let initial = if (items.isEmpty()) { "—" } else { items[clampControlIndex(selected.value, items.size)] }
+        this.textMotion = localState<DirectionalTextMotion>("Picker:${this.id}:text-motion") {
+            DirectionalTextMotion(initial)
+        }.value
+        registerFocusable(this.id)
         emit(this)
     }
 
@@ -198,27 +266,31 @@ public class Picker <: Widget {
         } else {
             items[currentIndex()]
         }
+        textMotion.sync(label)
         // Item text comes from application data; clip it so a long item cannot paint
         // over the chevrons or escape the control surface.
         let labelArea = Rect(frame.x + PICKER_BUTTON_W, frame.y, max(0.0, frame.w - PICKER_BUTTON_W * 2.0), frame.h)
         ctx.renderer.pushClip(labelArea)
-        ctx.renderer.textCenter(label, labelArea, ctx.theme.text, pointSize: FontSizes.CONTROL)
+        textMotion.draw(ctx, labelArea, ctx.theme.text)
         ctx.renderer.popClip()
         ctx.renderer.textCenter("‹", leftButton(), ctx.theme.mutedText, pointSize: FontSizes.TITLE)
         ctx.renderer.textCenter("›", rightButton(), ctx.theme.mutedText, pointSize: FontSizes.TITLE)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        if (handlePointerClick(ctx, event, leftButton(), "${id}:previous", {=> move(-1)},
+            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor()), focusTarget: Some(id))) {
+            return true
+        }
+        if (handlePointerClick(ctx, event, rightButton(), "${id}:next", {=> move(1)},
+            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor()), focusTarget: Some(id))) {
+            return true
+        }
         claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (frame.contains(x, y)) {
                     ctx.focus(id)
-                    if (leftButton().contains(x, y)) {
-                        move(-1)
-                    } else if (rightButton().contains(x, y)) {
-                        move(1)
-                    }
                     return true
                 }
             case UiEvent.KeyDown(Key.Left, _) =>
@@ -244,7 +316,9 @@ public class Picker <: Widget {
         if (items.isEmpty()) {
             return
         }
-        selected.value = (currentIndex() + delta + items.size) % items.size
+        let next = (currentIndex() + delta + items.size) % items.size
+        textMotion.change(items[next], delta)
+        selected.value = next
     }
 
     private func currentIndex(): Int64 {
@@ -267,25 +341,28 @@ public class Stepper <: Widget {
     private var lowerBound: Int64 = Int64.Min
     private var upperBound: Int64 = Int64.Max
     private var stepSize: Int64 = 1
+    private let textMotion: DirectionalTextMotion
     private var frame = Rect.zero()
 
     public init(
-        id: String,
         value: Bindable<Int64>,
+        key!: ?String = None,
         lower!: Int64 = Int64.Min,
         upper!: Int64 = Int64.Max,
         step!: Int64 = 1
     ) {
-        validateControlId(id, "Stepper")
         if (step <= 0) {
             throw IllegalArgumentException("Stepper step must be greater than zero")
         }
-        this.id = id
+        this.id = resolveControlKey(key, "Stepper")
         this.value = value
         this.lowerBound = min(lower, upper)
         this.upperBound = max(lower, upper)
         this.stepSize = step
-        registerFocusable(id)
+        this.textMotion = localState<DirectionalTextMotion>("Stepper:${this.id}:text-motion") {
+            DirectionalTextMotion("${value.value}")
+        }.value
+        registerFocusable(this.id)
         // Clamp the initial value into range, like range() does (write-on-change to avoid churn).
         let clamped = clampInt(value.value)
         if (clamped != value.value) {
@@ -330,21 +407,28 @@ public class Stepper <: Widget {
     public func draw(ctx: UiContext): Unit {
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id)))
         ctx.renderer.textCenter("−", decrementButton(), ctx.theme.text, pointSize: FontSizes.TITLE)
-        ctx.renderer.textCenter("${value.value}", valueFrame(), ctx.theme.text, pointSize: FontSizes.CONTROL)
+        let valueArea = valueFrame()
+        textMotion.sync("${value.value}")
+        ctx.renderer.pushClip(valueArea)
+        textMotion.draw(ctx, valueArea, ctx.theme.text)
+        ctx.renderer.popClip()
         ctx.renderer.textCenter("+", incrementButton(), ctx.theme.text, pointSize: FontSizes.TITLE)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        if (handlePointerClick(ctx, event, decrementButton(), "${id}:decrement", {=> decrement()},
+            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor()), focusTarget: Some(id))) {
+            return true
+        }
+        if (handlePointerClick(ctx, event, incrementButton(), "${id}:increment", {=> increment()},
+            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor()), focusTarget: Some(id))) {
+            return true
+        }
         claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (frame.contains(x, y)) {
                     ctx.focus(id)
-                    if (decrementButton().contains(x, y)) {
-                        decrement()
-                    } else if (incrementButton().contains(x, y)) {
-                        increment()
-                    }
                     return true
                 }
             case UiEvent.KeyDown(Key.Left, _) =>
@@ -377,19 +461,33 @@ public class Stepper <: Widget {
     }
 
     private func decrement(): Unit {
-        value.value = clampInt(if (value.value < lowerBound + stepSize) {
-            lowerBound
+        // Saturate at Int64.Min before clamping so a step near the low extreme cannot underflow;
+        // clampInt then applies the range floor. (`lowerBound + stepSize` could itself overflow
+        // when the range sits within a step of Int64.Max.)
+        let next = clampInt(if (value.value < Int64.Min + stepSize) {
+            Int64.Min
         } else {
             value.value - stepSize
         })
+        if (next != value.value) {
+            textMotion.change("${next}", -1)
+            value.value = next
+        }
     }
 
     private func increment(): Unit {
-        value.value = clampInt(if (value.value > upperBound - stepSize) {
-            upperBound
+        // Saturate at Int64.Max before clamping so a step near the high extreme cannot overflow;
+        // clampInt then applies the range ceiling. (`upperBound - stepSize` could itself underflow
+        // when the range sits within a step of Int64.Min.)
+        let next = clampInt(if (value.value > Int64.Max - stepSize) {
+            Int64.Max
         } else {
             value.value + stepSize
         })
+        if (next != value.value) {
+            textMotion.change("${next}", 1)
+            value.value = next
+        }
     }
 
     private func clampInt(candidate: Int64): Int64 {
@@ -414,30 +512,26 @@ private func toggleInteraction(
     event: UiEvent,
     frame: Rect,
     id: String,
-    activate: () -> Unit
+    activate: () -> Unit,
+    inkFrame: Rect,
+    inkRadius: Float32
 ): Bool {
-    claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
+    if (handlePointerClick(ctx, event, frame, id, activate, inkFrame: Some(inkFrame),
+        inkRadius: inkRadius, inkColor: Some(ctx.theme.inkColor()))) {
+        return true
+    }
     match (event) {
-        case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-            if (frame.contains(x, y)) {
-                ctx.focus(id)
-                ctx.press(id)
-                return true
-            }
-        case UiEvent.MouseUp(MouseButton.Left, x, y) =>
-            if (ctx.isPressed(id)) {
-                if (frame.contains(x, y)) {
-                    activate()
-                }
-                return true
-            }
         case UiEvent.KeyDown(Key.Enter, _) =>
             if (ctx.hasFocus(id)) {
+                ctx.startInkRipple(id, inkFrame, inkFrame.centerX(), inkFrame.centerY(),
+                    color: Some(ctx.theme.inkColor()), cornerRadius: inkRadius)
                 activate()
                 return true
             }
         case UiEvent.KeyDown(Key.Space, _) =>
             if (ctx.hasFocus(id)) {
+                ctx.startInkRipple(id, inkFrame, inkFrame.centerX(), inkFrame.centerY(),
+                    color: Some(ctx.theme.inkColor()), cornerRadius: inkRadius)
                 activate()
                 return true
             }

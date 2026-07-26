@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "cui_motion"
+version = "0.1.0"
+output-type = "executable"
+description = "CUI easing curves + Animator motion lab (parallel eased tracks)."
+
+[dependencies]
+cui = { path = "../.." }

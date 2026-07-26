@@ -164,6 +164,10 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 解决了“弹出内容被下方控件截走点击”这一经典难题。为支持自定义外壳，`dispatchOverlay`/
 `drawActiveOverlay`/`clearActiveOverlay`/`overlayCount` 也对外公开。
 
+`Dropdown` 的开合另由保留 `Animator` 驱动高度揭示与箭头翻转。关闭后的过渡层仍可绘制，但事件闭包在
+`open=false` 时拒绝输入，因此不会出现“视觉正在收起却还能点中旧选项”的幽灵命中。控件本体的打开动作
+仍走统一 press-inside / release-inside 协议，按下后移出会永久取消本次打开。
+
 `Modal` 把这套机制再推进一层：下拉与右键菜单的弹出内容是**手绘**的（`render` 闭包直接画列表），而模态
 对话框的 `render`/`handleEvent` 闭包托管一棵**真实的控件子树**——`body` 里的按钮、文本框等是正常控件，
 在面板内布局（`Modal.layout` 按视口居中，把内容量到面板尺寸），`handleEvent` 把落在面板内的事件转交
@@ -208,6 +212,10 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 移动高亮时按“滚动到恰好可见”揭示，命中计算叠加滚动偏移，上下内边距条带不命中任何行。`ListView` 另实现键盘导航：注册进焦点环后可 `Tab` 聚焦，方向键在钳制范围内
 移动选中项。滚动偏移在未传入外部 `State` 时用 `localState` 按控件身份保留——否则每帧重建都新建一个
 归零的 `State`，滚轮/拖动滚动会每帧弹回原处。“把选中行滚入可视区”改由 draw 侧的**选择变化即揭示**驱动：
+
+动态折叠内容还有一条单独的锚点协议：Accordion 切换时向最近的 `ScrollView` 请求保留视觉锚点；若内容
+高度在随后的动画帧收缩，ScrollView 临时把减少量保留为尾部空间，避免当前偏移被立即钳制而带动整页跳动。
+下一次用户滚轮或拖动滚动条会释放这段临时空间，并按新的真实内容高度重新钳制偏移。
 记住上次揭示的选中项，仅当选中项发生变化时才滚动到它——因此无论选择来自列表自身按键还是应用层的按键
 路由（如命令面板在根部拦截 `↑/↓`），选中行都会滚入视区，而单纯的滚轮滚动（选择未变）不会被拉回。
 
@@ -275,6 +283,81 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 不做自动淘汰（桌面应用图片集小而稳定），以 `invalidateImage`/`clearImageCache` 显式失效；加载失败
 按路径负缓存，避免缺失文件被逐帧重试。换用新渲染器（重建窗口）时旧条目直接丢弃而不 `close`——
 纹理已随其渲染器一并销毁，再关闭会触碰悬空句柄。
+
+## 多平台组件边界
+
+母体框架把跨平台复用拆成三个稳定层次：
+
+1. 公共组件层只依赖 `ComponentContext`、CUI 控件和应用持有的状态；
+2. 宿主合同层以 `HostProfile` 和 `HostCapability` 描述平台事实，不暴露平台 SDK 类型；
+3. 平台适配层实现窗口、生命周期、IME、无障碍、原生表面、权限、打包和签名。
+
+`ViewportSpec` 采用逻辑尺寸，并通过固定的 Compact、Medium、Expanded 分级选择布局。桌面
+Component Gallery 可以覆盖公共布局和状态连续性，但不能替代移动端或其他宿主的生命周期、输入、
+无障碍、原生表面与发布验证。平台后端应消费母体合同，不应让公共组件反向依赖宿主工程。
+
+组件包可以附带符合 `contracts/cangjiegui-component-package-v0.schema.json` 的元数据，供工具链
+发现资源与原生制品；运行时 API 仍以强类型 Cangjie 接口为准。
+
+移动宿主的第一层合同由 `cui.host` 提供：`AppLifecycleState`、`HostViewportMetrics`、
+`SafeAreaInsets`、`TouchEvent` 以及文件选择、应用存储、安全存储、系统主题、通知和后台任务 SPI。
+文件选择结果使用 `PlatformResourceRef`，其中 locator 由宿主解释，可以对应路径、安全域 URL、bookmark
+或其他不透明令牌。这样公共组件无需知道 UIKit、PhotoKit、Keychain 或 Harmony 平台类型。
+
+iOS 采用静态库嵌入 Xcode 宿主。母体框架提供可独立交叉编译的 host-contract 源集、稳定的
+`cangjiegui_ios_host_abi_version` C ABI 与 device/simulator 构建脚本；Xcode 宿主负责运行时静态库链接、
+签名和应用生命周期。当前真机证据已证明 runtime 初始化、固定后台 UI scheduler 和 N2C foreign-thread
+调用门可用，也已成功调用一个最小仓颉静态包；但 CangjieGUI `cui.host` 静态包仍卡在正式包初始化协议，
+因此尚不声称 ABI 函数已返回，也不证明 UIKit 生命周期、触摸、safe area、IME、无障碍或
+首个产品验收应用仍需在独立仓库完成适配。
+
+### XComponent-like 原生表面代理
+
+iOS 后端不复制一套 UIKit 布局树，而是采用与 HarmonyOS `XComponent` 同构的原生表面代理：
+
+- UIKit 主线程持有 `UIView + CAMetalLayer/MTKView`，只负责 lifecycle、safe area、touch、IME、
+  accessibility、surface 创建/重建与 `CADisplayLink` 帧时钟；
+- `HostNativeSurfaceService` 把不透明 handle、逻辑/像素尺寸、scale 和 generation 通知给仓颉侧；
+- `NativeSurfaceRenderer` 由仓颉侧实现，掌握布局、绘制和状态；宿主不承接业务视图；
+- surface 重建时 generation 必须递增，旧帧和旧 handle 不得继续提交；
+- 所有原生回调通过 N2C 门转发到固定的仓颉 UI scheduler 线程，UIKit 主线程不直接运行
+  仓颉 scheduler。
+
+HarmonyOS 可将同一合同映射到 `XComponent/OHNativeWindow`，iOS 映射到 `CAMetalLayer`。这条路线
+解决渲染承载与多平台统一，但不代替仓颉 runtime 和静态包 bootstrap。
+
+### OwnedWindow 与 EmbeddedSurface
+
+参考 SDL3 callback application 与 SwiftSDL 的宿主分层后，移动端明确保留两种模式：
+
+- `OwnedWindow`：SDL3 管理应用 callback、事件泵、window 和 renderer，适用于独立 CangjieGUI
+  应用；`HostApplicationLoop` 映射 `init/iterate/quit`，输入仍通过专用 host service 进入。
+- `EmbeddedSurface`：既有 UIKit/Harmony 应用拥有原生 view，以 generation-bearing surface 代理
+  接入仓颉渲染器。
+
+两种模式共用组件树、布局、状态和宿主能力合同，但不共用虚假的窗口所有权。
+Apple bundle 还必须提供 LaunchScreen、high-DPI 声明、bundle resource 布局和正确的静态/嵌入式
+依赖。详细参考 `docs/reference-intake-sdl3-apple-host.md`。
+
+## kMode 无界面控制面
+
+kMode 是母体框架拥有的 Debug/受监管控制面，不依赖布局树。应用使用
+`@KModeLink["stable.endpoint"]` 把一个 `(String) -> String` 顶层函数注册为稳定端点；宏按端点名
+生成确定性符号，同包重名会在编译期报重复定义，注册表再对跨包重名做运行期拒绝。
+
+应用必须在创建 `DesktopApp` 之前调用 `runKModeStdioIfRequested()`。由 `cuic` 设置
+`CANGHUI_KMODE=1` 与 `CANGHUI_KMODE_TRANSPORT=stdio` 时，进程只运行 `health/list/describe/invoke/shutdown`
+协议循环并直接退出，不初始化 SDL 或窗口。编译器 `debug` 条件也会启用 kMode；普通受监管运行仍需显式
+环境开关，发布构建不因 CLI 命令而隐式开放管理能力。
+
+`KModeChannelModule` 是可覆写的透明通道 SPI，只在启用且具备 Admin 能力时允许安装。SoonLink Channel v1
+适配器应在框架外实现 claim/handshake/send/poll/cursor/ACK，把
+`contracts/canghui-kmode-v0.schema.json` 的 JSON 值作为 opaque payload 中继。ACK 只表示消息已被消费，
+业务成功由 kMode response 表达；cursor 仅在持久消费后推进，凭据不得写入日志、配置或仓库。
+`KModeChannelConfig.protocol` 表示 `soonlink.channel.v1` 中继协议，`payloadProtocol/schemaRef` 分别表示
+`canghui.kmode.v0` 业务协议及其 schema；二者不得混为一个版本号。
+
+控制面只分派已注册函数，收到的 payload 不会被转换为任意 shell 命令或不受限文件系统操作。
 
 ## 设计依据与演进边界
 

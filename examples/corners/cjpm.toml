@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "cui_corners"
+version = "0.1.0"
+output-type = "executable"
+description = "CUI Corners — per-corner radius: asymmetric chat bubbles and a top-rounded compose bar."
+
+[dependencies]
+cui = { path = "../.." }

@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "cui_typography"
+version = "0.1.0"
+output-type = "executable"
+description = "CUI font-style (bold/italic/underline/strikethrough) typography specimen."
+
+[dependencies]
+cui = { path = "../.." }

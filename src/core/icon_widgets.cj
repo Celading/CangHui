@@ -1,11 +1,15 @@
 package cui.core
 
-import sdl.{Color, FontSizes, IconName, Key, MouseButton, Rect, Size, SurfaceStyle, UiEvent, drawIcon}
+import sdl.{Color, FontSizes, IconName, Key, Rect, Size, SurfaceStyle, UiEvent, drawIcon}
 
 private let ICON_DEFAULT_SIZE: Float32 = 18.0
 private let ICON_BUTTON_PAD: Float32 = 10.0
 private let ICON_TEXT_GAP: Float32 = 8.0
 
+/**
+ * A non-interactive vector icon drawn at a square extent (default 18 vp), in the theme text color
+ * unless `foregroundColor` overrides it. For a clickable icon use `IconButton`.
+ */
 public class Icon <: Widget {
     private let icon: IconName
     private var iconExtent: Length
@@ -65,6 +69,12 @@ public class Icon <: Widget {
     }
 }
 
+/*
+ * A button whose face is an icon, optionally with a text label beside it. Activation matches `Button`:
+ * `onClick` fires on a press released inside, or on Enter/Space while focused; `role` and `style`
+ * color the surface the same way. Icon-only buttons in one view stay distinct through per-build
+ * identities; `key` pins an identity that survives tree reshapes.
+ */
 public class IconButton <: Widget {
     private let icon: IconName
     private var labelText: ?String
@@ -72,6 +82,8 @@ public class IconButton <: Widget {
     private var customStyle: ?SurfaceStyle
     private let onClick: () -> Unit
     private var controlId: String
+    private let interaction: InteractionAnimation
+    private var animationSpec: AnimationSpec
     private var frame = Rect.zero()
 
     public init(
@@ -92,6 +104,10 @@ public class IconButton <: Widget {
             case Some(value) => "IconButton:${value}"
             case None => "IconButton"
         })
+        this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
+            InteractionAnimation()
+        }.value
+        this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
         emit(this)
     }
 
@@ -100,7 +116,7 @@ public class IconButton <: Widget {
      * set one when identity must survive tree reshapes.
      * Throws `IllegalArgumentException` when `value` is empty.
      */
-    public func id(value: String): IconButton {
+    public func key(value: String): IconButton {
         requireControlId(value, "IconButton")
         reregisterFocusable(controlId, value)
         controlId = value
@@ -125,10 +141,24 @@ public class IconButton <: Widget {
         this
     }
 
+    /** Applies an automatic or explicit hover/press animation property. */
+    public func animation(value: AnimationSpec): IconButton {
+        animationSpec = value
+        this
+    }
+
+    /** Applies an exact playback duration and curve. */
+    public func animation(duration: UInt64, easing!: Easing = Motion.standard): IconButton {
+        animation(AnimationSpec(duration: duration, easing: easing))
+    }
+
     public func measure(ctx: UiContext, available: Size): Size {
         let width = match (labelText) {
+            // Measure at the same size draw uses (FontSizes.CONTROL), so the two cannot drift
+            // apart if the token tables ever diverge from the measurement default.
             case Some(value) => max(76.0,
-                ICON_BUTTON_PAD * 2.0 + ICON_DEFAULT_SIZE + ICON_TEXT_GAP + ctx.renderer.textWidth(value))
+                ICON_BUTTON_PAD * 2.0 + ICON_DEFAULT_SIZE + ICON_TEXT_GAP +
+                    ctx.renderer.textWidth(value, pointSize: FontSizes.CONTROL))
             case None => CUI_CONTROL_H
         }
         Size(min(available.w, width), CUI_CONTROL_H)
@@ -139,45 +169,41 @@ public class IconButton <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        drawSurface(ctx, frame, buttonStyle(ctx))
+        let progress = interaction.animate(ctx, ctx.isHovered(controlId), ctx.isPressed(controlId), animationSpec)
+        let visualFrame = animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
+        drawSurface(ctx, visualFrame, buttonStyle(ctx, progress))
         let color = contentColor(ctx)
-        drawIcon(ctx.renderer, icon, iconFrame(), color)
+        drawIcon(ctx.renderer, icon, iconFrame(visualFrame), color)
         match (labelText) {
             case Some(value) => ctx
                 .renderer
-                .text(value, iconFrame().right() + ICON_TEXT_GAP,
-                    frame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0, color,
+                .text(value, iconFrame(visualFrame).right() + ICON_TEXT_GAP,
+                    visualFrame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0, color,
                     pointSize: FontSizes.CONTROL)
             case None => ()
         }
         if (ctx.showFocusRing(controlId)) {
-            drawFocusRing(ctx, frame, ctx.theme.controlRadius)
+            drawFocusRing(ctx, visualFrame, ctx.theme.controlRadius)
         }
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        claimHoverIfInside(ctx, event, frame, controlId, CursorShape.Interactive)
+        if (handlePointerClick(ctx, event, frame, controlId, onClick,
+            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor(role: buttonRole)))) {
+            return true
+        }
         match (event) {
-            case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-                if (frame.contains(x, y)) {
-                    ctx.focus(controlId)
-                    ctx.press(controlId)
-                    return true
-                }
-            case UiEvent.MouseUp(MouseButton.Left, x, y) =>
-                if (ctx.isPressed(controlId)) {
-                    if (frame.contains(x, y)) {
-                        onClick()
-                    }
-                    return true
-                }
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
+                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
                     onClick()
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
+                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
                     onClick()
                     return true
                 }
@@ -190,15 +216,15 @@ public class IconButton <: Widget {
         Some(controlId)
     }
 
-    private func iconFrame(): Rect {
+    private func iconFrame(bounds: Rect): Rect {
         match (labelText) {
             case Some(_) => Rect(
-                frame.x + ICON_BUTTON_PAD,
-                frame.centerY() - ICON_DEFAULT_SIZE / 2.0,
+                bounds.x + ICON_BUTTON_PAD,
+                bounds.centerY() - ICON_DEFAULT_SIZE / 2.0,
                 ICON_DEFAULT_SIZE,
                 ICON_DEFAULT_SIZE
             )
-            case None => centeredIconRect(frame, ICON_DEFAULT_SIZE)
+            case None => centeredIconRect(bounds, ICON_DEFAULT_SIZE)
         }
     }
 
@@ -209,31 +235,19 @@ public class IconButton <: Widget {
         }
     }
 
-    private func buttonStyle(ctx: UiContext): SurfaceStyle {
-        match (customStyle) {
+    private func buttonStyle(ctx: UiContext, progress: InteractionProgress): SurfaceStyle {
+        let base = match (customStyle) {
             case Some(value) => value
-            case None =>
-                let base = ctx.theme.buttonSurface(buttonRole)
-                match (buttonRole) {
-                    case ButtonRole.Normal =>
-                        var style = base
-                        if (ctx.isPressed(controlId)) {
-                            style = style.withFill(ctx.theme.accentSoft)
-                        } else if (ctx.isHovered(controlId)) {
-                            // Single-winner hover: in overlapping layouts only the visually
-                            // top-most claimant highlights (same protocol as the cursor shape).
-                            style = style.withFill(ctx.theme.fieldActive)
-                        }
-                        // The focus ring (drawn in draw() on keyboard focus) shows where
-                        // Enter/Space will land — same convention as Button: a pointer
-                        // press must not leave a keyboard-style accent border behind.
-                        style
-                    case _ => base
-                }
+            case None => ctx.theme.buttonSurface(buttonRole)
         }
+        animatedButtonSurface(ctx, base, buttonRole, progress)
     }
 }
 
+/**
+ * A hairline rule separating content: 1 logical pixel thick along its `axis`, stretched across the
+ * cross axis by the parent stack. Color defaults to the theme's panel edge.
+ */
 public class Divider <: Widget {
     private var dividerAxis: Axis
     private var dividerColor: ?Color
