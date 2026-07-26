@@ -1,7 +1,7 @@
 package cui.core
 
 import std.collection.ArrayList
-import sdl.{Color, FrameInfo, Insets, Pen, Rect, Renderer, UiEvent}
+import sdl.{Color, FrameInfo, Insets, Rect, Renderer, UiEvent}
 
 // A second press within this window and distance of the previous one continues a multi-click.
 private let MULTI_CLICK_MS: UInt64 = 400
@@ -16,9 +16,11 @@ private class InkRippleOverlay {
     let startedAtMs: UInt64
     let durationMs: UInt64
     let strength: Float32
+    let color: Color
+    let cornerRadius: Float32
 
     init(id: String, frame: Rect, originX: Float32, originY: Float32, startedAtMs: UInt64,
-        durationMs: UInt64, strength: Float32) {
+        durationMs: UInt64, strength: Float32, color: Color, cornerRadius: Float32) {
         this.id = id
         this.frame = frame
         this.originX = originX
@@ -26,6 +28,8 @@ private class InkRippleOverlay {
         this.startedAtMs = startedAtMs
         this.durationMs = durationMs
         this.strength = strength
+        this.color = color
+        this.cornerRadius = cornerRadius
     }
 
     func progress(nowMs: UInt64): Float32 {
@@ -75,6 +79,7 @@ public class UiContext {
     // paints — above it. Events walk the stack top-down (see `dispatchOverlay`).
     private let overlays = ArrayList<Overlay>()
     private let inkRipples = ArrayList<InkRippleOverlay>()
+    private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
     /** User font scale applied to `fp` lengths; `1.0` keeps `fp` equal to `vp`. */
@@ -140,7 +145,14 @@ public class UiContext {
     }
 
     /** Starts or restarts one control-local InkWell ripple. */
-    public func startInkRipple(id: String, frame: Rect, x: Float32, y: Float32): Unit {
+    public func startInkRipple(
+        id: String,
+        frame: Rect,
+        x: Float32,
+        y: Float32,
+        color!: ?Color = None,
+        cornerRadius!: Float32 = 0.0
+    ): Unit {
         var i = inkRipples.size - 1
         while (i >= 0) {
             if (inkRipples[i].id == id) {
@@ -148,8 +160,13 @@ public class UiContext {
             }
             i -= 1
         }
+        let resolvedColor = match (color) {
+            case Some(value) => value
+            case None => theme.inkColor()
+        }
         inkRipples.add(InkRippleOverlay(id, frame, x, y, this.frame.elapsedMs,
-            theme.motionLevel.automaticDuration(INK_RIPPLE_MS), theme.motionLevel.amplitude()))
+            theme.motionLevel.automaticDuration(INK_RIPPLE_MS), theme.motionLevel.amplitude(),
+            resolvedColor, cornerRadius))
         requestFrame()
     }
 
@@ -178,19 +195,26 @@ public class UiContext {
                 let eased = 1.0 - (1.0 - p) * (1.0 - p) * (1.0 - p)
                 let radius = 2.0 + max(ripple.frame.w, ripple.frame.h) * 0.52 * eased * ripple.strength
                 let fade = if (p < 0.35) { Float32(1.0) } else { max(0.0, (1.0 - p) / 0.65) }
-                renderer.pushClip(ripple.frame.inset(1.0))
-                renderer.fillCircle(ripple.originX, ripple.originY, radius,
-                    theme.accent.withAlpha(Int64(Float32(76.0) * fade * min(1.0, ripple.strength))))
-                renderer.strokeCircle(ripple.originX, ripple.originY, radius,
-                    Pen(width: 1.2, color: theme.accent.withAlpha(
-                        Int64(Float32(145.0) * fade * min(1.0, ripple.strength)))), segments: 40)
-                renderer.popClip()
+                renderer.fillRoundedRipple(ripple.frame.inset(1.0), max(0.0, ripple.cornerRadius - 1.0),
+                    ripple.originX, ripple.originY, radius,
+                    ripple.color.withAlpha(Int64(Float32(88.0) * fade * min(1.0, ripple.strength))))
             }
             i -= 1
         }
         if (active) {
             requestFrame()
         }
+    }
+
+    /** Requests that the nearest enclosing ScrollView preserve its current visual anchor. */
+    public func preserveScrollAnchor(): Unit {
+        preserveScrollAnchorRequested = true
+    }
+
+    internal func takeScrollAnchorRequest(): Bool {
+        let requested = preserveScrollAnchorRequested
+        preserveScrollAnchorRequested = false
+        requested
     }
 
     /*

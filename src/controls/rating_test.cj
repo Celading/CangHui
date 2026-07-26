@@ -51,9 +51,12 @@ func ratingClickSetsAndClears(): Unit {
     rating.layout(ctx, Rect(20.0, 40.0, ratingWidth(5), 24.0))
     // Dot index 2 (the 3rd) sits at x = 20 + 8 + 2*24 = 76.
     @Expect(rating.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 76.0, 52.0)))
+    @Expect(value.value, 0)
+    @Expect(rating.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 76.0, 52.0)))
     @Expect(value.value, 3)
     // Clicking the same dot again clears to zero.
     @Expect(rating.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 76.0, 52.0)))
+    @Expect(rating.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 76.0, 52.0)))
     @Expect(value.value, 0)
 }
 

@@ -43,6 +43,8 @@ func breadcrumbClicksLinkSegment(): Unit {
     bc.layout(ctx, Rect(20.0, 40.0, 400.0, 28.0))
     // The first crumb starts at x=20; clicking just inside it selects index 0 (it is a link, not the current).
     @Expect(bc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 24.0, 54.0)))
+    @Expect(picked.value, -1)
+    @Expect(bc.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 24.0, 54.0)))
     @Expect(picked.value, 0)
 }
 
@@ -73,5 +75,23 @@ func breadcrumbCollapsedClicksFirst(): Unit {
     bc.layout(ctx, Rect(20.0, 40.0, 500.0, 28.0))
     // items = [0, -1, 4, 5, 6]; the first crumb still sits at the left edge and links to index 0.
     @Expect(bc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 24.0, 54.0)))
+    @Expect(bc.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 24.0, 54.0)))
     @Expect(picked.value, 0)
+}
+
+@Test
+func breadcrumbHistoryCanMoveBackwardAndForwardAgain(): Unit {
+    let ctx = bcTestContext()
+    let history = State<Int64>(2)
+    let bc = Breadcrumb(["A", "B", "C"], key: "history", historyShow: true, history: Some(history))
+    bc.layout(ctx, Rect(0.0, 0.0, 200.0, 28.0))
+
+    @Expect(bc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 5.0, 14.0)))
+    @Expect(bc.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 5.0, 14.0)))
+    @Expect(history.value, Int64(0))
+
+    // History mode keeps descendants clickable, so a user can move forward without rebuilding a router.
+    @Expect(bc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 84.0, 14.0)))
+    @Expect(bc.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 84.0, 14.0)))
+    @Expect(history.value, Int64(2))
 }

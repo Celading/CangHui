@@ -2,6 +2,38 @@ package cui.core
 
 import sdl.{MouseButton, Rect, Size, UiEvent}
 
+private class CollapsibleScrollProbe <: Widget {
+    let contentExtent: State<Float32>
+    var rect = Rect.zero()
+
+    init(contentExtent: State<Float32>) {
+        this.contentExtent = contentExtent
+    }
+
+    public func measure(_: UiContext, available: Size): Size {
+        Size(available.w, contentExtent.value)
+    }
+
+    public func layout(_: UiContext, rect: Rect): Unit {
+        this.rect = rect
+    }
+
+    public func draw(_: UiContext): Unit {}
+
+    public func handle(ctx: UiContext, event: UiEvent): Bool {
+        match (event) {
+            case UiEvent.MouseUp(MouseButton.Left, x, y) =>
+                if (rect.contains(x, y)) {
+                    ctx.preserveScrollAnchor()
+                    contentExtent.value = 150.0
+                    return true
+                }
+            case _ => ()
+        }
+        false
+    }
+}
+
 
 @Test
 func scrollWheelClampsOffsetWithinContent(): Unit {
@@ -145,4 +177,48 @@ func scrollViewLetsWheelFallThroughWhenContentFits(): Unit {
     // enclosing scroller) and the offset stays put.
     @Expect(!view.handle(ctx, UiEvent.MouseWheel(0.0, -1.0, 50.0, 50.0)))
     @Expect(offset.value, Float32(0.0))
+}
+
+@Test
+func scrollViewRetainsOffsetWhileDynamicContentCollapses(): Unit {
+    let ctx = testContext()
+    let offset = State<Float32>(200.0)
+    let height = State<Float32>(300.0)
+    let child = CollapsibleScrollProbe(height)
+    let view = ScrollView(key: "anchor") {
+        emit(child)
+    }.scrollState(offset)
+
+    view.layout(ctx, Rect(0.0, 0.0, 120.0, 100.0))
+    @Expect(offset.value, Float32(200.0))
+    let _ = view.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 20.0, 20.0))
+    @Expect(view.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 20.0, 20.0)))
+    view.layout(ctx, Rect(0.0, 0.0, 120.0, 100.0))
+
+    // The raw content lost 150px, but retained tail space prevents an automatic jump from 200 to 50.
+    @Expect(height.value, Float32(150.0))
+    @Expect(offset.value, Float32(200.0))
+
+    // The next explicit scroll gesture releases the retained anchor and clamps to the new real extent.
+    @Expect(view.handle(ctx, UiEvent.MouseWheel(0.0, 0.0, 20.0, 20.0)))
+    @Expect(offset.value, Float32(50.0))
+}
+
+@Test
+func scrollViewDoesNotConsumeAStaleAnchorRequestFromOutsideItsSubtree(): Unit {
+    let ctx = testContext()
+    let offset = State<Float32>(200.0)
+    let height = State<Float32>(300.0)
+    let child = CollapsibleScrollProbe(height)
+    let view = ScrollView(key: "anchor.stale") {
+        emit(child)
+    }.scrollState(offset)
+    view.layout(ctx, Rect(0.0, 0.0, 120.0, 100.0))
+
+    ctx.preserveScrollAnchor()
+    @Expect(!view.handle(ctx, UiEvent.MouseMove(20.0, 20.0)))
+    height.value = 150.0
+    view.layout(ctx, Rect(0.0, 0.0, 120.0, 100.0))
+
+    @Expect(offset.value, Float32(50.0))
 }

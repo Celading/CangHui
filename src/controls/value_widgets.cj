@@ -130,6 +130,10 @@ public class Slider <: Widget {
                 if (frame.contains(x, y)) {
                     ctx.focus(id)
                     ctx.beginDrag(id)
+                    let track = trackFrame()
+                    ctx.startInkRipple(id, track, sliderInkOriginX(track, x), track.centerY(),
+                        color: Some(ctx.theme.inkColor()),
+                        cornerRadius: track.h / 2.0)
                     updateFromX(x)
                     return true
                 }
@@ -169,6 +173,10 @@ public class Slider <: Widget {
         value.value = normalize(lowerBound + amount * rangeSize(lowerBound, upperBound))
     }
 
+    private func trackFrame(): Rect {
+        sliderTrackFrame(frame)
+    }
+
     private func keyboardStep(): Float32 {
         if (stepSize > 0.0) {
             return stepSize
@@ -195,6 +203,14 @@ public class Slider <: Widget {
             value.value = normalized
         }
     }
+}
+
+internal func sliderTrackFrame(frame: Rect): Rect {
+    Rect(frame.x + 8.0, frame.centerY() - 3.0, max(0.0, frame.w - 16.0), 6.0)
+}
+
+internal func sliderInkOriginX(track: Rect, x: Float32): Float32 {
+    max(track.x, min(track.right(), x))
 }
 
 private func normalizedAmount(value: Float32, lower: Float32, upper: Float32): Float32 {

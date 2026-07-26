@@ -131,6 +131,23 @@ func sliderStepSnapsToDiscreteMultiples(): Unit {
 }
 
 @Test
+func sliderTrackClickStartsLocalInkAtAnyPosition(): Unit {
+    let ctx = controlTestContext()
+    let value = State<Float32>(0.0)
+    let slider = Slider(value, key: "slider.ink")
+    slider.layout(ctx, Rect(20.0, 40.0, 180.0, 32.0))
+
+    @Expect(slider.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 160.0, 56.0)))
+    let ripple = sliderTrackFrame(Rect(20.0, 40.0, 180.0, 32.0))
+    @Expect(ripple.x, Float32(28.0))
+    @Expect(ripple.y, Float32(53.0))
+    @Expect(ripple.w, Float32(164.0))
+    @Expect(ripple.h, Float32(6.0))
+    @Expect(sliderInkOriginX(ripple, 20.0), ripple.x)
+    @Expect(sliderInkOriginX(ripple, 200.0), ripple.right())
+}
+
+@Test
 func segmentedControlSelectsClickedSegment(): Unit {
     let ctx = controlTestContext()
     let selected = State<Int64>(0)
@@ -157,6 +174,31 @@ func switchActivatesOnReleaseAndSupportsKeyboard(): Unit {
 }
 
 @Test
+func checkboxAndSwitchKeepLabelClicksInsideTheirLocalInkFrames(): Unit {
+    let ctx = controlTestContext()
+    let checked = State<Bool>(false)
+    let checkbox = Checkbox("Long checkbox label", checked).key("checkbox.ink")
+    checkbox.layout(ctx, Rect(20.0, 40.0, 220.0, 32.0))
+
+    @Expect(checkbox.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 180.0, 56.0)))
+    let checkInk = checkboxIndicatorFrame(Rect(20.0, 40.0, 220.0, 32.0))
+    @Expect(checkInk.x, Float32(20.0))
+    @Expect(checkInk.y, Float32(47.0))
+    @Expect(checkInk.w, Float32(18.0))
+    @Expect(checkInk.h, Float32(18.0))
+
+    let enabled = State<Bool>(false)
+    let toggle = Switch("Long switch label", enabled).key("switch.ink")
+    toggle.layout(ctx, Rect(20.0, 80.0, 220.0, 32.0))
+    @Expect(toggle.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 180.0, 96.0)))
+    let switchInk = switchTrackFrame(Rect(20.0, 80.0, 220.0, 32.0))
+    @Expect(switchInk.x, Float32(20.0))
+    @Expect(switchInk.y, Float32(85.0))
+    @Expect(switchInk.w, Float32(40.0))
+    @Expect(switchInk.h, Float32(22.0))
+}
+
+@Test
 func radioButtonsShareOneSelectionState(): Unit {
     let ctx = controlTestContext()
     let selected = State<Int64>(1)
@@ -177,6 +219,7 @@ func pickerWrapsSelectionAndRespondsToArrowKeys(): Unit {
     picker.layout(ctx, Rect(0.0, 0.0, 190.0, 38.0))
 
     @Expect(picker.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 8.0, 12.0)))
+    @Expect(picker.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 8.0, 12.0)))
     @Expect(selected.value, Int64(2))
     @Expect(picker.handle(ctx, UiEvent.KeyDown(Key.Right, false)))
     @Expect(selected.value, Int64(0))
@@ -190,6 +233,7 @@ func stepperClampsRangeWithoutIntegerOverflow(): Unit {
     stepper.layout(ctx, Rect(0.0, 0.0, 144.0, 38.0))
 
     @Expect(stepper.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 136.0, 12.0)))
+    @Expect(stepper.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 136.0, 12.0)))
     @Expect(value.value, Int64(10))
     @Expect(stepper.handle(ctx, UiEvent.KeyDown(Key.Left, false)))
     @Expect(value.value, Int64(7))
@@ -208,6 +252,7 @@ func stepperStepsAtInt64ExtremesWithoutOverflow(): Unit {
     let highStepper = Stepper(high, key: "high", lower: Int64.Max - 2, upper: Int64.Max, step: 5)
     highStepper.layout(ctx, Rect(0.0, 0.0, 144.0, 38.0))
     @Expect(highStepper.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 18.0, 12.0)))
+    @Expect(highStepper.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 18.0, 12.0)))
     @Expect(high.value, Int64.Max - 2)
 
     // Range crammed against Int64.Min: pressing increment saturates at Int64.Max then clamps to the
@@ -216,6 +261,7 @@ func stepperStepsAtInt64ExtremesWithoutOverflow(): Unit {
     let lowStepper = Stepper(low, key: "low", lower: Int64.Min, upper: Int64.Min + 2, step: 5)
     lowStepper.layout(ctx, Rect(0.0, 0.0, 144.0, 38.0))
     @Expect(lowStepper.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 126.0, 12.0)))
+    @Expect(lowStepper.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 126.0, 12.0)))
     @Expect(low.value, Int64.Min + 2)
 }
 

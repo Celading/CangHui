@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangjieGUI.ArkUI.20260726.2",
+  "matrixVersion": "CangjieGUI.ArkUI.20260726.3",
   "projectVersion": "0.9.2",
   "reference": {
     "family": "OpenHarmony ArkUI",
@@ -90,12 +90,12 @@
   ],
   "proof": {
     "rootBuild": "pass",
-    "rootTests": "431/431",
-    "sdlTests": "81/81",
+    "rootTests": "442/442",
+    "sdlTests": "82/82",
     "galleryPackageTests": "2/2",
-    "desktopActionsSnapshotSha256": "9c9eb42146938acd1325065fcddb1c0d9947251d0e9938f3f3088ae4fc960e63",
-    "compactActionsSnapshotSha256": "686922d340303db25e3a138a8bc76241ac61d041046af6648ee5768f4b33ad28",
-    "compactNavigationSnapshotSha256": "bb8517ff53d676b719f5304be879956960d6ed9509df310e953265d901bb30b7"
+    "desktopSelectionSnapshotSha256": "e374a7652e46586ab46715a1d5f89cd02617f1c60beedef26c5797d4675bd496",
+    "desktopNavigationSnapshotSha256": "d8b3bd72d704931944d7d12ee309be37f36eee6a22c648ec89e4ca7f3c43dde6",
+    "compactNavigationSnapshotSha256": "5f94a776ad965c3bcba477c1a4e07cd1d3048051eed04eba77eb75fe15f3237d"
   },
   "nonClaims": [
     "No iOS runtime adaptation is included in this packet.",

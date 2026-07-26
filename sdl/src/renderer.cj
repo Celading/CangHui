@@ -593,6 +593,19 @@ public class Renderer {
         geometry.fillCircle(ptr, Point(cx, cy), radius, color)
     }
 
+    /** Draws a circular ripple clipped to the exact rounded-rectangle silhouette. */
+    public func fillRoundedRipple(
+        frame: Rect,
+        cornerRadius: Float32,
+        cx: Float32,
+        cy: Float32,
+        rippleRadius: Float32,
+        color: Color
+    ): Unit {
+        geometry.fillRoundedRipple(ptr, frame, roundedRadius(frame, cornerRadius),
+            Point(cx, cy), rippleRadius, color)
+    }
+
     /** Reveals a full-frame texture through one anti-aliased circular mesh. */
     public func texturedCircle(
         texture: Texture,

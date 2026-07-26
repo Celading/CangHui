@@ -33,6 +33,7 @@ public class GallerySurfaceState {
     public let rating = State<Int64>(4)
     public let page = State<Int64>(2)
     public let step = State<Int64>(1)
+    public let breadcrumbIndex = State<Int64>(2)
 }
 
 /** One named component catalogue rendered unchanged for compact, medium and expanded hosts. */
@@ -208,15 +209,25 @@ private func navigationComponents(state: GallerySurfaceState): Unit {
     VStack {
         categoryHeader("Navigation", "Location, progress and disclosure components")
         specimen("Breadcrumb", "cui.Breadcrumb") {
-            Breadcrumb(["CUI", "Navigation", "Current"], maxItems: 3)
+            Breadcrumb(["CUI", "Navigation", "Motion", "Current"], maxItems: 4,
+                clickable: true, historyShow: true, history: Some(state.breadcrumbIndex),
+                onSelect: {_ => ()}, key: "gallery-breadcrumb")
         }
         specimen("Pagination", "cui.Pagination") {
             Pagination(8, state.page, key: "gallery-pagination")
         }
         specimen("StepIndicator", "cui.StepIndicator") {
-            StepIndicator(["Pull", "Merge", "Prove", "Ship"], state.step.value,
-                onSelect: {index => state.step.value = index}, key: "gallery-steps")
-                .animation(AnimationSpec.automatic(duration: Motion.slow, easing: Motion.standard))
+            VStack {
+                StepIndicator(["Pull", "Merge", "Prove", "Ship"], state.step.value,
+                    onSelect: {index => state.step.value = index}, key: "gallery-steps")
+                    .animation(AnimationSpec.automatic(duration: Motion.slow, easing: Motion.standard))
+                HStack {
+                    Button("Previous", {=> state.step.value = max(0, state.step.value - 1)})
+                        .key("gallery-steps-previous")
+                    Button("Next", {=> state.step.value = min(3, state.step.value + 1)}, role: ButtonRole.Primary)
+                        .key("gallery-steps-next")
+                }.spacing(10.vp).hug()
+            }.spacing(10.vp).hug()
         }
         specimen("Accordion", "cui.Accordion") {
             Accordion([

@@ -54,7 +54,7 @@ public class Checkbox <: Widget {
             0.0
         }
         let t = fillSpring.animate(ctx, target: goal)
-        let box = Rect(frame.x, frame.y + 7.0, 18.0, 18.0)
+        let box = indicatorFrame()
         drawSurface(ctx, box, ctx.theme.fieldSurface(false).withBorder(ctx.theme.panelEdge.lerp(ctx.theme.accent, t)))
         // The fill grows from the centre to fill the box as it is ticked.
         if (t > 0.001) {
@@ -72,19 +72,23 @@ public class Checkbox <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        if (handlePointerClick(ctx, event, frame, controlId, {=> checked.value = !checked.value})) {
+        let box = indicatorFrame()
+        if (handlePointerClick(ctx, event, frame, controlId, {=> checked.value = !checked.value},
+            inkFrame: Some(box), inkRadius: ctx.theme.smallRadius, inkColor: Some(ctx.theme.inkColor()))) {
             return true
         }
         match (event) {
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
+                    ctx.startInkRipple(controlId, box, box.centerX(), box.centerY(),
+                        color: Some(ctx.theme.inkColor()), cornerRadius: ctx.theme.smallRadius)
                     checked.value = !checked.value
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
                 if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
+                    ctx.startInkRipple(controlId, box, box.centerX(), box.centerY(),
+                        color: Some(ctx.theme.inkColor()), cornerRadius: ctx.theme.smallRadius)
                     checked.value = !checked.value
                     return true
                 }
@@ -96,6 +100,14 @@ public class Checkbox <: Widget {
     public func focusableId(): ?String {
         Some(controlId)
     }
+
+    private func indicatorFrame(): Rect {
+        checkboxIndicatorFrame(frame)
+    }
+}
+
+internal func checkboxIndicatorFrame(frame: Rect): Rect {
+    Rect(frame.x, frame.y + 7.0, 18.0, 18.0)
 }
 
 public class ListView <: Widget {

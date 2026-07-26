@@ -312,14 +312,21 @@ public class ScrollView <: Widget {
     private let child: Widget
     private var scrollOffset: State<Float32>
     private let scrollBar: ScrollBar
+    private let preserveDynamicAnchor: State<Bool>
+    private let previousRawHeight: State<Float32>
+    private let retainedTailPadding: State<Float32>
     private var frame = Rect.zero()
     private var contentHeight: Float32 = 0.0
+    private var rawContentHeight: Float32 = 0.0
 
     public init(key!: ?String = None, body!: () -> Unit) {
         let ident = resolveControlKey(key, "ScrollView")
         child = buildChild(body)
         scrollOffset = localState<Float32>("ScrollView:${ident}:offset") {0.0}
         scrollBar = ScrollBar("ScrollView:${ident}:thumb")
+        preserveDynamicAnchor = localState<Bool>("ScrollView:${ident}:preserve-anchor") {false}
+        previousRawHeight = localState<Float32>("ScrollView:${ident}:previous-raw-height") {0.0}
+        retainedTailPadding = localState<Float32>("ScrollView:${ident}:retained-tail-padding") {0.0}
         emit(this)
     }
 
@@ -344,7 +351,19 @@ public class ScrollView <: Widget {
             contentWidth = max(0.0, rect.w - scrollBarGutter())
             measured = child.measure(ctx, Size(contentWidth, LAYOUT_UNBOUNDED))
         }
-        contentHeight = measured.h
+        rawContentHeight = measured.h
+        if (preserveDynamicAnchor.value && previousRawHeight.value > 0.0) {
+            let delta = rawContentHeight - previousRawHeight.value
+            if (delta < 0.0) {
+                retainedTailPadding.value += -delta
+            } else if (delta > 0.0 && retainedTailPadding.value > 0.0) {
+                retainedTailPadding.value = max(0.0, retainedTailPadding.value - delta)
+            }
+        } else if (!preserveDynamicAnchor.value && retainedTailPadding.value != 0.0) {
+            retainedTailPadding.value = 0.0
+        }
+        previousRawHeight.value = rawContentHeight
+        contentHeight = rawContentHeight + retainedTailPadding.value
         // Clamp writes only on change: layout runs every frame, and the offset may be an
         // externally owned state whose observers should not fire for no-op writes.
         let clamped = clampScrollOffset(scrollOffset.value, contentHeight, rect.h)
@@ -365,15 +384,22 @@ public class ScrollView <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        // A request is event-local to a descendant of this view. Discard any stale request left by
+        // a control outside this subtree before offering the current event to our child.
+        let _ = ctx.takeScrollAnchorRequest()
         match (event) {
             case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
                 // A surface whose content fits does not own the wheel: consuming here would open a
                 // dead zone inside an enclosing scroller, so the event falls through instead.
                 if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentHeight, frame.h) > 0.0) {
+                    releaseDynamicAnchor()
                     scrollOffset.value = scrollOffsetAfterWheel(scrollOffset.value, wheelY, contentHeight, frame.h)
                     return true
                 }
             case UiEvent.MouseDown(_, x, y) =>
+                if (scrollBarTrackRect(frame).contains(x, y)) {
+                    releaseDynamicAnchor()
+                }
                 if (scrollBar.press(ctx, frame, scrollOffset, contentHeight, frame.h, x, y)) {
                     return true
                 }
@@ -396,7 +422,11 @@ public class ScrollView <: Widget {
                 }
             case _ => ()
         }
-        child.handle(ctx, event)
+        let handled = child.handle(ctx, event)
+        if (ctx.takeScrollAnchorRequest()) {
+            preserveDynamicAnchor.value = true
+        }
+        handled
     }
 
     public func isFlexible(): Bool {
@@ -405,6 +435,13 @@ public class ScrollView <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    private func releaseDynamicAnchor(): Unit {
+        preserveDynamicAnchor.value = false
+        retainedTailPadding.value = 0.0
+        contentHeight = rawContentHeight
+        scrollOffset.value = clampScrollOffset(scrollOffset.value, contentHeight, frame.h)
     }
 }
 

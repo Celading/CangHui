@@ -156,7 +156,10 @@ public class Accordion <: Widget {
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         for (i in 0..titles.size) {
-            if (handlePointerClick(ctx, event, headerRects[i], headerIds[i], {=> toggleSection(i)})) {
+            if (handlePointerClick(ctx, event, headerRects[i], headerIds[i], {=>
+                ctx.preserveScrollAnchor()
+                toggleSection(i)
+            }, inkRadius: ctx.theme.smallRadius, inkColor: Some(ctx.theme.inkColor()))) {
                 return true
             }
         }
@@ -213,7 +216,9 @@ public class Accordion <: Widget {
     private func toggleFocusedHeader(ctx: UiContext): Bool {
         for (i in 0..titles.size) {
             if (ctx.hasFocus(headerIds[i])) {
-                ctx.startInkRipple(headerIds[i], headerRects[i], headerRects[i].centerX(), headerRects[i].centerY())
+                ctx.preserveScrollAnchor()
+                ctx.startInkRipple(headerIds[i], headerRects[i], headerRects[i].centerX(), headerRects[i].centerY(),
+                    color: Some(ctx.theme.inkColor()), cornerRadius: ctx.theme.smallRadius)
                 toggleSection(i)
                 return true
             }

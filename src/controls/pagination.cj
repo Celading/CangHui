@@ -2,7 +2,8 @@ package cui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, CursorShape, UiContext, Widget, resolveControlKey, emit}
+import cui.core.{AnimationSpec, Animator, Bindable, InteractionAnimation, Motion, State, UiContext, Widget,
+    resolveControlKey, emit, handlePointerClick, localState}
 
 private let PAGE_BTN_W: Float32 = 34.0
 private let PAGE_BTN_H: Float32 = 34.0
@@ -21,22 +22,45 @@ public class Pagination <: Widget {
     private let pageCount: Int64
     private let current: Bindable<Int64>
     private let items: Array<Int64>
+    private let maxItemCells: Int64
     private var frame = Rect.zero()
     private var prevRect = Rect.zero()
     private var nextRect = Rect.zero()
     private let itemRects: Array<Rect>
+    private let itemAnimations: Array<InteractionAnimation>
+    private let prevAnimation: InteractionAnimation
+    private let nextAnimation: InteractionAnimation
+    private let selectionX: Animator
+    private let selectionInitialized: State<Bool>
 
     public init(pageCount: Int64, current: Bindable<Int64>, window!: Int64 = 1, key!: ?String = None) {
-        this.id = resolveControlKey(key, "Pagination")
-        this.pageCount = max(1, pageCount)
+        let ident = resolveControlKey(key, "Pagination")
+        let normalizedCount = max(1, pageCount)
+        let builtItems = paginationItems(normalizedCount, clampPage(current.value, normalizedCount), max(0, window))
+        this.id = ident
+        this.pageCount = normalizedCount
         this.current = current
-        this.items = paginationItems(this.pageCount, clampPage(current.value, this.pageCount), max(0, window))
-        this.itemRects = Array<Rect>(this.items.size, {_ => Rect.zero()})
+        this.items = builtItems
+        this.maxItemCells = min(normalizedCount, max(1, max(0, window) * 2 + 5))
+        this.itemRects = Array<Rect>(builtItems.size, {_ => Rect.zero()})
+        this.itemAnimations = Array<InteractionAnimation>(builtItems.size, {i =>
+            localState<InteractionAnimation>("Pagination:${ident}:item:${i}:${builtItems[i]}") {
+                InteractionAnimation()
+            }.value
+        })
+        this.prevAnimation = localState<InteractionAnimation>("Pagination:${ident}:previous") {
+            InteractionAnimation()
+        }.value
+        this.nextAnimation = localState<InteractionAnimation>("Pagination:${ident}:next") {
+            InteractionAnimation()
+        }.value
+        this.selectionX = localState<Animator>("Pagination:${ident}:selection-x") {Animator(0.0)}.value
+        this.selectionInitialized = localState<Bool>("Pagination:${ident}:selection-initialized") {false}
         emit(this)
     }
 
     public func measure(_: UiContext, _: Size): Size {
-        let cells = Float32(items.size + 2) // page cells plus the two arrows
+        let cells = Float32(maxItemCells + 2) // stable maximum page cells plus the two arrows
         Size(cells * PAGE_BTN_W + (cells - 1.0) * PAGE_GAP, PAGE_BTN_H)
     }
 
@@ -49,79 +73,71 @@ public class Pagination <: Widget {
             itemRects[i] = Rect(cursor, rect.y, PAGE_BTN_W, PAGE_BTN_H)
             cursor += PAGE_BTN_W + PAGE_GAP
         }
-        nextRect = Rect(cursor, rect.y, PAGE_BTN_W, PAGE_BTN_H)
+        nextRect = Rect(rect.x + Float32(maxItemCells + 1) * (PAGE_BTN_W + PAGE_GAP),
+            rect.y, PAGE_BTN_W, PAGE_BTN_H)
     }
 
     public func draw(ctx: UiContext): Unit {
         let page = clampPage(current.value, pageCount)
-        drawArrow(ctx, prevRect, true, page > 0)
+        let selectedRect = currentPageRect(page)
+        if (!selectionInitialized.value) {
+            selectionX.reset(selectedRect.x)
+            selectionInitialized.value = true
+        }
+        let selectedX = selectionX.animate(ctx, target: selectedRect.x,
+            spec: AnimationSpec.automatic(duration: Motion.normal, easing: Motion.decelerate))
+        ctx.renderer.fillRoundedRect(Rect(selectedX, selectedRect.y, selectedRect.w, selectedRect.h),
+            ctx.theme.smallRadius, ctx.theme.accent)
+        drawArrow(ctx, prevRect, true, page > 0, prevAnimation, "${id}:previous")
         for (i in 0..items.size) {
             let value = items[i]
             if (value == PAGE_ELLIPSIS) {
                 drawEllipsis(ctx, itemRects[i])
             } else {
-                drawPage(ctx, itemRects[i], value, value == page)
+                drawPage(ctx, itemRects[i], value, value == page, itemAnimations[i], "${id}:page:${value}")
             }
         }
-        drawArrow(ctx, nextRect, false, page < pageCount - 1)
+        drawArrow(ctx, nextRect, false, page < pageCount - 1, nextAnimation, "${id}:next")
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        match (event) {
-            case UiEvent.MouseMove(x, y) => if (clickableAt(x, y)) {
-                ctx.claimHover(id, CursorShape.Interactive)
+        let page = clampPage(current.value, pageCount)
+        if (page > 0 && handlePointerClick(ctx, event, prevRect, "${id}:previous", {=> current.value = page - 1},
+            inkRadius: ctx.theme.smallRadius, inkColor: Some(ctx.theme.inkColor()), claimFocus: false)) {
+            return true
+        }
+        if (page < pageCount - 1 && handlePointerClick(ctx, event, nextRect, "${id}:next",
+            {=> current.value = page + 1}, inkRadius: ctx.theme.smallRadius,
+            inkColor: Some(ctx.theme.inkColor()), claimFocus: false)) {
+            return true
+        }
+        for (i in 0..items.size) {
+            let target = items[i]
+            if (target != PAGE_ELLIPSIS && handlePointerClick(ctx, event, itemRects[i], "${id}:page:${target}",
+                {=> current.value = target}, inkRadius: ctx.theme.smallRadius,
+                inkColor: Some(ctx.theme.inkColor()), claimFocus: false)) {
+                return true
             }
+        }
+        match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-                let page = clampPage(current.value, pageCount)
-                if (prevRect.contains(x, y)) {
-                    if (page > 0) {
-                        current.value = page - 1
-                    }
+                if (prevRect.contains(x, y) || nextRect.contains(x, y)) {
                     return true
-                }
-                if (nextRect.contains(x, y)) {
-                    if (page < pageCount - 1) {
-                        current.value = page + 1
-                    }
-                    return true
-                }
-                for (i in 0..items.size) {
-                    if (items[i] != PAGE_ELLIPSIS && itemRects[i].contains(x, y)) {
-                        current.value = items[i]
-                        return true
-                    }
                 }
             case _ => ()
         }
         false
     }
 
-    // The pointer is over a clickable target: an enabled arrow or a real (non-ellipsis) page cell.
-    // The ellipsis cell and a disabled arrow keep the default cursor.
-    private func clickableAt(x: Float32, y: Float32): Bool {
-        let page = clampPage(current.value, pageCount)
-        if (prevRect.contains(x, y)) {
-            return page > 0
-        }
-        if (nextRect.contains(x, y)) {
-            return page < pageCount - 1
-        }
-        for (i in 0..items.size) {
-            if (items[i] != PAGE_ELLIPSIS && itemRects[i].contains(x, y)) {
-                return true
-            }
-        }
-        false
-    }
-
-    private func drawPage(ctx: UiContext, rect: Rect, page: Int64, isCurrent: Bool): Unit {
-        let hovered = rect.contains(ctx.mouseX, ctx.mouseY)
-        if (isCurrent) {
-            ctx.renderer.fillRoundedRect(rect, ctx.theme.smallRadius, ctx.theme.accent)
-        } else if (hovered) {
-            ctx.renderer.fillRoundedRect(rect, ctx.theme.smallRadius, ctx.theme.fieldActive)
-        } else {
-            ctx.renderer.fillRoundedRect(rect, ctx.theme.smallRadius, ctx.theme.field)
+    private func drawPage(ctx: UiContext, rect: Rect, page: Int64, isCurrent: Bool,
+        animation: InteractionAnimation, cellId: String): Unit {
+        let progress = animation.animate(ctx, ctx.isHovered(cellId), ctx.isPressed(cellId),
+            AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate))
+        if (!isCurrent) {
+            let inset = progress.press * 1.2
+            let visual = rect.inset(inset)
+            ctx.renderer.fillRoundedRect(visual, ctx.theme.smallRadius,
+                ctx.theme.field.lerp(ctx.theme.fieldActive, progress.hover).lerp(ctx.theme.accentSoft, progress.press))
         }
         let color = if (isCurrent) {
             ctx.theme.accentText
@@ -136,14 +152,13 @@ public class Pagination <: Widget {
         drawCentered(ctx, "…", rect, ctx.theme.mutedText)
     }
 
-    private func drawArrow(ctx: UiContext, rect: Rect, pointsLeft: Bool, enabled: Bool): Unit {
-        let hovered = enabled && rect.contains(ctx.mouseX, ctx.mouseY)
-        let fill = if (hovered) {
-            ctx.theme.fieldActive
-        } else {
-            ctx.theme.field
-        }
-        ctx.renderer.fillRoundedRect(rect, ctx.theme.smallRadius, fill)
+    private func drawArrow(ctx: UiContext, rect: Rect, pointsLeft: Bool, enabled: Bool,
+        animation: InteractionAnimation, cellId: String): Unit {
+        let progress = animation.animate(ctx, enabled && ctx.isHovered(cellId), enabled && ctx.isPressed(cellId),
+            AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate))
+        let visual = rect.inset(progress.press * 1.2)
+        ctx.renderer.fillRoundedRect(visual, ctx.theme.smallRadius,
+            ctx.theme.field.lerp(ctx.theme.fieldActive, progress.hover).lerp(ctx.theme.accentSoft, progress.press))
         let color = if (enabled) {
             ctx.theme.text
         } else {
@@ -165,6 +180,15 @@ public class Pagination <: Widget {
         let w = ctx.renderer.textWidth(text, pointSize: FontSizes.CONTROL)
         let h = ctx.renderer.textHeight(pointSize: FontSizes.CONTROL)
         ctx.renderer.text(text, rect.centerX() - w / 2.0, rect.centerY() - h / 2.0, color, pointSize: FontSizes.CONTROL)
+    }
+
+    private func currentPageRect(page: Int64): Rect {
+        for (i in 0..items.size) {
+            if (items[i] == page) {
+                return itemRects[i]
+            }
+        }
+        itemRects[0]
     }
 }
 

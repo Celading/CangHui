@@ -90,10 +90,15 @@ main() {
 
 Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染器、生命周期、IME、无障碍、签名和打包仍由宿主适配层实现，不构成对应平台运行或发布声明。
 
-主题切换保留指针起点的圆形 reveal 与控件 InkWell；它们已接入按需渲染循环，通过连续帧请求在脏帧跳过模式下完成动画。
+主题切换保留指针起点的圆形 reveal 与控件 InkWell；InkWell 从当前主题语义色派生，按控件圆角真实裁切，
+并允许点击热区与视觉反馈区分离。Checkbox、Switch、RadioButton 只在 indicator/track 内表达反馈，
+Slider 的任意轨道点击也会产生局部反馈。它们已接入按需渲染循环，通过连续帧请求在脏帧跳过模式下完成动画。
 Component Gallery 按 Actions、Selection、Navigation、Feedback 四类展示具名组件与 `cui.*` API，
 并可直接切换 Basic、Standard、Full 动效力度。Button 与 IconButton 共用 hover、press、InkWell、
-移出取消和 release-inside 激活语义；Accordion 与 StepIndicator 也使用同一自动动画配置模型。
+移出取消和 release-inside 激活语义；Chip、Breadcrumb、Pagination、Rating、Picker 与 Stepper 也遵守
+同一提交门。Stepper/Picker 使用方向文字切换，Rating 区分已选与 hover 预览，Breadcrumb 支持可回退和
+重新前进的 history 高亮，Pagination 使用稳定槽位和滑动选中底板，Dropdown 与 Accordion 使用保留动画；
+Accordion 在滚动容器内展开收起时保持当前视觉锚点。StepIndicator 的 Gallery 范例提供独立前后步骤按钮。
 
 ## 许可证
 

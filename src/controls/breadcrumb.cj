@@ -1,8 +1,8 @@
 package cui.controls
 
 import std.collection.ArrayList
-import sdl.{Color, FontSizes, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{CursorShape, UiContext, Widget, resolveControlKey, emit}
+import sdl.{Color, FontSizes, Pen, Rect, Size, UiEvent}
+import cui.core.{Bindable, UiContext, Widget, resolveControlKey, emit, handlePointerClick, localState}
 
 private let BC_H: Float32 = 28.0
 private let BC_HPAD: Float32 = 7.0
@@ -21,14 +21,32 @@ public class Breadcrumb <: Widget {
     private let id: String
     private let segments: Array<String>
     private let onSelect: ?(Int64) -> Unit
+    private let clickable: Bool
+    private let historyShow: Bool
+    private let historyIndex: Bindable<Int64>
     private let items: Array<Int64>
     private var frame = Rect.zero()
     private let itemRects: Array<Rect>
 
-    public init(segments: Array<String>, onSelect!: ?(Int64) -> Unit = None, maxItems!: Int64 = 0, key!: ?String = None) {
-        this.id = resolveControlKey(key, "Breadcrumb")
+    public init(
+        segments: Array<String>,
+        onSelect!: ?(Int64) -> Unit = None,
+        maxItems!: Int64 = 0,
+        key!: ?String = None,
+        clickable!: Bool = true,
+        historyShow!: Bool = false,
+        history!: ?Bindable<Int64> = None
+    ) {
+        let ident = resolveControlKey(key, "Breadcrumb")
+        this.id = ident
         this.segments = segments
         this.onSelect = onSelect
+        this.clickable = clickable
+        this.historyShow = historyShow
+        this.historyIndex = match (history) {
+            case Some(value) => value
+            case None => localState<Int64>("Breadcrumb:${ident}:history") {max(0, segments.size - 1)}
+        }
         this.items = breadcrumbItems(segments.size, maxItems)
         this.itemRects = Array<Rect>(this.items.size, {_ => Rect.zero()})
         emit(this)
@@ -73,56 +91,39 @@ public class Breadcrumb <: Widget {
                 drawSegment(ctx, r, idx)
             }
             if (i < items.size - 1) {
-                drawSeparator(ctx, Rect(r.right(), r.y, BC_SEP_W, r.h))
+                let faded = historyShow && idx >= 0 && idx >= activeIndex()
+                drawSeparator(ctx, Rect(r.right(), r.y, BC_SEP_W, r.h), if (faded) { 90 } else { 160 })
             }
         }
         ctx.renderer.popClip()
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        match (event) {
-            case UiEvent.MouseMove(x, y) => if (clickableIndexAt(x, y) >= 0) {
-                ctx.claimHover(id, CursorShape.Interactive)
+        for (i in 0..items.size) {
+            let index = items[i]
+            if (isSegmentClickable(index) && handlePointerClick(ctx, event, itemRects[i], "${id}:segment:${index}",
+                {=> select(index)}, inkRadius: ctx.theme.smallRadius, inkColor: Some(ctx.theme.inkColor()),
+                claimFocus: false)) {
+                return true
             }
-            case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-                let hit = clickableIndexAt(x, y)
-                if (hit >= 0) {
-                    match (onSelect) {
-                        case Some(callback) =>
-                            callback(hit)
-                            return true
-                        case None => ()
-                    }
-                }
-            case _ => ()
         }
         false
     }
 
-    // The segment index under a pointer that is a clickable link (a real, non-current segment with an
-    // `onSelect`), or -1.
-    private func clickableIndexAt(x: Float32, y: Float32): Int64 {
-        if (onSelect.isNone()) {
-            return -1
-        }
-        for (i in 0..items.size) {
-            let idx = items[i]
-            if (idx != BC_ELLIPSIS && idx != segments.size - 1 && itemRects[i].contains(x, y)) {
-                return idx
-            }
-        }
-        -1
-    }
-
     private func drawSegment(ctx: UiContext, r: Rect, idx: Int64): Unit {
-        let isCurrent = idx == segments.size - 1
-        let clickable = !isCurrent && onSelect.isSome()
-        if (clickable && r.contains(ctx.mouseX, ctx.mouseY)) {
+        let active = activeIndex()
+        let isCurrent = idx == active
+        let canClick = isSegmentClickable(idx)
+        if (isCurrent && historyShow) {
+            ctx.renderer.fillRoundedRect(r, ctx.theme.smallRadius, ctx.theme.accentSoft)
+        } else if (canClick && r.contains(ctx.mouseX, ctx.mouseY)) {
             ctx.renderer.fillRoundedRect(r, ctx.theme.smallRadius, ctx.theme.fieldActive)
         }
         let color = if (isCurrent) {
-            ctx.theme.text
-        } else if (clickable) {
+            if (historyShow) { ctx.theme.accent } else { ctx.theme.text }
+        } else if (historyShow && idx > active) {
+            ctx.theme.mutedText.withAlpha(105)
+        } else if (canClick) {
             ctx.theme.accent
         } else {
             ctx.theme.mutedText
@@ -135,10 +136,10 @@ public class Breadcrumb <: Widget {
         ctx.renderer.text(text, r.x + BC_HPAD, ty, color, pointSize: FontSizes.CONTROL)
     }
 
-    private func drawSeparator(ctx: UiContext, box: Rect): Unit {
+    private func drawSeparator(ctx: UiContext, box: Rect, alpha: Int64): Unit {
         let cx = box.centerX()
         let cy = box.centerY()
-        let pen = Pen(width: 1.5, color: ctx.theme.mutedText.withAlpha(160))
+        let pen = Pen(width: 1.5, color: ctx.theme.mutedText.withAlpha(alpha))
         ctx.renderer.strokeLine(cx - 2.0, cy - 4.0, cx + 2.0, cy, pen)
         ctx.renderer.strokeLine(cx + 2.0, cy, cx - 2.0, cy + 4.0, pen)
     }
@@ -150,6 +151,35 @@ public class Breadcrumb <: Widget {
             segments[idx]
         }
         ctx.renderer.textWidth(label, pointSize: FontSizes.CONTROL) + 2.0 * BC_HPAD
+    }
+
+    private func activeIndex(): Int64 {
+        if (!historyShow || segments.isEmpty()) {
+            max(0, segments.size - 1)
+        } else {
+            max(0, min(segments.size - 1, historyIndex.get()))
+        }
+    }
+
+    private func isSegmentClickable(index: Int64): Bool {
+        if (!clickable || index == BC_ELLIPSIS || segments.isEmpty()) {
+            return false
+        }
+        if (historyShow) {
+            index != activeIndex()
+        } else {
+            index != segments.size - 1 && onSelect.isSome()
+        }
+    }
+
+    private func select(index: Int64): Unit {
+        if (historyShow) {
+            historyIndex.value = index
+        }
+        match (onSelect) {
+            case Some(callback) => callback(index)
+            case None => ()
+        }
     }
 }
 

@@ -1,8 +1,7 @@
 package cui.controls
 
-import sdl.{FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, CursorShape, UiContext, Widget, resolveControlKey, claimHoverIfInside, emit,
-    registerFocusable}
+import sdl.{FontSizes, Key, Pen, Rect, Size, UiEvent}
+import cui.core.{Bindable, UiContext, Widget, resolveControlKey, emit, handlePointerClick, registerFocusable}
 
 private let CHIP_H: Float32 = 28.0
 private let CHIP_HPAD: Float32 = 12.0
@@ -70,13 +69,11 @@ public class Chip <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
+        if (handlePointerClick(ctx, event, frame, id, {=> toggle()},
+            inkRadius: frame.h / 2.0, inkColor: Some(ctx.theme.inkColor()))) {
+            return true
+        }
         match (event) {
-            case UiEvent.MouseDown(MouseButton.Left, x, y) => if (frame.contains(x, y)) {
-                ctx.focus(id)
-                toggle()
-                return true
-            }
             case UiEvent.KeyDown(Key.Space, _) => return toggleIfFocused(ctx)
             case UiEvent.KeyDown(Key.Enter, _) => return toggleIfFocused(ctx)
             case _ => ()
@@ -90,6 +87,8 @@ public class Chip <: Widget {
 
     private func toggleIfFocused(ctx: UiContext): Bool {
         if (ctx.hasFocus(id)) {
+            ctx.startInkRipple(id, frame, frame.centerX(), frame.centerY(),
+                color: Some(ctx.theme.inkColor()), cornerRadius: frame.h / 2.0)
             toggle()
             return true
         }

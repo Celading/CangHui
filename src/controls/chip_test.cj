@@ -27,9 +27,25 @@ func chipTogglesOnClick(): Unit {
     let chip = Chip("待办", on, key: "c")
     chip.layout(ctx, Rect(20.0, 40.0, 80.0, 28.0))
     @Expect(chip.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 40.0, 54.0)))
+    @Expect(!on.value) // press alone does not commit
+    @Expect(chip.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 40.0, 54.0)))
     @Expect(on.value) // toggled on
     @Expect(chip.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 40.0, 54.0)))
+    @Expect(chip.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 40.0, 54.0)))
     @Expect(!on.value) // toggled back off
+}
+
+@Test
+func chipMoveOutCancelsTheWholePress(): Unit {
+    let ctx = chipTestContext()
+    let on = State<Bool>(false)
+    let chip = Chip("待办", on, key: "cancel")
+    chip.layout(ctx, Rect(20.0, 40.0, 80.0, 28.0))
+
+    @Expect(chip.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 40.0, 54.0)))
+    let _ = chip.handle(ctx, UiEvent.MouseMove(120.0, 54.0))
+    @Expect(!chip.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 40.0, 54.0)))
+    @Expect(!on.value)
 }
 
 @Test

@@ -1,7 +1,7 @@
 package cui.core
 
 import std.collection.ArrayList
-import sdl.{MouseButton, Rect, Size, UiEvent}
+import sdl.{Color, MouseButton, Point, Rect, Size, UiEvent}
 
 /*
  * Declarative builder support.
@@ -279,7 +279,12 @@ public func handlePointerClick(
     frame: Rect,
     id: String,
     activate: () -> Unit,
-    ink!: Bool = true
+    ink!: Bool = true,
+    inkFrame!: ?Rect = None,
+    inkRadius!: Float32 = 0.0,
+    inkColor!: ?Color = None,
+    focusTarget!: ?String = None,
+    claimFocus!: Bool = true
 ): Bool {
     claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
     match (event) {
@@ -290,10 +295,18 @@ public func handlePointerClick(
             }
         case UiEvent.MouseDown(MouseButton.Left, x, y) =>
             if (frame.contains(x, y)) {
-                ctx.focus(id)
+                if (claimFocus) {
+                    ctx.focus(match (focusTarget) {
+                        case Some(value) => value
+                        case None => id
+                    })
+                }
                 ctx.press(id)
                 if (ink) {
-                    ctx.startInkRipple(id, frame, x, y)
+                    let resolvedInkFrame = resolveInkRippleFrame(frame, inkFrame)
+                    let origin = resolveInkRippleOrigin(resolvedInkFrame, x, y)
+                    ctx.startInkRipple(id, resolvedInkFrame, origin.x, origin.y,
+                        color: inkColor, cornerRadius: inkRadius)
                 }
                 return true
             }
@@ -311,6 +324,21 @@ public func handlePointerClick(
         case _ => ()
     }
     false
+}
+
+internal func resolveInkRippleFrame(hitFrame: Rect, inkFrame: ?Rect): Rect {
+    match (inkFrame) {
+        case Some(value) => value
+        case None => hitFrame
+    }
+}
+
+internal func resolveInkRippleOrigin(inkFrame: Rect, x: Float32, y: Float32): Point {
+    if (inkFrame.contains(x, y)) {
+        Point(x, y)
+    } else {
+        Point(inkFrame.centerX(), inkFrame.centerY())
+    }
 }
 
 /*

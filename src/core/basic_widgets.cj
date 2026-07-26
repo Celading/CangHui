@@ -136,19 +136,22 @@ public class Button <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        if (handlePointerClick(ctx, event, frame, controlId, onClick)) {
+        if (handlePointerClick(ctx, event, frame, controlId, onClick,
+            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor(role: buttonRole)))) {
             return true
         }
         match (event) {
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
+                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
                     onClick()
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
                 if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
+                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
                     onClick()
                     return true
                 }

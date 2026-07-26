@@ -257,6 +257,139 @@ internal class GeometryBatch {
         }
     }
 
+    /**
+     * Intersects an expanding circle with a rounded rectangle before tessellation. Both paths are
+     * convex, so Sutherland-Hodgman clipping produces the exact visible InkWell silhouette without
+     * a rectangular scissor leaking through the corners.
+     */
+    func fillRoundedRipple(
+        renderer: CPointer<Unit>,
+        rect: Rect,
+        cornerRadius: Float32,
+        center: Point,
+        rippleRadius: Float32,
+        color: Color
+    ): Unit {
+        if (renderer.isNull() || rect.w <= 0.0 || rect.h <= 0.0 || rippleRadius <= 0.0) {
+            return
+        }
+        let clipped = roundedRipplePath(rect, cornerRadius, center, rippleRadius)
+        if (clipped.size < 3) {
+            return
+        }
+        pathX.clear()
+        pathY.clear()
+        for (point in clipped) {
+            pathAdd(point.x, point.y)
+        }
+        fillPath(renderer, color, 0.1)
+    }
+
+    /** Pure polygon result shared by rendering and direct geometry regression tests. */
+    internal func roundedRipplePath(
+        rect: Rect,
+        cornerRadius: Float32,
+        center: Point,
+        rippleRadius: Float32
+    ): Array<Point> {
+        if (rect.w <= 0.0 || rect.h <= 0.0 || rippleRadius <= 0.0) {
+            return []
+        }
+        buildRoundedRectPath(rect, cornerRadius)
+        let clipX = ArrayList<Float32>()
+        let clipY = ArrayList<Float32>()
+        for (i in 0..pathX.size) {
+            clipX.add(pathX[i])
+            clipY.add(pathY[i])
+        }
+        buildCirclePath(center, rippleRadius, 40)
+        var subjectX = ArrayList<Float32>()
+        var subjectY = ArrayList<Float32>()
+        for (i in 0..pathX.size) {
+            subjectX.add(pathX[i])
+            subjectY.add(pathY[i])
+        }
+        for (edge in 0..clipX.size) {
+            if (subjectX.isEmpty()) {
+                break
+            }
+            let nextEdge = (edge + 1) % clipX.size
+            let ax = clipX[edge]
+            let ay = clipY[edge]
+            let bx = clipX[nextEdge]
+            let by = clipY[nextEdge]
+            let outputX = ArrayList<Float32>()
+            let outputY = ArrayList<Float32>()
+            var sx = subjectX[subjectX.size - 1]
+            var sy = subjectY[subjectY.size - 1]
+            var sInside = clipInside(ax, ay, bx, by, sx, sy)
+            for (i in 0..subjectX.size) {
+                let ex = subjectX[i]
+                let ey = subjectY[i]
+                let eInside = clipInside(ax, ay, bx, by, ex, ey)
+                if (eInside) {
+                    if (!sInside) {
+                        let hit = clipIntersection(sx, sy, ex, ey, ax, ay, bx, by)
+                        outputX.add(hit.x)
+                        outputY.add(hit.y)
+                    }
+                    outputX.add(ex)
+                    outputY.add(ey)
+                } else if (sInside) {
+                    let hit = clipIntersection(sx, sy, ex, ey, ax, ay, bx, by)
+                    outputX.add(hit.x)
+                    outputY.add(hit.y)
+                }
+                sx = ex
+                sy = ey
+                sInside = eInside
+            }
+            subjectX = outputX
+            subjectY = outputY
+        }
+        if (subjectX.size < 3) {
+            return []
+        }
+        let result = ArrayList<Point>()
+        for (i in 0..subjectX.size) {
+            result.add(Point(subjectX[i], subjectY[i]))
+        }
+        result.toArray()
+    }
+
+    private func clipInside(
+        ax: Float32,
+        ay: Float32,
+        bx: Float32,
+        by: Float32,
+        px: Float32,
+        py: Float32
+    ): Bool {
+        (bx - ax) * (py - ay) - (by - ay) * (px - ax) >= -0.0001
+    }
+
+    private func clipIntersection(
+        sx: Float32,
+        sy: Float32,
+        ex: Float32,
+        ey: Float32,
+        ax: Float32,
+        ay: Float32,
+        bx: Float32,
+        by: Float32
+    ): Point {
+        let sdx = ex - sx
+        let sdy = ey - sy
+        let cdx = bx - ax
+        let cdy = by - ay
+        let denominator = sdx * cdy - sdy * cdx
+        if (denominator > -0.000001 && denominator < 0.000001) {
+            return Point(ex, ey)
+        }
+        let t = ((ax - sx) * cdy - (ay - sy) * cdx) / denominator
+        Point(sx + sdx * t, sy + sdy * t)
+    }
+
     func strokeCircle(renderer: CPointer<Unit>, center: Point, radius: Float32, pen: Pen, minSegments: Int64): Unit {
         if (renderer.isNull() || radius <= 0.0 || pen.width <= 0.0) {
             return

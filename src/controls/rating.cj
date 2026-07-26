@@ -1,7 +1,7 @@
 package cui.controls
 
-import sdl.{Key, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, CursorShape, UiContext, Widget, resolveControlKey, claimHoverIfInside, drawFocusRing, emit,
+import sdl.{Key, Pen, Rect, Size, UiEvent}
+import cui.core.{Bindable, UiContext, Widget, resolveControlKey, drawFocusRing, emit, handlePointerClick,
     registerFocusable}
 
 private let RATING_RADIUS: Float32 = 8.0
@@ -56,18 +56,19 @@ public class Rating <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        // While hovering an interactive control, preview the fill the pointer would set; otherwise show
-        // the committed value.
         let hovered = hoveredIndex(ctx)
-        let fillTo = if (hovered >= 0) {
-            hovered + 1
-        } else {
-            value.get()
-        }
+        let selectedTo = clampRating(value.get(), count)
+        let previewTo = if (hovered >= 0) { hovered + 1 } else { -1 }
         let cy = frame.centerY()
         for (i in 0..count) {
             let cx = frame.x + RATING_RADIUS + Float32(i) * RATING_STEP
-            if (i < fillTo) {
+            if (previewTo >= 0 && i < previewTo) {
+                ctx.renderer.fillCircle(cx, cy, RATING_RADIUS, ctx.theme.accentSoft)
+                ctx.renderer.strokeCircle(cx, cy, RATING_RADIUS,
+                    Pen(width: 1.4, color: ctx.theme.accent), segments: 32)
+            } else if (previewTo >= 0 && i < selectedTo) {
+                ctx.renderer.fillCircle(cx, cy, RATING_RADIUS, ctx.theme.accent.withAlpha(92))
+            } else if (i < selectedTo) {
                 ctx.renderer.fillCircle(cx, cy, RATING_RADIUS, ctx.theme.accent)
             } else {
                 ctx.renderer.strokeCircle(cx, cy, RATING_RADIUS, Pen(width: 1.5, color: ctx.theme.mutedText.withAlpha(150)))
@@ -82,16 +83,16 @@ public class Rating <: Widget {
         if (readonly) {
             return false
         }
-        claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
-        match (event) {
-            case UiEvent.MouseDown(MouseButton.Left, x, y) => if (frame.contains(x, y)) {
-                let idx = ratingIndexAt(x, frame.x, count)
-                if (idx >= 0) {
-                    ctx.focus(id)
-                    value.value = ratingValueForClick(value.get(), idx + 1)
-                    return true
-                }
+        for (index in 0..count) {
+            let dot = dotFrame(index)
+            if (handlePointerClick(ctx, event, dot, "${id}:dot:${index}",
+                {=> value.value = ratingValueForClick(value.get(), index + 1)},
+                inkFrame: Some(dot), inkRadius: RATING_RADIUS, inkColor: Some(ctx.theme.inkColor()),
+                focusTarget: Some(id))) {
+                return true
             }
+        }
+        match (event) {
             case UiEvent.KeyDown(Key.Left, _) => return adjustIfFocused(ctx, -1)
             case UiEvent.KeyDown(Key.Down, _) => return adjustIfFocused(ctx, -1)
             case UiEvent.KeyDown(Key.Right, _) => return adjustIfFocused(ctx, 1)
@@ -125,6 +126,11 @@ public class Rating <: Widget {
             return -1
         }
         ratingIndexAt(ctx.mouseX, frame.x, count)
+    }
+
+    private func dotFrame(index: Int64): Rect {
+        let cx = frame.x + RATING_RADIUS + Float32(index) * RATING_STEP
+        Rect(cx - RATING_RADIUS, frame.centerY() - RATING_RADIUS, RATING_RADIUS * 2.0, RATING_RADIUS * 2.0)
     }
 }
 

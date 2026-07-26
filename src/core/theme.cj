@@ -239,6 +239,15 @@ public struct Theme {
         }
     }
 
+    /** InkWell color that remains visible on each semantic button surface. */
+    public func inkColor(role!: ButtonRole = ButtonRole.Normal): Color {
+        match (role) {
+            case ButtonRole.Normal => accent
+            case ButtonRole.Primary => accentText
+            case ButtonRole.Danger => accentText
+        }
+    }
+
     public func selectedSurface(): SurfaceStyle {
         SurfaceStyle(accent, border: accent, radius: controlRadius, borderWidth: borderWidth)
     }

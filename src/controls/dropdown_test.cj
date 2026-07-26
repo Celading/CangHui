@@ -1,10 +1,15 @@
 package cui.controls
 
-import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
+import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
 import cui.core.{State, Theme, UiContext}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
+}
+
+private func clickDropdownControl(ctx: UiContext, dropdown: Dropdown, x: Float32, y: Float32): Unit {
+    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, x, y))
+    let _ = dropdown.handle(ctx, UiEvent.MouseUp(MouseButton.Left, x, y))
 }
 
 @Test
@@ -18,6 +23,7 @@ func dropdownOpensThenSelectsAnItemViaTheOverlay(): Unit {
 
     // A click opens it; drawing registers the popup as the interactive overlay.
     @Expect(dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0)))
+    @Expect(dropdown.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 30.0, 50.0)))
     dropdown.draw(ctx)
     @Expect(ctx.hasOverlay())
 
@@ -37,13 +43,13 @@ func dropdownDismissesOnOutsideClickAndEscape(): Unit {
     let dropdown = Dropdown(["A", "B", "C"], selected, key: "d2")
     dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
 
-    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
     dropdown.draw(ctx)
     @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 5.0, 5.0))) // outside the popup
     @Expect(selected.value, Int64(1)) // unchanged
     @Expect(!ctx.hasOverlay())
 
-    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
     dropdown.draw(ctx)
     @Expect(ctx.dispatchOverlay(UiEvent.KeyDown(Key.Escape, false)))
     @Expect(!ctx.hasOverlay())
@@ -58,7 +64,7 @@ func dropdownArrowsMoveHighlightWhileOpen(): Unit {
     let dropdown = Dropdown(["A", "B", "C"], selected, key: "d3")
     dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
 
-    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
     dropdown.draw(ctx)
 
     @Expect(ctx.dispatchOverlay(UiEvent.KeyDown(Key.Down, false)))
@@ -92,6 +98,7 @@ func dropdownInsideModalSelectsWithoutClosingDialog(): Unit {
     // sits at (105,183,190,34). A press inside, routed through the dialog, opens the popup;
     // drawing the stack registers it above the dialog within the same frame.
     @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 110.0, 190.0)))
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseUp(MouseButton.Left, 110.0, 190.0)))
     ctx.drawActiveOverlay()
     @Expect(ctx.overlayCount(), Int64(2))
 
@@ -121,7 +128,7 @@ func dropdownLongListScrollsInsidePopup(): Unit {
 
     // Below the control there are 218px, above only 32px: the popup opens below at 218px
     // (20,78,180,218) and the 840px list scrolls inside a 208px window.
-    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
     dropdown.draw(ctx)
     @Expect(ctx.hasOverlay())
 
@@ -133,7 +140,7 @@ func dropdownLongListScrollsInsidePopup(): Unit {
 
     // Reopen (row 2 reveals near the top, unscrolled); a press in the top padding strip
     // (y=80 < 83) hits nothing — the popup dismisses without changing the selection.
-    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
     dropdown.draw(ctx)
     @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 80.0)))
     @Expect(selected.value, Int64(2))
@@ -142,7 +149,7 @@ func dropdownLongListScrollsInsidePopup(): Unit {
     // Reopen and walk down with the keyboard: the window scrolls to keep the highlight
     // visible. After reaching row 12 the offset is 12*28+28-208 = 156, so a click near the
     // top of the list (y=84) lands on row (84-83+156)/28 = 5 — not row 0.
-    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
     dropdown.draw(ctx)
     var presses = 0
     while (presses < 10) {
@@ -165,7 +172,7 @@ func dropdownPopupScrollbarDragsAndStaysOpen(): Unit {
     let selected = State<Int64>(0)
     let dropdown = Dropdown(Array<String>(30, {i => "row ${i}"}), selected, key: "bar")
     dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
-    let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
     dropdown.draw(ctx)
 
     // The bar lane hugs the popup's right edge (x in 192..198); the thumb starts at the top.
@@ -180,6 +187,33 @@ func dropdownPopupScrollbarDragsAndStaysOpen(): Unit {
     // window scrolled (offset ≈ 453 → row 16); an unscrolled window would select row 0.
     @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 90.0)))
     @Expect(selected.value > Int64(5))
+    @Expect(!ctx.hasOverlay())
+}
+
+@Test
+func dropdownCloseKeepsANonInteractiveAnimatedOverlay(): Unit {
+    let ctx = controlTestContext()
+    ctx.viewportWidth = 300.0
+    ctx.viewportHeight = 400.0
+    let selected = State<Int64>(0)
+    let dropdown = Dropdown(["A", "B", "C"], selected, key: "motion")
+    dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
+
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
+    ctx.frame = FrameInfo(UInt64(100), UInt64(100))
+    dropdown.draw(ctx)
+    @Expect(ctx.hasOverlay())
+
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 92.0)))
+    @Expect(!ctx.hasOverlay())
+
+    ctx.frame = FrameInfo(UInt64(116), UInt64(16))
+    dropdown.draw(ctx)
+    @Expect(ctx.hasOverlay())
+    @Expect(!ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 92.0)))
+
+    ctx.frame = FrameInfo(UInt64(500), UInt64(384))
+    dropdown.draw(ctx)
     @Expect(!ctx.hasOverlay())
 }
 

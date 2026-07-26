@@ -133,6 +133,35 @@ func iconButtonUsesTheSameMoveOutCancellationContract(): Unit {
     @Expect(clicks.value, Int64(0))
 }
 
+@Test
+func primaryButtonInkUsesTheSemanticForegroundAndRoundedClip(): Unit {
+    let ctx = testContext()
+    let button = Button("Primary", {=> ()}, role: ButtonRole.Primary).key("primary")
+    button.layout(ctx, Rect(20.0, 40.0, 120.0, 38.0))
+
+    let color = ctx.theme.inkColor(role: ButtonRole.Primary)
+    @Expect(color.r, ctx.theme.accentText.r)
+    @Expect(color.g, ctx.theme.accentText.g)
+    @Expect(color.b, ctx.theme.accentText.b)
+    @Expect(button.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 40.0, 59.0)))
+    @Expect(ctx.isPressed("primary"))
+}
+
+@Test
+func pointerClickSeparatesWideHitAreaFromLocalInkArea(): Unit {
+    let hit = Rect(20.0, 40.0, 220.0, 32.0)
+    let ink = Rect(20.0, 45.0, 40.0, 22.0)
+
+    let resolved = resolveInkRippleFrame(hit, Some(ink))
+    @Expect(resolved.x, ink.x)
+    @Expect(resolved.y, ink.y)
+    @Expect(resolved.w, ink.w)
+    @Expect(resolved.h, ink.h)
+    let origin = resolveInkRippleOrigin(resolved, 180.0, 56.0)
+    @Expect(origin.x, ink.centerX())
+    @Expect(origin.y, ink.centerY())
+}
+
 /*
  * Regression: two icon-only buttons in one row used to share the "IconButton" identity.
  * The later button then swallowed the release meant for the earlier one, so a calendar's

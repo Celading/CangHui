@@ -1,6 +1,6 @@
 package cui.controls
 
-import sdl.{MouseButton, Rect, Renderer, UiEvent}
+import sdl.{MouseButton, Rect, Renderer, Size, UiEvent}
 import cui.core.{State, Theme, UiContext}
 
 // Row centre-y for a 34px-tall control laid at y=0.
@@ -37,6 +37,8 @@ func paginationPageClickJumps(): Unit {
     pag.layout(ctx, Rect(0.0, 0.0, 400.0, 34.0))
     // item 0 (page 1 displayed) sits at x 38..72; clicking it jumps to page 0.
     @Expect(pag.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 55.0, PAGE_CY)))
+    @Expect(page.value, 5)
+    @Expect(pag.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 55.0, PAGE_CY)))
     @Expect(page.value, 0)
 }
 
@@ -48,12 +50,14 @@ func paginationPrevNextStepByOne(): Unit {
     pagBack.layout(ctx, Rect(0.0, 0.0, 400.0, 34.0))
     // The prev arrow occupies x 0..34.
     @Expect(pagBack.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 17.0, PAGE_CY)))
+    @Expect(pagBack.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 17.0, PAGE_CY)))
     @Expect(back.value, 4)
 
     let fwd = State<Int64>(5)
     let pagFwd = Pagination(20, fwd) // items [0,-1,4,5,6,-1,19] → next arrow at x 304..338
     pagFwd.layout(ctx, Rect(0.0, 0.0, 400.0, 34.0))
     @Expect(pagFwd.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 321.0, PAGE_CY)))
+    @Expect(pagFwd.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 321.0, PAGE_CY)))
     @Expect(fwd.value, 6)
 }
 
@@ -76,4 +80,25 @@ func paginationEllipsisIsNotClickable(): Unit {
     pag.layout(ctx, Rect(0.0, 0.0, 400.0, 34.0))
     @Expect(!pag.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 93.0, PAGE_CY)))
     @Expect(page.value, 10)
+}
+
+@Test
+func paginationKeepsStableWidthAcrossWindowChanges(): Unit {
+    let ctx = paginationTestContext()
+    let first = Pagination(20, State<Int64>(0), window: 1, key: "first")
+    let middle = Pagination(20, State<Int64>(10), window: 1, key: "middle")
+    @Expect(first.measure(ctx, Size(800.0, 100.0)).w, middle.measure(ctx, Size(800.0, 100.0)).w)
+}
+
+@Test
+func paginationMoveOutCancelsPageChange(): Unit {
+    let ctx = paginationTestContext()
+    let page = State<Int64>(5)
+    let pag = Pagination(20, page, window: 1, key: "cancel")
+    pag.layout(ctx, Rect(0.0, 0.0, 400.0, 34.0))
+
+    @Expect(pag.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 55.0, PAGE_CY)))
+    let _ = pag.handle(ctx, UiEvent.MouseMove(500.0, 100.0))
+    @Expect(!pag.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 55.0, PAGE_CY)))
+    @Expect(page.value, Int64(5))
 }
