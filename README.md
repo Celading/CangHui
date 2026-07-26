@@ -17,6 +17,14 @@
 - Windows/Mac/Linux
 - 当前母体分支保留仓库内 `sdl` 模块，并持续吸收 [`CangjieSDL`](https://github.com/SunriseSummer/CangjieSDL) 上游能力；根据目标平台规格配置 SDL 和 SDL_ttf 动态库
 
+macOS 首次构建先准备 Homebrew SDL 动态库：
+
+```bash
+brew install sdl3 sdl3_ttf
+./scripts/bootstrap-macos.sh
+cjpm build
+```
+
 > [!IMPORTANT]
 >
 > 发布和部署基于 CUI 的桌面软件时，请确保 SDL 和 SDL_ttf 动态库位于仓颉可执行文件目录，或在目标平台的动态库搜索路径中，即可以作为私有资产打包或在目标平台作为公共运行时安装。
