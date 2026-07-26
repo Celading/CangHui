@@ -1,7 +1,7 @@
 package cui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, ScrollBar, Spring, State, UiContext, Widget, requireControlId,
+import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, ScrollBar, maxScrollOffset, Spring, State, UiContext, Widget, requireControlId,
     claimHoverIfInside, clampScrollOffset, drawFocusRing, drawSurface, drawVerticalScrollBar, emit,
     focusableControlIdentity, localState, reregisterFocusable, scrollLineIndex, scrollLineRemainder,
     scrollOffsetAfterWheel}
@@ -32,7 +32,7 @@ public class Checkbox <: Widget {
      * Sets an explicit focus and press identity; defaults are unique per build.
      * Throws `IllegalArgumentException` when `value` is empty.
      */
-    public func id(value: String): Checkbox {
+    public func key(value: String): Checkbox {
         requireControlId(value, "Checkbox")
         reregisterFocusable(controlId, value)
         controlId = value
@@ -53,7 +53,7 @@ public class Checkbox <: Widget {
         } else {
             0.0
         }
-        let t = fillSpring.animate(target: goal, deltaMs: ctx.frame.deltaMs)
+        let t = fillSpring.animate(ctx, target: goal)
         let box = Rect(frame.x, frame.y + 7.0, 18.0, 18.0)
         drawSurface(ctx, box, ctx.theme.fieldSurface(false).withBorder(ctx.theme.panelEdge.lerp(ctx.theme.accent, t)))
         // The fill grows from the centre to fill the box as it is ticked.
@@ -123,14 +123,14 @@ public class ListView <: Widget {
         items: Array<String>,
         selected: Bindable<Int64>,
         scroll!: ?State<Float32> = None,
-        id!: ?String = None
+        key!: ?String = None
     ) {
         this.items = items
         this.selected = selected
         // Identity is optional and auto-derived by build order by default (like SegmentedControl and
-        // TabView); pass `id` to give it a stable, addressable identity — e.g. to keep scroll/selection
+        // TabView); pass `key` to give it a stable, addressable identity — e.g. to keep scroll/selection
         // state across a structural change or to coordinate scroll externally. Non-empty when given.
-        let base = match (id) {
+        let base = match (key) {
             case Some(value) =>
                 requireControlId(value, "ListView")
                 value
@@ -221,9 +221,10 @@ public class ListView <: Widget {
                 if (scrollBar.drag(ctx, frame, scrollStateValue, contentH, viewportH, y)) {
                     return true
                 }
-            case UiEvent.MouseWheel(_, wy, wx, pointerY) =>
-                if (frame.contains(wx, pointerY)) {
-                    scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, wy, contentH, viewportH)
+            case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
+                // Content that fits leaves the wheel to an enclosing scroller (no dead zone).
+                if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentH, viewportH) > 0.0) {
+                    scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, wheelY, contentH, viewportH)
                     return true
                 }
             case UiEvent.KeyDown(Key.Up, _) => return moveSelection(ctx, -1)

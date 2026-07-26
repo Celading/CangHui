@@ -116,11 +116,11 @@ main(): Int64 {
                     IconButton(if (darkMode.value) { IconName.Sun } else { IconName.Moon }) {
                         darkMode.value = !darkMode.value
                         app.transitionTheme(if (darkMode.value) { Theme.dark() } else { Theme.light() })
-                    }.id("gallery-theme-toggle")
+                    }.key("gallery-theme-toggle")
                 }
                 Label("CUI API ${componentApiVersion()}", muted: true)
             }.hug()
-            SegmentedControl(previewLabels(), selectedPreview, id: "preview-target")
+            SegmentedControl(previewLabels(), selectedPreview, key: "preview-target")
             Divider()
             HStack {
                 Spacer()

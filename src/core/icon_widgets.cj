@@ -6,6 +6,10 @@ private let ICON_DEFAULT_SIZE: Float32 = 18.0
 private let ICON_BUTTON_PAD: Float32 = 10.0
 private let ICON_TEXT_GAP: Float32 = 8.0
 
+/**
+ * A non-interactive vector icon drawn at a square extent (default 18 vp), in the theme text color
+ * unless `foregroundColor` overrides it. For a clickable icon use `IconButton`.
+ */
 public class Icon <: Widget {
     private let icon: IconName
     private var iconExtent: Length
@@ -65,6 +69,12 @@ public class Icon <: Widget {
     }
 }
 
+/*
+ * A button whose face is an icon, optionally with a text label beside it. Activation matches `Button`:
+ * `onClick` fires on a press released inside, or on Enter/Space while focused; `role` and `style`
+ * color the surface the same way. Icon-only buttons in one view stay distinct through per-build
+ * identities; `key` pins an identity that survives tree reshapes.
+ */
 public class IconButton <: Widget {
     private let icon: IconName
     private var labelText: ?String
@@ -100,7 +110,7 @@ public class IconButton <: Widget {
      * set one when identity must survive tree reshapes.
      * Throws `IllegalArgumentException` when `value` is empty.
      */
-    public func id(value: String): IconButton {
+    public func key(value: String): IconButton {
         requireControlId(value, "IconButton")
         reregisterFocusable(controlId, value)
         controlId = value
@@ -127,8 +137,11 @@ public class IconButton <: Widget {
 
     public func measure(ctx: UiContext, available: Size): Size {
         let width = match (labelText) {
+            // Measure at the same size draw uses (FontSizes.CONTROL), so the two cannot drift
+            // apart if the token tables ever diverge from the measurement default.
             case Some(value) => max(76.0,
-                ICON_BUTTON_PAD * 2.0 + ICON_DEFAULT_SIZE + ICON_TEXT_GAP + ctx.renderer.textWidth(value))
+                ICON_BUTTON_PAD * 2.0 + ICON_DEFAULT_SIZE + ICON_TEXT_GAP +
+                    ctx.renderer.textWidth(value, pointSize: FontSizes.CONTROL))
             case None => CUI_CONTROL_H
         }
         Size(min(available.w, width), CUI_CONTROL_H)
@@ -237,6 +250,10 @@ public class IconButton <: Widget {
     }
 }
 
+/**
+ * A hairline rule separating content: 1 logical pixel thick along its `axis`, stretched across the
+ * cross axis by the parent stack. Color defaults to the theme's panel edge.
+ */
 public class Divider <: Widget {
     private var dividerAxis: Axis
     private var dividerColor: ?Color

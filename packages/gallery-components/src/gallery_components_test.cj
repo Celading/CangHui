@@ -17,6 +17,10 @@ func gallerySurfaceStateCanBeOwnedByAnyHost(): Unit {
     let state = GallerySurfaceState()
     state.selectedSection.value = 2
     state.notificationsEnabled.value = false
+    state.rating.value = 5
+    state.page.value = 4
     @Expect(state.selectedSection.value, 2)
     @Expect(state.notificationsEnabled.value, false)
+    @Expect(state.rating.value, 5)
+    @Expect(state.page.value, 4)
 }

@@ -6,6 +6,15 @@ protected let CUI_CONTROL_H: Float32 = 38.0
 protected let CUI_SMALL_H: Float32 = 28.0
 protected let CUI_GAP: Float32 = 8.0
 
+/*
+ * The immediate-mode widget contract. The tree is rebuilt from application code on every rendered
+ * frame, so instances carry no retained scene — anything that must survive a rebuild lives in `State`
+ * (see `localState`). Constructors call `emit(this)` so the enclosing container collects the widget in
+ * declaration order. Each frame the shell calls `measure` (preferred size within `available`), `layout`
+ * (assigns the frame), `draw`, and `handle` per input event; `handle` returns whether the event was
+ * consumed, which stops dispatch to the widgets behind it. The default `width`/`padding`/... modifiers
+ * wrap the widget in a `ModifiedWidget` and return the wrapper for chaining.
+ */
 public interface Widget {
     func measure(ctx: UiContext, available: Size): Size
     func layout(ctx: UiContext, rect: Rect): Unit
@@ -172,9 +181,104 @@ public interface Widget {
         background(color, vpLength(radius))
     }
 
+    /**
+     * Paints a solid background whose four corners take independent radii (see `Corners`) — for chat
+     * bubbles, top-rounded tabs, and edge-docked sheets. Radii are in virtual pixels.
+     */
+    func background(color: Color, corners!: Corners): Widget {
+        applyModifier(this, WidgetModifier.PerCornerBackground(corners, color))
+    }
+
     /** Paints a complete surface style behind this widget. */
     func surface(style: SurfaceStyle): Widget {
         applyModifier(this, WidgetModifier.Surface(style))
+    }
+
+    /** Paints a linear-gradient background behind this widget (see `Gradient`). */
+    func gradientBackground(gradient: Gradient): Widget {
+        applyModifier(this, WidgetModifier.GradientBackground(gradient, vpLength(0.0)))
+    }
+
+    /** Paints a linear-gradient background with the given corner radius. */
+    func gradientBackground(gradient: Gradient, radius: Length): Widget {
+        applyModifier(this, WidgetModifier.GradientBackground(gradient, radius))
+    }
+
+    /** Paints a linear-gradient background with the corner radius in virtual pixels. */
+    func gradientBackground(gradient: Gradient, radius: Float32): Widget {
+        gradientBackground(gradient, vpLength(radius))
+    }
+
+    /**
+     * Casts a soft drop shadow behind this widget. The halo is painted behind the child, so chain it
+     * after a rounded `background` and pass the matching corner radius so the shadow hugs the corners.
+     */
+    func shadow(value: Shadow): Widget {
+        applyModifier(this, WidgetModifier.DropShadow(value, vpLength(0.0)))
+    }
+
+    /** Casts a soft drop shadow rounded to `radius` (match the widget's own rounding). */
+    func shadow(value: Shadow, radius!: Length): Widget {
+        applyModifier(this, WidgetModifier.DropShadow(value, radius))
+    }
+
+    /** Casts a soft drop shadow with the corner radius in virtual pixels. */
+    func shadow(value: Shadow, radius!: Float32): Widget {
+        applyModifier(this, WidgetModifier.DropShadow(value, vpLength(radius)))
+    }
+
+    /** Strokes a 1px rounded border on top of this widget's fill and content. */
+    /**
+     * Casts several stacked drop shadows behind this widget, painted in array order (first is
+     * deepest). `Shadow.keyAmbient(level)` supplies the standard Material key-plus-ambient pair.
+     */
+    func shadow(layers: Array<Shadow>): Widget {
+        applyModifier(this, WidgetModifier.MultiShadow(layers, vpLength(0.0)))
+    }
+
+    /** Casts stacked drop shadows hugging the given corner radius. */
+    func shadow(layers: Array<Shadow>, radius!: Length): Widget {
+        applyModifier(this, WidgetModifier.MultiShadow(layers, radius))
+    }
+
+    /** Casts stacked drop shadows with the corner radius in virtual pixels. */
+    func shadow(layers: Array<Shadow>, radius!: Float32): Widget {
+        shadow(layers, radius: vpLength(radius))
+    }
+
+    func border(color: Color): Widget {
+        applyModifier(this, WidgetModifier.Border(color, 1.0, vpLength(0.0)))
+    }
+
+    /** Strokes a `width`-thick rounded border on top of this widget. */
+    func border(color: Color, width!: Float32): Widget {
+        applyModifier(this, WidgetModifier.Border(color, max(0.0, width), vpLength(0.0)))
+    }
+
+    /** Strokes a rounded border with the given width and corner radius (match the widget's rounding). */
+    func border(color: Color, width!: Float32, radius!: Length): Widget {
+        applyModifier(this, WidgetModifier.Border(color, max(0.0, width), radius))
+    }
+
+    /** Strokes a rounded border with the corner radius in virtual pixels. */
+    func border(color: Color, width!: Float32, radius!: Float32): Widget {
+        applyModifier(this, WidgetModifier.Border(color, max(0.0, width), vpLength(radius)))
+    }
+
+    /** Strokes a dashed 1.5px rounded border (dash 6, gap 4) on top of this widget. */
+    func dashedBorder(color: Color): Widget {
+        applyModifier(this, WidgetModifier.DashedBorder(color, 1.5, vpLength(0.0), 6.0, 4.0))
+    }
+
+    /** Strokes a dashed rounded border with the corner radius in virtual pixels (default dash 6, gap 4). */
+    func dashedBorder(color: Color, radius!: Float32): Widget {
+        applyModifier(this, WidgetModifier.DashedBorder(color, 1.5, vpLength(radius), 6.0, 4.0))
+    }
+
+    /** Strokes a fully configured dashed rounded border (width, corner radius, dash and gap lengths). */
+    func dashedBorder(color: Color, width!: Float32, radius!: Float32, dash!: Float32, gap!: Float32): Widget {
+        applyModifier(this, WidgetModifier.DashedBorder(color, max(0.0, width), vpLength(radius), max(0.0, dash),
+            max(0.0, gap)))
     }
 
     /** Gives this widget a relative share of an enclosing stack's remaining space. */
@@ -189,6 +293,14 @@ public interface Widget {
 
     /** Includes or removes this widget from layout, drawing, and event dispatch. */
     func visible(isVisible: Bool): Widget {
+        if (!isVisible) {
+            // A hidden subtree also leaves Tab traversal: its draw is skipped (no ring could
+            // show) and its handle is suppressed (Enter/Space would do nothing), so a stop
+            // kept in the ring would be an invisible dead end. Same protocol as `enabled`.
+            for (id in focusableIds()) {
+                unregisterFocusable(id)
+            }
+        }
         applyModifier(this, WidgetModifier.Visible(isVisible))
     }
 

@@ -3,6 +3,13 @@ package cui.media
 import sdl.{Rect, Renderer, Size, UiEvent}
 import cui.core.{UiContext, Widget, drawSurface, emit}
 
+/*
+ * A free-form drawing surface. It is flexible (fills the space it is offered), paints a themed field
+ * background, clips to the frame, then hands the raw `Renderer` and the frame rect to `onDraw` —
+ * coordinates are absolute, so painters offset from the rect, not from zero. Input events are
+ * forwarded to `onEvent` with the same frame; return `true` to consume. Both callbacks run on the
+ * per-frame rebuild's fresh instance, so any retained drawing state belongs in `State`, not fields.
+ */
 public class CanvasWidget <: Widget {
     private let onDraw: (Renderer, Rect) -> Unit
     private var eventHandler: (UiEvent, Rect) -> Bool

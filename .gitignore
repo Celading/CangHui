@@ -1,6 +1,7 @@
 target/
 **/target/
 bench/results/
+__pycache__/
 *.gcda
 *.gcno
 *.cov

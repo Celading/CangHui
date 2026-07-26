@@ -22,6 +22,11 @@ public class GallerySurfaceState {
     public let notificationsEnabled = State<Bool>(true)
     public let overviewProgress = State<Float32>(0.68)
     public let activityProgress = State<Float32>(0.42)
+    public let architectureChip = State<Bool>(true)
+    public let toolingChip = State<Bool>(false)
+    public let rating = State<Int64>(4)
+    public let page = State<Int64>(2)
+    public let step = State<Int64>(1)
 }
 
 /** One component tree rendered unchanged for compact, medium and expanded hosts. */
@@ -36,7 +41,7 @@ public func galleryCommonSurface(context: ComponentContext, state: GallerySurfac
 private func compactSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     VStack {
         surfaceHeader(context)
-        SegmentedControl(["Overview", "Activity", "Settings"], state.selectedSection, id: "gallery-mobile-sections")
+        SegmentedControl(["Components", "Activity", "Settings"], state.selectedSection, key: "gallery-mobile-sections")
         Divider()
         primaryContent(state)
     }.spacing(14.vp).padding(18.vp)
@@ -49,7 +54,7 @@ private func mediumSurface(context: ComponentContext, state: GallerySurfaceState
             Spacer()
             Button("Create", {=> state.selectedSection.value = 1})
         }.hug()
-        SegmentedControl(["Overview", "Activity", "Settings"], state.selectedSection, id: "gallery-tablet-sections")
+        SegmentedControl(["Components", "Activity", "Settings"], state.selectedSection, key: "gallery-tablet-sections")
         Divider()
         primaryContent(state)
     }.spacing(16.vp).padding(22.vp)
@@ -61,7 +66,7 @@ private func expandedSurface(context: ComponentContext, state: GallerySurfaceSta
             Label("CangjieGUI", fontSize: 20.fp)
             Label(hostPlatformName(context.host.platform), muted: true)
             Divider()
-            Button("Overview", {=> state.selectedSection.value = 0})
+            Button("Components", {=> state.selectedSection.value = 0})
             Button("Activity", {=> state.selectedSection.value = 1})
             Button("Settings", {=> state.selectedSection.value = 2})
             Spacer()
@@ -91,24 +96,49 @@ private func primaryContent(state: GallerySurfaceState): Unit {
     match (state.selectedSection.value) {
         case 1 => activityContent(state.activityProgress)
         case 2 => settingsContent(state.notificationsEnabled)
-        case _ => overviewContent(state.overviewProgress)
+        case _ => componentContent(state)
     }
 }
 
-private func overviewContent(progress: Observable<Float32>): Unit {
+private func componentContent(state: GallerySurfaceState): Unit {
     VStack {
-        Label("Today", fontSize: 18.fp)
-        Label("Three common tasks are ready across the current viewport.", muted: true).wrap()
-        ProgressBar(progress)
         HStack {
-            Button("Continue", {=> ()})
-            Button("Details", {=> ()})
+            Label("ArkUI-aligned controls", fontSize: 18.fp)
+            Spacer()
+            Badge("upstream 0.9.2", kind: BadgeKind.Info)
         }.hug()
+        Breadcrumb(["CangjieGUI", "Common", "Controls"], maxItems: 3)
+        HStack {
+            Badge("stable", kind: BadgeKind.Success)
+            Badge("interactive", kind: BadgeKind.Accent)
+            Badge("desktop proof", kind: BadgeKind.Warning)
+        }.spacing(8.vp).hug()
+        HStack {
+            Chip("Architecture", state.architectureChip, key: "gallery-chip-architecture")
+            Chip("Tooling", state.toolingChip, key: "gallery-chip-tooling")
+            Spacer()
+            Rating(state.rating, key: "gallery-rating")
+        }.spacing(8.vp).hug()
+        HStack {
+            ProgressRing(state.overviewProgress.value, diameter: 68.0, thickness: 7.0)
+            VStack {
+                Label("Coverage progress")
+                ProgressBar(state.overviewProgress)
+                Label("Geometry, state, focus and pointer paths are mounted.", muted: true).wrap()
+            }.spacing(8.vp)
+        }.spacing(16.vp).hug()
+        Pagination(8, state.page, key: "gallery-pagination")
+        StepIndicator(["Pull", "Merge", "Prove"], state.step.value,
+            onSelect: {index => state.step.value = index}, key: "gallery-steps")
         Divider()
-        Label("Recent")
-        Label("Component package metadata", muted: true)
-        Label("Responsive common layout", muted: true)
-        Label("Desktop preview matrix", muted: true)
+        Accordion([
+            AccordionSection("Interaction contract") {=>
+                Label("Tab focus, pointer feedback and bounded layout stay inside the common package.", muted: true).wrap()
+            },
+            AccordionSection("Platform boundary") {=>
+                Label("Host lifecycle, secure storage and native media remain adapter-owned.", muted: true).wrap()
+            }
+        ], single: true, initiallyExpanded: [0], key: "gallery-accordion")
     }.spacing(12.vp)
 }
 

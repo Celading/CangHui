@@ -1,6 +1,6 @@
 package cui.core
 
-import sdl.{Color, Rect, Size, SurfaceStyle, UiEvent}
+import sdl.{Color, Pen, Rect, Size, SurfaceStyle, UiEvent}
 
 /**
  * Internal modifier vocabulary. Each chained call wraps the previous node, so modifier
@@ -20,6 +20,12 @@ protected enum WidgetModifier {
     | Padding(LengthInsets)
     | Surface(SurfaceStyle)
     | Background(Color, Length)
+    | PerCornerBackground(Corners, Color)
+    | GradientBackground(Gradient, Length)
+    | DropShadow(Shadow, Length)
+    | MultiShadow(Array<Shadow>, Length)
+    | Border(Color, Float32, Length)
+    | DashedBorder(Color, Float32, Length, Float32, Float32)
     | Flex(Float32)
     | Visible(Bool)
     | Enabled(Bool)
@@ -104,6 +110,55 @@ class ModifiedWidget <: Widget {
             case WidgetModifier.Background(color, radius) =>
                 drawSurface(ctx, frame, SurfaceStyle(color, radius: max(0.0, ctx.resolve(radius))))
                 child.draw(ctx)
+            // A background whose four corners take independent radii (vp), resolved to pixels here so
+            // they scale like every other radius. Painted before the child, mirroring Background.
+            case WidgetModifier.PerCornerBackground(corners, color) =>
+                ctx
+                    .renderer
+                    .fillPerCornerRoundedRect(frame, color, topLeft: ctx.resolve(vpLength(corners.topLeft)),
+                        topRight: ctx.resolve(vpLength(corners.topRight)),
+                        bottomRight: ctx.resolve(vpLength(corners.bottomRight)),
+                        bottomLeft: ctx.resolve(vpLength(corners.bottomLeft)))
+                child.draw(ctx)
+            case WidgetModifier.GradientBackground(gradient, radius) =>
+                ctx
+                    .renderer
+                    .fillRoundedRectGradient(frame, max(0.0, ctx.resolve(radius)), gradient.start, gradient.end,
+                        vertical: gradient.vertical)
+                child.draw(ctx)
+            // The shadow is painted before the child so its halo sits behind the widget; a shadow
+            // modifier is therefore chained after `background` and shares its corner radius.
+            case WidgetModifier.DropShadow(shadow, radius) =>
+                drawConfigurableShadow(ctx, frame, max(0.0, ctx.resolve(radius)), shadow)
+                child.draw(ctx)
+            // Layered shadows paint in array order (first is deepest), all behind the child — the
+            // Material key-plus-ambient pair being the canonical use (see Shadow.keyAmbient).
+            case WidgetModifier.MultiShadow(layers, radius) =>
+                let r = max(0.0, ctx.resolve(radius))
+                for (layer in layers) {
+                    drawConfigurableShadow(ctx, frame, r, layer)
+                }
+                child.draw(ctx)
+            // The border is painted after the child so it sits on top of the fill and content; the
+            // stroke is centred on the edge (inset by half its width) and rounded to the radius.
+            case WidgetModifier.Border(color, width, radius) =>
+                child.draw(ctx)
+                if (width > 0.0 && Int64(color.a) > 0) {
+                    let r = max(0.0, ctx.resolve(radius))
+                    ctx
+                        .renderer
+                        .strokeRoundedRect(frame.inset(width / 2.0), max(0.0, r - width / 2.0),
+                            Pen(width: width, color: color))
+                }
+            case WidgetModifier.DashedBorder(color, width, radius, dash, gap) =>
+                child.draw(ctx)
+                if (width > 0.0 && Int64(color.a) > 0) {
+                    let r = max(0.0, ctx.resolve(radius))
+                    ctx
+                        .renderer
+                        .strokeRoundedRectDashed(frame.inset(width / 2.0), max(0.0, r - width / 2.0),
+                            Pen(width: width, color: color), dash: dash, gap: gap)
+                }
             case WidgetModifier.Visible(isVisible) =>
                 if (isVisible) {
                     child.draw(ctx)
@@ -148,20 +203,23 @@ class ModifiedWidget <: Widget {
 
     public func acceptsStretch(axis: Axis): Bool {
         match (modifier) {
+            // A size modifier pins its own axis and defers the other to the child, so a chain
+            // like `.width(w).height(h)` reports both axes rigid — hard-coding the cross axis
+            // to `true` here would mask an inner size modifier and break ZStack alignment.
             case WidgetModifier.Width(_) => match (axis) {
                 case Axis.Horizontal => false
-                case Axis.Vertical => true
+                case Axis.Vertical => child.acceptsStretch(axis)
             }
             case WidgetModifier.MaxWidth(_) => match (axis) {
                 case Axis.Horizontal => false
-                case Axis.Vertical => true
+                case Axis.Vertical => child.acceptsStretch(axis)
             }
             case WidgetModifier.Height(_) => match (axis) {
-                case Axis.Horizontal => true
+                case Axis.Horizontal => child.acceptsStretch(axis)
                 case Axis.Vertical => false
             }
             case WidgetModifier.MaxHeight(_) => match (axis) {
-                case Axis.Horizontal => true
+                case Axis.Horizontal => child.acceptsStretch(axis)
                 case Axis.Vertical => false
             }
             case WidgetModifier.FillWidth => match (axis) {

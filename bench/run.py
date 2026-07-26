@@ -16,10 +16,18 @@ Usage:
     python bench/run.py --no-run        # reuse the last capture, just re-render the report
     python bench/run.py --display       # also run the display benchmarks (opens brief windows)
     python bench/run.py --save-baseline # record current per-frame costs as the regression baseline
-    python bench/run.py --check         # fail (exit 1) if any case regressed past the threshold
+    python bench/run.py --check         # fail (exit 1) if a case regressed relative to its peers
+    python bench/run_test.py            # self-test the --check gate logic
+
+--check judges each case against how the *other* cases moved rather than against raw baseline times,
+so a machine that is uniformly slower than the one that recorded the baseline does not read as 39
+regressions; and it reports its own noise, answering "inconclusive" when a run cannot tell a
+regression from scheduling jitter. Only --check is normalised — the report and the budget counts are
+raw measurements of this box.
 """
 
 import argparse
+import statistics
 import subprocess
 import sys
 import webbrowser
@@ -36,7 +44,27 @@ BASELINE = ROOT / "baseline.json"
 FRAME_60 = 16_666_667   # ns budget for 60 fps
 FRAME_120 = 8_333_333   # ns budget for 120 fps
 FRAME_30 = 33_333_333   # ns budget for 30 fps
-REGRESSION = 1.25       # --check flags a case slower than baseline by more than this factor
+
+# --check flags a case that slowed this much MORE than its peers did. It is a *relative* threshold:
+# see check_regressions for why comparing raw times to the baseline does not survive a slow machine.
+REGRESSION = 1.25
+# Cases cheaper than this cannot move a frame, and carry nearly all the measurement jitter (a 10 us
+# case can double on scheduler noise alone), so they are never gated; ones that still moved a lot are
+# listed after the verdict as FYI only.
+MATERIAL_NS = 500_000
+# Fewer material cases than this and the fleet median is meaningless (a lone regressed case can be its
+# own median and vanish), so the gate declines to judge instead.
+MIN_FLEET = 8
+# A fleet median past this reads as "this box is slower than the one that recorded the baseline",
+# which is worth saying out loud because it makes absolute times incomparable.
+MACHINE_NOTE = 1.15
+# How many robust deviations past the fleet a case must sit before it is called a regression. This only
+# bites on a noisy run: on a quiet one the REGRESSION floor is the wider of the two and stays in charge.
+NOISE_K = 4
+# Residual spread (median absolute deviation about the fleet) past which a run simply cannot gate. A
+# machine that schedules some cases on performance cores and others on efficiency cores does not slow
+# down uniformly, and no threshold separates signal from that. Say so instead of guessing.
+NOISE_LIMIT = 0.10
 
 RATING_LABEL = {
     "ok": "120fps 就绪",
@@ -242,23 +270,124 @@ def save_baseline(frame, display):
     print(f"Baseline saved to {BASELINE} ({len(data)} cases).")
 
 
+def machine_factor(recs, base):
+    """The median case's slowdown vs baseline, over cases big enough to measure reliably.
+
+    When every case moves by the same factor, that factor is the machine — this box has been measured
+    running 2.5-3x slow for hours at a stretch (thermal/power limits, or work parked on E-cores) — not
+    the code. Returns (factor, gated, pairs): the factor, the material cases worth gating, and every
+    comparable case. factor is None when no case is material — sub-material cases are never gated in
+    its place, since they are exactly where scheduler jitter lives.
+    """
+    pairs = []
+    for r in recs:
+        was = base.get(f"{r['kind']}|{r['group']}|{r['name']}")
+        if was and was > 0:
+            pairs.append({
+                "key": f"{r['kind']}|{r['group']}|{r['name']}",
+                "was": was,
+                "now": r["ns"],
+                "ratio": r["ns"] / was,
+            })
+    gated = [p for p in pairs if max(p["was"], p["now"]) >= MATERIAL_NS]
+    if not gated:
+        return None, [], pairs
+    return statistics.median([p["ratio"] for p in gated]), gated, pairs
+
+
 def check_regressions(frame, display) -> int:
+    """Fail on a case that got slower than its peers did — and say so when the run cannot tell.
+
+    Comparing raw times against the baseline is what this used to do, and it does not survive a slow
+    machine: at a uniform 3x every one of the 39 cases "regresses" and the gate is pure noise. Two
+    things fix that. Each case is judged against the *median* case, so a machine-wide slowdown cancels
+    out; and the run measures its own residual spread, because a box that parks some cases on
+    efficiency cores and others on performance cores does not slow down uniformly and no threshold
+    separates a real regression from that. When the spread is too wide the honest answer is
+    "inconclusive", not a coin flip — suspects are still listed, but the gate does not fail on noise.
+
+    Two blind spots are inherent to judging against the median, so they are stated rather than hidden:
+    a regression that slows the *majority* of cases (not only all of them) is absorbed into the machine
+    factor and reads as a slow box — the factor is always printed, and a big number there means "re-run
+    somewhere idle before trusting a clean result". And the flagging side normalises by max(factor, 1),
+    so a commit that speeds up most cases does not turn the untouched rest into false regressions.
+    """
     base = load_baseline()
     if not base:
         print("No baseline.json; run with --save-baseline first.", file=sys.stderr)
         return 2
-    regressed = []
-    for r in list(frame) + list(display):
-        key = f"{r['kind']}|{r['group']}|{r['name']}"
-        if key in base and base[key] > 0 and r["ns"] > base[key] * REGRESSION:
-            regressed.append((key, base[key], r["ns"]))
-    if regressed:
-        print(f"Performance regressions (> {int((REGRESSION - 1) * 100)}% vs baseline):", file=sys.stderr)
-        for key, was, now in regressed:
-            print(f"  {key}: {fmt_dur(was)} -> {fmt_dur(now)}", file=sys.stderr)
+    factor, gated, pairs = machine_factor(list(frame) + list(display), base)
+    if not pairs:
+        print("No cases in common with baseline.json; nothing to check.", file=sys.stderr)
+        return 2
+    if factor is None:
+        print(f"INCONCLUSIVE: all {len(pairs)} comparable cases are under {fmt_dur(MATERIAL_NS)} — "
+              f"nothing big enough to gate (sub-material cases are pure scheduler jitter).")
+        return 0
+    if len(gated) < MIN_FLEET:
+        print(f"INCONCLUSIVE: only {len(gated)} material case(s) in common with the baseline — too few "
+              f"for a meaningful fleet median (need {MIN_FLEET}). Raw ratios:")
+        for p in sorted(gated, key=lambda p: -p["ratio"]):
+            print(f"  {p['key']}: {fmt_dur(p['was'])} -> {fmt_dur(p['now'])}   {p['ratio']:.2f}x raw")
+        return 0
+    skipped = len(pairs) - len(gated)
+
+    # Robust spread of the normalised ratios about the fleet: how much cases disagree once the shared
+    # machine factor is divided out. On an idle box this is a couple of percent. Flagging divides by
+    # max(factor, 1): a fleet that mostly got FASTER (factor < 1) must not turn its unchanged cases
+    # into "regressions vs peers", while a slow machine (factor > 1) still normalises fully.
+    spread = statistics.median([abs(p["ratio"] / factor - 1.0) for p in gated])
+    bound = 1.0 + max(REGRESSION - 1.0, NOISE_K * spread)
+    flag_factor = max(factor, 1.0)
+    suspects = sorted((p for p in gated if p["ratio"] / flag_factor > bound),
+                      key=lambda p: -p["ratio"] / flag_factor)
+
+    print(f"Checked {len(gated)} cases of at least {fmt_dur(MATERIAL_NS)}"
+          + (f" ({skipped} cheaper ones ignored: too small to cost a frame)" if skipped else ""))
+    print(f"Machine factor: {factor:.2f}x (median case vs its baseline)  |  "
+          f"noise: +/-{spread * 100:.0f}%  |  flags past {bound:.2f}x vs peers")
+    if factor >= MACHINE_NOTE:
+        print(f"  This box is running ~{factor:.1f}x slower than the one that recorded the baseline, so")
+        print(f"  absolute times and the 60fps-budget counts are NOT comparable to it; per-case checks")
+        print(f"  are normalised against it. A regression that slowed everything equally would look the")
+        print(f"  same — re-run on an idle machine to rule that out.")
+
+    if spread > NOISE_LIMIT:
+        print(f"\nINCONCLUSIVE: cases disagree by +/-{spread * 100:.0f}% after normalising, so this run"
+              f" cannot tell a\nregression from scheduling noise (a regression under ~{(bound - 1) * 100:.0f}%"
+              f" would be invisible here).\nRe-run on an idle machine for a verdict.")
+        if suspects:
+            print(f"\nSuspects past {bound:.2f}x vs peers — most likely still noise, worth a second look:")
+            for p in suspects:
+                print(f"  {p['key']}: {fmt_dur(p['was'])} -> {fmt_dur(p['now'])}"
+                      f"   {p['ratio']:.2f}x raw, {p['ratio'] / flag_factor:.2f}x vs peers")
+        return 0
+
+    if suspects:
+        print(f"\nRegressions (>{(bound - 1) * 100:.0f}% slower than the fleet moved):", file=sys.stderr)
+        for p in suspects:
+            print(f"  {p['key']}: {fmt_dur(p['was'])} -> {fmt_dur(p['now'])}"
+                  f"   {p['ratio']:.2f}x raw, {p['ratio'] / flag_factor:.2f}x vs peers", file=sys.stderr)
+        note_cheap_movers(pairs, gated, flag_factor, bound)
         return 1
-    print("No regressions past threshold.")
+    print("No regressions past threshold (normalised against the fleet).")
+    note_cheap_movers(pairs, gated, flag_factor, bound)
     return 0
+
+
+def note_cheap_movers(pairs, gated, flag_factor, bound):
+    """List sub-material cases that moved past the bound — visibility only, never a verdict.
+
+    A 20us case jumping 20x cannot cost a frame today, but it can be an algorithmic slip that will
+    scale with content, so it deserves a line in the output even though it is far too jittery to gate.
+    """
+    gated_keys = {p["key"] for p in gated}
+    movers = sorted((p for p in pairs if p["key"] not in gated_keys
+                     and p["ratio"] / flag_factor > bound), key=lambda p: -p["ratio"] / flag_factor)
+    if movers:
+        print(f"\nSub-material cases that also moved (too small to gate; FYI only):")
+        for p in movers:
+            print(f"  {p['key']}: {fmt_dur(p['was'])} -> {fmt_dur(p['now'])}   {p['ratio']:.2f}x raw")
 
 
 def main() -> int:
@@ -359,6 +488,15 @@ def main() -> int:
     print(f"\nReport written to {REPORT}")
     print(f"Frame cases: {len(frame)}  |  over 60fps budget: {len(over)}  |  at 120fps: {len(comfy)}"
           + (f"  |  display cases: {len(display)}" if display else ""))
+    # The budget counts above are raw measurements, so say so when this box is not running at the speed
+    # the baseline was taken on: on a 3x-slow machine the heaviest cases cross 16.67ms on their own and
+    # the counts read like a regression that is not there. --check is normalised; these counts are not.
+    factor, gated, _ = machine_factor(frame, load_baseline())
+    if factor is not None and factor >= MACHINE_NOTE:
+        would = sum(1 for r in frame if r["ns"] / factor > FRAME_60)
+        print(f"  note: this box is running ~{factor:.1f}x slower than the baseline machine"
+              f" ({len(gated)} cases compared); at baseline speed ~{would} would be over the 60fps budget."
+              f" Use --check (normalised) to judge regressions.")
 
     if args.open:
         webbrowser.open(REPORT.as_uri())

@@ -2,7 +2,9 @@ package cui.core
 
 import sdl.{Rect, Size, UiEvent}
 
-private let LAYOUT_UNBOUNDED: Float32 = 999936.0
+// Effectively-infinite extent offered to a child during measure; shared by the scrolling and
+// collapsible containers (Accordion, in cui.controls) that size a child to its natural content.
+protected let LAYOUT_UNBOUNDED: Float32 = 999936.0
 
 /** Layers children back-to-front and aligns each child inside the same frame. */
 public class ZStack <: Widget {
@@ -313,10 +315,11 @@ public class ScrollView <: Widget {
     private var frame = Rect.zero()
     private var contentHeight: Float32 = 0.0
 
-    public init(id: String, body!: () -> Unit) {
+    public init(key!: ?String = None, body!: () -> Unit) {
+        let ident = resolveControlKey(key, "ScrollView")
         child = buildChild(body)
-        scrollOffset = localState<Float32>("ScrollView:${id}:offset") {0.0}
-        scrollBar = ScrollBar("ScrollView:${id}:thumb")
+        scrollOffset = localState<Float32>("ScrollView:${ident}:offset") {0.0}
+        scrollBar = ScrollBar("ScrollView:${ident}:thumb")
         emit(this)
     }
 
@@ -352,7 +355,10 @@ public class ScrollView <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        ctx.renderer.pushClip(frame)
+        // Clip exactly on the scroll axis, but give the cross axis shadow clearance: a card at the
+        // viewport edge keeps its rounded soft halo instead of having it sliced off vertically.
+        ctx.renderer.pushClip(Rect(frame.x - CUI_SHADOW_CLEARANCE, frame.y, frame.w + 2.0 * CUI_SHADOW_CLEARANCE,
+            frame.h))
         child.draw(ctx)
         ctx.renderer.popClip()
         drawVerticalScrollBar(ctx, frame, scrollOffset.value, contentHeight, frame.h, active: scrollBar.dragging(ctx))
@@ -361,7 +367,9 @@ public class ScrollView <: Widget {
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         match (event) {
             case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
-                if (frame.contains(pointerX, pointerY)) {
+                // A surface whose content fits does not own the wheel: consuming here would open a
+                // dead zone inside an enclosing scroller, so the event falls through instead.
+                if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentHeight, frame.h) > 0.0) {
                     scrollOffset.value = scrollOffsetAfterWheel(scrollOffset.value, wheelY, contentHeight, frame.h)
                     return true
                 }

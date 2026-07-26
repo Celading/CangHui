@@ -129,6 +129,7 @@ public class Renderer {
     // last reset — the other per-frame text choke point, separate from measurement.
     private var drawTextCount: UInt64 = 0
     private let metricsCache = TextMetricsCache(TEXT_METRICS_CAP_PER_SIZE)
+    private let namedMetricsCaches = HashMap<String, TextMetricsCache>()
 
     internal init(ptr: CPointer<Unit>, contentScale!: Float32 = 1.0, supersample!: Int32 = DEFAULT_SUPERSAMPLE) {
         this.ptr = ptr
@@ -531,6 +532,11 @@ public class Renderer {
         geometry.strokeRoundedRect(ptr, rect, roundedRadius(rect, radius), pen)
     }
 
+    /** Draws a dashed rounded-rectangle border with a continuous dash phase around corners. */
+    public func strokeRoundedRectDashed(rect: Rect, radius: Float32, pen: Pen, dash!: Float32, gap!: Float32): Unit {
+        geometry.strokeRoundedRectDashed(ptr, rect, roundedRadius(rect, radius), pen, dash, gap)
+    }
+
     public func fillRoundedRect(rect: Rect, radius: Float32, color: Color): Unit {
         let r = roundedRadius(rect, radius)
         if (r <= 0.5) {
@@ -538,6 +544,29 @@ public class Renderer {
             return
         }
         geometry.fillRoundedRect(ptr, rect, r, color)
+    }
+
+    /** Fills a rounded rectangle with a vertical or horizontal linear gradient. */
+    public func fillRoundedRectGradient(
+        rect: Rect,
+        radius: Float32,
+        start: Color,
+        end: Color,
+        vertical!: Bool = true
+    ): Unit {
+        geometry.fillRoundedRectGradient(ptr, rect, roundedRadius(rect, radius), start, end, vertical)
+    }
+
+    /** Fills a rounded rectangle whose corners have independent radii. */
+    public func fillPerCornerRoundedRect(
+        rect: Rect,
+        color: Color,
+        topLeft!: Float32,
+        topRight!: Float32,
+        bottomRight!: Float32,
+        bottomLeft!: Float32
+    ): Unit {
+        geometry.fillPerCornerRoundedRect(ptr, rect, topLeft, topRight, bottomRight, bottomLeft, color)
     }
 
     /**
@@ -629,28 +658,32 @@ public class Renderer {
         x: Float32,
         y: Float32,
         color: Color,
-        pointSize!: Float32 = FontSizes.BODY
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
     ): Unit {
         drawTextCount += 1
         match (textBackend) {
             case Some(value) =>
                 let native = NativeTextColor(color.r, color.g, color.b, color.a)
+                let flags = style.ttfFlags()
+                let facePath = resolveFacePath(font)
                 if (scaleX == 1.0 && scaleY == 1.0) {
-                    value.draw(text, snapPixel(x, 1.0), snapPixel(y, 1.0), pointSize, native)
-                    return
-                }
-                let step: Float32 = if (ssEnabled) {
-                    Float32(ssFactor)
+                    value.draw(text, snapPixel(x, 1.0), snapPixel(y, 1.0), pointSize, flags, facePath, native)
                 } else {
-                    1.0
+                    let step: Float32 = if (ssEnabled) {
+                        Float32(ssFactor)
+                    } else {
+                        1.0
+                    }
+                    let px = snapPixel(x * scaleX, step)
+                    let py = snapPixel(y * scaleY, step)
+                    let _ = unsafe { SDL_SetRenderScale(ptr, 1.0, 1.0) }
+                    applyClipForTextPass()
+                    value.draw(text, px, py, pointSize * scaleY, flags, facePath, native)
+                    let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
+                    applyClip()
                 }
-                let px = snapPixel(x * scaleX, step)
-                let py = snapPixel(y * scaleY, step)
-                let _ = unsafe { SDL_SetRenderScale(ptr, 1.0, 1.0) }
-                applyClipForTextPass()
-                value.draw(text, px, py, pointSize * scaleY, native)
-                let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
-                applyClip()
             case None => ()
         }
     }
@@ -658,15 +691,24 @@ public class Renderer {
     /**
      * Measures UTF-8 text using the same font and point size used for drawing.
      */
-    public func textWidth(text: String, pointSize!: Float32 = FontSizes.BODY): Float32 {
-        textMetrics(text, pointSize).width
+    public func textWidth(
+        text: String,
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
+    ): Float32 {
+        textMetrics(text, pointSize, style, resolveFacePath(font)).width
     }
 
     /**
      * Returns the standard line height for the requested point size.
      */
-    public func textHeight(pointSize!: Float32 = FontSizes.BODY): Float32 {
-        textMetrics("国Ag", pointSize).height
+    public func textHeight(
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
+    ): Float32 {
+        textMetrics("国Ag", pointSize, style, resolveFacePath(font)).height
     }
 
     /**
@@ -676,12 +718,14 @@ public class Renderer {
         text: String,
         rect: Rect,
         color: Color,
-        pointSize!: Float32 = FontSizes.BODY
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
     ): Unit {
-        let metrics = textMetrics(text, pointSize)
+        let metrics = textMetrics(text, pointSize, style, resolveFacePath(font))
         let tx = rect.centerX() - metrics.width / 2.0
         let ty = rect.centerY() - metrics.height / 2.0
-        this.text(text, tx, ty, color, pointSize: pointSize)
+        this.text(text, tx, ty, color, pointSize: pointSize, style: style, font: font)
     }
 
     /** Text measurements requested since the last reset — a per-frame text-cost probe. */
@@ -722,21 +766,46 @@ public class Renderer {
         }
     }
 
-    private func textMetrics(text: String, pointSize: Float32): NativeTextMetrics {
+    private func resolveFacePath(font: ?String): String {
+        match (font) {
+            case None => ""
+            case Some(name) => match (Fonts.pathFor(name)) {
+                case Some(path) => path
+                case None => ""
+            }
+        }
+    }
+
+    private func metricsCacheFor(facePath: String): TextMetricsCache {
+        if (facePath.isEmpty()) {
+            return metricsCache
+        }
+        match (namedMetricsCaches.get(facePath)) {
+            case Some(cache) => cache
+            case None =>
+                let cache = TextMetricsCache(TEXT_METRICS_CAP_PER_SIZE)
+                namedMetricsCaches[facePath] = cache
+                cache
+        }
+    }
+
+    private func textMetrics(text: String, pointSize: Float32, style: FontStyle, facePath: String): NativeTextMetrics {
         measureCount += 1
+        let flags = style.ttfFlags()
         // Cache the unscaled path only — all layout-time measurement and unscaled draw. The scaled
         // text-pass path (scaleX/scaleY != 1) is rare and recomputed. The cache sits above the
         // backend/estimate split, so it serves both the real font backend (skipping SDL_ttf) and the
         // headless estimate, and `computeCount` tracks the misses in either mode.
         if (scaleX == 1.0 && scaleY == 1.0) {
-            let sizeKey = Int64(pointSize * Float32(256.0))
-            match (metricsCache.get(sizeKey, text)) {
+            let sizeKey = Int64(pointSize * Float32(256.0)) * 16 + Int64(flags)
+            let cache = metricsCacheFor(facePath)
+            match (cache.get(sizeKey, text)) {
                 case Some(cached) => return cached
                 case None => ()
             }
             computeCount += 1
-            let computed = computeMetrics(text, pointSize)
-            metricsCache.put(sizeKey, text, computed)
+            let computed = computeMetrics(text, pointSize, style, facePath)
+            cache.put(sizeKey, text, computed)
             return computed
         }
         computeCount += 1
@@ -745,18 +814,23 @@ public class Renderer {
                 // Measure the same scaled rasterization the text pass draws, mapped back to
                 // logical units — carets, selection bands and ellipsis decisions computed
                 // from these metrics then line up with the pixels actually painted.
-                let scaled = value.measure(text, pointSize * scaleY)
+                let scaled = value.measure(text, pointSize * scaleY, flags, facePath)
                 NativeTextMetrics(scaled.width / scaleX, scaled.height / scaleY)
-            case None => NativeTextMetrics(Float32(text.size) * pointSize * 0.55, pointSize * 1.3)
+            case None => headlessMetrics(text, pointSize, style)
         }
     }
 
     // The uncached measurement: the real font backend, or a proportional estimate when headless.
-    private func computeMetrics(text: String, pointSize: Float32): NativeTextMetrics {
+    private func computeMetrics(text: String, pointSize: Float32, style: FontStyle, facePath: String): NativeTextMetrics {
         match (textBackend) {
-            case Some(value) => value.measure(text, pointSize)
-            case None => NativeTextMetrics(Float32(text.size) * pointSize * 0.55, pointSize * 1.3)
+            case Some(value) => value.measure(text, pointSize, style.ttfFlags(), facePath)
+            case None => headlessMetrics(text, pointSize, style)
         }
+    }
+
+    private func headlessMetrics(text: String, pointSize: Float32, style: FontStyle): NativeTextMetrics {
+        let boldFactor: Float32 = if (style.bold) { 1.06 } else { 1.0 }
+        NativeTextMetrics(Float32(text.size) * pointSize * 0.55 * boldFactor, pointSize * 1.3)
     }
 
     // While the text pass draws with the GPU scale reset to 1:1, the active clip must be

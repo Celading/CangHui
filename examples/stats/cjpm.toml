@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "cui_stats"
+version = "0.1.0"
+output-type = "executable"
+description = "CUI RichText per-span font size (metrics dashboard: big value + small unit)."
+
+[dependencies]
+cui = { path = "../.." }

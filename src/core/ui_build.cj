@@ -1,7 +1,7 @@
 package cui.core
 
-import sdl.{Rect, Size, UiEvent}
 import std.collection.ArrayList
+import sdl.{Rect, Size, UiEvent}
 
 /*
  * Declarative builder support.
@@ -159,6 +159,22 @@ protected func requireControlId(id: String, kind: String): Unit {
 }
 
 /*
+ * Resolves a control's identity from an optional explicit key (the unified `key!` parameter). A
+ * given key is used verbatim after a non-empty check; when absent, the identity is auto-derived by
+ * declaration order within the current `Keyed` scope. This is the single seam behind every control's
+ * optional identity: state that must survive structural change passes an explicit key, everything
+ * else lets build order name it.
+ */
+protected func resolveControlKey(key: ?String, kind: String): String {
+    match (key) {
+        case Some(value) =>
+            requireControlId(value, kind)
+            value
+        case None => controlIdentity(kind)
+    }
+}
+
+/*
  * A focus/press identity for a control that declared no explicit id. During a build the
  * identity is scoped by `Keyed` and deduplicated in declaration order, so identical
  * default names (two icon-only buttons, two "确定" buttons) never share interaction
@@ -183,8 +199,13 @@ protected func registerFocusable(id: String): Unit {
     }
 }
 
-/** Assigns a build-order identity and registers it as a focus stop in one step. */
-protected func focusableControlIdentity(base: String): String {
+/*
+ * Assigns a build-order identity and registers it as a focus stop in one step. Public so
+ * application-defined widgets can join the Tab order exactly like built-in controls: call it in
+ * the constructor with a stable base name, then pair `ctx.hasFocus(id)` / `ctx.showFocusRing(id)`
+ * in `handle` / `draw` (see `examples/disclosure` for a complete custom row).
+ */
+public func focusableControlIdentity(base: String): String {
     let id = controlIdentity(base)
     registerFocusable(id)
     id
@@ -214,7 +235,7 @@ protected func focusablesSince(start: Int64): Array<String> {
     }
 }
 
-/** Keeps the focus ring consistent when a control's `.id(...)` overrides its auto id. */
+/** Keeps the focus ring consistent when a control's `.key(...)` overrides its auto id. */
 protected func reregisterFocusable(previous: String, replacement: String): Unit {
     match (activeStateStore) {
         case Some(store) => store.reregisterFocusable(previous, replacement)
@@ -236,9 +257,10 @@ protected func collectFocusableIds(children: Array<Widget>): Array<String> {
 /*
  * Claims the pointer shape for `id` when a MouseMove falls inside `frame`. Controls call
  * this at the top of `handle` without consuming the event, so hover propagates to every
- * layer and the shell resolves the top-most claim (see `UiContext.claimHover`).
+ * layer and the shell resolves the top-most claim (see `UiContext.claimHover`). Public for
+ * application-defined widgets, which pair it with `ctx.isHovered(id)` in `draw`.
  */
-protected func claimHoverIfInside(ctx: UiContext, event: UiEvent, frame: Rect, id: String, shape: CursorShape): Unit {
+public func claimHoverIfInside(ctx: UiContext, event: UiEvent, frame: Rect, id: String, shape: CursorShape): Unit {
     match (event) {
         case UiEvent.MouseMove(x, y) => if (frame.contains(x, y)) {
             ctx.claimHover(id, shape)

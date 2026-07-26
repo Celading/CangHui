@@ -10,16 +10,16 @@ let NOTES_TITLE: Length = 20.fp
 
 func notesTheme(): Theme {
     Theme(
-        Color.rgb(244, 243, 239), // bg
-        Color.rgb(255, 255, 255), // panel
-        Color.rgb(224, 220, 210), // panelEdge
-        Color.rgb(38, 34, 28), // text
-        Color.rgb(124, 116, 102), // mutedText
-        Color.rgb(196, 128, 44), // accent
-        Color.rgb(255, 255, 255), // accentText
-        Color.rgb(198, 74, 66), // danger
-        Color.rgb(250, 249, 246), // field
-        Color.rgb(248, 240, 228), // fieldActive
+        bg: Color.rgb(244, 243, 239),
+        panel: Color.rgb(255, 255, 255),
+        panelEdge: Color.rgb(224, 220, 210),
+        text: Color.rgb(38, 34, 28),
+        mutedText: Color.rgb(124, 116, 102),
+        accent: Color.rgb(196, 128, 44),
+        accentText: Color.rgb(255, 255, 255),
+        danger: Color.rgb(198, 74, 66),
+        field: Color.rgb(250, 249, 246),
+        fieldActive: Color.rgb(248, 240, 228),
         panelRaised: Color.rgb(255, 255, 255),
         accentSoft: Color.rgb(248, 236, 218),
         shadow: Color.rgba(60, 48, 30, 26),

@@ -101,6 +101,53 @@ internal class GeometryBatch {
         }
     }
 
+    func fillRoundedRectGradient(
+        renderer: CPointer<Unit>,
+        rect: Rect,
+        radius: Float32,
+        start: Color,
+        end: Color,
+        vertical: Bool
+    ): Unit {
+        if (renderer.isNull() || rect.w <= 0.0 || rect.h <= 0.0) {
+            return
+        }
+        let f = clampFeather(AA_FEATHER, min(rect.w, rect.h))
+        let extent = if (vertical) { rect.h } else { rect.w }
+        if (withinKeyBudget(rect.w, rect.h, radius, f)) {
+            let key = meshKey(MESH_KIND_FILL, rect.w, rect.h, radius, f)
+            let mesh = match (meshCache.get(key)) {
+                case Some(existing) => existing
+                case None =>
+                    buildRoundedRectPath(Rect(0.0, 0.0, rect.w, rect.h), radius)
+                    let built = buildFillMesh(f)
+                    meshCache.put(key, built)
+                    built
+            }
+            emitMeshGradient(renderer, mesh, rect.x, rect.y, extent, vertical, start, end)
+        } else {
+            buildRoundedRectPath(rect, radius)
+            fillPath(renderer, start, f)
+        }
+    }
+
+    func fillPerCornerRoundedRect(
+        renderer: CPointer<Unit>,
+        rect: Rect,
+        topLeft: Float32,
+        topRight: Float32,
+        bottomRight: Float32,
+        bottomLeft: Float32,
+        color: Color
+    ): Unit {
+        if (renderer.isNull() || rect.w <= 0.0 || rect.h <= 0.0) {
+            return
+        }
+        let f = clampFeather(AA_FEATHER, min(rect.w, rect.h))
+        buildRoundedRectPathPerCorner(rect, topLeft, topRight, bottomRight, bottomLeft)
+        fillPath(renderer, color, f)
+    }
+
     func strokeRoundedRect(renderer: CPointer<Unit>, rect: Rect, radius: Float32, pen: Pen): Unit {
         if (renderer.isNull() || rect.w <= 0.0 || rect.h <= 0.0 || pen.width <= 0.0) {
             return
@@ -119,6 +166,70 @@ internal class GeometryBatch {
         } else {
             buildRoundedRectPath(rect, radius)
             strokePath(renderer, pen)
+        }
+    }
+
+    func strokeRoundedRectDashed(
+        renderer: CPointer<Unit>,
+        rect: Rect,
+        radius: Float32,
+        pen: Pen,
+        dash: Float32,
+        gap: Float32
+    ): Unit {
+        if (renderer.isNull() || rect.w <= 0.0 || rect.h <= 0.0 || pen.width <= 0.0) {
+            return
+        }
+        if (dash <= 0.0 || gap <= 0.0) {
+            strokeRoundedRect(renderer, rect, radius, pen)
+            return
+        }
+        buildRoundedRectPath(rect, radius)
+        let n = pathX.size
+        if (n < 2) {
+            return
+        }
+        let px = ArrayList<Float32>()
+        let py = ArrayList<Float32>()
+        var c = 0
+        while (c < n) {
+            px.add(pathX[c])
+            py.add(pathY[c])
+            c += 1
+        }
+        var penDown = true
+        var remaining = dash
+        var i = 0
+        while (i < n) {
+            let ax = px[i]
+            let ay = py[i]
+            let j = (i + 1) % n
+            let dx = px[j] - ax
+            let dy = py[j] - ay
+            let edgeLen = sqrt(dx * dx + dy * dy)
+            if (edgeLen > 0.0001) {
+                var t0: Float32 = 0.0
+                while (t0 < edgeLen) {
+                    let segment = min(remaining, edgeLen - t0)
+                    if (penDown && segment > 0.0) {
+                        let s0 = t0 / edgeLen
+                        let s1 = (t0 + segment) / edgeLen
+                        strokeSegment(
+                            renderer,
+                            Point(ax + dx * s0, ay + dy * s0),
+                            Point(ax + dx * s1, ay + dy * s1),
+                            pen
+                        )
+                    }
+                    t0 += segment
+                    remaining -= segment
+                    if (remaining <= 0.0001) {
+                        penDown = !penDown
+                        remaining = if (penDown) { dash } else { gap }
+                    }
+                }
+            }
+            i += 1
         }
     }
 
@@ -553,6 +664,58 @@ internal class GeometryBatch {
         }
     }
 
+    private func emitMeshGradient(
+        renderer: CPointer<Unit>,
+        mesh: CachedMesh,
+        dx: Float32,
+        dy: Float32,
+        extent: Float32,
+        vertical: Bool,
+        start: Color,
+        end: Color
+    ): Unit {
+        let vc = mesh.vertCount
+        let ic = mesh.idxCount
+        if (vc == 0 || ic == 0 || renderer.isNull() || mesh.relVerts.isNull() || mesh.indices.isNull()) {
+            return
+        }
+        ensureCapacity(vc, 0)
+        if (verts.isNull()) {
+            return
+        }
+        let sr = Float32(Int64(start.r)) / 255.0
+        let sg = Float32(Int64(start.g)) / 255.0
+        let sb = Float32(Int64(start.b)) / 255.0
+        let sa = Float32(Int64(start.a)) / 255.0
+        let er = Float32(Int64(end.r)) / 255.0
+        let eg = Float32(Int64(end.g)) / 255.0
+        let eb = Float32(Int64(end.b)) / 255.0
+        let ea = Float32(Int64(end.a)) / 255.0
+        let span = max(0.0001, extent)
+        var i: Int64 = 0
+        while (i < vc) {
+            var vertex = unsafe { mesh.relVerts.read(i) }
+            let axis = if (vertical) { vertex.py } else { vertex.px }
+            var t = axis / span
+            if (t < 0.0) {
+                t = 0.0
+            } else if (t > 1.0) {
+                t = 1.0
+            }
+            vertex.px = vertex.px + dx
+            vertex.py = vertex.py + dy
+            vertex.colA = (sa + (ea - sa) * t) * vertex.colA
+            vertex.colR = sr + (er - sr) * t
+            vertex.colG = sg + (eg - sg) * t
+            vertex.colB = sb + (eb - sb) * t
+            unsafe { verts.write(i, vertex) }
+            i += 1
+        }
+        let _ = unsafe {
+            SDL_RenderGeometry(renderer, CPointer<Unit>(), verts, Int32(vc), mesh.indices, Int32(ic))
+        }
+    }
+
     private func addTri(indices: ArrayList<Int32>, a: Int64, b: Int64, c: Int64): Unit {
         indices.add(Int32(a))
         indices.add(Int32(b))
@@ -572,11 +735,44 @@ internal class GeometryBatch {
             pathAdd(rect.x, rect.bottom())
             return
         }
+        buildRoundedRectPathPerCorner(rect, r, r, r, r)
+    }
+
+    private func buildRoundedRectPathPerCorner(
+        rect: Rect,
+        topLeft: Float32,
+        topRight: Float32,
+        bottomRight: Float32,
+        bottomLeft: Float32
+    ): Unit {
+        pathX.clear()
+        pathY.clear()
+        let maxR = min(rect.w, rect.h) / 2.0
+        let tl = clampF32(topLeft, 0.0, maxR)
+        let tr = clampF32(topRight, 0.0, maxR)
+        let br = clampF32(bottomRight, 0.0, maxR)
+        let bl = clampF32(bottomLeft, 0.0, maxR)
         let half = GEOM_PI / 2.0
-        pathArc(rect.right() - r, rect.y + r, r, -half, 0.0)
-        pathArc(rect.right() - r, rect.bottom() - r, r, 0.0, half)
-        pathArc(rect.x + r, rect.bottom() - r, r, half, GEOM_PI)
-        pathArc(rect.x + r, rect.y + r, r, GEOM_PI, GEOM_PI + half)
+        if (tr < 0.75) {
+            pathAdd(rect.right(), rect.y)
+        } else {
+            pathArc(rect.right() - tr, rect.y + tr, tr, -half, 0.0)
+        }
+        if (br < 0.75) {
+            pathAdd(rect.right(), rect.bottom())
+        } else {
+            pathArc(rect.right() - br, rect.bottom() - br, br, 0.0, half)
+        }
+        if (bl < 0.75) {
+            pathAdd(rect.x, rect.bottom())
+        } else {
+            pathArc(rect.x + bl, rect.bottom() - bl, bl, half, GEOM_PI)
+        }
+        if (tl < 0.75) {
+            pathAdd(rect.x, rect.y)
+        } else {
+            pathArc(rect.x + tl, rect.y + tl, tl, GEOM_PI, GEOM_PI + half)
+        }
     }
 
     private func buildCirclePath(center: Point, radius: Float32, minSegments: Int64): Unit {

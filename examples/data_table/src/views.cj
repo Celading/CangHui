@@ -12,7 +12,7 @@ func fleetView(model: FleetModel): Unit {
     VStack {
         header()
         // Typed data table: rows stay `Array<Server>`, columns extract fields — no string matrix.
-        Table.of("fleet.table", model.servers, serverColumns(), model.selected).flex()
+        Table.of(model.servers, serverColumns(), model.selected).flex()
         detailBar(model)
     }.spacing(14.vp).padding(18.vp)
 }
@@ -20,7 +20,7 @@ func fleetView(model: FleetModel): Unit {
 func header(): Unit {
     VStack {
         Label("服务器机群监控").fontSize(TABLE_TITLE)
-        Label("点击列头排序（数值列按数值），点击行或用方向键选择").muted().fontSize(FontSizes.CAPTION)
+        Label("点击列头排序，点击行或用方向键选择").muted().fontSize(FontSizes.CAPTION)
     }.spacing(3.vp).hug()
 }
 
