@@ -41,7 +41,7 @@
     "no UIKit lifecycle, safe-area or touch adapter",
     "no iOS renderer or native-surface backend",
     "no simulator launch acceptance",
-    "no ExplorerX-CUI iOS acceptance",
+    "no product acceptance application on iOS",
     "no release or LTS claim"
   ]
 }

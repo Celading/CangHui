@@ -158,13 +158,13 @@
   ],
   "platformImplementations": [
     {
-      "project": "HarmonyHap/CangHUI",
+      "project": "CangHUI Harmony adapter",
       "role": "HarmonyOS and HarmonyPC platform implementation and feature proving source",
       "state": "external-device-proven-provider; not vendored into mother framework"
     }
   ],
   "residuals": [
-    "Define an explicit compatibility and sync protocol between the mother framework and HarmonyHap/CangHUI.",
+    "Define an explicit compatibility and sync protocol between the mother framework and the CangHUI Harmony adapter.",
     "Prove a platform adapter consuming the CangjieGUI 0.3.0 mother contracts without source duplication.",
     "Add lifecycle, IME, accessibility and native-surface service interfaces before claiming a complete platform host abstraction.",
     "Implement and independently verify an external SoonLink Channel v1 KModeChannelModule before claiming relay-backed operation.",
@@ -172,7 +172,7 @@
     "Do not claim Android or iOS runtime support from desktop layout previews.",
     "Implement the UIKit CAMetalLayer/MTKView surface proxy after the static-package bootstrap protocol is available.",
     "Bind SDL_EnterAppMainCallbacks for OwnedWindow mode only after Cangjie static-package initialization is established.",
-    "Keep ExplorerX models, SoonLink endpoints, credentials and file-manager screens in the application; use it as an acceptance consumer rather than framework source.",
+    "Keep product models, relay endpoints, credentials and file-manager screens in consumer applications; use them as acceptance consumers rather than framework source.",
     "Keep ArkUI Search, Counter, indeterminate LoadingProgress, Refresh, Swiper and navigation-stack semantics open until dedicated common controls and interaction tests land.",
     "Add a separate reduced-motion/accessibility policy before claiming accessibility-complete motion behavior.",
     "Keep Web, Video, Map and XComponent-class host rendering platform-bound; desktop common-layout previews do not prove those adapters."

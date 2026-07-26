@@ -309,7 +309,7 @@ iOS 采用静态库嵌入 Xcode 宿主。母体框架提供可独立交叉编译
 签名和应用生命周期。当前真机证据已证明 runtime 初始化、固定后台 UI scheduler 和 N2C foreign-thread
 调用门可用，也已成功调用一个最小仓颉静态包；但 CangjieGUI `cui.host` 静态包仍卡在正式包初始化协议，
 因此尚不声称 ABI 函数已返回，也不证明 UIKit 生命周期、触摸、safe area、IME、无障碍或
-ExplorerX-CUI 已适配。
+首个产品验收应用仍需在独立仓库完成适配。
 
 ### XComponent-like 原生表面代理
 

@@ -33,7 +33,7 @@
     "no iOS renderer or native-surface backend",
     "no Xcode or CJMP host project",
     "no simulator or device proof",
-    "no ExplorerX-CUI port completion",
+    "no product acceptance application port completion",
     "no release or LTS claim"
   ]
 }

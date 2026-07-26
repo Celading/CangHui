@@ -6,7 +6,7 @@
   "baseline": "CangjieGUI@0839a08",
   "version": "0.3.0",
   "componentApiVersion": "0.1.0",
-  "extractionSource": "HarmonyHap/CangHUI@3038637",
+  "extractionSource": "CangHUI platform prototype@3038637",
   "verification": {
     "rootTests": "pass: 184/184",
     "rootBuild": "pass: cjpm build",
