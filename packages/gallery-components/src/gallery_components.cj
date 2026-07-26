@@ -12,16 +12,22 @@ public func galleryPackageDescriptor(): ComponentPackageDescriptor {
     ComponentPackageDescriptor(
         "cangjiegui.gallery.common",
         "CangjieGUI Gallery Common Components",
-        "0.1.0"
+        "0.2.0"
     )
 }
 
-/** State owned by the consumer and retained while the viewport changes. */
+/** State owned by the consumer and retained while viewport or theme settings change. */
 public class GallerySurfaceState {
     public let selectedSection = State<Int64>(0)
     public let notificationsEnabled = State<Bool>(true)
+    public let checkboxEnabled = State<Bool>(true)
+    public let selectedChoice = State<Int64>(1)
+    public let sliderValue = State<Float32>(0.62)
+    public let stepperValue = State<Int64>(3)
+    public let pickerValue = State<Int64>(1)
+    public let fieldText = State<String>("CangjieGUI")
+    public let dropdownValue = State<Int64>(1)
     public let overviewProgress = State<Float32>(0.68)
-    public let activityProgress = State<Float32>(0.42)
     public let architectureChip = State<Bool>(true)
     public let toolingChip = State<Bool>(false)
     public let rating = State<Int64>(4)
@@ -29,7 +35,7 @@ public class GallerySurfaceState {
     public let step = State<Int64>(1)
 }
 
-/** One component tree rendered unchanged for compact, medium and expanded hosts. */
+/** One named component catalogue rendered unchanged for compact, medium and expanded hosts. */
 public func galleryCommonSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     match (context.viewport.widthClass()) {
         case ViewportClass.Compact => compactSurface(context, state)
@@ -41,131 +47,247 @@ public func galleryCommonSurface(context: ComponentContext, state: GallerySurfac
 private func compactSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     VStack {
         surfaceHeader(context)
-        SegmentedControl(["Components", "Activity", "Settings"], state.selectedSection, key: "gallery-mobile-sections")
+        SegmentedControl(["Actions", "Selection", "Navigation", "Feedback"], state.selectedSection,
+            key: "gallery-compact-sections")
         Divider()
-        primaryContent(state)
-    }.spacing(14.vp).padding(18.vp)
+        galleryScroll(context, state, "gallery-compact-scroll")
+    }.spacing(12.vp).padding(16.vp)
 }
 
 private func mediumSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     VStack {
-        HStack {
-            surfaceHeader(context)
-            Spacer()
-            Button("Create", {=> state.selectedSection.value = 1})
-        }.hug()
-        SegmentedControl(["Components", "Activity", "Settings"], state.selectedSection, key: "gallery-tablet-sections")
+        surfaceHeader(context)
+        SegmentedControl(["Actions", "Selection", "Navigation", "Feedback"], state.selectedSection,
+            key: "gallery-medium-sections")
         Divider()
-        primaryContent(state)
-    }.spacing(16.vp).padding(22.vp)
+        galleryScroll(context, state, "gallery-medium-scroll")
+    }.spacing(14.vp).padding(20.vp)
 }
 
 private func expandedSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     HStack {
         VStack {
             Label("CangjieGUI", fontSize: 20.fp)
-            Label(hostPlatformName(context.host.platform), muted: true)
+            Label("Component catalogue", muted: true)
             Divider()
-            Button("Components", {=> state.selectedSection.value = 0})
-            Button("Activity", {=> state.selectedSection.value = 1})
-            Button("Settings", {=> state.selectedSection.value = 2})
+            sectionButton("Actions", 0, state)
+            sectionButton("Selection", 1, state)
+            sectionButton("Navigation", 2, state)
+            sectionButton("Feedback", 3, state)
             Spacer()
-            Label("Common package 0.1.0", muted: true)
-        }.spacing(10.vp).hug().padding(20.vp).width(230.vp)
+            Label("Common package 0.2.0", muted: true)
+        }.spacing(8.vp).hug().padding(18.vp).width(220.vp)
         Divider()
         VStack {
-            HStack {
-                surfaceHeader(context)
-                Spacer()
-                Button("Create", {=> state.selectedSection.value = 1})
-            }.hug()
+            surfaceHeader(context)
             Divider()
-            primaryContent(state)
-        }.spacing(18.vp).padding(24.vp)
+            galleryScroll(context, state, "gallery-expanded-scroll")
+        }.spacing(14.vp).padding(22.vp)
     }.spacing(0.vp)
 }
 
-private func surfaceHeader(context: ComponentContext): Unit {
-    VStack {
-        Label(sectionTitle(context.viewport.widthClass()), fontSize: 22.fp)
-        Label("${context.viewport.label} / ${hostPlatformName(context.host.platform)}", muted: true)
-    }.spacing(2.vp).hug()
+private func sectionButton(title: String, index: Int64, state: GallerySurfaceState): Unit {
+    Button(title, {=> state.selectedSection.value = index},
+        role: if (state.selectedSection.value == index) { ButtonRole.Primary } else { ButtonRole.Normal })
+        .key("gallery-section-${index}")
 }
 
-private func primaryContent(state: GallerySurfaceState): Unit {
-    match (state.selectedSection.value) {
-        case 1 => activityContent(state.activityProgress)
-        case 2 => settingsContent(state.notificationsEnabled)
-        case _ => componentContent(state)
+private func surfaceHeader(context: ComponentContext): Unit {
+    match (context.viewport.widthClass()) {
+        case ViewportClass.Compact => VStack {
+            Label(sectionTitle(context.viewport.widthClass()), fontSize: 22.fp)
+            Label("${context.viewport.label} / ${hostPlatformName(context.host.platform)}", muted: true)
+        }.spacing(2.vp).hug()
+        case _ => HStack {
+            VStack {
+                Label(sectionTitle(context.viewport.widthClass()), fontSize: 22.fp)
+                Label("${context.viewport.label} / ${hostPlatformName(context.host.platform)}", muted: true)
+            }.spacing(2.vp).hug()
+            Spacer()
+            Badge("named specimens", kind: BadgeKind.Info)
+        }.hug()
     }
 }
 
-private func componentContent(state: GallerySurfaceState): Unit {
+private func galleryScroll(context: ComponentContext, state: GallerySurfaceState, key: String): Unit {
+    ScrollView(key: key) {
+        match (state.selectedSection.value) {
+            case 1 => selectionComponents(state)
+            case 2 => navigationComponents(state)
+            case 3 => feedbackComponents(state)
+            case _ => actionComponents(context.viewport.widthClass(), state)
+        }
+    }
+}
+
+private func actionComponents(viewportClass: ViewportClass, state: GallerySurfaceState): Unit {
     VStack {
-        HStack {
-            Label("ArkUI-aligned controls", fontSize: 18.fp)
-            Spacer()
-            Badge("upstream 0.9.2", kind: BadgeKind.Info)
-        }.hug()
-        Breadcrumb(["CangjieGUI", "Common", "Controls"], maxItems: 3)
-        HStack {
-            Badge("stable", kind: BadgeKind.Success)
-            Badge("interactive", kind: BadgeKind.Accent)
-            Badge("desktop proof", kind: BadgeKind.Warning)
-        }.spacing(8.vp).hug()
-        HStack {
-            Chip("Architecture", state.architectureChip, key: "gallery-chip-architecture")
-            Chip("Tooling", state.toolingChip, key: "gallery-chip-tooling")
-            Spacer()
-            Rating(state.rating, key: "gallery-rating")
-        }.spacing(8.vp).hug()
-        HStack {
-            ProgressRing(state.overviewProgress.value, diameter: 68.0, thickness: 7.0)
-            VStack {
-                Label("Coverage progress")
-                ProgressBar(state.overviewProgress)
-                Label("Geometry, state, focus and pointer paths are mounted.", muted: true).wrap()
+        categoryHeader("Actions", "Unified press, hover, cancellation and automatic motion")
+        specimen("Button", "cui.Button") {
+            buttonSpecimen(viewportClass)
+        }
+        specimen("IconButton", "cui.IconButton") {
+            FlowRow {
+                IconButton(IconName.Save) {=> ()}
+                IconButton(IconName.Refresh, label: Some("Refresh")) {=> ()}
+                IconButton(IconName.Trash, label: Some("Delete"), role: ButtonRole.Danger) {=> ()}
+            }.spacing(10.vp)
+        }
+        specimen("Chip", "cui.Chip") {
+            FlowRow {
+                Chip("Architecture", state.architectureChip, key: "gallery-chip-architecture")
+                Chip("Tooling", state.toolingChip, key: "gallery-chip-tooling")
+            }.spacing(10.vp)
+        }
+        specimen("Badge", "cui.Badge") {
+            FlowRow {
+                Badge("stable", kind: BadgeKind.Success)
+                Badge("interactive", kind: BadgeKind.Accent)
+                Badge("attention", kind: BadgeKind.Warning)
+                Badge("blocked", kind: BadgeKind.Danger)
             }.spacing(8.vp)
+        }
+    }.spacing(14.vp).padding(2.vp)
+}
+
+private func buttonSpecimen(viewportClass: ViewportClass): Unit {
+    match (viewportClass) {
+        case ViewportClass.Compact => VStack {
+            HStack {
+                Button("Normal", {=> ()})
+                Button("Primary", {=> ()}, role: ButtonRole.Primary)
+                Button("Danger", {=> ()}, role: ButtonRole.Danger)
+            }.spacing(10.vp).hug()
+            HStack {
+                Button("Custom 320ms", {=> ()}, role: ButtonRole.Primary)
+                    .animation(UInt64(320), easing: Easing.EaseOutBack)
+            }.hug()
         }.spacing(16.vp).hug()
-        Pagination(8, state.page, key: "gallery-pagination")
-        StepIndicator(["Pull", "Merge", "Prove"], state.step.value,
-            onSelect: {index => state.step.value = index}, key: "gallery-steps")
+        case _ => FlowRow {
+            Button("Normal", {=> ()})
+            Button("Primary", {=> ()}, role: ButtonRole.Primary)
+            Button("Danger", {=> ()}, role: ButtonRole.Danger)
+            Button("Custom 320ms", {=> ()}, role: ButtonRole.Primary)
+                .animation(UInt64(320), easing: Easing.EaseOutBack)
+        }.spacing(10.vp)
+    }
+}
+
+private func selectionComponents(state: GallerySurfaceState): Unit {
+    VStack {
+        categoryHeader("Selection", "Bound state, keyboard focus and animated value changes")
+        specimen("Checkbox / Switch", "cui.Checkbox + cui.Switch") {
+            FlowRow {
+                Checkbox("Build checks", state.checkboxEnabled).key("gallery-checkbox")
+                Switch("Notifications", state.notificationsEnabled).key("gallery-switch")
+            }.spacing(18.vp)
+        }
+        specimen("RadioButton", "cui.RadioButton") {
+            FlowRow {
+                RadioButton("Basic", state.selectedChoice, 0).key("gallery-radio-basic")
+                RadioButton("Standard", state.selectedChoice, 1).key("gallery-radio-standard")
+                RadioButton("Full", state.selectedChoice, 2).key("gallery-radio-full")
+            }.spacing(14.vp)
+        }
+        specimen("Slider / Stepper", "cui.Slider + cui.Stepper") {
+            HStack {
+                Slider(state.sliderValue, key: "gallery-slider").width(260.vp)
+                Stepper(state.stepperValue, key: "gallery-stepper", lower: 0, upper: 9)
+            }.spacing(18.vp).hug()
+        }
+        specimen("Picker / Rating", "cui.Picker + cui.Rating") {
+            FlowRow {
+                Picker(["Basic", "Standard", "Full"], state.pickerValue, key: "gallery-picker")
+                Rating(state.rating, key: "gallery-rating")
+            }.spacing(18.vp)
+        }
+    }.spacing(14.vp).padding(2.vp)
+}
+
+private func navigationComponents(state: GallerySurfaceState): Unit {
+    VStack {
+        categoryHeader("Navigation", "Location, progress and disclosure components")
+        specimen("Breadcrumb", "cui.Breadcrumb") {
+            Breadcrumb(["CUI", "Navigation", "Current"], maxItems: 3)
+        }
+        specimen("Pagination", "cui.Pagination") {
+            Pagination(8, state.page, key: "gallery-pagination")
+        }
+        specimen("StepIndicator", "cui.StepIndicator") {
+            StepIndicator(["Pull", "Merge", "Prove", "Ship"], state.step.value,
+                onSelect: {index => state.step.value = index}, key: "gallery-steps")
+                .animation(AnimationSpec.automatic(duration: Motion.slow, easing: Motion.standard))
+        }
+        specimen("Accordion", "cui.Accordion") {
+            Accordion([
+                AccordionSection("Interaction contract") {=>
+                    Label("Press inside, move-out cancellation, and release-inside activation share one route.",
+                        muted: true).wrap()
+                },
+                AccordionSection("Motion contract") {=>
+                    Label("Basic, Standard and Full select automatic expression while explicit timings remain exact.",
+                        muted: true).wrap()
+                },
+                AccordionSection("Platform boundary") {=>
+                    Label("Native rendering and host services remain adapter-owned.", muted: true).wrap()
+                }
+            ], single: true, initiallyExpanded: [0], key: "gallery-accordion")
+        }
+    }.spacing(14.vp).padding(2.vp)
+}
+
+private func feedbackComponents(state: GallerySurfaceState): Unit {
+    VStack {
+        categoryHeader("Feedback", "Status, progress and editable value specimens")
+        specimen("ProgressBar / ProgressRing", "cui.ProgressBar + cui.ProgressRing") {
+            HStack {
+                ProgressRing(state.overviewProgress.value, diameter: 68.0, thickness: 7.0)
+                VStack {
+                    Label("Coverage ${Int64(state.overviewProgress.value * 100.0)}%")
+                    ProgressBar(state.overviewProgress)
+                }.spacing(8.vp)
+            }.spacing(18.vp).hug()
+        }
+        specimen("TextField", "cui.TextField") {
+            TextField(state.fieldText, key: "gallery-text-field").width(320.vp)
+        }
+        specimen("Dropdown", "cui.Dropdown") {
+            Dropdown(["Basic motion", "Standard motion", "Full motion"], state.dropdownValue,
+                key: "gallery-dropdown")
+        }
+        specimen("Divider / Label", "cui.Divider + cui.Label") {
+            VStack {
+                Label("Primary label")
+                Divider()
+                Label("Muted supporting label", muted: true)
+            }.spacing(8.vp)
+        }
+    }.spacing(14.vp).padding(2.vp)
+}
+
+private func categoryHeader(title: String, description: String): Unit {
+    VStack {
+        Label(title, fontSize: 19.fp)
+        Label(description, muted: true).wrap()
+    }.spacing(3.vp).hug()
+}
+
+private func specimen(title: String, api: String, body: () -> Unit): Unit {
+    VStack {
+        HStack {
+            Label(title, fontSize: 16.fp)
+            Spacer()
+            Badge(api, kind: BadgeKind.Info)
+        }.hug()
+        body()
         Divider()
-        Accordion([
-            AccordionSection("Interaction contract") {=>
-                Label("Tab focus, pointer feedback and bounded layout stay inside the common package.", muted: true).wrap()
-            },
-            AccordionSection("Platform boundary") {=>
-                Label("Host lifecycle, secure storage and native media remain adapter-owned.", muted: true).wrap()
-            }
-        ], single: true, initiallyExpanded: [0], key: "gallery-accordion")
-    }.spacing(12.vp)
-}
-
-private func activityContent(progress: Observable<Float32>): Unit {
-    VStack {
-        Label("Activity", fontSize: 18.fp)
-        Label("The desktop gallery mounted the same typed package intended for platform hosts.", muted: true).wrap()
-        ProgressBar(progress)
-        Label("Package compatibility checked", muted: true)
-        Label("Responsive layout selected", muted: true)
-        Label("Host-specific services remain outside common UI", muted: true).wrap()
-    }.spacing(12.vp)
-}
-
-private func settingsContent(notificationsEnabled: Bindable<Bool>): Unit {
-    VStack {
-        Label("Settings", fontSize: 18.fp)
-        Switch("Notifications", notificationsEnabled)
-        Label("The common component owns presentation state only.", muted: true).wrap()
-        Label("Secure storage, lifecycle and media stay in the host.", muted: true).wrap()
-    }.spacing(12.vp)
+    }.spacing(9.vp).hug()
 }
 
 private func sectionTitle(viewportClass: ViewportClass): String {
     match (viewportClass) {
-        case ViewportClass.Compact => "Compact common"
-        case ViewportClass.Medium => "Medium common"
-        case ViewportClass.Expanded => "Expanded common"
+        case ViewportClass.Compact => "Compact catalogue"
+        case ViewportClass.Medium => "Medium catalogue"
+        case ViewportClass.Expanded => "Expanded catalogue"
     }
 }

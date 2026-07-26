@@ -3,7 +3,7 @@ package cui.controls
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, ScrollBar, maxScrollOffset, Spring, State, UiContext, Widget, requireControlId,
     claimHoverIfInside, clampScrollOffset, drawFocusRing, drawSurface, drawVerticalScrollBar, emit,
-    focusableControlIdentity, localState, reregisterFocusable, scrollLineIndex, scrollLineRemainder,
+    focusableControlIdentity, handlePointerClick, localState, reregisterFocusable, scrollLineIndex, scrollLineRemainder,
     scrollOffsetAfterWheel}
 
 public class Checkbox <: Widget {
@@ -72,28 +72,19 @@ public class Checkbox <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        claimHoverIfInside(ctx, event, frame, controlId, CursorShape.Interactive)
+        if (handlePointerClick(ctx, event, frame, controlId, {=> checked.value = !checked.value})) {
+            return true
+        }
         match (event) {
-            case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-                if (frame.contains(x, y)) {
-                    ctx.focus(controlId)
-                    ctx.press(controlId)
-                    return true
-                }
-            case UiEvent.MouseUp(MouseButton.Left, x, y) =>
-                if (ctx.isPressed(controlId)) {
-                    if (frame.contains(x, y)) {
-                        checked.value = !checked.value
-                    }
-                    return true
-                }
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
                     checked.value = !checked.value
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
                     checked.value = !checked.value
                     return true
                 }

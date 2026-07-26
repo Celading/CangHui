@@ -1,7 +1,7 @@
 package cui.core
 
 import std.collection.ArrayList
-import sdl.{Rect, Size, UiEvent}
+import sdl.{MouseButton, Rect, Size, UiEvent}
 
 /*
  * Declarative builder support.
@@ -267,6 +267,50 @@ public func claimHoverIfInside(ctx: UiContext, event: UiEvent, frame: Rect, id: 
         }
         case _ => ()
     }
+}
+
+/**
+ * Unified pointer activation: press inside, cancel permanently on move-out, activate only when the
+ * same press releases inside. This is shared by Button, IconButton and button-like controls.
+ */
+public func handlePointerClick(
+    ctx: UiContext,
+    event: UiEvent,
+    frame: Rect,
+    id: String,
+    activate: () -> Unit,
+    ink!: Bool = true
+): Bool {
+    claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
+    match (event) {
+        case UiEvent.MouseMove(x, y) =>
+            if (ctx.isPressed(id) && !frame.contains(x, y)) {
+                ctx.cancelPress(id)
+                ctx.cancelInkRipple(id)
+            }
+        case UiEvent.MouseDown(MouseButton.Left, x, y) =>
+            if (frame.contains(x, y)) {
+                ctx.focus(id)
+                ctx.press(id)
+                if (ink) {
+                    ctx.startInkRipple(id, frame, x, y)
+                }
+                return true
+            }
+        case UiEvent.MouseUp(MouseButton.Left, x, y) =>
+            if (ctx.isPressed(id)) {
+                let shouldActivate = frame.contains(x, y)
+                ctx.cancelPress(id)
+                if (shouldActivate) {
+                    activate()
+                } else {
+                    ctx.cancelInkRipple(id)
+                }
+                return true
+            }
+        case _ => ()
+    }
+    false
 }
 
 /*

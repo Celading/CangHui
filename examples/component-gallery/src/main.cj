@@ -56,6 +56,38 @@ private func initialDarkMode(): Bool {
     true
 }
 
+private func initialMotionIndex(): Int64 {
+    let args = getCommandLine()
+    var i = 0
+    while (i < args.size - 1) {
+        if (args[i] == "--motion") {
+            return match (args[i + 1]) {
+                case "basic" => 0
+                case "full" => 2
+                case _ => 1
+            }
+        }
+        i += 1
+    }
+    1
+}
+
+private func motionLevel(index: Int64): MotionLevel {
+    match (index) {
+        case 0 => MotionLevel.Basic
+        case 2 => MotionLevel.Full
+        case _ => MotionLevel.Standard
+    }
+}
+
+private func galleryTheme(dark: Bool, motionIndex: Int64): Theme {
+    if (dark) {
+        Theme.dark(motionLevel: motionLevel(motionIndex))
+    } else {
+        Theme.light(motionLevel: motionLevel(motionIndex))
+    }
+}
+
 private func transitionThemeArgument(): ?Bool {
     let args = getCommandLine()
     var i = 0
@@ -66,6 +98,23 @@ private func transitionThemeArgument(): ?Bool {
         i += 1
     }
     None
+}
+
+private func initialGallerySection(): Int64 {
+    let args = getCommandLine()
+    var i = 0
+    while (i < args.size - 1) {
+        if (args[i] == "--section") {
+            return match (args[i + 1]) {
+                case "selection" => 1
+                case "navigation" => 2
+                case "feedback" => 3
+                case _ => 0
+            }
+        }
+        i += 1
+    }
+    0
 }
 
 private func previewIndex(value: String): Int64 {
@@ -91,10 +140,12 @@ main(): Int64 {
         case None => initialDarkMode()
     }
     let darkMode = State<Bool>(startsDark)
+    let motionIndex = State<Int64>(initialMotionIndex())
     let galleryState = GallerySurfaceState()
+    galleryState.selectedSection.value = initialGallerySection()
     let app = DesktopApp(
         WindowSpec("CangjieGUI Component Gallery", 1500, 980, scale: 1.0),
-        theme: if (darkMode.value) { Theme.dark() } else { Theme.light() }
+        theme: galleryTheme(darkMode.value, motionIndex.value)
     )
     match (transitionTarget) {
         case Some(_) =>
@@ -112,10 +163,26 @@ main(): Int64 {
                     Label("${active.label} / common-layout preview", muted: true)
                 }.spacing(2.vp).hug()
                 Spacer()
+                Label("Motion", muted: true)
+                Button("Basic", {=>
+                    motionIndex.value = 0
+                    app.setTheme(galleryTheme(darkMode.value, motionIndex.value))
+                }, role: if (motionIndex.value == 0) { ButtonRole.Primary } else { ButtonRole.Normal })
+                    .key("gallery-motion-basic")
+                Button("Standard", {=>
+                    motionIndex.value = 1
+                    app.setTheme(galleryTheme(darkMode.value, motionIndex.value))
+                }, role: if (motionIndex.value == 1) { ButtonRole.Primary } else { ButtonRole.Normal })
+                    .key("gallery-motion-standard")
+                Button("Full", {=>
+                    motionIndex.value = 2
+                    app.setTheme(galleryTheme(darkMode.value, motionIndex.value))
+                }, role: if (motionIndex.value == 2) { ButtonRole.Primary } else { ButtonRole.Normal })
+                    .key("gallery-motion-full")
                 Tooltip(text: if (darkMode.value) { "切换到浅色" } else { "切换到深色" }) {
                     IconButton(if (darkMode.value) { IconName.Sun } else { IconName.Moon }) {
                         darkMode.value = !darkMode.value
-                        app.transitionTheme(if (darkMode.value) { Theme.dark() } else { Theme.light() })
+                        app.transitionTheme(galleryTheme(darkMode.value, motionIndex.value))
                     }.key("gallery-theme-toggle")
                 }
                 Label("CUI API ${componentApiVersion()}", muted: true)

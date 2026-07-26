@@ -116,6 +116,10 @@
 一步、`reset(v)` 无动画瞬置、`settled()` 判稳。控件在 `draw` 中按 `ctx.frame.deltaMs` 推进并读取，
 适配逐帧重绘；到达目标后精确停住，空闲零开销。`Switch`（滑块/轨道色）、`Checkbox`（勾选缩放）、
 `RadioButton`（圆点缩放）、`ProgressBar`（填充滑动）均以此实现状态切换的平滑过渡。
+`AnimationSpec.automatic(duration:, easing:, delay:)` 会按当前 `Theme.motionLevel` 缩放框架选定时长；
+直接构造 `AnimationSpec(duration:, easing:, delay:)` 则保持请求的播放时间和曲线精确不变。
+`Animator.animate(ctx, target:, spec:)` 消费该配置。`Button`、`IconButton`、`Accordion` 与
+`StepIndicator` 均支持 `.animation(AnimationSpec)`；前两者另提供 `.animation(duration, easing:)`。
 `Color.lerp(other, t)` 在两色间按 `t∈[0,1]` 线性插值（用于随动画过渡颜色）。
 
 键盘焦点遍历：可聚焦控件在构建期按声明顺序登记进“焦点环”，`DesktopApp` 每帧构建后经
@@ -131,6 +135,7 @@
 |---|---|
 | `Axis` | `Horizontal`、`Vertical` |
 | `ButtonRole` | `Normal`、`Primary`、`Danger` |
+| `MotionLevel` | `Basic`、`Standard`、`Full` |
 | `TextAlign` | `Leading`、`Center`、`Trailing` |
 | `MainAxisAlignment` | `Start`、`Center`、`End`、`SpaceBetween`、`SpaceAround`、`SpaceEvenly` |
 | `CrossAxisAlignment` | `Start`、`Center`、`End`、`Stretch` |
@@ -139,9 +144,10 @@
 
 ## 5. 主题
 
-`Theme` 包含背景、面板、边框、主/次文字、强调、危险、输入区域、阴影与圆角。常用方法：
+`Theme` 包含背景、面板、边框、主/次文字、强调、危险、输入区域、阴影、圆角与 `motionLevel`。常用方法：
 
-- `Theme.light()`、`Theme.dark()`。
+- `Theme.light(motionLevel:)`、`Theme.dark(motionLevel:)`；默认 `MotionLevel.Standard`。
+- `withMotionLevel(value)`：保留颜色和几何令牌，仅替换动效力度。
 - `panelSurface()`、`raisedSurface()`。
 - `fieldSurface(active)`、`buttonSurface(role)`、`selectedSurface()`。
 
@@ -155,6 +161,7 @@
 | `Grid` | `columns`、`body` | `spacing(all)`、`spacing(horizontal, vertical)`；列数小于 1 抛异常 |
 | `FlowRow` | `body` | `spacing`；空间不足自动换行 |
 | `ScrollView` | `id`、`body` | 垂直滚动；`scrollState` 接管偏移；溢出时为滚动条预留轨道，不遮挡内容；滑块可拖动、轨道可翻页 |
+| `Accordion` | `sections`；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header hover/press、chevron 与高度 reveal 动画；`.animation(AnimationSpec)`；按下后移出取消，release-inside 才切换 |
 | `Panel` | `body`（可选 `padding: LengthInsets`） | `contentPadding`、`style`、`flexible`、`hug` |
 | `Tooltip` | `text`、`body` | 悬停约 500ms 后在树上层绘制提示气泡；透明包裹，不改变布局/事件 |
 | `Dropdown` | `id`、`items`、`selected` | 下拉选择：点击/Enter 打开，弹出列表浮于树上（下方放不下翻到上方）；选中/外点/Esc 关闭，上下键移动高亮。长列表在弹层内部滚动：滚轮、可拖动滑块、方向键揭示高亮，打开时选中行滚入视野 |
@@ -181,14 +188,15 @@
 | 类型 | 必要构造信息 | 链式 API |
 |---|---|---|
 | `Label` | `text` | `muted()`、`muted(bool)`、`textAlign`、`foregroundColor`、`fontSize`、`maxLines(n)`、`wrap()` |
-| `Button` | `title`、`onClick` | `id`、`role`、`style`、`fontSize` |
+| `Button` | `title`、`onClick` | `id`、`role`、`style`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Icon` | `IconName` | `iconSize`、`foregroundColor` |
-| `IconButton` | `IconName`、`onClick` | `id`、`label`、`role`、`style` |
+| `IconButton` | `IconName`、`onClick` | `id`、`label`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Divider` | 无 | `axis`、`color` |
 
 单行 `Label` 超宽时自动省略号截断；`maxLines(n)` 换行至 n 行（末行截断），`wrap()` 不限行数，
-`maxLines` 参数必须大于 0。Button 与 IconButton 在鼠标释放时激活，支持取得焦点后的
-Enter/Space，悬停与按压有主题化的视觉反馈。
+`maxLines` 参数必须大于 0。Button 与 IconButton 共用 move-in/hover/press/move-out 状态机：
+只有按下和释放都位于控件内才激活；按下后移出会立即取消 press 与 InkWell，随后在外部释放不会回调。
+二者支持取得焦点后的 Enter/Space，悬停与按压位移、颜色和 InkWell 强度由主题动效力度控制。
 
 ## 8. 选择、导航和数值控件
 
@@ -209,6 +217,7 @@ Enter/Space，悬停与按压有主题化的视觉反馈。
 | `LazyGrid` | `LazyGrid(id, data, columns, itemHeight, spacing!, columnSpacing!) { item => 单元格 }` | 数据驱动、按行窗口化的等宽网格；一行是一个 `Grid` 骑在 `LazyColumn` 上，单元格可为任意控件 |
 | `ProgressBar` | `ProgressBar(Observable<Float32>)` | `range(lower, upper)` |
 | `Slider` | `Slider(id, Bindable<Float32>, lower!, upper!, step!)` | 连续或离散：`step` 大于 0 时数值吸附到 `lower + k*step` 的刻度（默认 0 为连续）；范围与步长可经构造参或链式 `range(lower, upper)`、`step(value)` 设置（对齐 Stepper）；拖动和 Left/Right |
+| `StepIndicator` | `StepIndicator(steps, current, onSelect:, key:, animation:)` | connector、节点、标签与完成态连续过渡；`.animation(AnimationSpec)`；已到达节点按下后移出取消，release-inside 才调用 `onSelect` |
 
 `Stepper.step` 的值必须大于 0，否则抛 `IllegalArgumentException`。数值控件会安全处理反向范围和
 越界输入。

@@ -2,7 +2,8 @@ package cui.controls
 
 import sdl.{FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
 import cui.core.{Bindable, CUI_CONTROL_H, CursorShape, Spring, UiContext, Widget, requireControlId, claimHoverIfInside, drawFocusRing,
-    drawSurface, emit, focusableControlIdentity, localState, reregisterFocusable, registerFocusable, resolveControlKey}
+    drawSurface, emit, focusableControlIdentity, handlePointerClick, localState, reregisterFocusable, registerFocusable,
+    resolveControlKey}
 
 private let SWITCH_TRACK_W: Float32 = 40.0
 private let SWITCH_TRACK_H: Float32 = 22.0
@@ -420,28 +421,19 @@ private func toggleInteraction(
     id: String,
     activate: () -> Unit
 ): Bool {
-    claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
+    if (handlePointerClick(ctx, event, frame, id, activate)) {
+        return true
+    }
     match (event) {
-        case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-            if (frame.contains(x, y)) {
-                ctx.focus(id)
-                ctx.press(id)
-                return true
-            }
-        case UiEvent.MouseUp(MouseButton.Left, x, y) =>
-            if (ctx.isPressed(id)) {
-                if (frame.contains(x, y)) {
-                    activate()
-                }
-                return true
-            }
         case UiEvent.KeyDown(Key.Enter, _) =>
             if (ctx.hasFocus(id)) {
+                ctx.startInkRipple(id, frame, frame.centerX(), frame.centerY())
                 activate()
                 return true
             }
         case UiEvent.KeyDown(Key.Space, _) =>
             if (ctx.hasFocus(id)) {
+                ctx.startInkRipple(id, frame, frame.centerX(), frame.centerY())
                 activate()
                 return true
             }

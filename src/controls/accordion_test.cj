@@ -1,8 +1,8 @@
 package cui.controls
 
 import std.collection.HashSet
-import sdl.{Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{Spacer, State, Theme, UiContext, Widget, emit}
+import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, Size, UiEvent}
+import cui.core.{Spacer, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
 
 private func accordionTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -107,9 +107,11 @@ func accordionClickHeaderTogglesSection(): Unit {
 
     // Header 0 spans y 0..42; a click on it opens the section.
     @Expect(acc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 150.0, 20.0)))
+    @Expect(acc.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 150.0, 20.0)))
     @Expect(expanded.value.contains(0))
     // A second click closes it again.
     let _ = acc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 150.0, 20.0))
+    let _ = acc.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 150.0, 20.0))
     @Expect(!expanded.value.contains(0))
 }
 
@@ -126,8 +128,38 @@ func accordionSingleModeClosesOthersOnOpen(): Unit {
 
     // Header 1 sits below header 0 (42) and open body 0 (50), at y 92..134.
     @Expect(acc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 150.0, 110.0)))
+    @Expect(acc.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 150.0, 110.0)))
     @Expect(expanded.value.contains(1))
     @Expect(!expanded.value.contains(0)) // single mode closed the previously open section
+}
+
+@Test
+func accordionExpansionUsesRetainedAutomaticHeightMotion(): Unit {
+    let ctx = accordionTestContext()
+    let store = StateStore()
+    let expanded = State<HashSet<Int64>>(intSet([]))
+    let captured = State<?Widget>(None)
+
+    let first = buildRoot({
+        => captured.value = Some(Accordion([
+            AccordionSection("Animated") {=> emit(SizedLayoutProbe(Size(100.0, 80.0)))}
+        ], expanded: expanded, key: "animated"))
+    }, store)
+    first.layout(ctx, Rect(0.0, 0.0, 300.0, 200.0))
+    @Expect(first.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 100.0, 20.0)))
+    @Expect(first.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 100.0, 20.0)))
+
+    let second = buildRoot({
+        => captured.value = Some(Accordion([
+            AccordionSection("Animated") {=> emit(SizedLayoutProbe(Size(100.0, 80.0)))}
+        ], expanded: expanded, key: "animated"))
+    }, store)
+    second.layout(ctx, Rect(0.0, 0.0, 300.0, 200.0))
+    ctx.frame = FrameInfo(UInt64(80), UInt64(80))
+    second.draw(ctx)
+    let animatedHeight = second.measure(ctx, Size(300.0, 500.0)).h
+    @Expect(animatedHeight > Float32(42.0))
+    @Expect(animatedHeight < Float32(122.0))
 }
 
 @Test
@@ -149,10 +181,11 @@ func accordionKeyboardTogglesFocusedHeader(): Unit {
 
 @Test
 func accordionFocusOrderInterleavesHeadersAndOpenBodies(): Unit {
+    let expanded = State<HashSet<Int64>>(intSet([0]))
     let acc = Accordion([
         AccordionSection("A") {=> emit(AccFocusProbe("bodyA"))},
         AccordionSection("B") {=> emit(Spacer())}
-    ], expanded: State<HashSet<Int64>>(intSet([0])), key: "acc")
+    ], expanded: expanded, key: "acc")
 
     let ids = acc.focusableIds()
     // header 0, then its open body's stop, then header 1 (its body is collapsed).
@@ -160,4 +193,11 @@ func accordionFocusOrderInterleavesHeadersAndOpenBodies(): Unit {
     @Expect(ids[0], "Accordion:acc:header:0")
     @Expect(ids[1], "bodyA")
     @Expect(ids[2], "Accordion:acc:header:1")
+
+    // The body may remain mounted for its closing animation, but it leaves input and focus immediately.
+    expanded.value = intSet([])
+    let closingIds = acc.focusableIds()
+    @Expect(closingIds.size, 2)
+    @Expect(closingIds[0], "Accordion:acc:header:0")
+    @Expect(closingIds[1], "Accordion:acc:header:1")
 }

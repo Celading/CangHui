@@ -1,6 +1,6 @@
 package cui.core
 
-import sdl.{FontSizes, Key, MouseButton, Rect, Size, SurfaceStyle, UiEvent}
+import sdl.{FontSizes, Key, Rect, Size, SurfaceStyle, UiEvent}
 
 /**
  * An empty, flexible widget: it measures zero and absorbs a share of its stack's leftover space,
@@ -42,6 +42,8 @@ public class Button <: Widget {
     private var customStyle: ?SurfaceStyle
     private var pointSize: Length
     private var controlId: String
+    private let interaction: InteractionAnimation
+    private var animationSpec: AnimationSpec
     private var frame = Rect.zero()
 
     public init(
@@ -57,6 +59,10 @@ public class Button <: Widget {
         this.customStyle = style
         this.pointSize = fontSize
         this.controlId = focusableControlIdentity("Button:${title}")
+        this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
+            InteractionAnimation()
+        }.value
+        this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
         emit(this)
     }
 
@@ -95,6 +101,17 @@ public class Button <: Widget {
         fontSize(Length(value, LengthUnit.Fp))
     }
 
+    /** Applies an automatic or explicit hover/press animation property. */
+    public func animation(value: AnimationSpec): Button {
+        animationSpec = value
+        this
+    }
+
+    /** Applies an exact playback duration and curve. */
+    public func animation(duration: UInt64, easing!: Easing = Motion.standard): Button {
+        animation(AnimationSpec(duration: duration, easing: easing))
+    }
+
     public func measure(ctx: UiContext, available: Size): Size {
         let ps = max(1.0, ctx.resolve(pointSize))
         Size(min(available.w, max(72.0, ctx.renderer.textWidth(title, pointSize: ps) + 24.0)), CUI_CONTROL_H)
@@ -105,40 +122,33 @@ public class Button <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        drawSurface(ctx, frame, buttonStyle(ctx))
+        let progress = interaction.animate(ctx, ctx.isHovered(controlId), ctx.isPressed(controlId), animationSpec)
+        let visualFrame = animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
+        drawSurface(ctx, visualFrame, buttonStyle(ctx, progress))
         let textColor = match (buttonRole) {
             case ButtonRole.Normal => ctx.theme.text
             case _ => ctx.theme.accentText
         }
-        ctx.renderer.textCenter(title, frame, textColor, pointSize: max(1.0, ctx.resolve(pointSize)))
+        ctx.renderer.textCenter(title, visualFrame, textColor, pointSize: max(1.0, ctx.resolve(pointSize)))
         if (ctx.showFocusRing(controlId)) {
-            drawFocusRing(ctx, frame, ctx.theme.controlRadius)
+            drawFocusRing(ctx, visualFrame, ctx.theme.controlRadius)
         }
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        claimHoverIfInside(ctx, event, frame, controlId, CursorShape.Interactive)
+        if (handlePointerClick(ctx, event, frame, controlId, onClick)) {
+            return true
+        }
         match (event) {
-            case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-                if (frame.contains(x, y)) {
-                    ctx.focus(controlId)
-                    ctx.press(controlId)
-                    return true
-                }
-            case UiEvent.MouseUp(MouseButton.Left, x, y) =>
-                if (ctx.isPressed(controlId)) {
-                    if (frame.contains(x, y)) {
-                        onClick()
-                    }
-                    return true
-                }
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
                     onClick()
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
                 if (ctx.hasFocus(controlId)) {
+                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY())
                     onClick()
                     return true
                 }
@@ -151,26 +161,38 @@ public class Button <: Widget {
         Some(controlId)
     }
 
-    private func buttonStyle(ctx: UiContext): SurfaceStyle {
-        match (customStyle) {
+    private func buttonStyle(ctx: UiContext, progress: InteractionProgress): SurfaceStyle {
+        let base = match (customStyle) {
             case Some(value) => value
-            case None =>
-                let base = ctx.theme.buttonSurface(buttonRole)
-                match (buttonRole) {
-                    case ButtonRole.Normal =>
-                        var style = base
-                        if (ctx.isPressed(controlId)) {
-                            style = style.withFill(ctx.theme.accentSoft)
-                        } else if (ctx.isHovered(controlId)) {
-                            // Single-winner hover: in overlapping layouts only the visually
-                            // top-most claimant highlights (same protocol as the cursor shape).
-                            style = style.withFill(ctx.theme.fieldActive)
-                        }
-                        // The focus ring (drawn in draw() on keyboard focus) shows where
-                        // Enter/Space will land — no need to also recolour the border.
-                        style
-                    case _ => base
-                }
+            case None => ctx.theme.buttonSurface(buttonRole)
         }
+        animatedButtonSurface(ctx, base, buttonRole, progress)
     }
+}
+
+protected func animatedButtonFrame(frame: Rect, level: MotionLevel, progress: InteractionProgress): Rect {
+    let amount = level.amplitude()
+    let lift = progress.hover * amount * 0.9
+    let inset = progress.press * amount * 0.75
+    Rect(frame.x + inset, frame.y - lift + inset, max(0.0, frame.w - inset * 2.0),
+        max(0.0, frame.h - inset * 2.0))
+}
+
+protected func animatedButtonSurface(
+    ctx: UiContext,
+    base: SurfaceStyle,
+    role: ButtonRole,
+    progress: InteractionProgress
+): SurfaceStyle {
+    let amount = ctx.theme.motionLevel.amplitude()
+    let hoverFill = match (role) {
+        case ButtonRole.Normal => ctx.theme.fieldActive
+        case _ => base.fill.lerp(ctx.theme.accentText, min(0.16, 0.08 * amount))
+    }
+    let pressFill = match (role) {
+        case ButtonRole.Normal => ctx.theme.accentSoft
+        case _ => base.fill.lerp(ctx.theme.bg, min(0.24, 0.14 * amount))
+    }
+    let hovered = base.fill.lerp(hoverFill, progress.hover)
+    base.withFill(hovered.lerp(pressFill, progress.press))
 }

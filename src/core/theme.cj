@@ -30,6 +30,7 @@ public struct Theme {
     public let smallRadius: Float32
     public let controlRadius: Float32
     public let borderWidth: Float32
+    public let motionLevel: MotionLevel
 
     public init(
         bg!: Color,
@@ -48,7 +49,8 @@ public struct Theme {
         radius!: Float32 = 12.0,
         smallRadius!: Float32 = 7.0,
         controlRadius!: Float32 = 9.0,
-        borderWidth!: Float32 = 1.0
+        borderWidth!: Float32 = 1.0,
+        motionLevel!: MotionLevel = MotionLevel.Standard
     ) {
         this.bg = bg
         this.panel = panel
@@ -67,9 +69,10 @@ public struct Theme {
         this.smallRadius = smallRadius
         this.controlRadius = controlRadius
         this.borderWidth = borderWidth
+        this.motionLevel = motionLevel
     }
 
-    public static func light(): Theme {
+    public static func light(motionLevel!: MotionLevel = MotionLevel.Standard): Theme {
         Theme(
             bg: Color.rgb(242, 245, 249),
             panel: Color.rgb(255, 255, 255),
@@ -86,11 +89,12 @@ public struct Theme {
             shadow: Color.rgba(15, 23, 42, 28),
             radius: 14.0,
             smallRadius: 8.0,
-            controlRadius: 10.0
+            controlRadius: 10.0,
+            motionLevel: motionLevel
         )
     }
 
-    public static func dark(): Theme {
+    public static func dark(motionLevel!: MotionLevel = MotionLevel.Standard): Theme {
         Theme(
             bg: Color.rgb(18, 22, 29),
             panel: Color.rgb(28, 34, 44),
@@ -107,7 +111,32 @@ public struct Theme {
             shadow: Color.rgba(0, 0, 0, 72),
             radius: 14.0,
             smallRadius: 8.0,
-            controlRadius: 10.0
+            controlRadius: 10.0,
+            motionLevel: motionLevel
+        )
+    }
+
+    /** Returns the same visual palette with a different animation expression level. */
+    public func withMotionLevel(value: MotionLevel): Theme {
+        Theme(
+            bg: bg,
+            panel: panel,
+            panelEdge: panelEdge,
+            text: text,
+            mutedText: mutedText,
+            accent: accent,
+            accentText: accentText,
+            danger: danger,
+            field: field,
+            fieldActive: fieldActive,
+            panelRaised: panelRaised,
+            accentSoft: accentSoft,
+            shadow: shadow,
+            radius: radius,
+            smallRadius: smallRadius,
+            controlRadius: controlRadius,
+            borderWidth: borderWidth,
+            motionLevel: value
         )
     }
 
@@ -131,7 +160,8 @@ public struct Theme {
             radius: radius + (other.radius - radius) * k,
             smallRadius: smallRadius + (other.smallRadius - smallRadius) * k,
             controlRadius: controlRadius + (other.controlRadius - controlRadius) * k,
-            borderWidth: borderWidth + (other.borderWidth - borderWidth) * k
+            borderWidth: borderWidth + (other.borderWidth - borderWidth) * k,
+            motionLevel: if (k < 0.5) { motionLevel } else { other.motionLevel }
         )
     }
 

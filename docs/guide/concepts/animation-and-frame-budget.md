@@ -12,13 +12,15 @@
 
 桌面动画需要同时满足流畅和空闲低开销。按钮滑块到达终点后不再需要帧，骨架屏的 Pulse 却必须持续循环，文件对话框轮询只在请求未完成期间需要 FrameHandler。把三者都写成永久每帧回调，会让“声明式”错误地等于持续刷新。
 
-CUI 提供三种不同的动画方式。`Spring` 根据当前位置、速度和物理参数逐渐到达目标；`Animator` 在指定时长内按 Easing 从当前值走到目标；`Pulse` 没有终点，适合呼吸灯或骨架屏。`FrameHandler` 只是每帧调用一次的入口，动画状态和“是否已经稳定”仍应交给相应动画器。
+CUI 提供三种不同的动画方式。`Spring` 根据当前位置、速度和物理参数逐渐到达目标；`Animator` 在指定时长内按 Easing 从当前值走到目标；`Pulse` 没有终点，适合呼吸灯或骨架屏。`FrameHandler` 只是每帧调用一次的入口，动画状态和“是否已经稳定”仍应交给相应动画器。组件级自动动效通过 `AnimationSpec` 与主题的 `MotionLevel.Basic / Standard / Full` 相连。
 
 ## 工作模型
 
 每个动画都回答四个问题：状态由谁持有、目标从哪来、哪段代码推进时间、何时停止请求帧。
 
 `Animator.animate(ctx, target:)` 与 `Spring.animate(ctx, target:)` 会读取帧间隔、推进状态，并在尚未稳定时请求下一帧。到达目标后它们不再请求，因此静止控件可以回到按需绘制。`Pulse.animate(ctx)` 每次都会请求下一帧，因为循环本身就是目标。
+
+`AnimationSpec.automatic(...)` 表示“由主题决定表达力度”：Basic 使用较小位移并把自动时长缩为 3/4，Standard 使用标准值，Full 使用更强位移并把自动时长放大为 5/4。直接构造 `AnimationSpec(...)` 表示产品已指定精确时间和曲线，切换 MotionLevel 不会改写它。这个区分避免全局主题误改关键流程的既定节奏。
 
 动画对象必须跨构建保留。可以放进应用模型，或放在稳定局部状态/对象中。不要在 draw 中创建新 Animator，也不要在构建函数中按墙钟直接计算并写 State；构建只描述目标，draw 或 FrameHandler 推进当前值。
 
@@ -29,6 +31,8 @@ CUI 提供三种不同的动画方式。`Spring` 根据当前位置、速度和�
 - 永续加载/呼吸：Pulse，并在内容就绪后卸载使用它的控件。
 - 倒计时、异步请求轮询：条件挂载 FrameHandler；完成后移除。
 - 只想让高度展开/收起：优先用 Reveal 等成品容器，不必自建动画器。
+- 组件应跟随主题力度：使用 `AnimationSpec.automatic(...)`。
+- 产品规范要求精确 320ms：使用 `AnimationSpec(duration: UInt64(320), easing: ...)`。
 
 性能判断不能只看 FPS。垂直同步会把结果量化到刷新周期，真正的瓶颈要看构建、布局、绘树、降采样和呈现各阶段。先用 `--profile` 取证，再减少可见节点、复杂几何或不必要续帧。
 
@@ -43,6 +47,22 @@ let slide = Spring(0.0)
 let opacity = fade.animate(ctx, target: if (shown) {1.0} else {0.0})
 let offset = slide.animate(ctx, target: if (shown) {0.0} else {24.0})
 ```
+
+组件可以选择自动或精确播放属性：
+
+```cangjie role=contrast
+let theme = Theme.dark(motionLevel: MotionLevel.Full)
+
+Button("Follow theme", onClick)
+    .animation(AnimationSpec.automatic(duration: Motion.normal, easing: Motion.decelerate))
+
+Button("Exact timing", onClick)
+    .animation(UInt64(320), easing: Easing.EaseOutBack)
+```
+
+指针激活与动画状态必须使用同一取消边界：move in 后按下可以进入 press；按住移出必须立即取消
+press/InkWell，外部 release 不执行回调。只有 release-inside 才完成 click。Button、IconButton、
+Accordion header 与 StepIndicator 已到达节点都遵循这一语义。
 
 下面跟踪一个只在运行中挂载的计时器。暂停后不再构建 FrameHandler，因此它不再请求帧；根内容仍正常显示：
 
@@ -64,6 +84,7 @@ if (model.running.value) {
 - **“所有动画都应该用 FrameHandler。”** 动画器已经包含推进和稳定判断，FrameHandler 适合通用时钟或轮询。
 - **“动画停住是 Easing 错了。”** 先检查对象是否稳定保留、是否调用带 UiContext 的 animate、是否还有续帧请求。
 - **“Pulse 到达 1 就结束。”** Pulse 是循环时间线，没有 settled 终点。
+- **“按下过就应该在释放时执行。”** 指针移出表示取消意图；外部释放不能补发点击。
 - **“帧率低就关闭超采样。”** 先读阶段剖析；可见节点、文本成形或几何可能才是主要耗时。
 
 ## 相关 API

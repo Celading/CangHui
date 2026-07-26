@@ -1,16 +1,16 @@
 package cui.controls
 
 import std.collection.{ArrayList, HashSet}
-import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{CursorShape, LAYOUT_UNBOUNDED, State, UiContext, Widget, resolveControlKey, buildKeyedChild,
-    drawFocusRing, emit, focusableControlIdentity, localState}
+import sdl.{Color, FontSizes, Key, Pen, Rect, Size, UiEvent}
+import cui.core.{AnimationSpec, Animator, InteractionAnimation, LAYOUT_UNBOUNDED, Motion, State, UiContext, Widget,
+    resolveControlKey, buildKeyedChild, drawFocusRing, emit, focusableControlIdentity, handlePointerClick, localState}
 
 private let ACCORDION_HEADER_H: Float32 = 42.0
 
 /**
  * One section of an `Accordion`: a header title and a builder for the body shown when it is expanded.
- * The body is only built while the section is open, so a collapsed section costs nothing and its
- * per-body local state is dropped until it reopens.
+ * The body stays built while an animated close is still visible, then is removed once fully collapsed.
+ * Per-body local state is therefore dropped after the close transition settles and recreated on reopen.
  */
 public struct AccordionSection {
     let title: String
@@ -30,8 +30,8 @@ public struct AccordionSection {
  * externally through `expanded`.
  *
  * Each header is a keyboard focus stop: Enter or Space toggles the focused section, and Tab walks the
- * headers and the controls inside open bodies. Only open bodies are built, so a collapsed section's
- * local state resets when it reopens — hoist anything that must persist.
+ * headers and the controls inside visible bodies. A closing body remains mounted until its reveal
+ * reaches zero; after that its local state resets, so hoist anything that must persist across reopen.
  */
 public class Accordion <: Widget {
     private let titles: Array<String>
@@ -41,13 +41,18 @@ public class Accordion <: Widget {
     private let expandedState: State<HashSet<Int64>>
     private let single: Bool
     private let headerRects: Array<Rect>
+    private let bodyRects: Array<Rect>
+    private let bodyAnimations: Array<Animator>
+    private let headerAnimations: Array<InteractionAnimation>
+    private var animationSpec: AnimationSpec
 
     public init(
         sections: Array<AccordionSection>,
         single!: Bool = false,
         expanded!: ?State<HashSet<Int64>> = None,
         initiallyExpanded!: Array<Int64> = [],
-        key!: ?String = None
+        key!: ?String = None,
+        animation!: AnimationSpec = AnimationSpec.automatic(duration: Motion.normal, easing: Motion.standard)
     ) {
         let ident = resolveControlKey(key, "Accordion")
         this.single = single
@@ -61,13 +66,23 @@ public class Accordion <: Widget {
         let builtTitles = ArrayList<String>()
         let builtIds = ArrayList<String>()
         let builtBodies = ArrayList<?Widget>()
+        let builtBodyAnimations = ArrayList<Animator>()
+        let builtHeaderAnimations = ArrayList<InteractionAnimation>()
         // Build header (focus) ids and open bodies in declaration order, so Tab walks header, its body's
         // controls, next header, and so on.
         for (i in 0..count) {
             builtTitles.add(sections[i].title)
             let headerId = focusableControlIdentity("Accordion:${ident}:header:${i}")
             builtIds.add(headerId)
-            if (this.expandedState.value.contains(i)) {
+            let isOpen = this.expandedState.value.contains(i)
+            let bodyAnimation = localState<Animator>("Accordion:${ident}:body-motion:${i}") {
+                Animator(if (isOpen) { 1.0 } else { 0.0 })
+            }.value
+            builtBodyAnimations.add(bodyAnimation)
+            builtHeaderAnimations.add(localState<InteractionAnimation>("Accordion:${ident}:header-motion:${i}") {
+                InteractionAnimation()
+            }.value)
+            if (isOpen || bodyAnimation.value > 0.001) {
                 let sectionBody = sections[i].body
                 builtBodies.add(Some(buildKeyedChild("Accordion:${ident}:body:${i}") {=> sectionBody()}))
             } else {
@@ -77,8 +92,18 @@ public class Accordion <: Widget {
         this.titles = builtTitles.toArray()
         this.headerIds = builtIds.toArray()
         this.bodies = builtBodies.toArray()
+        this.bodyAnimations = builtBodyAnimations.toArray()
+        this.headerAnimations = builtHeaderAnimations.toArray()
         this.headerRects = Array<Rect>(count, {_ => Rect.zero()})
+        this.bodyRects = Array<Rect>(count, {_ => Rect.zero()})
+        this.animationSpec = animation
         emit(this)
+    }
+
+    /** Applies an automatic or exact expansion animation property. */
+    public func animation(value: AnimationSpec): Accordion {
+        animationSpec = value
+        this
     }
 
     public func measure(ctx: UiContext, available: Size): Size {
@@ -86,7 +111,9 @@ public class Accordion <: Widget {
         for (i in 0..titles.size) {
             height += ACCORDION_HEADER_H
             match (bodies[i]) {
-                case Some(widget) => height += widget.measure(ctx, Size(available.w, LAYOUT_UNBOUNDED)).h
+                case Some(widget) =>
+                    let fullHeight = widget.measure(ctx, Size(available.w, LAYOUT_UNBOUNDED)).h
+                    height += fullHeight * bodyProgress(i)
                 case None => ()
             }
         }
@@ -101,31 +128,37 @@ public class Accordion <: Widget {
             match (bodies[i]) {
                 case Some(widget) =>
                     let bodyHeight = widget.measure(ctx, Size(rect.w, LAYOUT_UNBOUNDED)).h
+                    let visibleHeight = bodyHeight * bodyProgress(i)
                     widget.layout(ctx, Rect(rect.x, y, rect.w, bodyHeight))
-                    y += bodyHeight
-                case None => ()
+                    bodyRects[i] = Rect(rect.x, y, rect.w, visibleHeight)
+                    y += visibleHeight
+                case None => bodyRects[i] = Rect.zero()
             }
         }
     }
 
     public func draw(ctx: UiContext): Unit {
         for (i in 0..titles.size) {
-            drawHeader(ctx, i)
+            let target: Float32 = if (expandedState.value.contains(i)) { 1.0 } else { 0.0 }
+            let reveal = bodyAnimations[i].animate(ctx, target: target, spec: animationSpec)
+            drawHeader(ctx, i, reveal)
             match (bodies[i]) {
-                case Some(widget) => widget.draw(ctx)
+                case Some(widget) =>
+                    if (bodyRects[i].h > 0.001) {
+                        ctx.renderer.pushClip(bodyRects[i])
+                        widget.draw(ctx)
+                        ctx.renderer.popClip()
+                    }
                 case None => ()
             }
         }
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        match (event) {
-            case UiEvent.MouseMove(x, y) => for (i in 0..titles.size) {
-                if (headerRects[i].contains(x, y)) {
-                    ctx.claimHover(headerIds[i], CursorShape.Interactive)
-                }
+        for (i in 0..titles.size) {
+            if (handlePointerClick(ctx, event, headerRects[i], headerIds[i], {=> toggleSection(i)})) {
+                return true
             }
-            case _ => ()
         }
         match (event) {
             case UiEvent.Frame(_) =>
@@ -136,13 +169,6 @@ public class Accordion <: Widget {
                     }
                 }
                 return false
-            case UiEvent.MouseDown(MouseButton.Left, x, y) => for (i in 0..titles.size) {
-                if (headerRects[i].contains(x, y)) {
-                    ctx.focus(headerIds[i])
-                    toggleSection(i)
-                    return true
-                }
-            }
             case UiEvent.KeyDown(Key.Enter, _) => if (toggleFocusedHeader(ctx)) {
                 return true
             }
@@ -151,14 +177,17 @@ public class Accordion <: Widget {
             }
             case _ => ()
         }
-        // Route remaining events to the open bodies so their controls work; reverse declaration order.
+        // A closing body stays mounted only for drawing. Once its state is closed it leaves normal
+        // input immediately, so clipped content cannot receive invisible pointer or keyboard events.
         var i = titles.size - 1
         while (i >= 0) {
-            match (bodies[i]) {
-                case Some(w) => if (w.handle(ctx, event)) {
-                    return true
+            if (expandedState.value.contains(i)) {
+                match (bodies[i]) {
+                    case Some(w) => if (w.handle(ctx, event)) {
+                        return true
+                    }
+                    case None => ()
                 }
-                case None => ()
             }
             i -= 1
         }
@@ -169,11 +198,13 @@ public class Accordion <: Widget {
         let ids = ArrayList<String>()
         for (i in 0..titles.size) {
             ids.add(headerIds[i])
-            match (bodies[i]) {
-                case Some(w) => for (fid in w.focusableIds()) {
-                    ids.add(fid)
+            if (expandedState.value.contains(i)) {
+                match (bodies[i]) {
+                    case Some(w) => for (fid in w.focusableIds()) {
+                        ids.add(fid)
+                    }
+                    case None => ()
                 }
-                case None => ()
             }
         }
         ids.toArray()
@@ -182,6 +213,7 @@ public class Accordion <: Widget {
     private func toggleFocusedHeader(ctx: UiContext): Bool {
         for (i in 0..titles.size) {
             if (ctx.hasFocus(headerIds[i])) {
+                ctx.startInkRipple(headerIds[i], headerRects[i], headerRects[i].centerX(), headerRects[i].centerY())
                 toggleSection(i)
                 return true
             }
@@ -210,37 +242,41 @@ public class Accordion <: Widget {
         expandedState.value = next
     }
 
-    private func drawHeader(ctx: UiContext, index: Int64): Unit {
+    private func drawHeader(ctx: UiContext, index: Int64, reveal: Float32): Unit {
         let rect = headerRects[index]
         let headerId = headerIds[index]
-        let isExpanded = expandedState.value.contains(index)
-        let hovered = ctx.isHovered(headerId)
-        let surface = if (isExpanded || hovered) {
-            ctx.theme.fieldActive
-        } else {
-            ctx.theme.field
-        }
+        let progress = headerAnimations[index].animate(ctx, ctx.isHovered(headerId), ctx.isPressed(headerId),
+            AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate))
+        let surface = ctx.theme.field
+            .lerp(ctx.theme.fieldActive, max(reveal, progress.hover))
+            .lerp(ctx.theme.accentSoft, progress.press)
         ctx.renderer.fillRoundedRect(rect, ctx.theme.smallRadius, surface)
         if (ctx.showFocusRing(headerId)) {
             drawFocusRing(ctx, rect, ctx.theme.smallRadius)
         }
-        drawDisclosure(ctx, rect.x + 16.0, rect.centerY(), isExpanded, ctx.theme.mutedText)
+        drawDisclosure(ctx, rect.x + 16.0, rect.centerY(), reveal, ctx.theme.mutedText)
         let textY = rect.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0
         ctx.renderer.text(titles[index], rect.x + 32.0, textY, ctx.theme.text, pointSize: FontSizes.CONTROL)
     }
+
+    private func bodyProgress(index: Int64): Float32 {
+        max(0.0, min(1.0, bodyAnimations[index].value))
+    }
 }
 
-// A disclosure chevron pointing down when expanded, right when collapsed.
-private func drawDisclosure(ctx: UiContext, cx: Float32, cy: Float32, expanded: Bool, color: Color): Unit {
+// A disclosure chevron interpolating from right to down as the body reveals.
+private func drawDisclosure(ctx: UiContext, cx: Float32, cy: Float32, progress: Float32, color: Color): Unit {
     let pen = Pen(width: 1.7, color: color)
     let arm: Float32 = 3.5
-    if (expanded) {
-        ctx.renderer.strokeLine(cx - arm, cy - arm * 0.5, cx, cy + arm * 0.5, pen)
-        ctx.renderer.strokeLine(cx, cy + arm * 0.5, cx + arm, cy - arm * 0.5, pen)
-    } else {
-        ctx.renderer.strokeLine(cx - arm * 0.5, cy - arm, cx + arm * 0.5, cy, pen)
-        ctx.renderer.strokeLine(cx + arm * 0.5, cy, cx - arm * 0.5, cy + arm, pen)
-    }
+    let t = max(0.0, min(1.0, progress))
+    let x1 = (cx - arm * 0.5) + ((cx - arm) - (cx - arm * 0.5)) * t
+    let y1 = (cy - arm) + ((cy - arm * 0.5) - (cy - arm)) * t
+    let xm = (cx + arm * 0.5) + (cx - (cx + arm * 0.5)) * t
+    let ym = cy + ((cy + arm * 0.5) - cy) * t
+    let x2 = (cx - arm * 0.5) + ((cx + arm) - (cx - arm * 0.5)) * t
+    let y2 = (cy + arm) + ((cy - arm * 0.5) - (cy + arm)) * t
+    ctx.renderer.strokeLine(x1, y1, xm, ym, pen)
+    ctx.renderer.strokeLine(xm, ym, x2, y2, pen)
 }
 
 // The seed expansion set: the requested indices, capped to one when `single`.

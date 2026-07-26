@@ -32,10 +32,25 @@ func stepIndicatorClicksReachableSteps(): Unit {
 
     // Step 0 is done (≤ current 2): clicking its node selects it.
     @Expect(steps.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 44.0, STEP_NODE_CY)))
+    @Expect(steps.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 44.0, STEP_NODE_CY)))
     @Expect(picked.value, 0)
     // The current step (2) is also reachable.
     @Expect(steps.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 278.0, STEP_NODE_CY)))
+    @Expect(steps.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 278.0, STEP_NODE_CY)))
     @Expect(picked.value, 2)
+}
+
+@Test
+func stepIndicatorMoveOutCancelsSelection(): Unit {
+    let ctx = stepTestContext()
+    let picked = State<Int64>(-1)
+    let steps = StepIndicator(["A", "B", "C"], 2, onSelect: {i => picked.value = i}, key: "cancel")
+    steps.layout(ctx, Rect(0.0, 0.0, 440.0, 60.0))
+
+    @Expect(steps.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 44.0, STEP_NODE_CY)))
+    let _ = steps.handle(ctx, UiEvent.MouseMove(220.0, 100.0))
+    @Expect(!steps.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 44.0, STEP_NODE_CY)))
+    @Expect(picked.value, -1)
 }
 
 @Test

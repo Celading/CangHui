@@ -1,7 +1,8 @@
 package cui.controls
 
-import sdl.{Color, FontSizes, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{CursorShape, UiContext, Widget, resolveControlKey, emit}
+import sdl.{Color, FontSizes, Pen, Rect, Size, UiEvent}
+import cui.core.{AnimationSpec, Animator, InteractionAnimation, InteractionProgress, Motion, UiContext, Widget,
+    resolveControlKey, emit, handlePointerClick, localState}
 
 private let STEP_CIRCLE_R: Float32 = 14.0
 private let STEP_EDGE_PAD: Float32 = 44.0
@@ -22,14 +23,35 @@ public class StepIndicator <: Widget {
     private let steps: Array<String>
     private let current: Int64
     private let onSelect: ?(Int64) -> Unit
+    private let currentAnimation: Animator
+    private let nodeAnimations: Array<InteractionAnimation>
+    private var animationSpec: AnimationSpec
     private var frame = Rect.zero()
 
-    public init(steps: Array<String>, current: Int64, onSelect!: ?(Int64) -> Unit = None, key!: ?String = None) {
-        this.id = resolveControlKey(key, "StepIndicator")
+    public init(
+        steps: Array<String>,
+        current: Int64,
+        onSelect!: ?(Int64) -> Unit = None,
+        key!: ?String = None,
+        animation!: AnimationSpec = AnimationSpec.automatic(duration: Motion.normal, easing: Motion.standard)
+    ) {
+        let ident = resolveControlKey(key, "StepIndicator")
+        this.id = ident
         this.steps = steps
         this.current = current
         this.onSelect = onSelect
+        this.currentAnimation = localState<Animator>("${ident}:current-motion") {Animator(Float32(current))}.value
+        this.nodeAnimations = Array<InteractionAnimation>(steps.size, {index =>
+            localState<InteractionAnimation>("${ident}:node-motion:${index}") {InteractionAnimation()}.value
+        })
+        this.animationSpec = animation
         emit(this)
+    }
+
+    /** Applies an automatic or exact progress animation property. */
+    public func animation(value: AnimationSpec): StepIndicator {
+        animationSpec = value
+        this
     }
 
     public func measure(_: UiContext, available: Size): Size {
@@ -47,53 +69,51 @@ public class StepIndicator <: Widget {
         }
         let cy = frame.y + STEP_TOP_PAD + STEP_CIRCLE_R
         let xs = stepCenters()
+        let animatedCurrent = currentAnimation.animate(ctx, target: Float32(current), spec: animationSpec)
         // Connectors first, behind the nodes: done segments accent, the rest neutral.
         var i = 0
         while (i < n - 1) {
-            let color = if (i < current) {
-                ctx.theme.accent
-            } else {
-                ctx.theme.panelEdge
+            let startX = xs[i] + STEP_CIRCLE_R
+            let endX = xs[i + 1] - STEP_CIRCLE_R
+            ctx.renderer.strokeLine(startX, cy, endX, cy, Pen(width: 2.5, color: ctx.theme.panelEdge))
+            let fill = max(0.0, min(1.0, animatedCurrent - Float32(i)))
+            if (fill > 0.001) {
+                ctx.renderer.strokeLine(startX, cy, startX + (endX - startX) * fill, cy,
+                    Pen(width: 2.5, color: ctx.theme.accent))
             }
-            ctx.renderer.strokeLine(xs[i] + STEP_CIRCLE_R, cy, xs[i + 1] - STEP_CIRCLE_R, cy,
-                Pen(width: 2.5, color: color))
             i += 1
         }
         for (step in 0..n) {
-            drawNode(ctx, xs[step], cy, step)
+            drawNode(ctx, xs[step], cy, step, animatedCurrent)
         }
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        match ((event, onSelect)) {
-            // Only the already-reached steps are clickable, so only they show the interactive cursor.
-            case (UiEvent.MouseMove(x, y), Some(_)) => if (reachedStepAt(x, y) >= 0) {
-                ctx.claimHover(id, CursorShape.Interactive)
-            }
-            case (UiEvent.MouseDown(MouseButton.Left, x, y), Some(callback)) =>
-                let step = reachedStepAt(x, y)
-                if (step >= 0) {
-                    callback(step)
-                    return true
+        match (onSelect) {
+            case Some(callback) =>
+                let cy = frame.y + STEP_TOP_PAD + STEP_CIRCLE_R
+                let xs = stepCenters()
+                let reachedCount = min(steps.size, max(Int64(0), current + 1))
+                for (step in 0..reachedCount) {
+                    let hit = STEP_CIRCLE_R + 4.0
+                    let hitFrame = Rect(xs[step] - hit, cy - hit, hit * 2.0, hit * 2.0)
+                    if (handlePointerClick(ctx, event, hitFrame, nodeId(step), {=> callback(step)})) {
+                        return true
+                    }
                 }
-            case _ => ()
+            case None => ()
         }
         false
     }
 
-    // The reached (index ≤ current) step whose hit circle contains the pointer, or -1.
-    private func reachedStepAt(x: Float32, y: Float32): Int64 {
-        let cy = frame.y + STEP_TOP_PAD + STEP_CIRCLE_R
-        let xs = stepCenters()
-        let hit = STEP_CIRCLE_R + 4.0
-        for (step in 0..steps.size) {
-            let dx = x - xs[step]
-            let dy = y - cy
-            if (step <= current && dx * dx + dy * dy <= hit * hit) {
-                return step
-            }
-        }
-        -1
+    private func nodeId(step: Int64): String {
+        "${id}:node:${step}"
+    }
+
+    private func nodeInteraction(ctx: UiContext, step: Int64): InteractionProgress {
+        let nid = nodeId(step)
+        nodeAnimations[step].animate(ctx, ctx.isHovered(nid), ctx.isPressed(nid),
+            AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate))
     }
 
     // The x centre of each node, spread evenly with padding so edge labels have room.
@@ -108,28 +128,25 @@ public class StepIndicator <: Widget {
         Array<Float32>(n, {i => left + Float32(i) * gap})
     }
 
-    private func drawNode(ctx: UiContext, cx: Float32, cy: Float32, step: Int64): Unit {
-        let done = step < current
-        let isCurrent = step == current
-        if (done || isCurrent) {
-            ctx.renderer.fillCircle(cx, cy, STEP_CIRCLE_R, ctx.theme.accent)
-            if (done) {
-                drawCheck(ctx, cx, cy, ctx.theme.accentText)
-            } else {
-                drawNumber(ctx, cx, cy, step + 1, ctx.theme.accentText)
-            }
+    private func drawNode(ctx: UiContext, cx: Float32, cy: Float32, step: Int64, animatedCurrent: Float32): Unit {
+        let reached = max(0.0, min(1.0, animatedCurrent - Float32(step) + 1.0))
+        let done = max(0.0, min(1.0, animatedCurrent - Float32(step)))
+        let interaction = nodeInteraction(ctx, step)
+        let amount = ctx.theme.motionLevel.amplitude()
+        let radius = STEP_CIRCLE_R + interaction.hover * amount - interaction.press * amount * 0.7
+        let fill = ctx.theme.field.lerp(ctx.theme.accent, reached)
+        ctx.renderer.fillCircle(cx, cy, radius, fill)
+        ctx.renderer.strokeCircle(cx, cy, max(Float32(0.0), radius - Float32(1.0)),
+            Pen(width: 1.6, color: ctx.theme.panelEdge.lerp(ctx.theme.accent, reached)))
+        if (done > 0.55) {
+            drawCheck(ctx, cx, cy, ctx.theme.accentText)
         } else {
-            ctx.renderer.fillCircle(cx, cy, STEP_CIRCLE_R, ctx.theme.field)
-            ctx.renderer.strokeCircle(cx, cy, STEP_CIRCLE_R - 1.0, Pen(width: 1.6, color: ctx.theme.panelEdge))
-            drawNumber(ctx, cx, cy, step + 1, ctx.theme.mutedText)
+            drawNumber(ctx, cx, cy, step + 1, ctx.theme.mutedText.lerp(ctx.theme.accentText, reached))
         }
-        let labelColor = if (isCurrent) {
-            ctx.theme.accent
-        } else if (done) {
-            ctx.theme.text
-        } else {
-            ctx.theme.mutedText
-        }
+        let currentAmount = max(0.0, reached - done)
+        let labelColor = ctx.theme.mutedText
+            .lerp(ctx.theme.text, done)
+            .lerp(ctx.theme.accent, currentAmount)
         let label = steps[step]
         let labelW = ctx.renderer.textWidth(label, pointSize: FontSizes.CAPTION)
         let ly = cy + STEP_CIRCLE_R + STEP_LABEL_GAP

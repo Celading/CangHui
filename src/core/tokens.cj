@@ -35,6 +35,77 @@ public class Radii {
     public static let pill: Float32 = 9999.0
 }
 
+/** Theme-adjacent animation expression strength. */
+public enum MotionLevel {
+    | Basic
+    | Standard
+    | Full
+
+    /** Visual displacement and emphasis multiplier used by interactive controls. */
+    public func amplitude(): Float32 {
+        match (this) {
+            case Basic => 0.45
+            case Standard => 1.0
+            case Full => 1.45
+        }
+    }
+
+    /** Scales framework-selected automatic timings while preserving explicit timings exactly. */
+    public func automaticDuration(duration: UInt64): UInt64 {
+        match (this) {
+            case Basic => max(UInt64(1), duration * UInt64(3) / UInt64(4))
+            case Standard => max(UInt64(1), duration)
+            case Full => max(UInt64(1), duration * UInt64(5) / UInt64(4))
+        }
+    }
+}
+
+/**
+ * A reusable animation property. `automatic` timings follow the active theme's motion level;
+ * constructing a spec directly keeps the requested duration and easing exact.
+ */
+public struct AnimationSpec {
+    public let duration: UInt64
+    public let easing: Easing
+    public let delay: UInt64
+    private let followsMotionLevel: Bool
+
+    public init(
+        duration!: UInt64 = Motion.normal,
+        easing!: Easing = Motion.standard,
+        delay!: UInt64 = UInt64(0)
+    ) {
+        this.duration = max(UInt64(1), duration)
+        this.easing = easing
+        this.delay = delay
+        this.followsMotionLevel = false
+    }
+
+    private init(duration: UInt64, easing: Easing, delay: UInt64, followsMotionLevel: Bool) {
+        this.duration = max(UInt64(1), duration)
+        this.easing = easing
+        this.delay = delay
+        this.followsMotionLevel = followsMotionLevel
+    }
+
+    /** Creates a framework-selected timing that scales with Basic / Standard / Full. */
+    public static func automatic(
+        duration!: UInt64 = Motion.normal,
+        easing!: Easing = Motion.standard,
+        delay!: UInt64 = UInt64(0)
+    ): AnimationSpec {
+        AnimationSpec(duration, easing, delay, true)
+    }
+
+    public func resolvedDuration(level: MotionLevel): UInt64 {
+        if (followsMotionLevel) {
+            level.automaticDuration(duration)
+        } else {
+            duration
+        }
+    }
+}
+
 /**
  * Motion tokens — standard animation durations (milliseconds) and easing curves for a consistent feel,
  * pairing with `Animator` and `Spring`. `fast` suits small toggles, `normal` most transitions, and

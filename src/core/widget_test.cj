@@ -107,6 +107,32 @@ func iconButtonSupportsTrailingLambdaAction(): Unit {
     @Expect(pressed.value)
 }
 
+@Test
+func buttonPressMovedOutsideCancelsActivationEvenWhenReleasedInside(): Unit {
+    let ctx = testContext()
+    let clicks = State<Int64>(0)
+    let button = Button("Deploy", {=> clicks.value += 1})
+    button.layout(ctx, Rect(0.0, 0.0, 120.0, 38.0))
+
+    @Expect(button.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 20.0, 19.0)))
+    @Expect(!button.handle(ctx, UiEvent.MouseMove(180.0, 80.0)))
+    @Expect(!button.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 20.0, 19.0)))
+    @Expect(clicks.value, Int64(0))
+}
+
+@Test
+func iconButtonUsesTheSameMoveOutCancellationContract(): Unit {
+    let ctx = testContext()
+    let clicks = State<Int64>(0)
+    let button = IconButton(IconName.Save) {=> clicks.value += 1}
+    button.layout(ctx, Rect(0.0, 0.0, 40.0, 38.0))
+
+    @Expect(button.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 20.0, 19.0)))
+    let _ = button.handle(ctx, UiEvent.MouseMove(80.0, 80.0))
+    @Expect(!button.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 20.0, 19.0)))
+    @Expect(clicks.value, Int64(0))
+}
+
 /*
  * Regression: two icon-only buttons in one row used to share the "IconButton" identity.
  * The later button then swallowed the release meant for the earlier one, so a calendar's

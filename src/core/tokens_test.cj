@@ -47,3 +47,39 @@ func motionEasingsAreUsableCurves(): Unit {
     // The emphasized curve overshoots past 1 before settling.
     @Expect(Motion.emphasized.ease(0.7) > 1.0)
 }
+
+@Test
+func motionLevelsScaleOnlyAutomaticAnimationSpecs(): Unit {
+    let automatic = AnimationSpec.automatic(duration: UInt64(200), easing: Easing.Linear)
+    @Expect(automatic.resolvedDuration(MotionLevel.Basic), UInt64(150))
+    @Expect(automatic.resolvedDuration(MotionLevel.Standard), UInt64(200))
+    @Expect(automatic.resolvedDuration(MotionLevel.Full), UInt64(250))
+
+    let explicit = AnimationSpec(duration: UInt64(200), easing: Easing.Linear)
+    @Expect(explicit.resolvedDuration(MotionLevel.Basic), UInt64(200))
+    @Expect(explicit.resolvedDuration(MotionLevel.Full), UInt64(200))
+    @Expect(MotionLevel.Basic.amplitude() < MotionLevel.Standard.amplitude())
+    @Expect(MotionLevel.Standard.amplitude() < MotionLevel.Full.amplitude())
+}
+
+@Test
+func themeCarriesMotionLevelBesideVisualTokens(): Unit {
+    let basic = Theme.light(motionLevel: MotionLevel.Basic)
+    match (basic.motionLevel) {
+        case MotionLevel.Basic => ()
+        case _ => @Fail("Theme should retain the selected motion level")
+    }
+    let full = basic.withMotionLevel(MotionLevel.Full)
+    @Expect(full.bg.r, basic.bg.r)
+    @Expect(full.bg.g, basic.bg.g)
+    @Expect(full.bg.b, basic.bg.b)
+    @Expect(full.bg.a, basic.bg.a)
+    @Expect(full.accent.r, basic.accent.r)
+    @Expect(full.accent.g, basic.accent.g)
+    @Expect(full.accent.b, basic.accent.b)
+    @Expect(full.accent.a, basic.accent.a)
+    match (full.motionLevel) {
+        case MotionLevel.Full => ()
+        case _ => @Fail("withMotionLevel should preserve colors and replace motion")
+    }
+}

@@ -49,6 +49,7 @@ public import sdl.sdlRevision
 public import sdl.sdlVersion
 public import cui.core.Alignment
 public import cui.core.Animator
+public import cui.core.AnimationSpec
 public import cui.core.Axis
 public import cui.core.Bindable
 public import cui.core.Binding
@@ -85,6 +86,7 @@ public import cui.core.LengthUnit
 public import cui.core.LengthUnits
 public import cui.core.MainAxisAlignment
 public import cui.core.Motion
+public import cui.core.MotionLevel
 public import cui.core.Observable
 public import cui.core.Overlay
 public import cui.core.Panel
@@ -96,6 +98,8 @@ public import cui.core.Shadow
 public import cui.core.Spacer
 public import cui.core.Spacing
 public import cui.core.Spring
+public import cui.core.InteractionAnimation
+public import cui.core.InteractionProgress
 public import cui.core.State
 public import cui.core.StateObservation
 public import cui.core.StateStore
@@ -108,6 +112,7 @@ public import cui.core.VStack
 public import cui.core.Widget
 public import cui.core.ZStack
 public import cui.core.claimHoverIfInside
+public import cui.core.handlePointerClick
 public import cui.core.derive
 public import cui.core.drawFocusRing
 public import cui.core.emit

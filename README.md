@@ -70,8 +70,8 @@ main() {
 - 支持主轴/交叉轴排列、权重布局、内容自适应、流式换行、裁剪滚动和可复用组件组合。
 - 使用 GPU 几何图元和超采样渲染圆角、描边、图标、阴影及抗锯齿图形。
 - 提供动画原语：物理弹簧 `Spring`、时长驱动可选缓动曲线与延迟的补间 `Animator`，以及永不静止的重复时间线 `Pulse`，
-  由渲染循环充当动画时钟，脏帧下自动续帧；动画折叠容器 `Reveal` 以缓动高度做展开/收起过渡。
-- 提供设计令牌尺度：间距 `Spacing`、圆角 `Radii`、动效 `Motion`，与颜色 `Theme`、字号 `FontSizes`、
+  由渲染循环充当动画时钟，脏帧下自动续帧；`AnimationSpec` 可选择随主题动效力度自动缩放，或锁定精确播放时间与曲线。
+- 提供设计令牌尺度：间距 `Spacing`、圆角 `Radii`、动效 `Motion`，以及主题相邻的 `MotionLevel.Basic / Standard / Full`；它们与颜色 `Theme`、字号 `FontSizes`、
   高度 `Shadow.elevation` 一起构成一致的设计系统。
 - 提供文件对话框、消息框、剪贴板、光标、显示器、文件系统、时间、系统信息等平台能力接口。
 - 已实现图元缓存、惰性渲染、脏帧检测/按需刷新等性能优化机制。
@@ -91,6 +91,9 @@ main() {
 Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染器、生命周期、IME、无障碍、签名和打包仍由宿主适配层实现，不构成对应平台运行或发布声明。
 
 主题切换保留指针起点的圆形 reveal 与控件 InkWell；它们已接入按需渲染循环，通过连续帧请求在脏帧跳过模式下完成动画。
+Component Gallery 按 Actions、Selection、Navigation、Feedback 四类展示具名组件与 `cui.*` API，
+并可直接切换 Basic、Standard、Full 动效力度。Button 与 IconButton 共用 hover、press、InkWell、
+移出取消和 release-inside 激活语义；Accordion 与 StepIndicator 也使用同一自动动画配置模型。
 
 ## 许可证
 

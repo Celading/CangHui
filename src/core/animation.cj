@@ -124,12 +124,12 @@ public class Animator {
     private var from: Float32
     private var to: Float32
     private var elapsedMs: Float32 = 0.0
-    private let durationMs: Float32
-    private let delayMs: Float32
+    private var durationMs: Float32
+    private var delayMs: Float32
     // The whole timeline one retarget runs: the held delay plus the ease itself. Precomputed because
     // every tick and every settled() check reads it.
-    private let totalMs: Float32
-    private let easing: Easing
+    private var totalMs: Float32
+    private var easing: Easing
 
     /*
      * `delay` holds the value still for that many milliseconds after each retarget before the ease
@@ -202,6 +202,12 @@ public class Animator {
         current
     }
 
+    /** Animates with a reusable automatic or explicit animation property. */
+    public func animate(ctx: UiContext, target!: Float32, spec!: AnimationSpec): Float32 {
+        configure(spec, ctx.theme.motionLevel)
+        animate(ctx, target: target)
+    }
+
     /*
      * The raw step: retarget, advance by an explicit delta, and read the new value, with no frame
      * request. For tests and non-draw callers that drive time themselves.
@@ -229,6 +235,44 @@ public class Animator {
         // While inside the delay the progress argument is negative; `ease` clamps it to zero, so the
         // value simply holds at `from` until the delay is served. With no delay this is elapsed/duration.
         current = from + (to - from) * easing.ease((elapsedMs - delayMs) / durationMs)
+    }
+
+    private func configure(spec: AnimationSpec, level: MotionLevel): Unit {
+        durationMs = max(1.0, Float32(Int64(spec.resolvedDuration(level))))
+        delayMs = max(0.0, Float32(Int64(spec.delay)))
+        totalMs = delayMs + durationMs
+        easing = spec.easing
+    }
+}
+
+/** Current hover and press progress for one automatically animated interaction. */
+public struct InteractionProgress {
+    public let hover: Float32
+    public let press: Float32
+
+    public init(hover: Float32, press: Float32) {
+        this.hover = hover
+        this.press = press
+    }
+}
+
+/** Retained automatic hover/press animation shared by buttons and button-like controls. */
+public class InteractionAnimation {
+    private let hoverAnimator = Animator(0.0)
+    private let pressAnimator = Animator(0.0)
+
+    public func animate(
+        ctx: UiContext,
+        hovered: Bool,
+        pressed: Bool,
+        spec: AnimationSpec
+    ): InteractionProgress {
+        let hoverTarget: Float32 = if (hovered) { 1.0 } else { 0.0 }
+        let pressTarget: Float32 = if (pressed) { 1.0 } else { 0.0 }
+        InteractionProgress(
+            hoverAnimator.animate(ctx, target: hoverTarget, spec: spec),
+            pressAnimator.animate(ctx, target: pressTarget, spec: spec)
+        )
     }
 }
 

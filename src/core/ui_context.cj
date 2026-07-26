@@ -14,20 +14,25 @@ private class InkRippleOverlay {
     let originX: Float32
     let originY: Float32
     let startedAtMs: UInt64
+    let durationMs: UInt64
+    let strength: Float32
 
-    init(id: String, frame: Rect, originX: Float32, originY: Float32, startedAtMs: UInt64) {
+    init(id: String, frame: Rect, originX: Float32, originY: Float32, startedAtMs: UInt64,
+        durationMs: UInt64, strength: Float32) {
         this.id = id
         this.frame = frame
         this.originX = originX
         this.originY = originY
         this.startedAtMs = startedAtMs
+        this.durationMs = durationMs
+        this.strength = strength
     }
 
     func progress(nowMs: UInt64): Float32 {
         if (nowMs <= startedAtMs) {
             return 0.0
         }
-        min(1.0, Float32(nowMs - startedAtMs) / Float32(INK_RIPPLE_MS))
+        min(1.0, Float32(nowMs - startedAtMs) / Float32(durationMs))
     }
 }
 
@@ -143,8 +148,20 @@ public class UiContext {
             }
             i -= 1
         }
-        inkRipples.add(InkRippleOverlay(id, frame, x, y, this.frame.elapsedMs))
+        inkRipples.add(InkRippleOverlay(id, frame, x, y, this.frame.elapsedMs,
+            theme.motionLevel.automaticDuration(INK_RIPPLE_MS), theme.motionLevel.amplitude()))
         requestFrame()
+    }
+
+    /** Cancels a control-local ripple when its pointer press leaves the hit target. */
+    public func cancelInkRipple(id: String): Unit {
+        var i = inkRipples.size - 1
+        while (i >= 0) {
+            if (inkRipples[i].id == id) {
+                inkRipples.remove(at: i)
+            }
+            i -= 1
+        }
     }
 
     /** Paints active ripples above the widget tree and keeps dirty-frame rendering alive. */
@@ -159,13 +176,14 @@ public class UiContext {
             } else {
                 active = true
                 let eased = 1.0 - (1.0 - p) * (1.0 - p) * (1.0 - p)
-                let radius = 2.0 + max(ripple.frame.w, ripple.frame.h) * 0.52 * eased
+                let radius = 2.0 + max(ripple.frame.w, ripple.frame.h) * 0.52 * eased * ripple.strength
                 let fade = if (p < 0.35) { Float32(1.0) } else { max(0.0, (1.0 - p) / 0.65) }
                 renderer.pushClip(ripple.frame.inset(1.0))
                 renderer.fillCircle(ripple.originX, ripple.originY, radius,
-                    theme.accent.withAlpha(Int64(Float32(76.0) * fade)))
+                    theme.accent.withAlpha(Int64(Float32(76.0) * fade * min(1.0, ripple.strength))))
                 renderer.strokeCircle(ripple.originX, ripple.originY, radius,
-                    Pen(width: 1.2, color: theme.accent.withAlpha(Int64(Float32(145.0) * fade))), segments: 40)
+                    Pen(width: 1.2, color: theme.accent.withAlpha(
+                        Int64(Float32(145.0) * fade * min(1.0, ripple.strength)))), segments: 40)
                 renderer.popClip()
             }
             i -= 1
@@ -498,5 +516,12 @@ public class UiContext {
     /** Clears the active primary-pointer press. */
     public func clearPress(): Unit {
         pressedId = ""
+    }
+
+    /** Cancels a specific press without disturbing another control's later claim. */
+    public func cancelPress(id: String): Unit {
+        if (pressedId == id) {
+            pressedId = ""
+        }
     }
 }
