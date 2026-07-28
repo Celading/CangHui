@@ -84,6 +84,8 @@ public import cui.core.Length
 public import cui.core.LengthInsets
 public import cui.core.LengthUnit
 public import cui.core.LengthUnits
+public import cui.core.LocaleTag
+public import cui.core.LocalizationCatalog
 public import cui.core.MainAxisAlignment
 public import cui.core.Motion
 public import cui.core.MotionLevel
@@ -169,6 +171,10 @@ public import cui.component.ViewportSpec
 public import cui.component.classifyViewport
 public import cui.component.componentApiVersion
 public import cui.desktop.DesktopApp
+public import cui.desktop.ClientWindowChrome
+public import cui.desktop.ClientWindowChromeStyle
+public import cui.desktop.WindowChromeControl
+public import cui.desktop.WindowChromePlacement
 public import cui.host.HostCapability
 public import cui.host.HostPlatform
 public import cui.host.HostProfile

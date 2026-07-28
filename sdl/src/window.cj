@@ -6,6 +6,8 @@ public struct WindowSpec {
     public let height: Int32
     public let resizable: Bool
     public let highDpi: Bool
+    /** Whether the platform draws its native title bar and window border. */
+    public let decorated: Bool
     public let scale: Float32
     // Whether the renderer waits for the vertical blank on present. On (the default) prevents
     // tearing and is the right choice for real applications. Off lets the frame loop run
@@ -26,13 +28,15 @@ public struct WindowSpec {
         highDpi!: Bool = true,
         scale!: Float32 = 1.0,
         vsync!: Bool = true,
-        supersample!: Int32 = 2
+        supersample!: Int32 = 2,
+        decorated!: Bool = true
     ) {
         this.title = title
         this.width = width
         this.height = height
         this.resizable = resizable
         this.highDpi = highDpi
+        this.decorated = decorated
         this.scale = normalizedScale(scale)
         this.vsync = vsync
         this.supersample = supersample
@@ -61,13 +65,7 @@ public class SdlWindow <: Resource {
             throw CuiException("SDL_Init failed: ${lastSdlError()}")
         }
 
-        var flags = UInt64(0)
-        if (spec.resizable) {
-            flags = flags | SDL_WINDOW_RESIZABLE
-        }
-        if (spec.highDpi) {
-            flags = flags | SDL_WINDOW_HIGH_PIXEL_DENSITY
-        }
+        let flags = windowCreationFlags(spec)
 
         var window = CPointer<Unit>()
         var createdRenderer = CPointer<Unit>()
@@ -168,4 +166,18 @@ public class SdlWindow <: Resource {
             SDL_Quit()
         }
     }
+}
+
+internal func windowCreationFlags(spec: WindowSpec): UInt64 {
+    var flags = UInt64(0)
+    if (spec.resizable) {
+        flags = flags | SDL_WINDOW_RESIZABLE
+    }
+    if (spec.highDpi) {
+        flags = flags | SDL_WINDOW_HIGH_PIXEL_DENSITY
+    }
+    if (!spec.decorated) {
+        flags = flags | SDL_WINDOW_BORDERLESS
+    }
+    flags
 }

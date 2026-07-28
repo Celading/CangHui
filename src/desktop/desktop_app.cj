@@ -3,7 +3,7 @@ package cui.desktop
 import std.collection.ArrayList
 import std.convert.*
 import std.env.getCommandLine
-import sdl.{FrameInfo, Key, MouseButton, Rect, SdlWindow, UiEvent, WindowSpec}
+import sdl.{FrameInfo, Key, MouseButton, Rect, SdlWindow, UiEvent, WindowFlags, WindowPosition, WindowSpec}
 import sdl.input.{Cursor, Keyboard, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
@@ -83,6 +83,40 @@ public class DesktopApp {
      */
     public func setMinimumSize(width: Int32, height: Int32): Unit {
         window.setMinimumSize(width, height)
+    }
+
+    /** Requests application shutdown through the normal frame-loop path. */
+    public func requestWindowClose(): Unit {
+        ctx.requestClose()
+    }
+
+    /** Minimizes the owned desktop window. */
+    public func minimizeWindow(): Unit {
+        window.minimize()
+    }
+
+    /** Maximizes a restored window or restores a maximized one. */
+    public func toggleMaximizeWindow(): Unit {
+        if (window.windowFlags().maximized) {
+            window.restore()
+        } else {
+            window.maximize()
+        }
+    }
+
+    /** Moves the owned window in desktop coordinates. */
+    public func setWindowPosition(x: Int32, y: Int32): Unit {
+        window.setPosition(x, y)
+    }
+
+    /** Returns the owned window's desktop position. */
+    public func windowPosition(): WindowPosition {
+        window.position()
+    }
+
+    /** Returns a snapshot of the current native window flags. */
+    public func windowFlags(): WindowFlags {
+        window.windowFlags()
     }
 
     /**

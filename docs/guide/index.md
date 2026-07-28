@@ -42,7 +42,7 @@ CUI 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建函�
 
 ### 5. 桌面交付：异步集成到发布
 
-[文件与后台任务](how-to/desktop-files-and-background.md) → [快照与性能记录](how-to/snapshot-and-profile.md) → [通用排障](troubleshooting/common-problems.md) → [打包桌面应用](how-to/package-desktop-app.md)。约 70 分钟；结束时能安全回收后台结果、区分验证证据，并在干净目录启动交付物。
+[文件与后台任务](how-to/desktop-files-and-background.md) → [自绘标题栏与应用本地化](how-to/client-window-chrome-and-localization.md) → [快照与性能记录](how-to/snapshot-and-profile.md) → [通用排障](troubleshooting/common-problems.md) → [打包桌面应用](how-to/package-desktop-app.md)。约 85 分钟；结束时能安全回收后台结果、建立跨平台窗口外壳和语言目录、区分验证证据，并在干净目录启动交付物。
 
 ### 6. 组件进阶：媒体到动画自绘
 
@@ -93,6 +93,7 @@ CUI 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建函�
 |---|---|---|
 | 异步打开或保存桌面文件 | [文件与后台任务](how-to/desktop-files-and-background.md) | 对话框期间窗口保持响应 |
 | 把后台成功或失败送回 UI | [文件与后台任务](how-to/desktop-files-and-background.md) | 成功值和错误值都经信箱返回，并只在 UI 帧中更新界面状态 |
+| 替换系统标题栏并集中应用翻译 | [自绘标题栏与应用本地化](how-to/client-window-chrome-and-localization.md) | 无边框窗口仍可拖动、缩放、最小化和关闭；切换语言不重置业务状态 |
 | 生成并显示确定媒体预览 | [媒体预览面板](tutorials/media-dashboard.md) | 生成的 BMP 能显示并生成稳定快照，退出后临时输入文件被清理 |
 | 判断图片缓存与资源所有权 | [资源与媒体](concepts/resources-and-media.md) | 同一路径复用缓存；托管资源随控件释放；临时资源在退出前显式清理 |
 | 编写不会吞掉相邻事件的画布 | [自绘控件](how-to/custom-canvas.md) | 画布范围内的指针事件被消费，范围外的事件继续交给相邻控件 |

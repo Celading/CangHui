@@ -286,12 +286,27 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), fontScale: 1.0, m
 | `run(body)` | 启动逐帧构建、布局、事件和绘制循环 |
 | `manage(resource)` | 托管资源，退出时逆序关闭 |
 | `setMinimumSize(width, height)` | 以逻辑像素约束窗口最小尺寸 |
+| `requestWindowClose()` | 经正常帧循环请求关闭窗口 |
+| `minimizeWindow()` | 最小化窗口 |
+| `toggleMaximizeWindow()` | 在最大化与恢复状态之间切换 |
+| `setWindowPosition(x, y)`、`windowPosition()` | 设置或查询桌面坐标 |
+| `windowFlags()` | 查询当前窗口状态快照 |
 | `clearRememberedState()` | 清空局部状态存储 |
 | `openFileDialog`、`saveFileDialog`、`openFolderDialog` | 创建异步文件对话框请求 |
 
 `fontScale` 作用于全部 `fp` 尺寸；`WindowSpec.scale` 决定 `px` 与 `vp` 的换算。
 
 底层重新导出类型与方法的完整定义见 [SDL API 参考](../sdl/docs/api-reference.md)。
+
+### 客户端标题栏与本地化
+
+`ClientWindowChrome` 为 `decorated: false` 的窗口提供默认标题栏绘制、拖动和最小化/最大化/关闭动作。
+`ClientWindowChromeStyle` 可覆盖尺寸、颜色和 `Leading` / `Trailing` / `Hidden` 布局；应用也可只复用
+`DesktopApp` 的窗口动作并完全替换绘制。
+
+`LocaleTag` 表示带一个显式回退的应用语言；`LocalizationCatalog` 通过 `put` 注册稳定键，通过
+`resolve` 按精确语言、语言回退、默认语言、调用方回退和键本身的顺序解析。资源来源由应用或平台
+适配器决定。完整接法见[自绘标题栏与应用本地化](guide/how-to/client-window-chrome-and-localization.md)。
 
 ## 12. kMode 无界面控制面
 
