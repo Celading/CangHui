@@ -133,7 +133,7 @@ public class ClientWindowChromeStyle {
 public class ClientWindowChrome {
     public let style: ClientWindowChromeStyle
     private let app: DesktopApp
-    private var pressedControl: ?WindowChromeControl = None
+    private let controlPress = ClientWindowChromePressState()
     private var dragging = false
     private var dragMouseX: Float32 = 0.0
     private var dragMouseY: Float32 = 0.0
@@ -173,7 +173,8 @@ public class ClientWindowChrome {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 match (style.controlAt(frame, x, y)) {
                     case Some(control) =>
-                        pressedControl = Some(control)
+                        controlPress.begin(control)
+                        Mouse.capture(true)
                         true
                     case None =>
                         if (!style.isDragRegion(frame, x, y)) { return false }
@@ -188,8 +189,6 @@ public class ClientWindowChrome {
                         true
                 }
             case UiEvent.MouseMove(x, y) =>
-                let _ = x
-                let _ = y
                 if (dragging) {
                     let mouse = Mouse.globalState()
                     app.setWindowPosition(
@@ -197,26 +196,29 @@ public class ClientWindowChrome {
                         Int32(Float32(dragWindowY) + mouse.y - dragMouseY)
                     )
                     true
+                } else if (controlPress.isActive()) {
+                    controlPress.move(style.controlAt(frame, x, y))
+                    true
                 } else {
                     style.titleBar(frame).contains(x, y)
                 }
             case UiEvent.MouseUp(MouseButton.Left, x, y) =>
                 let released = style.controlAt(frame, x, y)
-                let accepted = sameControl(pressedControl, released)
-                let action = pressedControl
-                pressedControl = None
+                let hadControlPress = controlPress.isActive()
+                let action = controlPress.release(released)
+                if (hadControlPress) {
+                    Mouse.capture(false)
+                }
                 if (dragging) {
                     dragging = false
                     Mouse.capture(false)
                     return true
                 }
-                if (accepted) {
-                    match (action) {
-                        case Some(control) => activate(control)
-                        case None => ()
-                    }
+                match (action) {
+                    case Some(control) => activate(control)
+                    case None => ()
                 }
-                accepted || style.titleBar(frame).contains(x, y)
+                hadControlPress || style.titleBar(frame).contains(x, y)
             case _ => false
         }
     }
@@ -239,7 +241,7 @@ public class ClientWindowChrome {
         let rect = style.controlRect(frame, control)
         if (rect.w <= 0.0) { return }
         let hovered = rect.contains(pointerX, pointerY)
-        let held = sameControl(pressedControl, Some(control))
+        let held = controlPress.isHeld(control)
         if (held) {
             renderer.fillRoundedRect(rect, 3.0, style.pressed)
         } else if (hovered) {
@@ -271,6 +273,41 @@ public class ClientWindowChrome {
                 renderer.strokeLine(cx + 4.5, cy - 4.5, cx - 4.5, cy + 4.5,
                     Pen(width: 1.5, color: color))
         }
+    }
+}
+
+internal class ClientWindowChromePressState {
+    private var pressedControl: ?WindowChromeControl = None
+    private var cancelled: Bool = false
+
+    func begin(control: WindowChromeControl): Unit {
+        pressedControl = Some(control)
+        cancelled = false
+    }
+
+    func move(control: ?WindowChromeControl): Unit {
+        if (pressedControl.isSome() && !sameControl(pressedControl, control)) {
+            cancelled = true
+        }
+    }
+
+    func release(control: ?WindowChromeControl): ?WindowChromeControl {
+        let accepted = pressedControl.isSome() && !cancelled && sameControl(pressedControl, control)
+        var action: ?WindowChromeControl = None
+        if (accepted) {
+            action = pressedControl
+        }
+        pressedControl = None
+        cancelled = false
+        action
+    }
+
+    func isActive(): Bool {
+        pressedControl.isSome()
+    }
+
+    func isHeld(control: WindowChromeControl): Bool {
+        !cancelled && sameControl(pressedControl, Some(control))
     }
 }
 

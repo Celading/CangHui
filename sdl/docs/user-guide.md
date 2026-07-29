@@ -55,7 +55,8 @@ while (let Some(event) <- current) {
 文本后端使用 SDL3_ttf 和平台 UI 字体候选：
 
 - Windows：Microsoft YaHei UI，回退到 Segoe UI。
-- macOS：PingFang 或 SF 系统字体。
+- macOS：优先使用已安装的 HarmonyOS Sans SC，其次尝试 PingFang、Hiragino Sans GB、STHeiti，
+  最后才退化到 SF 系统字体。
 - Linux：Noto Sans CJK，回退到 DejaVu Sans。
 
 `FontSizes` 提供 `CAPTION=13`、`BODY=15`、`CONTROL=15`、`TITLE=20`、`DISPLAY=32`。渲染器按字号

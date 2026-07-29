@@ -302,7 +302,8 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), fontScale: 1.0, m
 
 `ClientWindowChrome` 为 `decorated: false` 的窗口提供默认标题栏绘制、拖动和最小化/最大化/关闭动作。
 `ClientWindowChromeStyle` 可覆盖尺寸、颜色和 `Leading` / `Trailing` / `Hidden` 布局；应用也可只复用
-`DesktopApp` 的窗口动作并完全替换绘制。
+`DesktopApp` 的窗口动作并完全替换绘制。默认控制按钮在按压期间捕获指针，首次移出原按钮后永久取消
+本次激活；移回再释放不会恢复，也不会把释放事件漏给标题栏下方内容。
 
 `LocaleTag` 表示带一个显式回退的应用语言；`LocalizationCatalog` 通过 `put` 注册稳定键，通过
 `resolve` 按精确语言、语言回退、默认语言、调用方回退和键本身的顺序解析。资源来源由应用或平台

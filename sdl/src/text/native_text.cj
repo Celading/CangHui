@@ -1,6 +1,7 @@
 package sdl.text
 
 import std.collection.{ArrayList, HashMap, HashSet}
+import std.env.getVariable
 import std.math.abs
 
 private let DEFAULT_POINT_SIZE: Float32 = 15.0
@@ -561,16 +562,39 @@ private func probeBoldCompanion(path: String): ?String {
 }
 
 private func systemFontCandidates(): Array<String> {
-    [
+    let home = match (getVariable("HOME")) {
+        case Some(value) => value.trimAscii()
+        case None => ""
+    }
+    systemFontCandidatesFor(home)
+}
+
+// Keep CJK-capable faces ahead of Latin-only platform UI fonts. Recent macOS releases no longer
+// expose PingFang at the historical path, so falling straight through to SFNS loses Chinese glyphs.
+protected func systemFontCandidatesFor(home: String): Array<String> {
+    let candidates = ArrayList<String>()
+    if (!home.isEmpty()) {
+        candidates.add("${home}/Library/Fonts/HarmonyOS_Sans_SC.ttf")
+        candidates.add("${home}/Library/Fonts/HarmonyOS Sans SC.ttf")
+    }
+    candidates.add("/Library/Fonts/HarmonyOS_Sans_SC.ttf")
+    candidates.add("/Library/Fonts/HarmonyOS Sans SC.ttf")
+    for (path in [
         "C:\\Windows\\Fonts\\msyh.ttc",
         "C:\\Windows\\Fonts\\segoeui.ttf",
         "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
         "/System/Library/Fonts/SFNS.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    ]
+    ]) {
+        candidates.add(path)
+    }
+    candidates.toArray()
 }
 
 private func normalizePointSize(pointSize: Float32): Float32 {

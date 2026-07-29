@@ -31,3 +31,23 @@ func clientChromeDragRegionExcludesWindowControlButtons(): Unit {
         case _ => @Fail("Close control should win hit testing over the drag region.")
     }
 }
+
+@Test
+func clientChromeControlPressStaysCancelledAfterMoveOutAndReentry(): Unit {
+    let press = ClientWindowChromePressState()
+    press.begin(WindowChromeControl.Close)
+    @Expect(press.isHeld(WindowChromeControl.Close))
+
+    press.move(None)
+    @Expect(!press.isHeld(WindowChromeControl.Close))
+    press.move(Some(WindowChromeControl.Close))
+    @Expect(!press.isHeld(WindowChromeControl.Close))
+    @Expect(press.release(Some(WindowChromeControl.Close)).isNone())
+    @Expect(!press.isActive())
+
+    press.begin(WindowChromeControl.Close)
+    match (press.release(Some(WindowChromeControl.Close))) {
+        case Some(WindowChromeControl.Close) => @Expect(true)
+        case _ => @Fail("A fresh release-inside gesture should activate the control.")
+    }
+}
