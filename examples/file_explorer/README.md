@@ -31,7 +31,7 @@
 一次遍历建成的 `HashMap` 索引查得元信息，路径面包屑直接由 id 拆分 `"/"` 得到，无需在树上回溯父链。
 
 ```cangjie
-folder("CangjieGUI/src/core", [ file("CangjieGUI/src/core/widget.cj"), ... ])
+folder("CangHui/src/core", [ file("CangHui/src/core/widget.cj"), ... ])
 ```
 
 ### 选择以 id 为键

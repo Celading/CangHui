@@ -215,6 +215,8 @@ public import cui.host.nativeSurfaceBackendName
 public import cui.host.hostLoopResultName
 public import cui.host.hostPresentationModeName
 public import cui.host.iosHostAbiVersion
+public import cui.host.canghui_ios_host_abi_version
+public import cui.host.cangjiegui_ios_host_abi_version
 public import cui.host.systemThemePreferenceName
 public import cui.host.touchPhaseName
 public import cui.kmode.KMODE_PROTOCOL

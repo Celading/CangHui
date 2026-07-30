@@ -296,7 +296,7 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 Component Gallery 可以覆盖公共布局和状态连续性，但不能替代移动端或其他宿主的生命周期、输入、
 无障碍、原生表面与发布验证。平台后端应消费母体合同，不应让公共组件反向依赖宿主工程。
 
-组件包可以附带符合 `contracts/cangjiegui-component-package-v0.schema.json` 的元数据，供工具链
+组件包可以附带符合 `contracts/canghui-component-package-v0.schema.json` 的元数据，供工具链
 发现资源与原生制品；运行时 API 仍以强类型 Cangjie 接口为准。
 
 移动宿主的第一层合同由 `cui.host` 提供：`AppLifecycleState`、`HostViewportMetrics`、
@@ -305,9 +305,10 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 或其他不透明令牌。这样公共组件无需知道 UIKit、PhotoKit、Keychain 或 Harmony 平台类型。
 
 iOS 采用静态库嵌入 Xcode 宿主。母体框架提供可独立交叉编译的 host-contract 源集、稳定的
-`cangjiegui_ios_host_abi_version` C ABI 与 device/simulator 构建脚本；Xcode 宿主负责运行时静态库链接、
+`canghui_ios_host_abi_version` C ABI 与 device/simulator 构建脚本；旧的
+`cangjiegui_ios_host_abi_version` 仅作为源兼容别名保留。Xcode 宿主负责运行时静态库链接、
 签名和应用生命周期。当前真机证据已证明 runtime 初始化、固定后台 UI scheduler 和 N2C foreign-thread
-调用门可用，也已成功调用一个最小仓颉静态包；但 CangjieGUI `cui.host` 静态包仍卡在正式包初始化协议，
+调用门可用，也已成功调用一个最小仓颉静态包；但 CangHui `cui.host` 静态包仍卡在正式包初始化协议，
 因此尚不声称 ABI 函数已返回，也不证明 UIKit 生命周期、触摸、safe area、IME、无障碍或
 首个产品验收应用仍需在独立仓库完成适配。
 
@@ -330,7 +331,7 @@ HarmonyOS 可将同一合同映射到 `XComponent/OHNativeWindow`，iOS 映射�
 
 参考 SDL3 callback application 与 SwiftSDL 的宿主分层后，移动端明确保留两种模式：
 
-- `OwnedWindow`：SDL3 管理应用 callback、事件泵、window 和 renderer，适用于独立 CangjieGUI
+- `OwnedWindow`：SDL3 管理应用 callback、事件泵、window 和 renderer，适用于独立 CangHui
   应用；`HostApplicationLoop` 映射 `init/iterate/quit`，输入仍通过专用 host service 进入。
 - `EmbeddedSurface`：既有 UIKit/Harmony 应用拥有原生 view，以 generation-bearing surface 代理
   接入仓颉渲染器。

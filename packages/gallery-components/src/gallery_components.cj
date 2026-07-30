@@ -1,4 +1,4 @@
-package cangjiegui_gallery_components
+package canghui_gallery_components
 
 import cui.*
 
@@ -10,8 +10,8 @@ public class GalleryComponentPackage <: ComponentPackage {
 
 public func galleryPackageDescriptor(): ComponentPackageDescriptor {
     ComponentPackageDescriptor(
-        "cangjiegui.gallery.common",
-        "CangjieGUI Gallery Common Components",
+        "canghui.gallery.common",
+        "CangHui Gallery Common Components",
         "0.2.0"
     )
 }
@@ -25,7 +25,7 @@ public class GallerySurfaceState {
     public let sliderValue = State<Float32>(0.62)
     public let stepperValue = State<Int64>(3)
     public let pickerValue = State<Int64>(1)
-    public let fieldText = State<String>("CangjieGUI")
+    public let fieldText = State<String>("CangHui")
     public let dropdownValue = State<Int64>(1)
     public let overviewProgress = State<Float32>(0.68)
     public let architectureChip = State<Bool>(true)
@@ -68,7 +68,7 @@ private func mediumSurface(context: ComponentContext, state: GallerySurfaceState
 private func expandedSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     HStack {
         VStack {
-            Label("CangjieGUI", fontSize: 20.fp)
+            Label("CangHui", fontSize: 20.fp)
             Label("Component catalogue", muted: true)
             Divider()
             sectionButton("Actions", 0, state)

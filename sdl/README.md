@@ -18,7 +18,7 @@ CUI，可用于游戏、图形工具、可视化程序、自定义 UI 框架以�
 
 ```toml
 [dependencies]
-sdl = { path = "../CangjieGUI/sdl" }
+sdl = { path = "../CangHui/sdl" }
 ```
 
 按需显式导入包成员：

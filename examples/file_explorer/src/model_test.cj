@@ -7,12 +7,12 @@ package cui_file_explorer
 func indexKnowsFoldersAndFiles(): Unit {
     let model = ExplorerModel()
 
-    let core = model.infoFor("CangjieGUI/src/core").getOrThrow()
+    let core = model.infoFor("CangHui/src/core").getOrThrow()
     @Expect(core.isFolder)
     @Expect(core.name, "core")
     @Expect(core.childCount, 4) // widget/state/layout_widgets/split_view
 
-    let file = model.infoFor("CangjieGUI/src/core/split_view.cj").getOrThrow()
+    let file = model.infoFor("CangHui/src/core/split_view.cj").getOrThrow()
     @Expect(!file.isFolder)
     @Expect(file.name, "split_view.cj")
     @Expect(file.childCount, 0)
@@ -37,8 +37,8 @@ func initialSelectionIsIndexed(): Unit {
 
 @Test
 func basenameTakesLastSegmentSafely(): Unit {
-    @Expect(basename("CangjieGUI/src/core/widget.cj"), "widget.cj")
-    @Expect(basename("CangjieGUI"), "CangjieGUI")
+    @Expect(basename("CangHui/src/core/widget.cj"), "widget.cj")
+    @Expect(basename("CangHui"), "CangHui")
     @Expect(basename(""), "") // 空串 split 得空数组，回退到原串而非越界
 }
 
@@ -51,7 +51,7 @@ func extensionOfHandlesDottedAndPlainNames(): Unit {
 
 @Test
 func breadcrumbExpandsPathSeparators(): Unit {
-    @Expect(breadcrumb("CangjieGUI/src/core").contains("CangjieGUI"))
-    @Expect(breadcrumb("CangjieGUI/src/core").contains("core"))
-    @Expect(!breadcrumb("CangjieGUI/src/core").contains("/core")) // 分隔符已被展开加空格
+    @Expect(breadcrumb("CangHui/src/core").contains("CangHui"))
+    @Expect(breadcrumb("CangHui/src/core").contains("core"))
+    @Expect(!breadcrumb("CangHui/src/core").contains("/core")) // 分隔符已被展开加空格
 }

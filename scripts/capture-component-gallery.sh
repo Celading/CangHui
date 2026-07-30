@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 GALLERY_ROOT="${PROJECT_ROOT}/examples/component-gallery"
-OUTPUT_DIR="${1:-${TMPDIR:-/tmp}/cangjiegui-component-gallery}"
+OUTPUT_DIR="${1:-${TMPDIR:-/tmp}/canghui-component-gallery}"
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -32,4 +32,4 @@ for preview in android harmony tablet desktop ios; do
   sleep 1
 done
 
-printf 'CangjieGUI Component Gallery snapshots: %s\n' "${OUTPUT_DIR}"
+printf 'CangHui Component Gallery snapshots: %s\n' "${OUTPUT_DIR}"

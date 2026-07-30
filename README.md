@@ -1,6 +1,6 @@
-# CUI/苍翠：仓颉桌面 GUI 框架
+# CangHui / CUI：仓颉多平台 GUI 母体框架
 
-用[仓颉编程语言](https://cangjie-lang.cn/)实现的跨平台/自渲染/声明式桌面 GUI 框架，提供声明式界面构建、状态管理、常用组件、文本渲染、矢量绘制以及系统能力集成等。底层依赖[仓颉 SDL 图形库](https://github.com/SunriseSummer/CangjieSDL)。
+用[仓颉编程语言](https://cangjie-lang.cn/)实现的跨平台、自渲染、声明式 GUI 母体框架，提供声明式界面构建、状态管理、常用组件、文本渲染、矢量绘制以及系统能力集成等。项目从 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) 演进并持续保留其许可证与上游归属；底层依赖[仓颉 SDL 图形库](https://github.com/SunriseSummer/CangjieSDL)。
 
 <img src="./examples/.images/cangcui.png" />
 <img src="./images/gallery.jpg" />
@@ -35,7 +35,7 @@ cjpm build
 
 ```toml
 [dependencies]
-cui = { path = "<path/to/CangjieGUI>" }
+cui = { path = "<path/to/CangHui>" }
 ```
 
 在 `src/main.cj` 中编写代码创建一个简单窗口：
@@ -97,6 +97,16 @@ main() {
 - Debug 或显式监管运行可通过 kMode 在不创建窗口、不遍历布局时调用已注册函数。
 
 Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染器、生命周期、IME、无障碍、签名和打包仍由宿主适配层实现，不构成对应平台运行或发布声明。
+
+## 集成工具链
+
+`tools/cuic` 是 CangHui 自带的仓颉工具链，统一负责项目初始化、构建、测试、kMode、无图探针、平台诊断、字体、Symbol 资源与渲染截图。命令名保持为 `cuic`：
+
+```bash
+./tools/cuic/bin/cuic version
+./tools/cuic/bin/cuic doctor
+./tools/cuic/bin/cuic examples
+```
 
 主题切换保留指针起点的圆形 reveal 与控件 InkWell；InkWell 从当前主题语义色派生，按控件圆角真实裁切，
 并允许点击热区与视觉反馈区分离。Checkbox、Switch、RadioButton 只在 indicator/track 内表达反馈，

@@ -12,9 +12,9 @@ import cui.{State, TreeNode}
 class ExplorerModel {
     let roots: Array<TreeNode>
     let index: HashMap<String, FileInfo>
-    let selected = State<String>("CangjieGUI/src/core/split_view.cj")
+    let selected = State<String>("CangHui/src/core/split_view.cj")
     // 初始展开：根、src、core 依次打开，恰好露出初始选中的文件。
-    let initiallyExpanded = ["CangjieGUI", "CangjieGUI/src", "CangjieGUI/src/core"]
+    let initiallyExpanded = ["CangHui", "CangHui/src", "CangHui/src/core"]
 
     init() {
         this.roots = seedRoots()

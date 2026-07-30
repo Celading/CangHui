@@ -8,7 +8,7 @@
   under MIT.
 
 The sources were reviewed as design references. No Swift or C++ source was
-copied into CangjieGUI.
+copied into CangHui.
 
 ## Adopted
 
@@ -18,9 +18,9 @@ An SDL3 application and an embedded native view are different deployment
 shapes and should not be forced through one fake window model:
 
 - `OwnedWindow`: SDL3 owns application callbacks, event pumping, the window
-  and renderer. This is the preferred route for a standalone CangjieGUI app.
+  and renderer. This is the preferred route for a standalone CangHui app.
 - `EmbeddedSurface`: UIKit, Harmony or another application owns the native
-  view and forwards a generation-bearing surface to CangjieGUI.
+  view and forwards a generation-bearing surface to CangHui.
 
 Both modes share `HostApplicationLoop`, host lifecycle/input services and the
 same Cangjie widget/layout tree.
@@ -29,7 +29,7 @@ same Cangjie widget/layout tree.
 
 SDL3's `SDL_AppInit`, `SDL_AppIterate`, `SDL_AppEvent` and `SDL_AppQuit`
 separate initialization, frame work, event delivery and guaranteed shutdown.
-CangjieGUI adopts the portable part as `HostLoopResult` and
+CangHui adopts the portable part as `HostLoopResult` and
 `HostApplicationLoop`; the platform adapter remains responsible for mapping
 those callbacks onto the fixed Cangjie scheduler thread.
 
@@ -47,7 +47,7 @@ The Apple host must preserve:
 ## Already Covered
 
 SwiftSDL's generic pointer owner, destroy callback, typed SDL failure and
-allocate-copy-free helpers are good binding design, but CangjieGUI already has
+allocate-copy-free helpers are good binding design, but CangHui already has
 the equivalent rules:
 
 - `Resource` implementations with idempotent deterministic `close`;

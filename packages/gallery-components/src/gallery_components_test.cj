@@ -1,11 +1,11 @@
-package cangjiegui_gallery_components
+package canghui_gallery_components
 
 import cui.{ComponentCompatibility, HostPlatform, HostProfile}
 
 @Test
 func galleryPackageIsPlatformNeutral(): Unit {
     let descriptor = GalleryComponentPackage().descriptor()
-    @Expect(descriptor.id, "cangjiegui.gallery.common")
+    @Expect(descriptor.id, "canghui.gallery.common")
     match (descriptor.compatibility(HostProfile(HostPlatform.Android))) {
         case ComponentCompatibility.Compatible => @Expect(true)
         case _ => @Fail("The gallery package should remain common-source.")

@@ -42,14 +42,18 @@ build_target() {
 
 case "$MODE" in
     all)
-        build_target aarch64-apple-ios ios_aarch64_cjnative libcangjiegui_host_ios.a
-        build_target aarch64-apple-ios-simulator ios_simulator_aarch64_cjnative libcangjiegui_host_ios_simulator.a
+        build_target aarch64-apple-ios ios_aarch64_cjnative libcanghui_host_ios.a
+        build_target aarch64-apple-ios-simulator ios_simulator_aarch64_cjnative libcanghui_host_ios_simulator.a
+        cp "$OUTPUT_DIR/libcanghui_host_ios.a" "$OUTPUT_DIR/libcangjiegui_host_ios.a"
+        cp "$OUTPUT_DIR/libcanghui_host_ios_simulator.a" "$OUTPUT_DIR/libcangjiegui_host_ios_simulator.a"
         ;;
     device)
-        build_target aarch64-apple-ios ios_aarch64_cjnative libcangjiegui_host_ios.a
+        build_target aarch64-apple-ios ios_aarch64_cjnative libcanghui_host_ios.a
+        cp "$OUTPUT_DIR/libcanghui_host_ios.a" "$OUTPUT_DIR/libcangjiegui_host_ios.a"
         ;;
     simulator)
-        build_target aarch64-apple-ios-simulator ios_simulator_aarch64_cjnative libcangjiegui_host_ios_simulator.a
+        build_target aarch64-apple-ios-simulator ios_simulator_aarch64_cjnative libcanghui_host_ios_simulator.a
+        cp "$OUTPUT_DIR/libcanghui_host_ios_simulator.a" "$OUTPUT_DIR/libcangjiegui_host_ios_simulator.a"
         ;;
     *)
         echo "usage: $0 [all|device|simulator] [output-dir]" >&2
@@ -57,4 +61,4 @@ case "$MODE" in
         ;;
 esac
 
-echo "CangjieGUI iOS host static libraries: $OUTPUT_DIR"
+echo "CangHui iOS host static libraries: $OUTPUT_DIR"

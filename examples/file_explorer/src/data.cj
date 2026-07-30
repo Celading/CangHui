@@ -45,38 +45,38 @@ func basename(path: String): String {
 /** 一棵示意目录树：本项目的主要结构（截取，足以演示展开/折叠与层级导航）。 */
 func seedRoots(): Array<TreeNode> {
     [
-        folder("CangjieGUI", [
-            folder("CangjieGUI/src", [
-                folder("CangjieGUI/src/core", [
-                    file("CangjieGUI/src/core/widget.cj"),
-                    file("CangjieGUI/src/core/state.cj"),
-                    file("CangjieGUI/src/core/layout_widgets.cj"),
-                    file("CangjieGUI/src/core/split_view.cj")
+        folder("CangHui", [
+            folder("CangHui/src", [
+                folder("CangHui/src/core", [
+                    file("CangHui/src/core/widget.cj"),
+                    file("CangHui/src/core/state.cj"),
+                    file("CangHui/src/core/layout_widgets.cj"),
+                    file("CangHui/src/core/split_view.cj")
                 ]),
-                folder("CangjieGUI/src/controls", [
-                    file("CangjieGUI/src/controls/selection_widgets.cj"),
-                    file("CangjieGUI/src/controls/table.cj"),
-                    file("CangjieGUI/src/controls/tree_view.cj")
+                folder("CangHui/src/controls", [
+                    file("CangHui/src/controls/selection_widgets.cj"),
+                    file("CangHui/src/controls/table.cj"),
+                    file("CangHui/src/controls/tree_view.cj")
                 ]),
-                folder("CangjieGUI/src/text", [
-                    file("CangjieGUI/src/text/text_field.cj"),
-                    file("CangjieGUI/src/text/text_area.cj")
+                folder("CangHui/src/text", [
+                    file("CangHui/src/text/text_field.cj"),
+                    file("CangHui/src/text/text_area.cj")
                 ])
             ]),
-            folder("CangjieGUI/examples", [
-                folder("CangjieGUI/examples/workbench", [
-                    file("CangjieGUI/examples/workbench/README.md")
+            folder("CangHui/examples", [
+                folder("CangHui/examples/workbench", [
+                    file("CangHui/examples/workbench/README.md")
                 ]),
-                folder("CangjieGUI/examples/file_explorer", [
-                    file("CangjieGUI/examples/file_explorer/README.md")
+                folder("CangHui/examples/file_explorer", [
+                    file("CangHui/examples/file_explorer/README.md")
                 ])
             ]),
-            folder("CangjieGUI/docs", [
-                file("CangjieGUI/docs/components.md"),
-                file("CangjieGUI/docs/architecture.md")
+            folder("CangHui/docs", [
+                file("CangHui/docs/components.md"),
+                file("CangHui/docs/architecture.md")
             ]),
-            file("CangjieGUI/README.md"),
-            file("CangjieGUI/LICENSE")
+            file("CangHui/README.md"),
+            file("CangHui/LICENSE")
         ])
     ]
 }

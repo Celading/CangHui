@@ -1,7 +1,7 @@
 # Component Gallery
 
 This desktop gallery mounts a normal CJPM component package against the common
-host, capability, and viewport contracts exported by CangjieGUI.
+host, capability, and viewport contracts exported by CangHui.
 
 Run one interactive matrix:
 
@@ -12,13 +12,13 @@ cjpm run
 Capture a deterministic target through the framework snapshot argument:
 
 ```bash
-cjpm run -- --preview desktop --snapshot /tmp/cangjiegui-desktop.bmp
+cjpm run -- --preview desktop --snapshot /tmp/canghui-desktop.bmp
 ```
 
 Use `--theme light` or `--theme dark` to capture either stable theme endpoint:
 
 ```bash
-cjpm run -- --preview desktop --theme light --snapshot /tmp/cangjiegui-desktop-light.bmp
+cjpm run -- --preview desktop --theme light --snapshot /tmp/canghui-desktop-light.bmp
 ```
 
 Select the theme-adjacent automatic motion expression with `--motion basic`,
@@ -42,7 +42,7 @@ so the image also contains its local InkWell ripple:
 
 ```bash
 cjpm run -- --preview desktop --transition-theme light --snapshot-frame 12 \
-  --snapshot /tmp/cangjiegui-desktop-reveal.bmp
+  --snapshot /tmp/canghui-desktop-reveal.bmp
 ```
 
 The Android, HarmonyOS, and iOS entries are common-layout previews. They do not

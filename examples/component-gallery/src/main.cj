@@ -1,10 +1,10 @@
-package cangjiegui_component_gallery
+package canghui_component_gallery
 
 import std.env.getCommandLine
 import std.convert.*
 import cui.*
 import cui.kmode.macros.*
-import cangjiegui_gallery_components.*
+import canghui_gallery_components.*
 
 @KModeLink["gallery.api.version"]
 func galleryApiVersion(_: String): String {
@@ -144,7 +144,7 @@ main(): Int64 {
     let galleryState = GallerySurfaceState()
     galleryState.selectedSection.value = initialGallerySection()
     let app = DesktopApp(
-        WindowSpec("CangjieGUI Component Gallery", 1500, 980, scale: 1.0),
+        WindowSpec("CangHui Component Gallery", 1500, 980, scale: 1.0),
         theme: galleryTheme(darkMode.value, motionIndex.value)
     )
     match (transitionTarget) {
