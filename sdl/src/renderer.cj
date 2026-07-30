@@ -129,8 +129,20 @@ public class Renderer {
     // last reset — the other per-frame text choke point, separate from measurement.
     private var drawTextCount: UInt64 = 0
     private let metricsCache = TextMetricsCache(TEXT_METRICS_CAP_PER_SIZE)
+    private let namedMetricsCaches = HashMap<String, TextMetricsCache>()
+    private let fontChains = HashMap<String, Array<FontResolution>>()
+    private var fontRegistryGeneration: UInt64 = 0
+    private var themeFontFamily: ?String = None
+    private let recordsDrawIr: Bool
+    private let drawIrLog = ArrayList<DrawIrCommand>()
+    private let drawIrScopes = ArrayList<String>()
 
-    internal init(ptr: CPointer<Unit>, contentScale!: Float32 = 1.0, supersample!: Int32 = DEFAULT_SUPERSAMPLE) {
+    internal init(
+        ptr: CPointer<Unit>,
+        contentScale!: Float32 = 1.0,
+        supersample!: Int32 = DEFAULT_SUPERSAMPLE,
+        recordDrawIr!: Bool = false
+    ) {
         this.ptr = ptr
         this.contentScale = contentScale
         this.ssFactor = if (supersample < Int32(1)) {
@@ -140,6 +152,7 @@ public class Renderer {
         }
         this.ssEnabled = ptr.isNotNull() && this.ssFactor > Int32(1)
         this.textBackend = createTextBackend(ptr)
+        this.recordsDrawIr = recordDrawIr
     }
 
     /**
@@ -148,6 +161,106 @@ public class Renderer {
      */
     public static func headless(): Renderer {
         Renderer(CPointer<Unit>())
+    }
+
+    /** A device-free renderer that records stable clip/transform/paint/text/symbol commands. */
+    public static func recordingHeadless(): Renderer {
+        Renderer(CPointer<Unit>(), recordDrawIr: true)
+    }
+
+    public func drawIrEnabled(): Bool {
+        recordsDrawIr
+    }
+
+    /** Clears the current command stream without changing renderer state. */
+    public func clearDrawIr(): Unit {
+        drawIrLog.clear()
+        drawIrScopes.clear()
+    }
+
+    /** Returns a copy so callers cannot mutate the renderer's command stream. */
+    public func drawIr(): Array<DrawIrCommand> {
+        drawIrLog.toArray()
+    }
+
+    /** Associates subsequent commands with one probe-enabled widget. */
+    public func pushDrawIrScope(id: String): Unit {
+        if (recordsDrawIr) { drawIrScopes.add(id) }
+    }
+
+    public func popDrawIrScope(): Unit {
+        if (recordsDrawIr && !drawIrScopes.isEmpty()) {
+            drawIrScopes.remove(at: drawIrScopes.size - 1)
+        }
+    }
+
+    /** Records a provider-neutral Symbol command before its visual fallback is painted. */
+    public func symbolIr(
+        provider: String,
+        name: String,
+        rect: Rect,
+        color: Color,
+        weight!: Float32 = 400.0,
+        filled!: Bool = false,
+        mirrored!: Bool = false,
+        variant!: String = "outlined",
+        direction!: String = "inherit",
+        accessibilityLabel!: String = "",
+        requestedProvider!: String = "",
+        requestedName!: String = "",
+        fallback!: Bool = false,
+        variantFallback!: Bool = false
+    ): Unit {
+        recordDrawIr("symbol", drawIrRect(rect) + ",\"provider\":" + drawIrQuote(provider) +
+            ",\"name\":" + drawIrQuote(name) + "," + drawIrColor(color) +
+            ",\"weight\":" + weight.toString() + ",\"filled\":" + filled.toString() +
+            ",\"mirrored\":" + mirrored.toString() + ",\"variant\":" + drawIrQuote(variant) +
+            ",\"direction\":" + drawIrQuote(direction) + ",\"accessibilityLabel\":" +
+            drawIrQuote(accessibilityLabel) + ",\"requestedProvider\":" + drawIrQuote(requestedProvider) +
+            ",\"requestedName\":" + drawIrQuote(requestedName) + ",\"fallback\":" + fallback.toString() +
+            ",\"variantFallback\":" + variantFallback.toString())
+    }
+
+    /** Sets the Theme-level family used when a text call has no explicit family. */
+    public func setThemeFontFamily(family: ?String): Unit {
+        if (themeFontFamily != family) {
+            themeFontFamily = family
+            fontChains.clear()
+        }
+    }
+
+    /** Returns the first logical face in the current component/theme/bundled/system chain. */
+    public func fontResolution(font!: ?String = None<String>): FontResolution {
+        resolveFontChain(font)[0]
+    }
+
+    /** Reports the concrete fallback tier selected for one string on a live renderer. */
+    public func fontResolutionForText(
+        text: String,
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
+    ): FontResolution {
+        let resolutions = resolveFontChain(font)
+        match (textBackend) {
+            case Some(value) =>
+                let selected = value.resolvedPath(text, pointSize, style.ttfFlags(), fontPaths(resolutions))
+                for (resolution in resolutions) {
+                    if (!resolution.path.isEmpty() && resolution.path == selected) { return resolution }
+                }
+                resolutions[resolutions.size - 1]
+            case None => resolutions[0]
+        }
+    }
+
+    private func recordDrawIr(kind: String): Unit {
+        recordDrawIr(kind, "")
+    }
+
+    private func recordDrawIr(kind: String, data: String): Unit {
+        if (!recordsDrawIr) { return }
+        let scope = if (drawIrScopes.isEmpty()) { "" } else { drawIrScopes[drawIrScopes.size - 1] }
+        drawIrLog.add(DrawIrCommand(kind, scope, data: data))
     }
 
     /**
@@ -181,6 +294,8 @@ public class Renderer {
         // Balanced pushClip/popClip pairs leave the stack empty between frames; clearing
         // here keeps one leaked push from clipping every later frame.
         clipStack.clear()
+        recordDrawIr("scene.begin", "\"width\":" + logicalWidth.toString() +
+            ",\"height\":" + logicalHeight.toString() + "," + drawIrColor(clearColor))
         if (ptr.isNull()) {
             return
         }
@@ -218,6 +333,7 @@ public class Renderer {
      * the window with linear filtering (the actual anti-aliasing step); otherwise a no-op.
      */
     public func endScene(): Unit {
+        recordDrawIr("scene.end")
         if (ptr.isNull() || !ssEnabled || ssTarget.isNull()) {
             return
         }
@@ -295,6 +411,7 @@ public class Renderer {
      * Throws `CuiException` when SDL cannot clear the current render target.
      */
     public func clear(color: Color): Unit {
+        recordDrawIr("paint.clear", drawIrColor(color))
         // Headless renderers no-op like every other draw entry point, so canvas or shell
         // code that clears explicitly stays testable off-screen.
         if (ptr.isNull()) {
@@ -326,6 +443,33 @@ public class Renderer {
         }
         scaleX = scale
         scaleY = scale
+        recordDrawIr("transform.scale", "\"x\":" + scale.toString() + ",\"y\":" + scale.toString())
+    }
+
+    /** Internal two-axis scale used while temporarily rendering into a target texture. */
+    internal func setScale(scaleX: Float32, scaleY: Float32): Unit {
+        if (scaleX <= 0.0 || scaleY <= 0.0) {
+            throw CuiException("Renderer scales must be greater than 0.")
+        }
+        if (!ptr.isNull()) {
+            ensureSdl(unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }, "SDL_SetRenderScale")
+        }
+        this.scaleX = scaleX
+        this.scaleY = scaleY
+        recordDrawIr("transform.scale", "\"x\":" + scaleX.toString() + ",\"y\":" + scaleY.toString())
+    }
+
+    internal func currentScaleX(): Float32 {
+        scaleX
+    }
+
+    internal func currentScaleY(): Float32 {
+        scaleY
+    }
+
+    internal func resetClipStack(): Unit {
+        clipStack.clear()
+        applyClip()
     }
 
     public func setVSync(vsync: Int32): Unit {
@@ -345,6 +489,7 @@ public class Renderer {
     }
 
     public func setViewport(rect: Rect): Unit {
+        recordDrawIr("transform.viewport", drawIrRect(rect))
         if (ptr.isNull()) {
             return
         }
@@ -353,6 +498,7 @@ public class Renderer {
     }
 
     public func resetViewport(): Unit {
+        recordDrawIr("transform.viewport.reset")
         if (ptr.isNull()) {
             return
         }
@@ -378,6 +524,7 @@ public class Renderer {
             case None => rect
         }
         clipStack.add(effective)
+        recordDrawIr("clip.push", drawIrRect(effective))
         applyClip()
     }
 
@@ -386,6 +533,7 @@ public class Renderer {
         if (!clipStack.isEmpty()) {
             clipStack.remove(at: clipStack.size - 1)
         }
+        recordDrawIr("clip.pop")
         applyClip()
     }
 
@@ -463,22 +611,31 @@ public class Renderer {
     }
 
     public func point(x: Float32, y: Float32, color: Color): Unit {
+        recordDrawIr("paint.point", "\"x\":" + x.toString() + ",\"y\":" + y.toString() + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         setColor(color)
         let _ = unsafe { SDL_RenderPoint(ptr, x, y) }
     }
 
     public func line(x1: Float32, y1: Float32, x2: Float32, y2: Float32, color: Color): Unit {
+        recordDrawIr("paint.line", "\"x1\":" + x1.toString() + ",\"y1\":" + y1.toString() +
+            ",\"x2\":" + x2.toString() + ",\"y2\":" + y2.toString() + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         setColor(color)
         let _ = unsafe { SDL_RenderLine(ptr, x1, y1, x2, y2) }
     }
 
     public func rect(rect: Rect, color: Color): Unit {
+        recordDrawIr("paint.rect", drawIrRect(rect) + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         setColor(color)
         var raw = rect.toSdlFRect()
         let _ = unsafe { SDL_RenderRect(ptr, inout raw) }
     }
 
     public func fill(rect: Rect, color: Color): Unit {
+        recordDrawIr("paint.fill", drawIrRect(rect) + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         setColor(color)
         var raw = rect.toSdlFRect()
         let _ = unsafe { SDL_RenderFillRect(ptr, inout raw) }
@@ -489,6 +646,9 @@ public class Renderer {
      * smooth at any angle and consecutive polyline segments join without notches.
      */
     public func strokeLine(x1: Float32, y1: Float32, x2: Float32, y2: Float32, pen: Pen): Unit {
+        recordDrawIr("paint.stroke-line", "\"x1\":" + x1.toString() + ",\"y1\":" + y1.toString() +
+            ",\"x2\":" + x2.toString() + ",\"y2\":" + y2.toString() + "," + drawIrPen(pen))
+        if (ptr.isNull()) { return }
         geometry.strokeSegment(ptr, Point(x1, y1), Point(x2, y2), pen)
     }
 
@@ -503,7 +663,18 @@ public class Renderer {
      * A rounded-rectangle outline stroked as one anti-aliased ring centred on the path.
      */
     public func strokeRoundedRect(rect: Rect, radius: Float32, pen: Pen): Unit {
+        recordDrawIr("paint.stroke-rounded-rect", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
+            "," + drawIrPen(pen))
+        if (ptr.isNull()) { return }
         geometry.strokeRoundedRect(ptr, rect, roundedRadius(rect, radius), pen)
+    }
+
+    /** Draws a dashed rounded-rectangle border with a continuous dash phase around corners. */
+    public func strokeRoundedRectDashed(rect: Rect, radius: Float32, pen: Pen, dash!: Float32, gap!: Float32): Unit {
+        recordDrawIr("paint.stroke-rounded-rect-dashed", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
+            ",\"dash\":" + dash.toString() + ",\"gap\":" + gap.toString() + "," + drawIrPen(pen))
+        if (ptr.isNull()) { return }
+        geometry.strokeRoundedRectDashed(ptr, rect, roundedRadius(rect, radius), pen, dash, gap)
     }
 
     public func fillRoundedRect(rect: Rect, radius: Float32, color: Color): Unit {
@@ -512,7 +683,42 @@ public class Renderer {
             fill(rect, color)
             return
         }
+        recordDrawIr("paint.fill-rounded-rect", drawIrRect(rect) + ",\"radius\":" + r.toString() +
+            "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         geometry.fillRoundedRect(ptr, rect, r, color)
+    }
+
+    /** Fills a rounded rectangle with a vertical or horizontal linear gradient. */
+    public func fillRoundedRectGradient(
+        rect: Rect,
+        radius: Float32,
+        start: Color,
+        end: Color,
+        vertical!: Bool = true
+    ): Unit {
+        recordDrawIr("paint.fill-rounded-gradient", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
+            ",\"start\":{" + drawIrColor(start) + "},\"end\":{" + drawIrColor(end) +
+            "},\"vertical\":" + vertical.toString())
+        if (ptr.isNull()) { return }
+        geometry.fillRoundedRectGradient(ptr, rect, roundedRadius(rect, radius), start, end, vertical)
+    }
+
+    /** Fills a rounded rectangle whose corners have independent radii. */
+    public func fillPerCornerRoundedRect(
+        rect: Rect,
+        color: Color,
+        topLeft!: Float32,
+        topRight!: Float32,
+        bottomRight!: Float32,
+        bottomLeft!: Float32
+    ): Unit {
+        recordDrawIr("paint.fill-per-corner-rounded-rect", drawIrRect(rect) +
+            ",\"topLeft\":" + topLeft.toString() + ",\"topRight\":" + topRight.toString() +
+            ",\"bottomRight\":" + bottomRight.toString() + ",\"bottomLeft\":" + bottomLeft.toString() +
+            "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
+        geometry.fillPerCornerRoundedRect(ptr, rect, topLeft, topRight, bottomRight, bottomLeft, color)
     }
 
     /**
@@ -520,10 +726,16 @@ public class Renderer {
      * gradient halo, which is how soft drop shadows and focus glows are drawn banding-free.
      */
     public func fillRoundedRectSoft(rect: Rect, radius: Float32, color: Color, feather!: Float32): Unit {
+        recordDrawIr("paint.fill-rounded-soft", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
+            ",\"feather\":" + feather.toString() + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         geometry.fillRoundedRectSoft(ptr, rect, roundedRadius(rect, radius), color, feather)
     }
 
     public func circle(cx: Float32, cy: Float32, radius: Float32, color: Color, segments!: Int64 = 0): Unit {
+        recordDrawIr("paint.circle", "\"cx\":" + cx.toString() + ",\"cy\":" + cy.toString() +
+            ",\"radius\":" + radius.toString() + ",\"segments\":" + segments.toString() + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         geometry.strokeCircle(ptr, Point(cx, cy), radius, Pen(width: 1.0, color: color), segments)
     }
 
@@ -532,11 +744,65 @@ public class Renderer {
      * hint; arcs are always sampled finely enough to stay smooth for their radius.
      */
     public func strokeCircle(cx: Float32, cy: Float32, radius: Float32, pen: Pen, segments!: Int64 = 0): Unit {
+        recordDrawIr("paint.stroke-circle", "\"cx\":" + cx.toString() + ",\"cy\":" + cy.toString() +
+            ",\"radius\":" + radius.toString() + ",\"segments\":" + segments.toString() + "," + drawIrPen(pen))
+        if (ptr.isNull()) { return }
         geometry.strokeCircle(ptr, Point(cx, cy), radius, pen, segments)
     }
 
     public func fillCircle(cx: Float32, cy: Float32, radius: Float32, color: Color): Unit {
+        recordDrawIr("paint.fill-circle", "\"cx\":" + cx.toString() + ",\"cy\":" + cy.toString() +
+            ",\"radius\":" + radius.toString() + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
         geometry.fillCircle(ptr, Point(cx, cy), radius, color)
+    }
+
+    /** Draws a circular ripple clipped to the exact rounded-rectangle silhouette. */
+    public func fillRoundedRipple(
+        frame: Rect,
+        cornerRadius: Float32,
+        cx: Float32,
+        cy: Float32,
+        rippleRadius: Float32,
+        color: Color
+    ): Unit {
+        recordDrawIr("paint.ripple", drawIrRect(frame) + ",\"cornerRadius\":" + cornerRadius.toString() +
+            ",\"cx\":" + cx.toString() + ",\"cy\":" + cy.toString() +
+            ",\"rippleRadius\":" + rippleRadius.toString() + "," + drawIrColor(color))
+        if (ptr.isNull()) { return }
+        geometry.fillRoundedRipple(ptr, frame, roundedRadius(frame, cornerRadius),
+            Point(cx, cy), rippleRadius, color)
+    }
+
+    /** Reveals a full-frame texture through one anti-aliased circular mesh. */
+    public func texturedCircle(
+        texture: Texture,
+        cx: Float32,
+        cy: Float32,
+        radius: Float32,
+        logicalWidth: Float32,
+        logicalHeight: Float32,
+        feather!: Float32 = 1.2,
+        opacity!: Float32 = 1.0
+    ): Unit {
+        if (texture.isClosed()) {
+            throw CuiException("Cannot render a closed texture.")
+        }
+        recordDrawIr("paint.textured-circle", "\"cx\":" + cx.toString() + ",\"cy\":" + cy.toString() +
+            ",\"radius\":" + radius.toString() + ",\"width\":" + logicalWidth.toString() +
+            ",\"height\":" + logicalHeight.toString() + ",\"feather\":" + feather.toString() +
+            ",\"opacity\":" + opacity.toString())
+        if (ptr.isNull()) { return }
+        geometry.texturedCircle(
+            ptr,
+            texture.ptr,
+            Point(cx, cy),
+            radius,
+            logicalWidth,
+            logicalHeight,
+            feather,
+            opacity
+        )
     }
 
     /**
@@ -558,6 +824,8 @@ public class Renderer {
         if (texture.isClosed()) {
             throw CuiException("Cannot render a closed texture.")
         }
+        recordDrawIr("paint.textured-strip", "\"vertices\":" + points.size.toString())
+        if (ptr.isNull()) { return }
         geometry.texturedStrip(ptr, texture.ptr, points, texPoints, alphas, texture.width, texture.height)
     }
 
@@ -578,28 +846,41 @@ public class Renderer {
         x: Float32,
         y: Float32,
         color: Color,
-        pointSize!: Float32 = FontSizes.BODY
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
     ): Unit {
         drawTextCount += 1
+        let requestedFont = match (font) { case Some(value) => value case None => "" }
+        let resolutions = resolveFontChain(font)
+        let resolved = resolutions[0]
+        let facePaths = fontPaths(resolutions)
+        recordDrawIr("text", "\"text\":" + drawIrQuote(text) + ",\"x\":" + x.toString() +
+            ",\"y\":" + y.toString() + ",\"pointSize\":" + pointSize.toString() +
+            ",\"font\":" + drawIrQuote(requestedFont) + ",\"bold\":" + style.bold.toString() +
+            ",\"italic\":" + style.italic.toString() + ",\"resolvedFamily\":" +
+            drawIrQuote(resolved.family) + ",\"fontSource\":" + drawIrQuote(resolved.sourceName()) +
+            "," + drawIrColor(color))
         match (textBackend) {
             case Some(value) =>
                 let native = NativeTextColor(color.r, color.g, color.b, color.a)
+                let flags = style.ttfFlags()
                 if (scaleX == 1.0 && scaleY == 1.0) {
-                    value.draw(text, snapPixel(x, 1.0), snapPixel(y, 1.0), pointSize, native)
-                    return
-                }
-                let step: Float32 = if (ssEnabled) {
-                    Float32(ssFactor)
+                    value.draw(text, snapPixel(x, 1.0), snapPixel(y, 1.0), pointSize, flags, facePaths, native)
                 } else {
-                    1.0
+                    let step: Float32 = if (ssEnabled) {
+                        Float32(ssFactor)
+                    } else {
+                        1.0
+                    }
+                    let px = snapPixel(x * scaleX, step)
+                    let py = snapPixel(y * scaleY, step)
+                    let _ = unsafe { SDL_SetRenderScale(ptr, 1.0, 1.0) }
+                    applyClipForTextPass()
+                    value.draw(text, px, py, pointSize * scaleY, flags, facePaths, native)
+                    let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
+                    applyClip()
                 }
-                let px = snapPixel(x * scaleX, step)
-                let py = snapPixel(y * scaleY, step)
-                let _ = unsafe { SDL_SetRenderScale(ptr, 1.0, 1.0) }
-                applyClipForTextPass()
-                value.draw(text, px, py, pointSize * scaleY, native)
-                let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
-                applyClip()
             case None => ()
         }
     }
@@ -607,15 +888,24 @@ public class Renderer {
     /**
      * Measures UTF-8 text using the same font and point size used for drawing.
      */
-    public func textWidth(text: String, pointSize!: Float32 = FontSizes.BODY): Float32 {
-        textMetrics(text, pointSize).width
+    public func textWidth(
+        text: String,
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
+    ): Float32 {
+        textMetrics(text, pointSize, style, resolveFontChain(font)).width
     }
 
     /**
      * Returns the standard line height for the requested point size.
      */
-    public func textHeight(pointSize!: Float32 = FontSizes.BODY): Float32 {
-        textMetrics("国Ag", pointSize).height
+    public func textHeight(
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
+    ): Float32 {
+        textMetrics("国Ag", pointSize, style, resolveFontChain(font)).height
     }
 
     /**
@@ -625,12 +915,14 @@ public class Renderer {
         text: String,
         rect: Rect,
         color: Color,
-        pointSize!: Float32 = FontSizes.BODY
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
     ): Unit {
-        let metrics = textMetrics(text, pointSize)
+        let metrics = textMetrics(text, pointSize, style, resolveFontChain(font))
         let tx = rect.centerX() - metrics.width / 2.0
         let ty = rect.centerY() - metrics.height / 2.0
-        this.text(text, tx, ty, color, pointSize: pointSize)
+        this.text(text, tx, ty, color, pointSize: pointSize, style: style, font: font)
     }
 
     /** Text measurements requested since the last reset — a per-frame text-cost probe. */
@@ -671,21 +963,79 @@ public class Renderer {
         }
     }
 
-    private func textMetrics(text: String, pointSize: Float32): NativeTextMetrics {
+    private func resolveFontChain(font: ?String): Array<FontResolution> {
+        let generation = Fonts.generation()
+        if (generation != fontRegistryGeneration) {
+            fontRegistryGeneration = generation
+            fontChains.clear()
+            namedMetricsCaches.clear()
+        }
+        let explicit = match (font) { case Some(value) => value case None => "" }
+        let themed = match (themeFontFamily) { case Some(value) => value case None => "" }
+        let key = explicit + "\n" + themed
+        match (fontChains.get(key)) {
+            case Some(chain) => chain
+            case None =>
+                let chain = Fonts.resolutionChain(explicitFamily: font, themeFamily: themeFontFamily)
+                fontChains[key] = chain
+                chain
+        }
+    }
+
+    private func fontPaths(resolutions: Array<FontResolution>): Array<String> {
+        let out = ArrayList<String>()
+        for (resolution in resolutions) { out.add(resolution.path) }
+        out.toArray()
+    }
+
+    private func fontChainKey(resolutions: Array<FontResolution>): String {
+        let out = StringBuilder()
+        var first = true
+        for (resolution in resolutions) {
+            if (!first) { out.append("\n") }
+            first = false
+            out.append(resolution.path)
+        }
+        out.toString()
+    }
+
+    private func metricsCacheFor(chainKey: String): TextMetricsCache {
+        if (chainKey.isEmpty()) {
+            return metricsCache
+        }
+        match (namedMetricsCaches.get(chainKey)) {
+            case Some(cache) => cache
+            case None =>
+                let cache = TextMetricsCache(TEXT_METRICS_CAP_PER_SIZE)
+                namedMetricsCaches[chainKey] = cache
+                cache
+        }
+    }
+
+    private func textMetrics(
+        text: String,
+        pointSize: Float32,
+        style: FontStyle,
+        resolutions: Array<FontResolution>
+    ): NativeTextMetrics {
         measureCount += 1
+        let flags = style.ttfFlags()
+        let facePaths = fontPaths(resolutions)
+        let chainKey = fontChainKey(resolutions)
         // Cache the unscaled path only — all layout-time measurement and unscaled draw. The scaled
         // text-pass path (scaleX/scaleY != 1) is rare and recomputed. The cache sits above the
         // backend/estimate split, so it serves both the real font backend (skipping SDL_ttf) and the
         // headless estimate, and `computeCount` tracks the misses in either mode.
         if (scaleX == 1.0 && scaleY == 1.0) {
-            let sizeKey = Int64(pointSize * Float32(256.0))
-            match (metricsCache.get(sizeKey, text)) {
+            let sizeKey = Int64(pointSize * Float32(256.0)) * 16 + Int64(flags)
+            let cache = metricsCacheFor(chainKey)
+            match (cache.get(sizeKey, text)) {
                 case Some(cached) => return cached
                 case None => ()
             }
             computeCount += 1
-            let computed = computeMetrics(text, pointSize)
-            metricsCache.put(sizeKey, text, computed)
+            let computed = computeMetrics(text, pointSize, style, facePaths)
+            cache.put(sizeKey, text, computed)
             return computed
         }
         computeCount += 1
@@ -694,18 +1044,28 @@ public class Renderer {
                 // Measure the same scaled rasterization the text pass draws, mapped back to
                 // logical units — carets, selection bands and ellipsis decisions computed
                 // from these metrics then line up with the pixels actually painted.
-                let scaled = value.measure(text, pointSize * scaleY)
+                let scaled = value.measure(text, pointSize * scaleY, flags, facePaths)
                 NativeTextMetrics(scaled.width / scaleX, scaled.height / scaleY)
-            case None => NativeTextMetrics(Float32(text.size) * pointSize * 0.55, pointSize * 1.3)
+            case None => headlessMetrics(text, pointSize, style)
         }
     }
 
     // The uncached measurement: the real font backend, or a proportional estimate when headless.
-    private func computeMetrics(text: String, pointSize: Float32): NativeTextMetrics {
+    private func computeMetrics(
+        text: String,
+        pointSize: Float32,
+        style: FontStyle,
+        facePaths: Array<String>
+    ): NativeTextMetrics {
         match (textBackend) {
-            case Some(value) => value.measure(text, pointSize)
-            case None => NativeTextMetrics(Float32(text.size) * pointSize * 0.55, pointSize * 1.3)
+            case Some(value) => value.measure(text, pointSize, style.ttfFlags(), facePaths)
+            case None => headlessMetrics(text, pointSize, style)
         }
+    }
+
+    private func headlessMetrics(text: String, pointSize: Float32, style: FontStyle): NativeTextMetrics {
+        let boldFactor: Float32 = if (style.bold) { 1.06 } else { 1.0 }
+        NativeTextMetrics(Float32(text.size) * pointSize * 0.55 * boldFactor, pointSize * 1.3)
     }
 
     // While the text pass draws with the GPU scale reset to 1:1, the active clip must be

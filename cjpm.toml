@@ -1,9 +1,9 @@
 [package]
 cjc-version = "1.0.5"
 name = "cui"
-version = "0.2.0"
+version = "0.9.2"
 output-type = "static"
-description = "Declarative desktop GUI framework for Cangjie on SDL3."
+description = "CangHui multiplatform declarative GUI framework for Cangjie"
 
 [dependencies]
 sdl = { path = "./sdl" }

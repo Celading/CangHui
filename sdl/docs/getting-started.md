@@ -19,7 +19,7 @@ version = "0.1.0"
 output-type = "executable"
 
 [dependencies]
-sdl = { path = "../CangjieGUI/sdl" }
+sdl = { path = "../CangHui/sdl" }
 ```
 
 ## 最小渲染循环

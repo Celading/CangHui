@@ -36,6 +36,21 @@ public class Mouse {
         )
     }
 
+    /** Returns pointer coordinates in desktop space for client-drawn window dragging. */
+    public static func globalState(): MouseState {
+        var x: Float32 = 0.0
+        var y: Float32 = 0.0
+        let buttons = unsafe { SDL_GetGlobalMouseState(inout x, inout y) }
+        MouseState(
+            x,
+            y,
+            hasButton(buttons, UInt32(1)),
+            hasButton(buttons, UInt32(2)),
+            hasButton(buttons, UInt32(4)),
+            buttons
+        )
+    }
+
     public static func capture(enabled: Bool): Unit {
         ensureSdl(unsafe { SDL_CaptureMouse(enabled) }, "SDL_CaptureMouse")
     }

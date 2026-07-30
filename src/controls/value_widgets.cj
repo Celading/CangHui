@@ -2,7 +2,7 @@ package cui.controls
 
 import sdl.{FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent, clampF32}
 import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, Observable, Spring, UiContext, Widget,
-    claimHoverIfInside, controlIdentity, drawSurface, emit, localState, registerFocusable}
+    claimHoverIfInside, controlIdentity, drawSurface, emit, localState, registerFocusable, resolveControlKey}
 
 private let VALUE_CONTROL_W: Float32 = 180.0
 
@@ -44,7 +44,7 @@ public class ProgressBar <: Widget {
         // Bar and percentage share the animated value, so both slide together toward the target.
         // Clamped: the underdamped spring overshoots slightly, and the fill must not paint past
         // the control's edge (nor the label read -0% / 101%).
-        let shown = clampF32(fillSpring.animate(target: amount, deltaMs: ctx.frame.deltaMs), 0.0, 1.0)
+        let shown = clampF32(fillSpring.animate(ctx, target: amount), 0.0, 1.0)
         let fill = Rect(frame.x, frame.y, frame.w * shown, frame.h)
         drawSurface(ctx, frame, ctx.theme.fieldSurface(false))
         ctx.renderer.fillRoundedRect(fill, ctx.theme.smallRadius, ctx.theme.accent)
@@ -65,9 +65,9 @@ public class Slider <: Widget {
     private var stepSize: Float32 = 0.0
     private var frame = Rect.zero()
 
-    public init(id: String, value: Bindable<Float32>, lower!: Float32 = 0.0, upper!: Float32 = 1.0,
+    public init(value: Bindable<Float32>, key!: ?String = None, lower!: Float32 = 0.0, upper!: Float32 = 1.0,
         step!: Float32 = 0.0) {
-        this.id = id
+        this.id = resolveControlKey(key, "Slider")
         this.value = value
         this.lowerBound = lower
         this.upperBound = upper
@@ -77,7 +77,7 @@ public class Slider <: Widget {
         if (stepSize > 0.0) {
             applyNormalize()
         }
-        registerFocusable(id)
+        registerFocusable(this.id)
         emit(this)
     }
 
@@ -130,6 +130,10 @@ public class Slider <: Widget {
                 if (frame.contains(x, y)) {
                     ctx.focus(id)
                     ctx.beginDrag(id)
+                    let track = trackFrame()
+                    ctx.startInkRipple(id, track, sliderInkOriginX(track, x), track.centerY(),
+                        color: Some(ctx.theme.inkColor()),
+                        cornerRadius: track.h / 2.0)
                     updateFromX(x)
                     return true
                 }
@@ -169,6 +173,10 @@ public class Slider <: Widget {
         value.value = normalize(lowerBound + amount * rangeSize(lowerBound, upperBound))
     }
 
+    private func trackFrame(): Rect {
+        sliderTrackFrame(frame)
+    }
+
     private func keyboardStep(): Float32 {
         if (stepSize > 0.0) {
             return stepSize
@@ -195,6 +203,14 @@ public class Slider <: Widget {
             value.value = normalized
         }
     }
+}
+
+internal func sliderTrackFrame(frame: Rect): Rect {
+    Rect(frame.x + 8.0, frame.centerY() - 3.0, max(0.0, frame.w - 16.0), 6.0)
+}
+
+internal func sliderInkOriginX(track: Rect, x: Float32): Float32 {
+    max(track.x, min(track.right(), x))
 }
 
 private func normalizedAmount(value: Float32, lower: Float32, upper: Float32): Float32 {

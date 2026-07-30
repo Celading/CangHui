@@ -79,6 +79,8 @@ foreign {
 
     func SDL_SetRenderTarget(renderer: CPointer<Unit>, texture: CPointer<Unit>): Bool
 
+    func SDL_GetRenderTarget(renderer: CPointer<Unit>): CPointer<Unit>
+
     func SDL_RenderGeometry(
         renderer: CPointer<Unit>,
         texture: CPointer<Unit>,

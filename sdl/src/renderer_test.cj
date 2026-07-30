@@ -80,3 +80,26 @@ func headlessRendererNoOpsAndAnswersNeutrally(): Unit {
     renderer.popClip()
     @Expect(renderer.clipRect().w, Float32(0.0))
 }
+
+@Test
+func recordingHeadlessRendererEmitsScopedDrawIr(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    renderer.clearDrawIr()
+    renderer.beginScene(200.0, 100.0, Color.rgb(1, 2, 3))
+    renderer.pushDrawIrScope("button")
+    renderer.pushClip(Rect(4.0, 5.0, 80.0, 30.0))
+    renderer.fillRoundedRect(Rect(4.0, 5.0, 80.0, 30.0), 8.0, Color.rgb(20, 30, 40))
+    renderer.text("OK", 12.0, 10.0, Color.rgb(255, 255, 255))
+    renderer.symbolIr("builtin", "check", Rect(60.0, 8.0, 16.0, 16.0), Color.rgb(255, 255, 255))
+    renderer.popClip()
+    renderer.popDrawIrScope()
+    renderer.endScene()
+    let commands = renderer.drawIr()
+    @Expect(commands.size >= 7)
+    @Expect(commands[1].kind, "clip.push")
+    @Expect(commands[1].scope, "button")
+    @Expect(commands[2].kind, "paint.fill-rounded-rect")
+    @Expect(commands[3].kind, "text")
+    @Expect(commands[4].kind, "symbol")
+    @Expect(commands[4].toJson().contains("\"name\":\"check\""))
+}

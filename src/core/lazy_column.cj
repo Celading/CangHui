@@ -4,11 +4,11 @@ import std.collection.ArrayList
 import sdl.{Rect, Size, UiEvent}
 
 // Extra rows built above and below the viewport so a one-frame scroll never reveals a blank edge.
-private let LAZY_OVERSCAN: Int64 = 2
+let LAZY_OVERSCAN: Int64 = 2
 
 // The viewport height assumed on the very first frame, before layout has measured the real one — a
 // full-ish screen, so the first frame is populated rather than blank. Layout corrects it at once.
-private let LAZY_DEFAULT_VIEWPORT: Float32 = 720.0
+let LAZY_DEFAULT_VIEWPORT: Float32 = 720.0
 
 /**
  * A vertically scrolling list that materializes only the rows near the viewport. Rows have a fixed
@@ -28,7 +28,6 @@ private let LAZY_DEFAULT_VIEWPORT: Float32 = 720.0
  * the overscan rows keep the edges filled across that one-frame settle.
  */
 public class LazyColumn <: Widget {
-    private let id: String
     private let count: Int64
     private let itemHeight: Float32
     private let spacing: Float32
@@ -42,37 +41,38 @@ public class LazyColumn <: Widget {
     private var frame = Rect.zero()
 
     /**
-     * The index form: `count` rows built on demand by index. Throws `IllegalArgumentException` when
-     * `id` is empty. Row height is in logical pixels. `key` optionally gives each row a stable
-     * identity string (so its per-row state follows the item across inserts/reorders); when omitted,
-     * rows are keyed by index — see `LazyColumn.of` for the data-driven form.
+     * The index form: `count` rows built on demand by index. `id` is the optional container identity
+     * (auto-derived by build order when omitted; an explicit one must be non-empty). Row height is in
+     * logical pixels. `key` optionally gives each row a stable identity string (so its per-row state
+     * follows the item across inserts/reorders); when omitted, rows are keyed by index — see
+     * `LazyColumn.of` for the data-driven form.
      */
     public init(
-        id: String,
         count: Int64,
         itemHeight: Float32,
         spacing!: Float32 = 0.0,
         scroll!: ?State<Float32> = None,
         key!: ?((Int64) -> String) = None,
+        id!: ?String = None,
         item!: (Int64) -> Unit
     ) {
-        requireControlId(id, "LazyColumn")
-        this.id = id
+        let ident = resolveControlKey(id, "LazyColumn")
         this.count = max(0, count)
         this.itemHeight = max(1.0, itemHeight)
         this.spacing = max(0.0, spacing)
         this.scrollStateValue = match (scroll) {
             case Some(value) => value
-            case None => localState<Float32>("LazyColumn:${id}:scroll") {0.0}
+            case None => localState<Float32>("LazyColumn:${ident}:scroll") {0.0}
         }
         // Retained so the build pass (which has no layout rect yet) knows how tall the viewport was
         // last frame and thus which rows to materialize; layout updates it for the next frame.
-        this.viewportHeightState = localState<Float32>("LazyColumn:${id}:viewportH") {LAZY_DEFAULT_VIEWPORT}
-        this.scrollBar = ScrollBar("LazyColumn:${id}:thumb")
+        this.viewportHeightState = localState<Float32>("LazyColumn:${ident}:viewportH") {LAZY_DEFAULT_VIEWPORT}
+        this.scrollBar = ScrollBar("LazyColumn:${ident}:thumb")
         let content = lazyContentHeight(this.count, this.itemHeight, this.spacing)
         this.frameScroll = clampScrollOffset(this.scrollStateValue.value, content, this.viewportHeightState.value)
-        this.visibleItems = buildVisibleItems(this.id, this.count, this.itemHeight, this.spacing, this.frameScroll,
-            this.viewportHeightState.value, rowKeyOrIndex(key), item)
+        let (first, last) = lazyVisibleRange(this.frameScroll, this.viewportHeightState.value, this.itemHeight,
+            this.spacing, this.count, LAZY_OVERSCAN)
+        this.visibleItems = buildLazyChildren("LazyColumn:${ident}", first, last, lazyKeyOrIndex(key), item)
         emit(this)
     }
 
@@ -84,23 +84,23 @@ public class LazyColumn <: Widget {
      * `itemHeight` is the fixed row height in logical pixels, as for the index form.
      *
      * ```
-     * LazyColumn.of("notes", model.notes, 72.0, key: {n => n.id}) { note => noteRow(note) }
+     * LazyColumn.of(model.notes, 72.0, key: {n => n.id}) { note => noteRow(note) }
      * ```
      */
     public static func of<T>(
-        id: String,
         data: Array<T>,
         itemHeight: Float32,
         spacing!: Float32 = 0.0,
         scroll!: ?State<Float32> = None,
         key!: ?((T) -> String) = None,
+        id!: ?String = None,
         item!: (T) -> Unit
     ): LazyColumn {
         let rowKey: ?((Int64) -> String) = match (key) {
             case Some(k) => Some({index => k(data[index])})
             case None => None
         }
-        LazyColumn(id, data.size, itemHeight, spacing: spacing, scroll: scroll, key: rowKey) {
+        LazyColumn(data.size, itemHeight, spacing: spacing, scroll: scroll, key: rowKey, id: id) {
             index => item(data[index])
         }
     }
@@ -135,13 +135,16 @@ public class LazyColumn <: Widget {
     public func draw(ctx: UiContext): Unit {
         let content = lazyContentHeight(count, itemHeight, spacing)
         let stride = itemHeight + spacing
-        ctx.renderer.pushClip(frame)
+        // Exact on the scroll axis, shadow clearance on the cross axis (see CUI_SHADOW_CLEARANCE).
+        ctx.renderer.pushClip(Rect(frame.x - CUI_SHADOW_CLEARANCE, frame.y, frame.w + 2.0 * CUI_SHADOW_CLEARANCE,
+            frame.h))
         for (pair in visibleItems) {
             let (index, widget) = pair
-            // Clip each row to its own bounds (intersected with the viewport) so a row whose content
-            // exceeds itemHeight is truncated rather than bleeding over its neighbour.
+            // Clip each row to its own bounds plus shadow clearance (intersected with the viewport):
+            // grossly oversized content is still truncated near its slot, while a card row's soft
+            // halo wraps its corners instead of being cut into hard-edged bands at the slot line.
             let rowRect = Rect(frame.x, frame.y - frameScroll + Float32(index) * stride, frame.w, itemHeight)
-            ctx.renderer.pushClip(rowRect)
+            ctx.renderer.pushClip(rowRect.inset(-CUI_SHADOW_CLEARANCE))
             widget.draw(ctx)
             ctx.renderer.popClip()
         }
@@ -160,7 +163,8 @@ public class LazyColumn <: Widget {
                 }
                 return false
             case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
-                if (frame.contains(pointerX, pointerY)) {
+                // Content that fits leaves the wheel to an enclosing scroller (no dead zone).
+                if (frame.contains(pointerX, pointerY) && maxScrollOffset(content, viewportH) > 0.0) {
                     scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, wheelY, content, viewportH)
                     return true
                 }
@@ -249,34 +253,32 @@ internal func lazyVisibleRange(
     (first, last)
 }
 
-// Materializes the visible rows during the build pass, each scoped by `key(rowIndex)` so its local
-// state follows it (across scrolls, and — with a data key — across inserts/reorders); it is dropped
-// when the row scrolls off, so hoist anything that must persist.
-private func buildVisibleItems(
-    id: String,
-    count: Int64,
-    itemHeight: Float32,
-    spacing: Float32,
-    scroll: Float32,
-    viewportH: Float32,
+// Materializes the visible items in `[first, last]` during the build pass, each scoped by
+// `scope:item:key(index)` so its local state follows it (across scrolls, and — with a data key —
+// across inserts/reorders); it is dropped when the item scrolls off, so hoist anything that must
+// persist. Shared by both axes: LazyColumn passes its rows, LazyRow its columns — and by
+// ReorderableList in cui.controls, which virtualizes its rows the same way.
+protected func buildLazyChildren(
+    scope: String,
+    first: Int64,
+    last: Int64,
     key: (Int64) -> String,
     item: (Int64) -> Unit
 ): Array<(Int64, Widget)> {
-    let (first, last) = lazyVisibleRange(scroll, viewportH, itemHeight, spacing, count, LAZY_OVERSCAN)
     let built = ArrayList<(Int64, Widget)>()
     var index = first
     while (index <= last) {
-        let rowIndex = index
-        let widget = buildKeyedChild("LazyColumn:${id}:item:${key(rowIndex)}") {=> item(rowIndex)}
-        built.add((rowIndex, widget))
+        let itemIndex = index
+        let widget = buildKeyedChild("${scope}:item:${key(itemIndex)}") {=> item(itemIndex)}
+        built.add((itemIndex, widget))
         index += 1
     }
     built.toArray()
 }
 
-// The effective row-key function: the caller's key, or the row index as a string. The index default
-// reproduces the historical per-row scope key exactly, so index-keyed lists are byte-for-byte unchanged.
-private func rowKeyOrIndex(key: ?((Int64) -> String)): (Int64) -> String {
+// The effective item-key function: the caller's key, or the index as a string. The index default
+// reproduces the historical per-item scope key exactly, so index-keyed lists are byte-for-byte unchanged.
+protected func lazyKeyOrIndex(key: ?((Int64) -> String)): (Int64) -> String {
     match (key) {
         case Some(k) => k
         case None => {index => "${index}"}
@@ -293,23 +295,23 @@ private func rowKeyOrIndex(key: ?((Int64) -> String)): (Int64) -> String {
  * anything that must persist across data reorders.
  *
  * ```
- * LazyGrid("gallery", photos, 4, 160.0, spacing: 12.0, columnSpacing: 12.0) { photo => photoCell(photo) }
+ * LazyGrid(photos, 4, 160.0, spacing: 12.0, columnSpacing: 12.0) { photo => photoCell(photo) }
  * ```
  */
 public func LazyGrid<T>(
-    id: String,
     data: Array<T>,
     columns: Int64,
     itemHeight: Float32,
     spacing!: Float32 = 0.0,
     columnSpacing!: Float32 = 0.0,
     scroll!: ?State<Float32> = None,
+    id!: ?String = None,
     item!: (T) -> Unit
 ): LazyColumn {
     let cols = max(1, columns)
     let count = data.size
     let rowCount = (count + cols - 1) / cols
-    LazyColumn(id, rowCount, itemHeight, spacing: spacing, scroll: scroll) {
+    LazyColumn(rowCount, itemHeight, spacing: spacing, scroll: scroll, id: id) {
         rowIndex =>
         Grid(cols) {
             var c = 0

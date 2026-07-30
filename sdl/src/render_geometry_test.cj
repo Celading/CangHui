@@ -83,3 +83,35 @@ func meshCacheDestroysEveryMeshExactlyOnce(): Unit {
     }
     @Expect(cache.size(), 0)
 }
+
+@Test
+func roundedRipplePathClipsToRoundedCornersAndRejectsDisjointCircles(): Unit {
+    let geometry = GeometryBatch()
+    let frame = Rect(0.0, 0.0, 100.0, 40.0)
+
+    // A circle larger than the control resolves to the rounded control silhouette, not its square bounds.
+    let covering = geometry.roundedRipplePath(frame, 12.0, Point(50.0, 20.0), 100.0)
+    @Expect(covering.size > 4, true)
+    var containsSquareCorner = false
+    var touchesTopArc = false
+    var touchesLeftArc = false
+    for (point in covering) {
+        @Expect(point.x >= -0.001 && point.x <= 100.001, true)
+        @Expect(point.y >= -0.001 && point.y <= 40.001, true)
+        if (point.x < 0.001 && point.y < 0.001) {
+            containsSquareCorner = true
+        }
+        if (point.y < 0.001 && point.x > 8.0 && point.x < 20.0) {
+            touchesTopArc = true
+        }
+        if (point.x < 0.001 && point.y > 8.0 && point.y < 20.0) {
+            touchesLeftArc = true
+        }
+    }
+    @Expect(!containsSquareCorner, true)
+    @Expect(touchesTopArc, true)
+    @Expect(touchesLeftArc, true)
+
+    let disjoint = geometry.roundedRipplePath(frame, 12.0, Point(160.0, 80.0), 5.0)
+    @Expect(disjoint.isEmpty(), true)
+}

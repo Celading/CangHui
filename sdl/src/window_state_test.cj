@@ -9,6 +9,23 @@ func windowSpecNormalizesInvalidScale(): Unit {
 }
 
 @Test
+func windowSpecMapsClientDecorationToBorderlessCreationFlag(): Unit {
+    let native = windowCreationFlags(WindowSpec("Native", 100, 100))
+    let client = windowCreationFlags(WindowSpec("Client", 100, 100, decorated: false))
+    let legacy = WindowSpec("Legacy", 100, 100, resizable: true, highDpi: true,
+        scale: 1.25, vsync: false, supersample: 3)
+
+    @Expect((native & SDL_WINDOW_BORDERLESS) == UInt64(0))
+    @Expect((client & SDL_WINDOW_BORDERLESS) != UInt64(0))
+    @Expect((client & SDL_WINDOW_RESIZABLE) != UInt64(0))
+    @Expect((client & SDL_WINDOW_HIGH_PIXEL_DENSITY) != UInt64(0))
+    @Expect(legacy.scale, Float32(1.25))
+    @Expect(!legacy.vsync)
+    @Expect(legacy.supersample, Int32(3))
+    @Expect(legacy.decorated)
+}
+
+@Test
 func windowFlagsFromRawMapsKnownBits(): Unit {
     let raw = SDL_WINDOW_FULLSCREEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_MOUSE_RELATIVE_MODE | SDL_WINDOW_NOT_FOCUSABLE
 

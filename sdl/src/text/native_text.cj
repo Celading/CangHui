@@ -1,10 +1,22 @@
 package sdl.text
 
-import std.collection.ArrayList
+import std.collection.{ArrayList, HashMap, HashSet}
+import std.env.getVariable
 import std.math.abs
 
 private let DEFAULT_POINT_SIZE: Float32 = 15.0
 private let FONT_SIZE_EPSILON: Float32 = 0.01
+
+// TTF_STYLE_BOLD, and the mask of every other flag (italic/underline/strikethrough). Bold is the
+// one style worth a real companion face — synthetic emboldening thickens strokes unevenly and
+// roughens edges, while slants and rules synthesise cleanly.
+private let STYLE_BOLD: Int32 = 0x01
+private let STYLE_NON_BOLD_MASK: Int32 = 0x0E
+
+// SDL_Color packed as the UInt32 the TTF_RenderText_Blended binding declares: white at full
+// alpha. Glyph coverage is colour-independent, so surfaces render white once and callers apply
+// the actual colour as a texture colour mod.
+private let WHITE_TEXT_PIXEL: UInt32 = 0xFFFFFFFF
 
 protected class NativeTextException <: Exception {
     public init(message: String) {
@@ -38,8 +50,15 @@ protected struct NativeTextColor {
 
 protected class NativeTextRenderer {
     private let engine: CPointer<Unit>
-    private let fontPath: String
-    private let fonts = ArrayList<NativeFont>()
+    private let systemPath: String
+    // The always-available platform UI font. Every text draw with no explicit face, and any face
+    // whose file cannot be opened, falls back to this.
+    private let defaultFace: FontFace
+    // Successfully opened application font files, keyed by file path — opened lazily on first use.
+    private let faces = HashMap<String, FontFace>()
+    // Paths that failed to open once, remembered so a bad path degrades to the system font without
+    // re-attempting the open every frame.
+    private let failedPaths = HashSet<String>()
     private var closed: Bool = false
 
     /**
@@ -49,10 +68,9 @@ protected class NativeTextRenderer {
         if (!unsafe { TTF_Init() }) {
             throw NativeTextException("TTF_Init failed: ${lastNativeError()}")
         }
-        let opened = tryOpenSystemFont(DEFAULT_POINT_SIZE)
-        if (let Some(value) <- opened) {
-            this.fontPath = value.path
-            fonts.add(value.font)
+        let found = findSystemFontPath()
+        if (let Some(value) <- found) {
+            this.systemPath = value
         } else {
             unsafe { TTF_Quit() }
             throw NativeTextException("No supported system UI font was found: ${lastNativeError()}")
@@ -60,14 +78,16 @@ protected class NativeTextRenderer {
         let createdEngine = unsafe { TTF_CreateRendererTextEngine(renderer) }
         this.engine = createdEngine
         if (createdEngine.isNull()) {
-            closeFonts()
             unsafe { TTF_Quit() }
             throw NativeTextException("TTF_CreateRendererTextEngine failed: ${lastNativeError()}")
         }
+        this.defaultFace = FontFace(systemPath, engine)
+        // Warm the default face at the base size, so a font engine that cannot shape for the system
+        // font fails fast at construction (as the previous eager text object did) rather than mid-frame.
         try {
-            fonts[0].attach(engine)
+            defaultFace.fontFor(DEFAULT_POINT_SIZE, 0)
         } catch (error: NativeTextException) {
-            closeFonts()
+            defaultFace.close()
             unsafe {
                 TTF_DestroyRendererTextEngine(engine)
                 TTF_Quit()
@@ -76,8 +96,13 @@ protected class NativeTextRenderer {
         }
     }
 
-    public func measure(text: String, pointSize: Float32): NativeTextMetrics {
-        let font = fontFor(pointSize)
+    public func measure(
+        text: String,
+        pointSize: Float32,
+        styleFlags: Int32,
+        facePaths: Array<String>
+    ): NativeTextMetrics {
+        let font = fontForText(text, facePaths, pointSize, styleFlags)
         let cText = unsafe { LibC.mallocCString(text) }
         var metrics = NativeTextMetrics(0.0, 0.0)
         try (textResource = cText.asResource()) {
@@ -91,11 +116,43 @@ protected class NativeTextRenderer {
         metrics
     }
 
+    /**
+     * Rasterizes `text` into a new RGBA surface via TTF_RenderText_Blended and returns the raw
+     * SDL surface pointer — null for empty text or when rasterization fails. Glyphs are white at
+     * full alpha so the caller can colour the resulting texture with a colour mod, which also
+     * keeps colour out of any caching key. The caller owns the surface and must destroy it.
+     *
+     * This is the path for text that must be transformed (rotated axis titles): the text engine
+     * `draw` uses rasterizes straight onto the render target and cannot rotate, while a surface
+     * can become a texture and go through the rotating texture pipeline.
+     */
+    public func renderSurface(
+        text: String,
+        pointSize: Float32,
+        styleFlags: Int32,
+        facePaths: Array<String>
+    ): CPointer<Unit> {
+        if (text.isEmpty()) {
+            return CPointer<Unit>()
+        }
+        let font = fontForText(text, facePaths, pointSize, styleFlags)
+        let cText = unsafe { LibC.mallocCString(text) }
+        var surface = CPointer<Unit>()
+        try (textResource = cText.asResource()) {
+            surface = unsafe {
+                TTF_RenderText_Blended(font.pointer(), textResource.value, UIntNative(text.size), WHITE_TEXT_PIXEL)
+            }
+        }
+        surface
+    }
+
     public func draw(
         text: String,
         x: Float32,
         y: Float32,
         pointSize: Float32,
+        styleFlags: Int32,
+        facePaths: Array<String>,
         color: NativeTextColor
     ): Unit {
         if (text.isEmpty()) {
@@ -103,39 +160,99 @@ protected class NativeTextRenderer {
         }
         // The font reuses a cached, already-shaped text object for `text`, so an unchanged string
         // (every visible label during a scroll) is not re-shaped by SDL_ttf — only redrawn.
-        fontFor(pointSize).drawText(text, x, y, color)
+        fontForText(text, facePaths, pointSize, styleFlags).drawText(text, x, y, color)
+    }
+
+    /** Returns the concrete face path selected after glyph-coverage fallback. */
+    public func resolvedPath(
+        text: String,
+        pointSize: Float32,
+        styleFlags: Int32,
+        facePaths: Array<String>
+    ): String {
+        fontForText(text, facePaths, pointSize, styleFlags).sourcePath
+    }
+
+    /* Selects the first usable face that contains every printable rune in the string. If no face
+     * covers the complete string, the first successfully opened face is retained so rendering stays
+     * deterministic and the native backend can draw its missing-glyph marker. */
+    private func fontForText(
+        text: String,
+        facePaths: Array<String>,
+        pointSize: Float32,
+        styleFlags: Int32
+    ): NativeFont {
+        var first: ?NativeFont = None
+        for (facePath in facePaths) {
+            match (fontCandidate(facePath, pointSize, styleFlags)) {
+                case Some(font) =>
+                    if (first.isNone()) { first = Some(font) }
+                    if (font.supports(text)) { return font }
+                case None => ()
+            }
+        }
+        match (first) {
+            case Some(font) => font
+            case None => defaultFace.fontFor(pointSize, styleFlags)
+        }
+    }
+
+    private func fontCandidate(facePath: String, pointSize: Float32, styleFlags: Int32): ?NativeFont {
+        if (facePath.isEmpty()) {
+            return Some(defaultFace.fontFor(pointSize, styleFlags))
+        }
+        if (failedPaths.contains(facePath)) { return None }
+        let face = match (faces.get(facePath)) {
+            case Some(cached) => cached
+            case None =>
+                let created = FontFace(facePath, engine)
+                faces[facePath] = created
+                created
+        }
+        try {
+            Some(face.fontFor(pointSize, styleFlags))
+        } catch (_: NativeTextException) {
+            failedPaths.add(facePath)
+            match (faces.get(facePath)) {
+                case Some(cached) => cached.close()
+                case None => ()
+            }
+            let _ = faces.remove(facePath)
+            None
+        }
     }
 
     /*
-     * Total shaping operations across all sizes since the last reset — each is one TTF_CreateText, a
-     * shaped-text cache miss. A per-frame text-cost probe: on a warm cache this stays flat while draw
-     * calls scale with frames, which is the caching doing its job. Summed on demand over the fonts.
+     * Total shaping operations across all faces and sizes since the last reset — each is one
+     * TTF_CreateText, a shaped-text cache miss. A per-frame text-cost probe: on a warm cache this
+     * stays flat while draw calls scale with frames, which is the caching doing its job.
      */
     public func shapeCount(): UInt64 {
-        var total: UInt64 = 0
-        for (font in fonts) {
-            total += font.shapeCount
+        var total = defaultFace.shapeCount()
+        for ((_, face) in faces) {
+            total += face.shapeCount()
         }
         total
     }
 
     public func resetShapeCount(): Unit {
-        for (font in fonts) {
-            font.shapeCount = 0
+        defaultFace.resetShapeCount()
+        for ((_, face) in faces) {
+            face.resetShapeCount()
         }
     }
 
     public func familyName(): String {
-        let name = unsafe { TTF_GetFontFamilyName(fonts[0].pointer()) }
-        if (name.isNull()) {
+        let name = defaultFace.familyName()
+        if (name.isEmpty()) {
             "System UI"
         } else {
-            name.toString()
+            name
         }
     }
 
     public func path(): String {
-        fontPath
+        systemPath
     }
 
     public func close(): Unit {
@@ -143,24 +260,54 @@ protected class NativeTextRenderer {
             return
         }
         closed = true
-        closeFonts()
+        defaultFace.close()
+        for ((_, face) in faces) {
+            face.close()
+        }
+        faces.clear()
         unsafe {
             TTF_DestroyRendererTextEngine(engine)
             TTF_Quit()
         }
     }
 
-    private func fontFor(pointSize: Float32): NativeFont {
+}
+
+/*
+ * One typeface: a font file opened at whatever (size, style) combinations the UI asks for. Each
+ * combination is its own TTF_Font handle with its own shaped-text cache — TTF_SetFontStyle changes
+ * glyph shape and advance width, so a variant needs a distinct handle for correct measurement and
+ * rendering. The default system font and every application-loaded font are each one FontFace.
+ */
+private class FontFace {
+    private let path: String
+    private let engine: CPointer<Unit>
+    private let fonts = ArrayList<NativeFont>()
+    private var closed: Bool = false
+    // Lazily probed path of the true-bold companion file; None when the face has no separately
+    // shipped bold weight and bold must be synthesised.
+    private var boldProbed: Bool = false
+    private var boldCompanionPath: ?String = None
+
+    init(path: String, engine: CPointer<Unit>) {
+        this.path = path
+        this.engine = engine
+    }
+
+    // A font handle for the requested size and style, opened, style-set, and attached on first use
+    // and cached for reuse. Throws `NativeTextException` when the file cannot be opened or the engine
+    // cannot shape for it.
+    func fontFor(pointSize: Float32, styleFlags: Int32): NativeFont {
         let normalized = normalizePointSize(pointSize)
         for (font in fonts) {
-            if (abs(font.pointSize - normalized) < FONT_SIZE_EPSILON) {
+            if (font.styleFlags == styleFlags && abs(font.pointSize - normalized) < FONT_SIZE_EPSILON) {
                 return font
             }
         }
-        let font = openFont(fontPath, normalized)
-        // Close the freshly opened font if it cannot attach: it is not yet in `fonts`, so closeFonts
+        let font = openStyled(normalized, styleFlags)
+        // Close the freshly opened font if it cannot attach: it is not yet in `fonts`, so close()
         // would never reach it, and there is no finalizer — a failed attach would otherwise leak the
-        // native TTF_Font handle. Mirrors the constructor, which closes fonts on an attach failure.
+        // native TTF_Font handle.
         try {
             font.attach(engine)
         } catch (error: NativeTextException) {
@@ -171,7 +318,67 @@ protected class NativeTextRenderer {
         font
     }
 
-    private func closeFonts(): Unit {
+    /*
+     * Opens the handle for (size, style), preferring a real bold face over a synthetic one: a bold
+     * request opens the face's true-bold companion file when one ships alongside (msyh.ttc ->
+     * msyhbd.ttc, segoeui.ttf -> segoeuib.ttf, X-Regular -> X-Bold), with only the remaining flags
+     * synthesised on top of it. A face without a companion — or a companion that fails to open
+     * mid-run — falls back to synthesising every flag from the base file.
+     */
+    private func openStyled(pointSize: Float32, styleFlags: Int32): NativeFont {
+        if ((styleFlags & STYLE_BOLD) != 0) {
+            if (let Some(boldFile) <- boldCompanion()) {
+                try {
+                    return openFont(boldFile, pointSize, styleFlags, styleFlags & STYLE_NON_BOLD_MASK, path)
+                } catch (_: NativeTextException) {
+                    // Degrade like every other font failure: the base file still renders, in faux bold.
+                }
+            }
+        }
+        openFont(path, pointSize, styleFlags, styleFlags, path)
+    }
+
+    // The true-bold companion file's path, probed once per face and remembered (None when the face
+    // ships no separate bold weight).
+    private func boldCompanion(): ?String {
+        if (!boldProbed) {
+            boldProbed = true
+            boldCompanionPath = probeBoldCompanion(path)
+        }
+        boldCompanionPath
+    }
+
+    func familyName(): String {
+        if (fonts.isEmpty()) {
+            return ""
+        }
+        let name = unsafe { TTF_GetFontFamilyName(fonts[0].pointer()) }
+        if (name.isNull()) {
+            ""
+        } else {
+            name.toString()
+        }
+    }
+
+    func shapeCount(): UInt64 {
+        var total: UInt64 = 0
+        for (font in fonts) {
+            total += font.shapeCount
+        }
+        total
+    }
+
+    func resetShapeCount(): Unit {
+        for (font in fonts) {
+            font.shapeCount = 0
+        }
+    }
+
+    func close(): Unit {
+        if (closed) {
+            return
+        }
+        closed = true
         var index = fonts.size - 1
         while (index >= 0) {
             fonts[index].close()
@@ -199,19 +406,32 @@ private func colorKey(color: NativeTextColor): Int64 {
 
 private class NativeFont {
     let pointSize: Float32
+    let sourcePath: String
+    // The SDL_ttf TTF_STYLE_* bitmask baked into this handle (0 = regular). Part of the cache key
+    // alongside pointSize, so bold and regular text of the same size resolve to distinct handles.
+    let styleFlags: Int32
     private let font: CPointer<Unit>
     private var engine = CPointer<Unit>()
     // Already-shaped text objects for this size, reused across frames; a miss is the only path that
     // shapes a string. Bounded and self-freeing: an evicted object's TTF_Text is destroyed.
     private let cache: GenerationCache<ShapedText>
+    private let coverage = HashMap<String, Bool>()
     // Shaped-text cache misses (real TTF_CreateText calls) since the last reset. No access modifier
     // so the renderer can total it as a per-frame text-cost probe.
     var shapeCount: UInt64 = 0
     private var closed: Bool = false
 
-    init(font: CPointer<Unit>, pointSize: Float32) {
+    init(font: CPointer<Unit>, pointSize: Float32, styleFlags: Int32, syntheticFlags: Int32, sourcePath: String) {
         this.font = font
         this.pointSize = pointSize
+        this.styleFlags = styleFlags
+        this.sourcePath = sourcePath
+        // Bake the synthesised styles into the handle once. A handle opened from a true-bold
+        // companion file arrives with the bold bit already cleared here — the weight is in the
+        // outlines — while slants and rules are always synthesised on top.
+        if (syntheticFlags != 0) {
+            unsafe { TTF_SetFontStyle(font, syntheticFlags) }
+        }
         this.cache = GenerationCache<ShapedText>(SHAPED_TEXT_CACHE_CAP) {
             shaped => if (shaped.pointer.isNotNull()) {
                 unsafe { TTF_DestroyText(shaped.pointer) }
@@ -230,6 +450,25 @@ private class NativeFont {
             throw NativeTextException("TTF_CreateText failed: ${lastNativeError()}")
         }
         unsafe { TTF_DestroyText(probe) }
+    }
+
+    /** True when this face contains every printable rune required by `text`. */
+    func supports(text: String): Bool {
+        match (coverage.get(text)) {
+            case Some(value) => return value
+            case None => ()
+        }
+        var supported = true
+        for (r in text.toRuneArray()) {
+            let codepoint = UInt32(r)
+            if (fontCoverageIgnorable(codepoint)) { continue }
+            if (!unsafe { TTF_FontHasGlyph(font, codepoint) }) {
+                supported = false
+                break
+            }
+        }
+        coverage[text] = supported
+        supported
     }
 
     /**
@@ -280,27 +519,26 @@ private class NativeFont {
         }
         closed = true
         cache.clear()
+        coverage.clear()
         unsafe { TTF_CloseFont(font) }
     }
 }
 
-private struct OpenedFont {
-    let path: String
-    let font: NativeFont
-
-    init(path: String, font: NativeFont) {
-        this.path = path
-        this.font = font
-    }
+private func fontCoverageIgnorable(codepoint: UInt32): Bool {
+    codepoint == 0 || codepoint == 9 || codepoint == 10 || codepoint == 13 ||
+        codepoint == 0x200D || codepoint == 0xFE0E || codepoint == 0xFE0F
 }
 
-private func tryOpenSystemFont(pointSize: Float32): ?OpenedFont {
+// The first system-font candidate that SDL_ttf can open, probed by opening then immediately closing
+// it. The default face reopens it lazily per size; this only settles which path to use.
+private func findSystemFontPath(): ?String {
     for (path in systemFontCandidates()) {
         let cPath = unsafe { LibC.mallocCString(path) }
         try (pathResource = cPath.asResource()) {
-            let pointer = unsafe { TTF_OpenFont(pathResource.value, pointSize) }
+            let pointer = unsafe { TTF_OpenFont(pathResource.value, DEFAULT_POINT_SIZE) }
             if (pointer.isNotNull()) {
-                return Some(OpenedFont(path, NativeFont(pointer, pointSize)))
+                unsafe { TTF_CloseFont(pointer) }
+                return path
             }
         }
     }
@@ -310,7 +548,13 @@ private func tryOpenSystemFont(pointSize: Float32): ?OpenedFont {
 /**
  * Throws `NativeTextException` when SDL_ttf cannot open the selected system font.
  */
-private func openFont(path: String, pointSize: Float32): NativeFont {
+private func openFont(
+    path: String,
+    pointSize: Float32,
+    styleFlags: Int32,
+    syntheticFlags: Int32,
+    sourcePath: String
+): NativeFont {
     let cPath = unsafe { LibC.mallocCString(path) }
     var font = CPointer<Unit>()
     try (pathResource = cPath.asResource()) {
@@ -319,20 +563,93 @@ private func openFont(path: String, pointSize: Float32): NativeFont {
             throw NativeTextException("TTF_OpenFont failed: ${lastNativeError()}")
         }
     }
-    NativeFont(font, pointSize)
+    NativeFont(font, pointSize, styleFlags, syntheticFlags, sourcePath)
+}
+
+// Splits a font path into stem and extension, recognising only real font-file extensions so a
+// dotted directory name is never mistaken for one.
+private func splitFontExt(path: String): (String, String) {
+    for (ext in [".ttf", ".ttc", ".otf", ".TTF", ".TTC", ".OTF"]) {
+        if (path.endsWith(ext)) {
+            return (path[0..path.size - ext.size], ext)
+        }
+    }
+    (path, "")
+}
+
+/*
+ * Filename spellings under which a face's true-bold companion ships, tried in order: the
+ * "-Regular" -> "-Bold" convention of most downloadable families (Noto, LXGW WenKai), then the
+ * Windows stem suffixes ("bd" for msyh -> msyhbd and arial -> arialbd, "b" for segoeui ->
+ * segoeuib), then a plain "-Bold" suffix. Pure string work so tests can pin the shapes; whether a
+ * candidate exists is settled by probeBoldCompanion.
+ */
+protected func boldCompanionCandidates(path: String): Array<String> {
+    let (stem, ext) = splitFontExt(path)
+    let out = ArrayList<String>()
+    if (!ext.isEmpty()) {
+        if (stem.endsWith("-Regular")) {
+            out.add(stem[0..stem.size - 8] + "-Bold" + ext)
+        } else if (stem.endsWith("Regular")) {
+            out.add(stem[0..stem.size - 7] + "Bold" + ext)
+        }
+        out.add(stem + "bd" + ext)
+        out.add(stem + "b" + ext)
+        out.add(stem + "-Bold" + ext)
+    }
+    out.toArray()
+}
+
+// The first bold-companion candidate SDL_ttf can actually open, probed open-then-close exactly like
+// findSystemFontPath; None when no candidate exists. Runs once per face and is remembered.
+private func probeBoldCompanion(path: String): ?String {
+    for (candidate in boldCompanionCandidates(path)) {
+        let cPath = unsafe { LibC.mallocCString(candidate) }
+        try (pathResource = cPath.asResource()) {
+            let pointer = unsafe { TTF_OpenFont(pathResource.value, DEFAULT_POINT_SIZE) }
+            if (pointer.isNotNull()) {
+                unsafe { TTF_CloseFont(pointer) }
+                return candidate
+            }
+        }
+    }
+    None
 }
 
 private func systemFontCandidates(): Array<String> {
-    [
+    let home = match (getVariable("HOME")) {
+        case Some(value) => value.trimAscii()
+        case None => ""
+    }
+    systemFontCandidatesFor(home)
+}
+
+// Keep CJK-capable faces ahead of Latin-only platform UI fonts. Recent macOS releases no longer
+// expose PingFang at the historical path, so falling straight through to SFNS loses Chinese glyphs.
+protected func systemFontCandidatesFor(home: String): Array<String> {
+    let candidates = ArrayList<String>()
+    if (!home.isEmpty()) {
+        candidates.add("${home}/Library/Fonts/HarmonyOS_Sans_SC.ttf")
+        candidates.add("${home}/Library/Fonts/HarmonyOS Sans SC.ttf")
+    }
+    candidates.add("/Library/Fonts/HarmonyOS_Sans_SC.ttf")
+    candidates.add("/Library/Fonts/HarmonyOS Sans SC.ttf")
+    for (path in [
         "C:\\Windows\\Fonts\\msyh.ttc",
         "C:\\Windows\\Fonts\\segoeui.ttf",
         "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/System/Library/Fonts/STHeiti Medium.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
         "/System/Library/Fonts/SFNS.ttf",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    ]
+    ]) {
+        candidates.add(path)
+    }
+    candidates.toArray()
 }
 
 private func normalizePointSize(pointSize: Float32): Float32 {

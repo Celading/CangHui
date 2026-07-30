@@ -144,7 +144,7 @@
 
 ### `WindowSpec`
 
-`WindowSpec(title, width, height, resizable=true, highDpi=true, scale=1.0)`。非正缩放会归一化为 `1.0`。
+`WindowSpec(title, width, height, resizable=true, highDpi=true, scale=1.0, vsync=true, supersample=2, decorated=true)`。非正缩放会归一化为 `1.0`；`decorated=false` 在创建时请求无系统边框窗口，应用必须自行提供拖动、最小化、最大化和关闭入口。
 
 ### `SdlWindow <: Resource`
 

@@ -3,7 +3,7 @@ package cui.text
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
 import cui.core.{Bindable, CUI_CONTROL_H, CursorShape, State, UiContext, Widget, claimHoverIfInside, emit, localState,
-    registerFocusable}
+    registerFocusable, resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code, so the editing shortcuts read as
 // the familiar Ctrl+letter table.
@@ -14,6 +14,15 @@ private let LETTER_X: UInt8 = 88
 private let LETTER_Y: UInt8 = 89
 private let LETTER_Z: UInt8 = 90
 
+/*
+ * A single-line text editor bound to a `Bindable<String>`. The caret and selection anchor are BYTE
+ * offsets into the UTF-8 text, not character counts; a caller supplying its own `cursor`/`anchor`
+ * states must keep them on rune boundaries and move the pair together, or the stale anchor spans a
+ * selection the user never made. Editing follows the desktop conventions: mouse and double-click-word
+ * selection, the Ctrl+A/C/X/V/Z/Y table, grouped undo, and a horizontal follow window that keeps the
+ * caret visible. Caret, selection, and scroll state are retained across the per-frame rebuild under
+ * the control identity; `editable: false` renders read-only and stays out of Tab traversal.
+ */
 public class TextField <: Widget {
     private let id: String
     private let text: Bindable<String>
@@ -29,18 +38,19 @@ public class TextField <: Widget {
     private var frame = Rect.zero()
 
     public init(
-        id: String,
         text: Bindable<String>,
+        key!: ?String = None,
         cursor!: ?State<Int64> = None,
         anchor!: ?State<Int64> = None,
         editable!: Bool = true
     ) {
-        this.id = id
+        let ident = resolveControlKey(key, "TextField")
+        this.id = ident
         this.text = text
         this.isEditable = editable
         this.cursorStateValue = match (cursor) {
             case Some(value) => value
-            case None => localState<Int64>("TextField:${id}:cursor") {text.value.size}
+            case None => localState<Int64>("TextField:${ident}:cursor") {text.value.size}
         }
         // The anchor starts collapsed on the caret; defaulting it to the text end instead
         // would present a phantom selection whenever the caret begins elsewhere. A composing
@@ -48,14 +58,14 @@ public class TextField <: Widget {
         let caretStart = cursorStateValue.value
         this.anchorStateValue = match (anchor) {
             case Some(value) => value
-            case None => localState<Int64>("TextField:${id}:anchor") {caretStart}
+            case None => localState<Int64>("TextField:${ident}:anchor") {caretStart}
         }
-        this.history = localState<UndoHistory>("TextField:${id}:history") {UndoHistory()}.value
-        this.xOffset = localState<Float32>("TextField:${id}:xoff") {0.0}
-        this.autofocusDone = localState<Bool>("TextField:${id}:autofocused") {false}
+        this.history = localState<UndoHistory>("TextField:${ident}:history") {UndoHistory()}.value
+        this.xOffset = localState<Float32>("TextField:${ident}:xoff") {0.0}
+        this.autofocusDone = localState<Bool>("TextField:${ident}:autofocused") {false}
         // A read-only field is not an editing stop, so it stays out of Tab traversal (mirrors TextArea).
         if (editable) {
-            registerFocusable(id)
+            registerFocusable(ident)
         }
         emit(this)
     }

@@ -18,7 +18,7 @@ CUI，可用于游戏、图形工具、可视化程序、自定义 UI 框架以�
 
 ```toml
 [dependencies]
-sdl = { path = "../CangjieGUI/sdl" }
+sdl = { path = "../CangHui/sdl" }
 ```
 
 按需显式导入包成员：
@@ -63,3 +63,6 @@ cjpm test
 
 模块从当前目录的 `.sdl3/` 加载 SDL3 与 SDL3_ttf 链接库。Windows 发布产物必须同时携带
 `SDL3.dll` 和 `SDL3_ttf.dll`。
+
+macOS 从框架根目录运行 `./scripts/bootstrap-macos.sh`，将 Homebrew 的
+`libSDL3.dylib` 与 `libSDL3_ttf.dylib` 链接到 `.sdl3/` 后再构建。

@@ -10,16 +10,16 @@ let TABLE_TITLE: Length = 20.fp
 
 func fleetTheme(): Theme {
     Theme(
-        Color.rgb(246, 247, 250), // bg
-        Color.rgb(255, 255, 255), // panel
-        Color.rgb(223, 227, 234), // panelEdge
-        Color.rgb(28, 33, 42), // text
-        Color.rgb(110, 118, 132), // mutedText
-        Color.rgb(37, 99, 235), // accent
-        Color.rgb(255, 255, 255), // accentText
-        Color.rgb(220, 74, 68), // danger
-        Color.rgb(250, 251, 253), // field
-        Color.rgb(238, 243, 252), // fieldActive
+        bg: Color.rgb(246, 247, 250),
+        panel: Color.rgb(255, 255, 255),
+        panelEdge: Color.rgb(223, 227, 234),
+        text: Color.rgb(28, 33, 42),
+        mutedText: Color.rgb(110, 118, 132),
+        accent: Color.rgb(37, 99, 235),
+        accentText: Color.rgb(255, 255, 255),
+        danger: Color.rgb(220, 74, 68),
+        field: Color.rgb(250, 251, 253),
+        fieldActive: Color.rgb(238, 243, 252),
         panelRaised: Color.rgb(255, 255, 255),
         accentSoft: Color.rgb(223, 234, 252),
         shadow: Color.rgba(20, 30, 50, 26),

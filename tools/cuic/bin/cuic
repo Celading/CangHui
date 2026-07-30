@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BINARY="${ROOT_DIR}/target/release/bin/main"
+
+if [[ ! -x "${BINARY}" ]]; then
+    (cd "${ROOT_DIR}" && cjpm build)
+fi
+
+export CANGHUI_CLI_ROOT="${ROOT_DIR}"
+exec "${BINARY}" "$@"

@@ -1,6 +1,7 @@
 target/
 **/target/
 bench/results/
+__pycache__/
 *.gcda
 *.gcno
 *.cov
@@ -11,3 +12,5 @@ bench/results/
 .vscode/
 *.user
 cjpm.lock
+proofs/snapshots/
+sdl/.sdl3/*.dylib

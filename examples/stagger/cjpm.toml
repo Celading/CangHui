@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "cui_stagger"
+version = "0.1.0"
+output-type = "executable"
+description = "CUI Animator/Reveal delay — a staggered entrance cascade over a feed of cards."
+
+[dependencies]
+cui = { path = "../.." }

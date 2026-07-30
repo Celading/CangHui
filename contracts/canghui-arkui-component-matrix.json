@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "matrixVersion": "CangHui.ArkUI.20260730.1",
+  "projectVersion": "0.9.2",
+  "reference": {
+    "family": "OpenHarmony ArkUI",
+    "baseline": "local OpenHarmony 6.1 documentation corpus",
+    "comparisonRule": "semantic common-control coverage, not source or pixel parity"
+  },
+  "upstreamIntake": {
+    "repository": "SunriseSummer/CangjieGUI",
+    "tag": "0.9.2",
+    "tagCommit": "5eecd25c1dc53c14064fc6c58b1020c44f32bb69",
+    "mainCommit": "c8b33dc15355bd90fef8d9d48d64ae7d3547c828"
+  },
+  "states": {
+    "aligned": "A platform-neutral CUI control exists with comparable core semantics and focused tests.",
+    "partial": "Related primitives exist, but ArkUI-level composition or interaction semantics remain incomplete.",
+    "missing": "No dedicated common control exists yet.",
+    "platform-bound": "The feature requires a native host surface or platform service and is not a common control."
+  },
+  "aligned": [
+    "Text/Label",
+    "Button/IconButton",
+    "Checkbox",
+    "RadioButton",
+    "Slider",
+    "Switch",
+    "ProgressBar",
+    "Badge",
+    "Chip",
+    "Rating",
+    "Breadcrumb",
+    "Pagination",
+    "Accordion",
+    "DatePicker",
+    "TimePicker",
+    "TextField",
+    "TextArea",
+    "ImageView",
+    "ScrollView",
+    "ListView/LazyList",
+    "Grid/FlowRow",
+    "TabView/SegmentedControl",
+    "Menu/MenuBar/ContextMenu",
+    "Modal",
+    "Toast",
+    "TreeView",
+    "SplitView",
+    "StepIndicator",
+    "Stepper"
+  ],
+  "partial": [
+    {
+      "arkui": "Search",
+      "current": "TextField plus IconButton composition",
+      "gap": "dedicated placeholder, submit, clear and search-state contract"
+    },
+    {
+      "arkui": "Counter",
+      "current": "Stepper",
+      "gap": "counter-specific compact affordance and value presentation contract"
+    },
+    {
+      "arkui": "LoadingProgress",
+      "current": "ProgressRing is determinate",
+      "gap": "indeterminate animation and reduced-motion behavior"
+    },
+    {
+      "arkui": "Navigation",
+      "current": "Breadcrumb, TabView and SplitView",
+      "gap": "navigation stack, destination lifecycle and back contract"
+    },
+    {
+      "arkui": "RichEditor",
+      "current": "RichText plus TextArea",
+      "gap": "editable rich spans, selection formatting and document model"
+    }
+  ],
+  "missing": [
+    "Refresh",
+    "Swiper",
+    "SideBarContainer-specific semantics"
+  ],
+  "platformBound": [
+    "XComponent",
+    "Web",
+    "Video",
+    "Map"
+  ],
+  "proof": {
+    "rootBuild": "pass",
+    "rootTests": "442/442",
+    "sdlTests": "82/82",
+    "galleryPackageTests": "2/2",
+    "desktopSelectionSnapshotSha256": "e374a7652e46586ab46715a1d5f89cd02617f1c60beedef26c5797d4675bd496",
+    "desktopNavigationSnapshotSha256": "d8b3bd72d704931944d7d12ee309be37f36eee6a22c648ec89e4ca7f3c43dde6",
+    "compactNavigationSnapshotSha256": "5f94a776ad965c3bcba477c1a4e07cd1d3048051eed04eba77eb75fe15f3237d"
+  },
+  "nonClaims": [
+    "No iOS runtime adaptation is included in this packet.",
+    "No Android or HarmonyOS runtime renderer is proved by the desktop preview matrix.",
+    "No reduced-motion accessibility policy is claimed by Basic motion expression.",
+    "No release or LTS readiness claim is made."
+  ]
+}
