@@ -67,6 +67,16 @@ func kModeWireCodecPreservesUtf8AndPipes(): Unit {
 }
 
 @Test
+func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
+    @Expect(isKModeLauncherNoise(""))
+    @Expect(isKModeLauncherNoise("cjpm build success"))
+    @Expect(isKModeLauncherNoise(
+        "Warning: the functionality of 'CJPM_CONFIG' will be deprecated, please use cangjie-repo.toml"
+    ))
+    @Expect(!isKModeLauncherNoise("application wrote unexpected stdout"))
+}
+
+@Test
 func kModeDependencyScannerStaysInsideDependencySections(): Unit {
     let paths = kModeLocalDependencyPaths(
         "[package]\n" +
@@ -99,4 +109,41 @@ func probeTargetParserPreservesScriptAndJsonMode(): Unit {
     @Expect(parsed.script, "move-in 10 10\npress 10 10")
     @Expect(parsed.json)
     @Expect(parsed.project.endsWith("/examples/component-gallery"))
+}
+
+@Test
+func remoteDependencyRenderingPinsPublicCommitWithoutLocalPath(): Unit {
+    let rendered = renderFrameworkDependency(defaultFrameworkDependencySpec())
+    @Expect(rendered.contains("git = \"https://github.com/Celading/CangHui.git\""))
+    @Expect(rendered.contains("commitId = \"a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02\""))
+    @Expect(rendered.contains("/Users/"), false)
+}
+
+@Test
+func inlineDependencyParserSeparatesGitCommitAndPathFields(): Unit {
+    let remote = "cui = { git = \"https://example/CangHui.git\", commitId = \"abc123\" }"
+    @Expect(extractInlineTomlString(remote, "git"), "https://example/CangHui.git")
+    @Expect(extractInlineTomlString(remote, "commitId"), "abc123")
+    @Expect(extractInlineTomlString(remote, "path"), "")
+    let local = "cui = { path = \"../CangHui\" }"
+    @Expect(extractInlineTomlString(local, "path"), "../CangHui")
+}
+
+@Test
+func cjpmCachePathsExpandHomeForms(): Unit {
+    @Expect(expandHomePath("$" + "{HOME}/cache", "/Users/demo"), "/Users/demo/cache")
+    @Expect(expandHomePath("$HOME/cache", "/Users/demo"), "/Users/demo/cache")
+    @Expect(expandHomePath("~/cache", "/Users/demo"), "/Users/demo/cache")
+}
+
+@Test
+func repositoryCacheParserHonorsTheCjpmCacheSection(): Unit {
+    let configured = repositoryCachePathFromText(
+        "[repository.home]\n" +
+        "registry = \"https://example.invalid\"\n" +
+        "[repository.cache]\n" +
+        "path = \"$" + "{HOME}/project-cache\"\n",
+        "/Users/demo"
+    )
+    @Expect(configured, "/Users/demo/project-cache")
 }

@@ -3,7 +3,17 @@
 `cuic` is the integrated, Cangjie-built lifecycle CLI for CangHui framework development and generated applications.
 It lives under `tools/cuic`; the former standalone layout remains a compatibility source only.
 
+Install only the CLI with a sparse Git fetch:
+
 ```bash
+curl -fsSL https://raw.githubusercontent.com/Celading/CangHui/main/scripts/install-cuic.sh | bash
+cuic version
+```
+
+Framework contributors can still build and run the integrated command from this checkout:
+
+```bash
+cd tools/cuic
 cjpm build
 ./bin/cuic doctor macos --verbose
 ```
@@ -14,8 +24,9 @@ the compiled Cangjie executable under `src/`.
 ## Commands
 
 ```text
-cuic init <directory> [--name <package>] [--platform <platform>] [--canghui-path <path>]
-cuic doctor [target] [--json] [--verbose]
+cuic init <directory> [--name <package>] [--platform <platform>]
+    [--canghui-path <path> | --canghui-git <url> --canghui-commit <commit>]
+cuic doctor [target] [--project <directory>] [--json] [--verbose]
 cuic bootstrap [platform]
 cuic font <status|install> [platform]
 cuic kmode diff [project]
@@ -44,23 +55,33 @@ On macOS and Linux use `bin/cuic`. On Windows use `bin\\cuic.cmd` or `bin\\cuic.
 `cuic` resolves CangHui in this order:
 
 1. the repository that owns the integrated `tools/cuic` command
-2. the target project's local `cui = { path = "..." }` dependency
-3. `CANGHUI_FRAMEWORK_ROOT`, then the legacy `CANGUI_FRAMEWORK_ROOT`
-4. a sibling `CangHui/`, then the legacy `CangjieGUI/` alias
+2. `CANGHUI_FRAMEWORK_ROOT`, then the legacy `CANGUI_FRAMEWORK_ROOT`, as explicit development overrides
+3. the target project's local path dependency or Git dependency resolved through `cjpm.lock`
+4. the CJPM Git cache, normally `$HOME/.cjpm/git/cui/<commit>`
+5. a sibling `CangHui/`, then the legacy `CangjieGUI/` alias
+
+The application does not contain a framework copy. CJPM downloads the pinned source once into its user cache,
+and `cuic` prepares the target host's SDL runtime in that resolved cache before build, test, run, kMode, probe,
+or snapshot commands.
 
 ## Initialization
 
-`init` creates a minimal executable Cangjie application with a local CUI dependency, source entrypoint,
-Git ignore file, and target-platform handoff commands.
+`init` creates a minimal executable Cangjie application with a public Git dependency pinned by `commitId`,
+source entrypoint, runtime-rpath configuration, Git ignore file, and target-platform handoff commands.
 
 ```bash
-./bin/cuic init ../HelloCangHui --name hello_canghui --platform macos
-./bin/cuic build macos ../HelloCangHui
-./bin/cuic run macos ../HelloCangHui
+cuic init HelloCangHui --name hello_canghui --platform macos
+cd HelloCangHui
+cuic build macos
+cuic run macos
 ```
 
-The generated path dependency is suitable for local development. A hosted dependency or vendored CUI
-copy should replace it before publishing the generated application independently.
+The first build creates `cjpm.lock`; commit that file with the application to preserve the exact resolved source.
+Framework development can opt into a local checkout without changing the default consumer model:
+
+```bash
+cuic init HelloCangHuiDev --canghui-path ../CangHui
+```
 
 ## kMode Headless Control
 
@@ -75,7 +96,7 @@ register a top-level `(String) -> String` function with `@KModeLink["stable.endp
 ./bin/cuic kmode call component-gallery gallery.viewport.class 800
 ```
 
-`diff` scans the project and recursive local path dependencies. `build`, `test`, and `run` execute the same
+`diff` scans the project, recursive local path dependencies, and the resolved CangHui Git cache. `build`, `test`, and `run` execute the same
 preflight automatically. Duplicate names report every source location; the macro-generated symbol and runtime
 registry remain additional fail-closed layers.
 
@@ -99,7 +120,7 @@ opening a window.
   --json
 ```
 
-The scanner follows recursive local path dependencies and reports every duplicate source location before the
+The scanner follows recursive local path dependencies plus the resolved framework cache and reports every duplicate source location before the
 child build. Macro-generated symbols and the runtime registry remain fail-closed backstops. See
 [`docs/probe.md`](../../docs/probe.md) for annotation, scripting, assertion, and report details.
 
@@ -120,9 +141,10 @@ requested target. See [`docs/doctor.md`](../../docs/doctor.md) for status, JSON 
 
 ## Fonts
 
-CangHui owns the unmodified HarmonyOS Sans asset and license. `cuic init` copies both files into generated
-applications, and supervised build/run commands expose the framework-owned asset to the renderer. `font install`
-remains an optional compatibility command; normal rendering does not require host installation.
+CangHui owns the unmodified HarmonyOS Sans asset and license. Git-based applications use the font from the
+resolved framework cache while supervised build/run commands expose it to the renderer, so each project does not
+carry another font copy. Local-path initialization retains the project asset copy for framework-development
+compatibility. `font install` remains optional; normal supervised rendering does not require host installation.
 
 Recommended macOS installation:
 

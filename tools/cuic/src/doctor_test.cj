@@ -2,8 +2,11 @@ package cuic
 
 @Test
 func doctorOptionsKeepCompatibilityAndMachineModes(): Unit {
-    let options = parseDoctorOptions(["cuic", "doctor", "ipad", "--json", "--verbose"], 2)
+    let options = parseDoctorOptions([
+        "cuic", "doctor", "ipad", "--project", "demo", "--json", "--verbose"
+    ], 2)
     @Expect(options.target, "ios")
+    @Expect(options.project, "demo")
     @Expect(options.json)
     @Expect(options.verbose)
 }

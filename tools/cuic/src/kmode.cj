@@ -117,7 +117,7 @@ class CuicKModeSession {
                     if (startsWithText(line, CUIC_KMODE_PROTOCOL + "|")) {
                         return line
                     }
-                    if (!line.isEmpty() && !startsWithText(line, "cjpm ")) {
+                    if (!isKModeLauncherNoise(line)) {
                         throw CuicError("unexpected stdout before kMode response: ${line}")
                     }
                 case None => throw CuicError("kMode process closed before responding")
@@ -133,6 +133,11 @@ class CuicKModeSession {
             let _ = process.wait()
         }
     }
+}
+
+func isKModeLauncherNoise(line: String): Bool {
+    line.isEmpty() || startsWithText(line, "cjpm ") ||
+        startsWithText(line, "Warning: the functionality of 'CJPM_CONFIG' will be deprecated")
 }
 
 func kModeCommand(args: Array<String>, start: Int64): Int64 {
@@ -254,11 +259,11 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool): Pro
 func runProbeExchange(projectValue: String, endpoint: String, payload: String,
     probeName: String, json: Bool): Int64 {
     let project = normalizeKModePath(projectValue)
+    let framework = ensureFrameworkRoot(project)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let framework = resolveFrameworkRoot(project)
     let buildCode = if (json) {
         executeCjpmQuiet(project, ["build"], framework)
     } else {
@@ -332,9 +337,9 @@ func kModeProjectCandidate(value: String): Bool {
 
 func runKModeExchange(projectValue: String, operation: String, endpoint: String, payload: String): Int64 {
     let project = normalizeKModePath(projectValue)
+    let framework = ensureFrameworkRoot(project)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
-    let framework = resolveFrameworkRoot(project)
     let buildCode = executeCjpm(project, ["build"], framework)
     if (buildCode != 0) { return buildCode }
     let session = CuicKModeSession(project, framework)
@@ -366,6 +371,7 @@ func kModeChildEnvironment(framework: String): HashMap<String, String> {
     }
     environment.add("CANGHUI_KMODE", "1")
     environment.add("CANGHUI_KMODE_TRANSPORT", "stdio")
+    environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
     let sdl = joinPath(framework, "sdl/.sdl3")
     if (hostPlatform() == "macos") {
         environment.add("DYLD_LIBRARY_PATH", sdl + ":" + readEnv("DYLD_LIBRARY_PATH"))
@@ -381,6 +387,8 @@ func runKModeDiff(projectValue: String, quiet!: Bool = false): Int64 {
     let project = normalizeKModePath(projectValue)
     let roots = ArrayList<String>()
     collectKModeRoots(project, roots)
+    let framework = tryResolveFrameworkRoot(project)
+    if (!framework.isEmpty()) { collectKModeRoots(framework, roots) }
     let links = ArrayList<KModeLinkLocation>()
     for (root in roots) {
         let sourceRoot = kModeSourceRoot(root)
@@ -422,6 +430,8 @@ func runProbeDiff(projectValue: String, quiet!: Bool = false): Int64 {
     let project = normalizeKModePath(projectValue)
     let roots = ArrayList<String>()
     collectKModeRoots(project, roots)
+    let framework = tryResolveFrameworkRoot(project)
+    if (!framework.isEmpty()) { collectKModeRoots(framework, roots) }
     let links = ArrayList<ProbeLinkLocation>()
     for (root in roots) {
         let sourceRoot = kModeSourceRoot(root)

@@ -5,7 +5,7 @@ import std.env.{getCommandLine, getVariable}
 import std.fs.{Directory, File, Path, exists, removeIfExists}
 import std.process.executeWithOutput
 
-let VERSION = "0.2.0"
+let VERSION = "0.3.0"
 
 class CuicError <: Exception {
     init(message: String) {
@@ -40,20 +40,20 @@ func runCuic(args: Array<String>): Int64 {
         return 0
     }
     if (command == "examples") {
-        return listExamples(resolveFrameworkRoot(""))
+        return listExamples(frameworkForCurrentCommand())
     }
     if (command == "doctor") {
-        return doctorCommand(args, 2, resolveFrameworkRoot(""))
+        return doctorCommand(args, 2)
     }
     if (command == "bootstrap") {
         let platform = if (args.size > 2) { normalizePlatform(args[2]) } else { hostPlatform() }
-        return bootstrap(platform, resolveFrameworkRoot(""))
+        return bootstrap(platform, frameworkForCurrentCommand())
     }
     if (command == "font") {
         return fontCommand(args, 2)
     }
     if (command == "symbol") {
-        return symbolCommand(args, 2, resolveFrameworkRoot(""))
+        return symbolCommand(args, 2, frameworkForCurrentCommand())
     }
     if (command == "kmode") {
         return kModeCommand(args, 2)
@@ -78,7 +78,7 @@ func runCuic(args: Array<String>): Int64 {
     if (command == "clean") {
         let requested = if (args.size > 2) { args[2] } else { "" }
         let project = resolveProject(requested, "")
-        return executeCjpm(project, ["clean"], resolveFrameworkRoot(project))
+        return executeCommand("cjpm", ["clean"], project)
     }
     throw CuicError("unknown command '${command}'")
 }
@@ -107,8 +107,9 @@ func parsePlatformAndProject(args: Array<String>, start: Int64, defaultExample: 
 func helpText(): String {
     "CangHui CLI\n\n" +
     "Usage:\n" +
-    "  cuic init <directory> [--name <package>] [--platform <platform>] [--canghui-path <path>]\n" +
-    "  cuic doctor [target] [--json] [--verbose]\n" +
+    "  cuic init <directory> [--name <package>] [--platform <platform>]\n" +
+    "      [--canghui-path <path> | --canghui-git <url> --canghui-commit <commit>]\n" +
+    "  cuic doctor [target] [--project <directory>] [--json] [--verbose]\n" +
     "  cuic bootstrap [platform]\n" +
     "  cuic font <status|install> [platform]\n" +
     "  cuic symbol list [material|ant|arco] [--json]\n" +
@@ -128,8 +129,8 @@ func helpText(): String {
     "  cuic clean [project]\n" +
     "  cuic examples\n" +
     "  cuic version\n\n" +
-    "Framework: the integrated CangHui repository is preferred; CANGHUI_FRAMEWORK_ROOT and " +
-    "CANGUI_FRAMEWORK_ROOT remain explicit compatibility overrides."
+    "Framework: generated projects use a public Git dependency pinned by commit and CJPM cache. " +
+    "Use --canghui-path or CANGHUI_FRAMEWORK_ROOT only for local framework development."
 }
 
 func hostPlatform(): String {
@@ -167,6 +168,14 @@ func currentDirectory(): String {
     throw CuicError("cannot resolve current directory")
 }
 
+func frameworkForCurrentCommand(): String {
+    let cwd = currentDirectory()
+    if (exists(joinPath(cwd, "cjpm.toml"))) {
+        return ensureFrameworkRoot(cwd)
+    }
+    resolveFrameworkRoot("")
+}
+
 func cliRoot(): String {
     match (getVariable("CANGHUI_CLI_ROOT")) {
         case Some(value) where value.size > 0 => return trimTrailingSlash(value)
@@ -190,16 +199,25 @@ func resolveFrameworkRoot(project: String): String {
     if (integrated.size > 0) {
         return integrated
     }
-    if (project.size > 0 && exists(joinPath(project, "cjpm.toml"))) {
-        let dependency = dependencyFrameworkPath(project)
-        if (dependency.size > 0) {
-            return validateFramework(dependency)
-        }
-    }
     for (name in ["CANGHUI_FRAMEWORK_ROOT", "CANGUI_FRAMEWORK_ROOT"]) {
         match (getVariable(name)) {
             case Some(value) where value.size > 0 => return validateFramework(value)
             case _ => ()
+        }
+    }
+    if (project.size > 0 && exists(joinPath(project, "cjpm.toml"))) {
+        let spec = frameworkDependencySpec(project)
+        if (spec.isLocal()) {
+            let dependency = if (startsWithText(spec.path, "/") || isWindowsAbsolute(spec.path)) {
+                spec.path
+            } else {
+                joinPath(project, spec.path)
+            }
+            return validateFramework(dependency)
+        }
+        let cached = cachedFrameworkRoot(project)
+        if (!cached.isEmpty()) {
+            return cached
         }
     }
     let parent = parentPath(cliRoot())
@@ -209,7 +227,7 @@ func resolveFrameworkRoot(project: String): String {
             return trimTrailingSlash(candidate)
         }
     }
-    throw CuicError("CangHui repository not found; set CANGHUI_FRAMEWORK_ROOT")
+    throw CuicError("CangHui dependency is not available; run cuic build in a project or set CANGHUI_FRAMEWORK_ROOT")
 }
 
 func integratedFrameworkRoot(): String {
@@ -234,26 +252,6 @@ func validateFramework(path: String): String {
         throw CuicError("CangHui not found at ${path}; set CANGHUI_FRAMEWORK_ROOT")
     }
     normalized
-}
-
-func dependencyFrameworkPath(project: String): String {
-    let text = String.fromUtf8(File.readFrom(joinPath(project, "cjpm.toml")))
-    for (line in text.split("\n")) {
-        let trimmed = trimAscii(line)
-        if (startsWithText(trimmed, "cui") && containsText(trimmed, "path")) {
-            let first = indexOfText(trimmed, "\"")
-            if (first >= 0) {
-                let rest = substringFrom(trimmed, first + 1)
-                let second = indexOfText(rest, "\"")
-                if (second >= 0) {
-                    let value = substringTo(rest, second)
-                    if (startsWithText(value, "/") || isWindowsAbsolute(value)) { return value }
-                    return joinPath(project, value)
-                }
-            }
-        }
-    }
-    ""
 }
 
 func resolveProject(requested: String, frameworkHint: String): String {
@@ -322,11 +320,11 @@ func copyNativeLibrary(source: String, destination: String): Unit {
 }
 
 func runCjpm(action: String, platform: String, project: String): Int64 {
+    let framework = ensureFrameworkRoot(project)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let framework = resolveFrameworkRoot(project)
     let boot = bootstrap(platform, framework)
     if (boot != 0) { return boot }
     println("==> cjpm ${action} (${platform}) in ${project}")
@@ -440,14 +438,19 @@ func bundledHarmonyFont(): String {
     if (integrated.size > 0) {
         return joinPath(integrated, "assets/fonts/HarmonyOS_Sans_SC.ttf")
     }
+    let projectFramework = tryResolveFrameworkRoot(currentDirectory())
+    if (!projectFramework.isEmpty()) {
+        return joinPath(projectFramework, "assets/fonts/HarmonyOS_Sans_SC.ttf")
+    }
     joinPath(cliRoot(), "assets/fonts/HarmonyOS_Sans_SC.ttf")
 }
 
 func fontCommand(args: Array<String>, start: Int64): Int64 {
     let action = if (start < args.size) { args[start] } else { "status" }
     let platform = if (start + 1 < args.size) { normalizePlatform(args[start + 1]) } else { hostPlatform() }
+    let framework = frameworkForCurrentCommand()
     if (action == "status") {
-        let source = bundledHarmonyFont()
+        let source = joinPath(framework, "assets/fonts/HarmonyOS_Sans_SC.ttf")
         requireFile(source, "HarmonyOS Sans SC source is missing from CangHui")
         println("HarmonyOS Sans SC bundled fallback: ${source}")
         let installed = resolveInstalledHarmonyFont(platform)
@@ -464,7 +467,7 @@ func fontCommand(args: Array<String>, start: Int64): Int64 {
     if (platform != hostPlatform()) {
         throw CuicError("font installation for '${platform}' requires a ${platform} host")
     }
-    let source = bundledHarmonyFont()
+    let source = joinPath(framework, "assets/fonts/HarmonyOS_Sans_SC.ttf")
     requireFile(source, "HarmonyOS Sans SC source is missing from CangHui")
     let home = readEnv(if (platform == "windows") { "USERPROFILE" } else { "HOME" })
     if (home.isEmpty()) { throw CuicError("cannot resolve the current user's home directory") }
@@ -497,18 +500,34 @@ func initProject(args: Array<String>, start: Int64): Int64 {
     var directory = ""
     var packageName = ""
     var platform = hostPlatform()
-    var framework = ""
+    var frameworkPath = ""
+    var frameworkGit = DEFAULT_CANGHUI_GIT
+    var frameworkCommit = DEFAULT_CANGHUI_COMMIT
+    var gitCustomized = false
     var i = start
     while (i < args.size) {
         let current = args[i]
         if ((current == "--name" || current == "--platform" || current == "--canghui-path" ||
-            current == "--cui-path") && i + 1 >= args.size) {
+            current == "--cui-path" || current == "--canghui-git" || current == "--canghui-commit") &&
+            i + 1 >= args.size) {
             throw CuicError("${current} requires a value")
         }
         if (current == "--name") { packageName = args[i + 1]; i += 2; continue }
         if (current == "--platform") { platform = normalizePlatform(args[i + 1]); i += 2; continue }
         if (current == "--canghui-path" || current == "--cui-path") {
-            framework = validateFramework(args[i + 1])
+            frameworkPath = validateFramework(args[i + 1])
+            i += 2
+            continue
+        }
+        if (current == "--canghui-git") {
+            frameworkGit = args[i + 1]
+            gitCustomized = true
+            i += 2
+            continue
+        }
+        if (current == "--canghui-commit") {
+            frameworkCommit = args[i + 1]
+            gitCustomized = true
             i += 2
             continue
         }
@@ -518,29 +537,46 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         i += 1
     }
     if (directory.size == 0) { throw CuicError("init requires a destination directory") }
-    if (framework.size == 0) { framework = resolveFrameworkRoot("") }
+    if (!frameworkPath.isEmpty() && gitCustomized) {
+        throw CuicError("--canghui-path cannot be combined with --canghui-git or --canghui-commit")
+    }
+    if (frameworkPath.isEmpty() && (frameworkGit.isEmpty() || frameworkCommit.isEmpty())) {
+        throw CuicError("Git initialization requires both a CangHui URL and commit")
+    }
     if (exists(directory)) {
         for (_ in Directory.readFrom(directory)) { throw CuicError("destination is not empty: ${directory}") }
     } else {
         Directory.create(directory, recursive: true)
     }
     Directory.create(joinPath(directory, "src"), recursive: true)
-    installProjectFontAssets(directory, framework)
+    let dependency = if (!frameworkPath.isEmpty()) {
+        installProjectFontAssets(directory, frameworkPath)
+        FrameworkDependencySpec(frameworkPath, "", "")
+    } else {
+        FrameworkDependencySpec("", frameworkGit, frameworkCommit)
+    }
     if (packageName.size == 0) { packageName = sanitizePackageName(basename(directory)) }
     let manifest = "[package]\n" +
-        "cjc-version = \"1.0.5\"\n" +
+        "cjc-version = \"1.1.3\"\n" +
         "name = \"${packageName}\"\n" +
         "version = \"0.1.0\"\n" +
         "output-type = \"executable\"\n" +
+        "compile-option = \"--set-runtime-rpath\"\n" +
         "description = \"CangHui desktop application.\"\n\n" +
         "[dependencies]\n" +
-        "cui = { path = \"${framework}\" }\n"
+        renderFrameworkDependency(dependency) + "\n"
     File.writeTo(joinPath(directory, "cjpm.toml"), manifest.toArray())
-    File.writeTo(joinPath(directory, ".gitignore"), "target/\ncjpm.lock\n".toArray())
+    File.writeTo(joinPath(directory, ".gitignore"), "target/\ndist/\n".toArray())
     File.writeTo(joinPath(directory, "src/main.cj"), generatedMain(packageName).toArray())
     println("created CangHui project: ${directory}")
     println("package: ${packageName}")
     println("platform: ${platform}")
+    if (dependency.isLocal()) {
+        println("CangHui dependency: local ${dependency.path}")
+    } else {
+        println("CangHui dependency: ${dependency.git}@${shortCommit(dependency.commitId)}")
+        println("next: cd ${directory} && cuic build ${platform}")
+    }
     0
 }
 
@@ -588,7 +624,7 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
         i += 1
     }
     let project = resolveProject(requested, "")
-    let framework = resolveFrameworkRoot(project)
+    let framework = ensureFrameworkRoot(project)
     let boot = bootstrap(platform, framework)
     if (boot != 0) { return boot }
     if (output.size == 0) { output = joinPath(currentDirectory(), "cuic-${basename(project)}.png") }

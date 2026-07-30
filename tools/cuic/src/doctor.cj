@@ -1,7 +1,7 @@
 package cuic
 
 import std.collection.ArrayList
-import std.env.getVariable
+import std.env.{getCommandLine, getVariable}
 import std.fs.{Directory, Path, exists}
 import std.process.executeWithOutput
 
@@ -72,11 +72,13 @@ class DoctorGroup {
 
 class DoctorOptions {
     let target: String
+    let project: String
     let json: Bool
     let verbose: Bool
 
-    init(target: String, json: Bool, verbose: Bool) {
+    init(target: String, project: String, json: Bool, verbose: Bool) {
         this.target = target
+        this.project = project
         this.json = json
         this.verbose = verbose
     }
@@ -132,9 +134,11 @@ class DoctorCommandFact {
     }
 }
 
-func doctorCommand(args: Array<String>, start: Int64, framework: String): Int64 {
+func doctorCommand(args: Array<String>, start: Int64): Int64 {
     let options = parseDoctorOptions(args, start)
-    let result = collectDoctorResult(options.target, framework)
+    let project = doctorProjectPath(options.project)
+    let framework = tryResolveFrameworkRoot(project)
+    let result = collectDoctorResult(options.target, framework, project: project)
     if (options.json) {
         println(renderDoctorJson(result, options.verbose))
     } else {
@@ -146,6 +150,7 @@ func doctorCommand(args: Array<String>, start: Int64, framework: String): Int64 
 func parseDoctorOptions(args: Array<String>, start: Int64): DoctorOptions {
     var target = hostPlatform()
     var targetSet = false
+    var project = ""
     var json = false
     var verbose = false
     var i = start
@@ -153,13 +158,27 @@ func parseDoctorOptions(args: Array<String>, start: Int64): DoctorOptions {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
         if (value == "--verbose" || value == "-v") { verbose = true; i += 1; continue }
+        if (value == "--project") {
+            if (i + 1 >= args.size) { throw CuicError("--project requires a directory") }
+            project = args[i + 1]
+            i += 2
+            continue
+        }
         if (startsWithText(value, "-")) { throw CuicError("unknown doctor option '${value}'") }
         if (targetSet) { throw CuicError("doctor accepts one requested target") }
         target = normalizeDoctorPlatform(value)
         targetSet = true
         i += 1
     }
-    DoctorOptions(target, json, verbose)
+    DoctorOptions(target, project, json, verbose)
+}
+
+func doctorProjectPath(requested: String): String {
+    if (requested.isEmpty()) { return currentDirectory() }
+    if (startsWithText(requested, "/") || isWindowsAbsolute(requested)) {
+        return Path(requested).normalize().toString()
+    }
+    Path(joinPath(currentDirectory(), requested)).normalize().toString()
 }
 
 func normalizeDoctorPlatform(value: String): String {
@@ -175,11 +194,12 @@ func normalizeDoctorPlatform(value: String): String {
     throw CuicError("unknown doctor target '${value}'")
 }
 
-func collectDoctorResult(requestedTarget: String, framework: String): DoctorResult {
+func collectDoctorResult(requestedTarget: String, framework: String, project!: String = ""): DoctorResult {
     let host = hostPlatform()
     let architecture = doctorHostArchitecture()
     let groups = ArrayList<DoctorGroup>()
     groups.add(doctorToolchainGroup(host, architecture))
+    groups.add(doctorConsumerProjectGroup(project, framework))
     groups.add(doctorRepositoryGroup(framework))
     groups.add(doctorMacosGroup(host, architecture, framework))
     groups.add(doctorWindowsGroup(host, framework))
@@ -191,6 +211,58 @@ func collectDoctorResult(requestedTarget: String, framework: String): DoctorResu
     groups.add(doctorSymbolGroup(framework))
     groups.add(doctorProbeGroup(framework))
     DoctorResult(host, architecture, requestedTarget, groups.toArray())
+}
+
+func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    let manifest = joinPath(project, "cjpm.toml")
+    if (!exists(manifest)) {
+        checks.add(doctorDegraded("project.manifest", "Application manifest",
+            "The current directory is not a Cangjie application project.", DoctorActionKind.Manual,
+            "Run cuic doctor from an application or pass --project <directory>.", project))
+        return DoctorGroup("project", "Application dependency and cache", "all", checks.toArray())
+    }
+    checks.add(doctorReady("project.manifest", "Application manifest",
+        "A Cangjie project manifest is available.", manifest))
+    if (frameworkRootCandidate(project)) {
+        checks.add(doctorReady("project.dependency", "Framework development checkout",
+            "The current project is the CangHui framework itself; no external cui dependency is required.", project))
+        checks.add(doctorReady("project.cache", "Resolved framework",
+            "The integrated CLI uses the current framework checkout.", framework))
+        return DoctorGroup("project", "Application dependency, lock, and CJPM cache", "all", checks.toArray())
+    }
+    let spec = frameworkDependencySpec(project)
+    if (spec.isLocal()) {
+        checks.add(doctorReady("project.dependency", "CangHui dependency",
+            "The application uses an explicit local development dependency.", spec.path))
+        checks.add(if (framework.isEmpty()) {
+            doctorBlocked("project.cache", "Resolved framework", "The local CangHui path is invalid.",
+                DoctorActionKind.Manual, "Repair --canghui-path or CANGHUI_FRAMEWORK_ROOT.", spec.path)
+        } else {
+            doctorReady("project.cache", "Resolved framework", "The local framework root is readable.", framework)
+        })
+    } else if (spec.isGit()) {
+        checks.add(doctorReady("project.dependency", "CangHui dependency",
+            "The application uses a public Git dependency.", spec.git + "@" + shortCommit(spec.commitId)))
+        let locked = lockedFrameworkCommit(project)
+        checks.add(if (locked.isEmpty()) {
+            doctorDegraded("project.lock", "Dependency lock", "The Git dependency has not been resolved into cjpm.lock.",
+                DoctorActionKind.Automatic, "Run cuic build to resolve and lock the dependency.", joinPath(project, "cjpm.lock"))
+        } else {
+            doctorReady("project.lock", "Dependency lock", "cjpm.lock freezes the resolved CangHui commit.", locked)
+        })
+        checks.add(if (framework.isEmpty()) {
+            doctorDegraded("project.cache", "CJPM source cache", "The pinned CangHui source is not present in the CJPM cache.",
+                DoctorActionKind.Automatic, "Run cuic build to populate the CJPM cache.", cjpmCacheRoot(project))
+        } else {
+            doctorReady("project.cache", "CJPM source cache", "The pinned framework is available from the user cache.", framework)
+        })
+    } else {
+        checks.add(doctorBlocked("project.dependency", "CangHui dependency",
+            "The project does not declare a cui dependency.", DoctorActionKind.Manual,
+            "Run cuic init or add a pinned CangHui dependency under [dependencies].", manifest))
+    }
+    DoctorGroup("project", "Application dependency, lock, and CJPM cache", "all", checks.toArray())
 }
 
 func doctorToolchainGroup(host: String, architecture: String): DoctorGroup {
@@ -215,27 +287,32 @@ func doctorToolchainGroup(host: String, architecture: String): DoctorGroup {
 
 func doctorRepositoryGroup(framework: String): DoctorGroup {
     let checks = ArrayList<DoctorCheck>()
-    checks.add(doctorRequiredFile(
+    checks.add(doctorFrameworkRequiredFile(framework,
         "repository.manifest", "CangHui package manifest", joinPath(framework, "cjpm.toml"),
         "Restore the CangHui package manifest."
     ))
-    checks.add(doctorRequiredFile(
+    checks.add(doctorFrameworkRequiredFile(framework,
         "repository.umbrella", "CUI umbrella package", joinPath(framework, "src/cui.cj"),
         "Restore the CangHui source package."
     ))
-    checks.add(doctorRequiredFile(
-        "repository.cli", "Integrated cuic package", joinPath(framework, "tools/cuic/cjpm.toml"),
-        "Use the cuic command shipped by the same CangHui checkout."
-    ))
+    let command = getCommandLine()[0]
+    checks.add(if (!command.isEmpty()) {
+        doctorReady("repository.cli", "cuic command", "The current CLI executable is running independently.", command)
+    } else {
+        doctorBlocked("repository.cli", "cuic command", "The current CLI executable path is unavailable.",
+            DoctorActionKind.Manual, "Install cuic with the public installer.", "")
+    })
     let integrated = integratedFrameworkRoot()
-    checks.add(if (!integrated.isEmpty() && Path(integrated).normalize().toString() == Path(framework).normalize().toString()) {
+    checks.add(if (framework.isEmpty()) {
+        doctorDegraded("repository.alignment", "CLI and framework resolution",
+            "No application dependency or explicit framework root is currently resolved.", DoctorActionKind.Automatic,
+            "Run cuic build from an initialized project or set CANGHUI_FRAMEWORK_ROOT for framework development.", "")
+    } else if (!integrated.isEmpty() && Path(integrated).normalize().toString() == Path(framework).normalize().toString()) {
         doctorReady("repository.alignment", "Repository and CLI alignment",
             "The command resolves the repository that owns this integrated CLI.", framework)
     } else {
-        doctorBlocked("repository.alignment", "Repository and CLI alignment",
-            "The active CLI and framework roots do not match.", DoctorActionKind.Manual,
-            "Run tools/cuic/bin/cuic from the intended CangHui checkout or set CANGHUI_FRAMEWORK_ROOT explicitly.",
-            "cli=" + integrated + "; framework=" + framework)
+        doctorReady("repository.alignment", "CLI and framework resolution",
+            "The installed CLI resolves CangHui through the application dependency cache.", framework)
     })
     DoctorGroup("repository", "CangHui repository, package, and CLI alignment", "all", checks.toArray())
 }
@@ -437,6 +514,12 @@ func doctorSymbolGroup(framework: String): DoctorGroup {
 
 func doctorProbeGroup(framework: String): DoctorGroup {
     let checks = ArrayList<DoctorCheck>()
+    if (framework.isEmpty()) {
+        checks.add(doctorDegraded("probe.framework", "Probe framework source",
+            "Probe contracts cannot be inspected before the CangHui dependency is resolved.",
+            DoctorActionKind.Automatic, "Run cuic build from the application project.", ""))
+        return DoctorGroup("probe", "kMode and probe registry health", "all", checks.toArray())
+    }
     checks.add(doctorRequiredFile("probe.schema", "cui.probe.v0 schema", joinPath(framework, "contracts/cui-probe-v0.schema.json"),
         "Restore the public probe protocol schema."))
     checks.add(doctorRequiredFile("probe.macro", "CuiProbe macro", joinPath(framework, "src/kmode/macros/link.cj"),
@@ -484,6 +567,15 @@ func doctorRequiredFile(id: String, label: String, path: String, suggestion: Str
     } else {
         doctorBlocked(id, label, "The required file is missing.", DoctorActionKind.Automatic, suggestion, path)
     }
+}
+
+func doctorFrameworkRequiredFile(framework: String, id: String, label: String,
+    path: String, suggestion: String): DoctorCheck {
+    if (framework.isEmpty()) {
+        return doctorDegraded(id, label, "The CangHui dependency is not resolved yet.",
+            DoctorActionKind.Automatic, "Run cuic build before this framework check. " + suggestion, "")
+    }
+    doctorRequiredFile(id, label, path, suggestion)
 }
 
 func doctorRequiredDirectory(id: String, label: String, path: String, suggestion: String): DoctorCheck {

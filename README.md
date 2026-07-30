@@ -12,18 +12,17 @@
 - [API 文档](docs/api/index.md)
 - [Symbol 与可选图标 Provider](docs/symbols.md)
 
-## 开发环境
+## 使用环境
 
-- Cangjie SDK 1.0.5
+- Cangjie SDK 1.1.3 或更新的兼容版本
 - Windows/Mac/Linux
-- 当前母体分支保留仓库内 `sdl` 模块，并持续吸收 [`CangjieSDL`](https://github.com/SunriseSummer/CangjieSDL) 上游能力；根据目标平台规格配置 SDL 和 SDL_ttf 动态库
+- 当前母体分支保留仓库内 `sdl` 模块，并持续吸收 [`CangjieSDL`](https://github.com/SunriseSummer/CangjieSDL) 上游能力；`cuic` 按目标平台诊断并准备 SDL 和 SDL_ttf 动态库
 
-macOS 首次构建先准备 Homebrew SDL 动态库：
+安装 `cuic` 只会稀疏获取并编译 `tools/cuic`，不会在工程旁保留一份完整框架仓库：
 
 ```bash
-brew install sdl3 sdl3_ttf
-./scripts/bootstrap-macos.sh
-cjpm build
+curl -fsSL https://raw.githubusercontent.com/Celading/CangHui/main/scripts/install-cuic.sh | bash
+cuic version
 ```
 
 > [!IMPORTANT]
@@ -32,12 +31,18 @@ cjpm build
 
 ## 快速开始
 
-新建仓颉项目，在 `cjpm.toml` 配置 CUI 依赖：
+用 `cuic` 创建并运行一个空白工程：
 
-```toml
-[dependencies]
-cui = { path = "<path/to/CangHui>" }
+```bash
+cuic init HelloCangHui --name hello_canghui --platform macos
+cd HelloCangHui
+cuic doctor macos
+cuic build macos
+cuic run macos
 ```
+
+生成工程通过公开 Git `commitId` 依赖 CangHui，并由 `cjpm.lock` 固定实际提交。CJPM 将源码下载到用户级缓存，
+不会把框架复制进每个应用。框架开发者仍可显式使用 `cuic init ... --canghui-path <path>`。
 
 在 `src/main.cj` 中编写代码创建一个简单窗口：
 
@@ -61,7 +66,8 @@ main() {
 }
 ```
 
-执行 `cjpm run` 即可运行查看效果。
+执行 `cuic run` 即可运行查看效果。完整缓存、锁定和本地覆盖规则见
+[轻量消费工作流](docs/consumer-workflow.md)。
 
 ## 核心能力
 
@@ -110,6 +116,8 @@ Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染�
 ./tools/cuic/bin/cuic doctor
 ./tools/cuic/bin/cuic examples
 ```
+
+普通应用无需从框架仓内调用这些路径；安装后的 `cuic` 会从应用依赖和 CJPM 缓存解析对应 CangHui 版本。
 
 平台诊断的状态、退出码、隐私边界与 JSON 契约见 [`docs/doctor.md`](docs/doctor.md)。
 字体默认使用随包 HarmonyOS Sans，并支持组件、Theme 与应用级字体覆盖；解析与打包规则见
