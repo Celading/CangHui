@@ -5,7 +5,7 @@ It lives under `tools/cuic`; the former standalone layout remains a compatibilit
 
 ```bash
 cjpm build
-./bin/cuic doctor macos
+./bin/cuic doctor macos --verbose
 ```
 
 `bin/cuic` and `bin\\cuic.ps1` are thin launchers. Command parsing and lifecycle orchestration live in
@@ -15,7 +15,7 @@ the compiled Cangjie executable under `src/`.
 
 ```text
 cuic init <directory> [--name <package>] [--platform <platform>] [--canghui-path <path>]
-cuic doctor [platform]
+cuic doctor [target] [--json] [--verbose]
 cuic bootstrap [platform]
 cuic font <status|install> [platform]
 cuic kmode diff [project]
@@ -108,9 +108,13 @@ child build. Macro-generated symbols and the runtime registry remain fail-closed
 | macOS | yes | Cangjie-managed Homebrew SDL copy | native host | current arm64 host proven |
 | Windows | yes | bundled DLL check | native host | structural preservation; run on Windows for runtime proof |
 | Linux | yes | Cangjie-managed pkg-config SDL copy | native host | implementation present; Linux host proof pending |
-| Android | diagnostic | no | no | backend, NDK bridge, APK packaging and runner not implemented |
+| iOS | grouped diagnostic | no | static host contracts only | package initialization, signing and renderer return remain blocked |
+| HarmonyOS/OpenHarmony | grouped diagnostic | no | adapter-owned | mother framework does not ship an ArkTS/HAP host |
+| Android | grouped diagnostic | no | no | backend, NDK bridge, APK packaging and runner not implemented |
 
 The CLI intentionally rejects unconfigured cross-host builds and unsupported Android execution.
+`doctor` always displays every platform group, while its exit status considers only global checks and the
+requested target. See [`docs/doctor.md`](../../docs/doctor.md) for status, JSON schema, privacy, and CI behavior.
 
 ## Fonts
 

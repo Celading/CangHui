@@ -1,0 +1,805 @@
+package cuic
+
+import std.collection.ArrayList
+import std.env.getVariable
+import std.fs.{Directory, Path, exists}
+import std.process.executeWithOutput
+
+let CANGHUI_DOCTOR_SCHEMA = "canghui.doctor.v0"
+
+enum DoctorStatus {
+    | Ready
+    | Degraded
+    | Blocked
+    | Unsupported
+}
+
+enum DoctorActionKind {
+    | NoAction
+    | Automatic
+    | Manual
+    | Unsupported
+}
+
+class DoctorCheck {
+    let id: String
+    let label: String
+    let status: DoctorStatus
+    let reason: String
+    let actionKind: DoctorActionKind
+    let suggestion: String
+    let evidence: String
+
+    init(id: String, label: String, status: DoctorStatus, reason: String,
+        actionKind: DoctorActionKind, suggestion: String, evidence: String) {
+        this.id = id
+        this.label = label
+        this.status = status
+        this.reason = reason
+        this.actionKind = actionKind
+        this.suggestion = suggestion
+        this.evidence = evidence
+    }
+}
+
+class DoctorGroup {
+    let id: String
+    let title: String
+    let target: String
+    let checks: Array<DoctorCheck>
+
+    init(id: String, title: String, target: String, checks: Array<DoctorCheck>) {
+        this.id = id
+        this.title = title
+        this.target = target
+        this.checks = checks
+    }
+
+    func status(): DoctorStatus {
+        var result = DoctorStatus.Ready
+        for (check in checks) {
+            if (doctorStatusRank(check.status) > doctorStatusRank(result)) {
+                result = check.status
+            }
+        }
+        result
+    }
+
+    func appliesTo(requestedTarget: String): Bool {
+        target == "all" || target == requestedTarget
+    }
+}
+
+class DoctorOptions {
+    let target: String
+    let json: Bool
+    let verbose: Bool
+
+    init(target: String, json: Bool, verbose: Bool) {
+        this.target = target
+        this.json = json
+        this.verbose = verbose
+    }
+}
+
+class DoctorResult {
+    let host: String
+    let architecture: String
+    let requestedTarget: String
+    let groups: Array<DoctorGroup>
+
+    init(host: String, architecture: String, requestedTarget: String, groups: Array<DoctorGroup>) {
+        this.host = host
+        this.architecture = architecture
+        this.requestedTarget = requestedTarget
+        this.groups = groups
+    }
+
+    func requestedStatus(): DoctorStatus {
+        var result = DoctorStatus.Ready
+        for (group in groups) {
+            if (group.appliesTo(requestedTarget) &&
+                doctorStatusRank(group.status()) > doctorStatusRank(result)) {
+                result = group.status()
+            }
+        }
+        result
+    }
+
+    func requestedBlockers(): Int64 {
+        var count: Int64 = 0
+        for (group in groups) {
+            if (!group.appliesTo(requestedTarget)) { continue }
+            for (check in group.checks) {
+                if (doctorStatusBlocks(check.status)) { count += 1 }
+            }
+        }
+        count
+    }
+
+    func exitCode(): Int64 {
+        if (requestedBlockers() > 0) { 1 } else { 0 }
+    }
+}
+
+class DoctorCommandFact {
+    let ok: Bool
+    let summary: String
+
+    init(ok: Bool, summary: String) {
+        this.ok = ok
+        this.summary = summary
+    }
+}
+
+func doctorCommand(args: Array<String>, start: Int64, framework: String): Int64 {
+    let options = parseDoctorOptions(args, start)
+    let result = collectDoctorResult(options.target, framework)
+    if (options.json) {
+        println(renderDoctorJson(result, options.verbose))
+    } else {
+        renderDoctorHuman(result, options.verbose)
+    }
+    result.exitCode()
+}
+
+func parseDoctorOptions(args: Array<String>, start: Int64): DoctorOptions {
+    var target = hostPlatform()
+    var targetSet = false
+    var json = false
+    var verbose = false
+    var i = start
+    while (i < args.size) {
+        let value = args[i]
+        if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--verbose" || value == "-v") { verbose = true; i += 1; continue }
+        if (startsWithText(value, "-")) { throw CuicError("unknown doctor option '${value}'") }
+        if (targetSet) { throw CuicError("doctor accepts one requested target") }
+        target = normalizeDoctorPlatform(value)
+        targetSet = true
+        i += 1
+    }
+    DoctorOptions(target, json, verbose)
+}
+
+func normalizeDoctorPlatform(value: String): String {
+    let lower = asciiLowerText(value)
+    if (lower == "mac" || lower == "macos" || lower == "darwin") { return "macos" }
+    if (lower == "win" || lower == "windows") { return "windows" }
+    if (lower == "linux") { return "linux" }
+    if (lower == "ios" || lower == "iphone" || lower == "ipad") { return "ios" }
+    if (lower == "harmony" || lower == "harmonyos" || lower == "ohos" || lower == "openharmony") {
+        return "harmonyos"
+    }
+    if (lower == "android") { return "android" }
+    throw CuicError("unknown doctor target '${value}'")
+}
+
+func collectDoctorResult(requestedTarget: String, framework: String): DoctorResult {
+    let host = hostPlatform()
+    let architecture = doctorHostArchitecture()
+    let groups = ArrayList<DoctorGroup>()
+    groups.add(doctorToolchainGroup(host, architecture))
+    groups.add(doctorRepositoryGroup(framework))
+    groups.add(doctorMacosGroup(host, architecture, framework))
+    groups.add(doctorWindowsGroup(host, framework))
+    groups.add(doctorLinuxGroup(host))
+    groups.add(doctorIosGroup(host, framework, requestedTarget == "ios"))
+    groups.add(doctorHarmonyGroup(framework, requestedTarget == "harmonyos"))
+    groups.add(doctorAndroidGroup())
+    groups.add(doctorFontGroup(framework))
+    groups.add(doctorSymbolGroup(framework))
+    groups.add(doctorProbeGroup(framework))
+    DoctorResult(host, architecture, requestedTarget, groups.toArray())
+}
+
+func doctorToolchainGroup(host: String, architecture: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorProgramCheck(
+        "toolchain.cjpm", "Cangjie package manager", "cjpm", ["--version"],
+        "Install a supported Cangjie SDK and add cjpm to PATH."
+    ))
+    checks.add(doctorProgramCheck(
+        "toolchain.cjc", "Cangjie compiler", "cjc", ["--version"],
+        "Install a supported Cangjie SDK and add cjc to PATH."
+    ))
+    checks.add(if (architecture.isEmpty()) {
+        doctorBlocked("toolchain.architecture", "Host architecture", "The host architecture could not be detected.",
+            DoctorActionKind.Manual, "Run the doctor from a native terminal and verify the operating-system toolchain.", "")
+    } else {
+        doctorReady("toolchain.architecture", "Host architecture", "The host architecture is available to target checks.",
+            host + " " + architecture)
+    })
+    DoctorGroup("toolchain", "Cangjie SDK and target compatibility", "all", checks.toArray())
+}
+
+func doctorRepositoryGroup(framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorRequiredFile(
+        "repository.manifest", "CangHui package manifest", joinPath(framework, "cjpm.toml"),
+        "Restore the CangHui package manifest."
+    ))
+    checks.add(doctorRequiredFile(
+        "repository.umbrella", "CUI umbrella package", joinPath(framework, "src/cui.cj"),
+        "Restore the CangHui source package."
+    ))
+    checks.add(doctorRequiredFile(
+        "repository.cli", "Integrated cuic package", joinPath(framework, "tools/cuic/cjpm.toml"),
+        "Use the cuic command shipped by the same CangHui checkout."
+    ))
+    let integrated = integratedFrameworkRoot()
+    checks.add(if (!integrated.isEmpty() && Path(integrated).normalize().toString() == Path(framework).normalize().toString()) {
+        doctorReady("repository.alignment", "Repository and CLI alignment",
+            "The command resolves the repository that owns this integrated CLI.", framework)
+    } else {
+        doctorBlocked("repository.alignment", "Repository and CLI alignment",
+            "The active CLI and framework roots do not match.", DoctorActionKind.Manual,
+            "Run tools/cuic/bin/cuic from the intended CangHui checkout or set CANGHUI_FRAMEWORK_ROOT explicitly.",
+            "cli=" + integrated + "; framework=" + framework)
+    })
+    DoctorGroup("repository", "CangHui repository, package, and CLI alignment", "all", checks.toArray())
+}
+
+func doctorMacosGroup(host: String, architecture: String, framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorHostCheck("macos", host))
+    checks.add(doctorRequiredFile(
+        "macos.sdl3", "Bundled SDL3 runtime", joinPath(framework, "sdl/.sdl3/libSDL3.dylib"),
+        "Run cuic bootstrap macos."
+    ))
+    checks.add(doctorRequiredFile(
+        "macos.sdl3-ttf", "Bundled SDL3_ttf runtime", joinPath(framework, "sdl/.sdl3/libSDL3_ttf.dylib"),
+        "Run cuic bootstrap macos."
+    ))
+    checks.add(if (host == "macos" && architecture == "arm64") {
+        doctorReady("macos.architecture", "Native architecture", "The current arm64 host matches the bundled runtime proof.", architecture)
+    } else if (host == "macos") {
+        doctorDegraded("macos.architecture", "Native architecture",
+            "The host architecture differs from the current arm64 proof baseline.", DoctorActionKind.Manual,
+            "Rebuild or bootstrap SDL libraries for the current architecture.", architecture)
+    } else {
+        doctorUnsupported("macos.architecture", "Native architecture",
+            "macOS architecture validation requires a macOS host.", "Run cuic doctor macos on macOS.", architecture)
+    })
+    checks.add(doctorRequiredFile(
+        "macos.gallery", "Renderer acceptance project", joinPath(framework, "examples/component-gallery/cjpm.toml"),
+        "Restore the Component Gallery example before renderer acceptance."
+    ))
+    DoctorGroup("platform.macos", "macOS host and renderer readiness", "macos", checks.toArray())
+}
+
+func doctorWindowsGroup(host: String, framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorHostCheck("windows", host))
+    checks.add(doctorRequiredFile(
+        "windows.sdl3", "Bundled SDL3 DLL", joinPath(framework, "sdl/.sdl3/SDL3.dll"),
+        "Run cuic bootstrap windows on a Windows host."
+    ))
+    checks.add(doctorRequiredFile(
+        "windows.sdl3-ttf", "Bundled SDL3_ttf DLL", joinPath(framework, "sdl/.sdl3/SDL3_ttf.dll"),
+        "Run cuic bootstrap windows on a Windows host."
+    ))
+    checks.add(if (host == "windows") {
+        doctorProgramCheck("windows.toolchain", "Windows Cangjie toolchain", "cjc", ["--version"],
+            "Install the Windows Cangjie SDK and make cjc available in PATH.")
+    } else {
+        doctorUnsupported("windows.toolchain", "Windows Cangjie toolchain",
+            "Native linker and DLL loading checks cannot run on this host.",
+            "Run cuic doctor windows on a Windows machine.", "host=" + host)
+    })
+    DoctorGroup("platform.windows", "Windows DLL and toolchain readiness", "windows", checks.toArray())
+}
+
+func doctorLinuxGroup(host: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorHostCheck("linux", host))
+    if (host == "linux") {
+        checks.add(doctorProgramCheck("linux.pkg-config", "pkg-config", "pkg-config", ["--version"],
+            "Install pkg-config with the host package manager."))
+        checks.add(doctorInvocationCheck("linux.sdl3", "SDL3 development package", "pkg-config", ["--exists", "sdl3"],
+            "Install the SDL3 development package and refresh PKG_CONFIG_PATH."))
+        checks.add(doctorInvocationCheck("linux.sdl3-ttf", "SDL3_ttf development package", "pkg-config", ["--exists", "sdl3-ttf"],
+            "Install the SDL3_ttf development package and refresh PKG_CONFIG_PATH."))
+    } else {
+        checks.add(doctorUnsupported("linux.pkg-config", "Linux native libraries",
+            "Linux pkg-config and runtime loading checks require a Linux host.",
+            "Run cuic doctor linux on Linux.", "host=" + host))
+    }
+    DoctorGroup("platform.linux", "Linux pkg-config, library, and runtime readiness", "linux", checks.toArray())
+}
+
+func doctorIosGroup(host: String, framework: String, liveChecks: Bool): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    if (host == "macos") {
+        checks.add(doctorProgramCheck("ios.xcode", "Xcode toolchain", "xcodebuild", ["-version"],
+            "Install or select Xcode with xcode-select."))
+        checks.add(doctorInvocationCheck("ios.sdk", "iPhoneOS SDK", "xcrun", ["--sdk", "iphoneos", "--show-sdk-path"],
+            "Install the iOS platform in Xcode."))
+    } else {
+        checks.add(doctorUnsupported("ios.xcode", "Xcode and iPhoneOS SDK",
+            "iOS builds require a macOS host with Xcode.", "Run cuic doctor ios on macOS.", "host=" + host))
+    }
+    let iosToolchain = "/Library/Frameworks/Cangjie/1.3.0-alpha-ios"
+    checks.add(doctorRequiredFile("ios.cangjie-compiler", "Cangjie iOS compiler", joinPath(iosToolchain, "bin/cjc"),
+        "Install the Cangjie iOS toolchain under /Library/Frameworks/Cangjie."))
+    checks.add(doctorRequiredDirectory("ios.runtime", "Cangjie iOS runtime", joinPath(iosToolchain, "runtime/lib/ios_aarch64_cjnative"),
+        "Install a Cangjie toolchain that includes ios_aarch64_cjnative runtime libraries."))
+    checks.add(doctorRequiredFile("ios.host-script", "CangHui iOS static-library build", joinPath(framework, "scripts/build-ios-host-staticlibs.sh"),
+        "Restore the CangHui iOS host build script."))
+    checks.add(doctorIosSigningCheck(host, liveChecks))
+    checks.add(doctorIosDeviceCheck(host, liveChecks))
+    checks.add(doctorBlocked("ios.package-bootstrap", "CangHui iOS application bootstrap",
+        "The host contracts cross-compile, but full CangHui package initialization and renderer return are not complete.",
+        DoctorActionKind.Manual, "Complete the official Cangjie static-package initialization path before device release testing.",
+        "platform/ios and scripts/build-ios-host-staticlibs.sh are contract/build surfaces"))
+    DoctorGroup("platform.ios", "iOS Xcode, SDK, signing, device, and Cangjie readiness", "ios", checks.toArray())
+}
+
+func doctorHarmonyGroup(framework: String, liveChecks: Bool): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    let deveco = "/Applications/DevTools/DevEco-Studio.app"
+    let sdk = joinPath(deveco, "Contents/sdk/default/openharmony")
+    let hvigor = joinPath(deveco, "Contents/tools/hvigor/bin/hvigorw")
+    let hdc = "/Library/Huawei/ohos/toolchains/hdc"
+    checks.add(doctorRequiredDirectory("harmony.deveco", "DevEco Studio", deveco,
+        "Install DevEco Studio and its OpenHarmony SDK."))
+    checks.add(doctorRequiredDirectory("harmony.sdk", "OpenHarmony SDK", sdk,
+        "Install an OpenHarmony SDK from DevEco Studio SDK Manager."))
+    checks.add(doctorRequiredFile("harmony.hvigor", "hvigor", hvigor,
+        "Install or repair the DevEco Studio hvigor toolchain."))
+    checks.add(doctorRequiredFile("harmony.hdc", "hdc", hdc,
+        "Install the OpenHarmony command-line toolchain."))
+    checks.add(doctorRequiredFile("harmony.native", "OpenHarmony native compiler",
+        joinPath(sdk, "native/llvm/bin/clang"),
+        "Install the OpenHarmony native/NDK component from SDK Manager."))
+    checks.add(doctorHarmonyDeviceCheck(hdc, liveChecks))
+    checks.add(doctorBlocked("harmony.adapter", "CangHui HarmonyOS application adapter",
+        "The mother framework does not ship an ArkTS/HAP host or application packaging project.",
+        DoctorActionKind.Manual, "Configure a HarmonyOS platform adapter that consumes the public CangHui contracts.",
+        "framework contract only"))
+    DoctorGroup("platform.harmonyos", "HarmonyOS/OpenHarmony SDK, native toolchain, and device readiness",
+        "harmonyos", checks.toArray())
+}
+
+func doctorAndroidGroup(): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    let sdkRoot = doctorAndroidSdkRoot()
+    checks.add(if (sdkRoot.isEmpty()) {
+        doctorDegraded("android.sdk", "Android SDK", "ANDROID_SDK_ROOT or ANDROID_HOME is not configured.",
+            DoctorActionKind.Manual, "Install Android Studio or the command-line SDK and set ANDROID_SDK_ROOT.", "")
+    } else {
+        doctorReady("android.sdk", "Android SDK", "An Android SDK root is configured.", sdkRoot)
+    })
+    let ndkRoot = doctorAndroidNdkRoot(sdkRoot)
+    checks.add(if (ndkRoot.isEmpty()) {
+        doctorDegraded("android.ndk", "Android NDK", "No Android NDK root was detected.",
+            DoctorActionKind.Manual, "Install the Android NDK and set ANDROID_NDK_ROOT.", "")
+    } else {
+        doctorReady("android.ndk", "Android NDK", "An Android NDK root is configured.", ndkRoot)
+    })
+    checks.add(doctorUnsupported("android.backend", "CangHui Android backend and package runner",
+        "The Android renderer backend, native bridge, package assembly, and runner are not implemented.",
+        "No automatic repair is available in this version.", "unsupported by current CangHui version"))
+    DoctorGroup("platform.android", "Android SDK, NDK, backend, and package readiness", "android", checks.toArray())
+}
+
+func doctorFontGroup(framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorRequiredFile("font.bundled", "Bundled HarmonyOS Sans", joinPath(framework, "assets/fonts/HarmonyOS_Sans_SC.ttf"),
+        "Restore the unmodified HarmonyOS Sans asset."))
+    checks.add(doctorRequiredFile("font.license", "HarmonyOS Sans license receipt", joinPath(framework, "assets/fonts/HARMONYOS_SANS_LICENSE.txt"),
+        "Restore the HarmonyOS Sans license file beside the font asset."))
+    let contract = joinPath(framework, "contracts/canghui-font-resolution-v0.json")
+    checks.add(if (exists(contract)) {
+        doctorReady("font.resolution", "Default and fallback resolution contract",
+            "The framework publishes the explicit/theme/bundled/system resolution contract.", contract)
+    } else {
+        doctorDegraded("font.resolution", "Default and fallback resolution contract",
+            "The bundled asset exists, but the complete renderer fallback contract is not present.",
+            DoctorActionKind.Manual, "Use a CangHui build that includes the renderer font-resolution contract.", contract)
+    })
+    DoctorGroup("font", "Bundled default font and license readiness", "all", checks.toArray())
+}
+
+func doctorSymbolGroup(framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    let core = joinPath(framework, "src/symbol/symbol.cj")
+    checks.add(if (exists(core)) {
+        doctorReady("symbol.core", "Provider-neutral Symbol core", "The Symbol call surface is available.", core)
+    } else {
+        doctorDegraded("symbol.core", "Provider-neutral Symbol core", "The Symbol call surface is not available yet.",
+            DoctorActionKind.Manual, "Use a CangHui build that includes Symbol core contracts.", core)
+    })
+    for ((id, title, path) in [
+        ("material", "Material provider", "packages/symbol-material/cjpm.toml"),
+        ("ant", "Ant Design provider", "packages/symbol-ant/cjpm.toml"),
+        ("acro", "Arco provider", "packages/symbol-arco/cjpm.toml")
+    ]) {
+        let full = joinPath(framework, path)
+        checks.add(if (exists(full)) {
+            doctorReady("symbol.provider." + id, title, "The optional provider package is available for on-demand import.", full)
+        } else {
+            doctorDegraded("symbol.provider." + id, title, "The optional provider package is not installed in this checkout.",
+                DoctorActionKind.Manual, "Add the optional provider package only when the application references that family.", full)
+        })
+    }
+    let generator = joinPath(framework, "tools/cuic/src/symbol.cj")
+    checks.add(if (exists(generator)) {
+        doctorReady("symbol.generator", "On-demand Symbol generator", "cuic can generate declared Symbol subsets.", generator)
+    } else {
+        doctorDegraded("symbol.generator", "On-demand Symbol generator", "cuic symbol generation is not available yet.",
+            DoctorActionKind.Manual, "Use a CangHui build that includes cuic symbol generation.", generator)
+    })
+    DoctorGroup("symbol", "Configured Symbol providers and generated assets", "all", checks.toArray())
+}
+
+func doctorProbeGroup(framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorRequiredFile("probe.schema", "cui.probe.v0 schema", joinPath(framework, "contracts/cui-probe-v0.schema.json"),
+        "Restore the public probe protocol schema."))
+    checks.add(doctorRequiredFile("probe.macro", "CuiProbe macro", joinPath(framework, "src/kmode/macros/link.cj"),
+        "Restore the explicit probe annotation macro."))
+    let gallery = joinPath(framework, "examples/component-gallery")
+    let kmodeCode = runKModeDiff(gallery, quiet: true)
+    checks.add(if (kmodeCode == 0) {
+        doctorReady("probe.kmode-registry", "kMode registry", "No duplicate kMode names were found in the local package graph.", gallery)
+    } else {
+        doctorBlocked("probe.kmode-registry", "kMode registry", "Duplicate kMode names were detected.",
+            DoctorActionKind.Manual, "Run cuic kmode diff component-gallery and rename duplicate endpoints.", gallery)
+    })
+    let probeCode = runProbeDiff(gallery, quiet: true)
+    checks.add(if (probeCode == 0) {
+        doctorReady("probe.registry", "Probe registry", "No duplicate probe names were found in the local package graph.", gallery)
+    } else {
+        doctorBlocked("probe.registry", "Probe registry", "Duplicate probe names were detected.",
+            DoctorActionKind.Manual, "Run cuic probe diff component-gallery and rename duplicate probes.", gallery)
+    })
+    DoctorGroup("probe", "kMode and probe registry health", "all", checks.toArray())
+}
+
+func doctorProgramCheck(id: String, label: String, program: String, args: Array<String>, suggestion: String): DoctorCheck {
+    let fact = doctorCommandFact(program, args)
+    if (fact.ok) {
+        doctorReady(id, label, "The command is available.", doctorProgramEvidence(program, fact.summary))
+    } else {
+        doctorBlocked(id, label, "The command is unavailable or returned an error.",
+            DoctorActionKind.Manual, suggestion, doctorProgramEvidence(program, fact.summary))
+    }
+}
+
+func doctorInvocationCheck(id: String, label: String, program: String, args: Array<String>, suggestion: String): DoctorCheck {
+    let fact = doctorCommandFact(program, args)
+    if (fact.ok) {
+        doctorReady(id, label, "The readiness probe completed successfully.", fact.summary)
+    } else {
+        doctorBlocked(id, label, "The readiness probe failed.", DoctorActionKind.Manual, suggestion, fact.summary)
+    }
+}
+
+func doctorRequiredFile(id: String, label: String, path: String, suggestion: String): DoctorCheck {
+    if (exists(path)) {
+        doctorReady(id, label, "The required file is present.", path)
+    } else {
+        doctorBlocked(id, label, "The required file is missing.", DoctorActionKind.Automatic, suggestion, path)
+    }
+}
+
+func doctorRequiredDirectory(id: String, label: String, path: String, suggestion: String): DoctorCheck {
+    if (exists(path)) {
+        doctorReady(id, label, "The required directory is present.", path)
+    } else {
+        doctorBlocked(id, label, "The required directory is missing.", DoctorActionKind.Manual, suggestion, path)
+    }
+}
+
+func doctorHostCheck(target: String, host: String): DoctorCheck {
+    if (target == host) {
+        doctorReady(target + ".host", "Native host", "The current host matches the requested platform.", host)
+    } else {
+        doctorUnsupported(target + ".host", "Native host", "Native runtime validation requires a " + target + " host.",
+            "Run cuic doctor " + target + " on a " + target + " host.", "host=" + host)
+    }
+}
+
+func doctorIosSigningCheck(host: String, liveCheck: Bool): DoctorCheck {
+    if (host != "macos") {
+        return doctorUnsupported("ios.signing", "Code signing identity", "Code signing checks require macOS.",
+            "Run cuic doctor ios on the signing host.", "host=" + host)
+    }
+    if (!liveCheck) {
+        return doctorDegraded("ios.signing", "Code signing identity",
+            "Signing identities are checked only for an explicitly requested iOS target.",
+            DoctorActionKind.Manual, "Run cuic doctor ios --verbose on the signing host.", "not queried")
+    }
+    let fact = doctorCommandFact("security", ["find-identity", "-v", "-p", "codesigning"])
+    if (fact.ok && !containsText(fact.summary, "0 valid identities found")) {
+        doctorReady("ios.signing", "Code signing identity", "At least one code signing identity is available.",
+            "one or more valid identities")
+    } else {
+        doctorBlocked("ios.signing", "Code signing identity", "No valid code signing identity is available.",
+            DoctorActionKind.Manual, "Configure Apple Development signing in Xcode before physical-device packaging.",
+            "no valid identity")
+    }
+}
+
+func doctorIosDeviceCheck(host: String, liveCheck: Bool): DoctorCheck {
+    if (host != "macos") {
+        return doctorUnsupported("ios.device", "iOS device visibility", "CoreDevice checks require macOS.",
+            "Run cuic doctor ios on the device host.", "host=" + host)
+    }
+    if (!liveCheck) {
+        return doctorDegraded("ios.device", "iOS device visibility",
+            "Device visibility is checked only for an explicitly requested iOS target.",
+            DoctorActionKind.Manual, "Run cuic doctor ios --verbose with the device connected.", "not queried")
+    }
+    let fact = doctorCommandFact("xcrun", ["devicectl", "list", "devices", "--timeout", "5"])
+    if (fact.ok && (containsText(fact.summary, "available (") || containsText(fact.summary, "connected"))) {
+        doctorReady("ios.device", "iOS device visibility", "At least one paired iOS/iPadOS device is visible.",
+            "one or more paired devices")
+    } else if (fact.ok) {
+        doctorDegraded("ios.device", "iOS device visibility", "The device query succeeded but no available device was detected.",
+            DoctorActionKind.Manual, "Connect, trust, and pair an iPhone or iPad, then rerun the doctor.",
+            "no available device")
+    } else {
+        doctorDegraded("ios.device", "iOS device visibility", "The CoreDevice query did not return a usable device list.",
+            DoctorActionKind.Manual, "Open Xcode Devices and Simulators, then rerun cuic doctor ios.", "query failed")
+    }
+}
+
+func doctorHarmonyDeviceCheck(hdc: String, liveCheck: Bool): DoctorCheck {
+    if (!exists(hdc)) {
+        return doctorBlocked("harmony.device", "HarmonyOS device visibility", "hdc is unavailable.",
+            DoctorActionKind.Manual, "Install the OpenHarmony command-line toolchain.", hdc)
+    }
+    if (!liveCheck) {
+        return doctorDegraded("harmony.device", "HarmonyOS device visibility",
+            "Device visibility is checked only for an explicitly requested HarmonyOS target.",
+            DoctorActionKind.Manual, "Run cuic doctor harmonyos --verbose with the device connected.", "not queried")
+    }
+    let fact = doctorCommandFact(hdc, ["list", "targets"])
+    if (fact.ok && !doctorCommandOutputIsEmpty(fact.summary)) {
+        doctorReady("harmony.device", "HarmonyOS device visibility", "At least one hdc target is visible.",
+            "one or more hdc targets")
+    } else {
+        doctorDegraded("harmony.device", "HarmonyOS device visibility", "No hdc target is currently visible.",
+            DoctorActionKind.Manual, "Connect or authorize a device and run hdc list targets.", "no visible target")
+    }
+}
+
+func doctorCommandFact(program: String, args: Array<String>): DoctorCommandFact {
+    try {
+        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args)
+        let stdout = trimAscii(String.fromUtf8(stdoutBytes))
+        let stderr = trimAscii(String.fromUtf8(stderrBytes))
+        let summary = if (!stdout.isEmpty()) { stdout } else { stderr }
+        DoctorCommandFact(code == 0, summary)
+    } catch (error: Exception) {
+        DoctorCommandFact(false, error.message)
+    }
+}
+
+func doctorProgramEvidence(program: String, summary: String): String {
+    let location = doctorProgramLocation(program)
+    let version = doctorFirstLine(summary)
+    if (location.isEmpty()) { return version }
+    if (version.isEmpty()) { return location }
+    location + " | " + version
+}
+
+func doctorProgramLocation(program: String): String {
+    let locator = if (hostPlatform() == "windows") { "where" } else { "which" }
+    let fact = doctorCommandFact(locator, [program])
+    if (fact.ok) { doctorFirstLine(fact.summary) } else { "" }
+}
+
+func doctorFirstLine(value: String): String {
+    let trimmed = trimAscii(value)
+    if (trimmed.isEmpty()) { return "" }
+    let lines = trimmed.split("\n")
+    trimAscii(lines[0])
+}
+
+func doctorCommandOutputIsEmpty(value: String): Bool {
+    let trimmed = trimAscii(value)
+    trimmed.isEmpty() || trimmed == "[Empty]"
+}
+
+func doctorHostArchitecture(): String {
+    if (hostPlatform() == "windows") {
+        match (getVariable("PROCESSOR_ARCHITECTURE")) {
+            case Some(value) => return trimAscii(value)
+            case None => return ""
+        }
+    }
+    let fact = doctorCommandFact("uname", ["-m"])
+    if (fact.ok) { doctorFirstLine(fact.summary) } else { "" }
+}
+
+func doctorAndroidSdkRoot(): String {
+    for (name in ["ANDROID_SDK_ROOT", "ANDROID_HOME"]) {
+        match (getVariable(name)) {
+            case Some(value) where !trimAscii(value).isEmpty() => return trimTrailingSlash(trimAscii(value))
+            case _ => ()
+        }
+    }
+    ""
+}
+
+func doctorAndroidNdkRoot(sdkRoot: String): String {
+    match (getVariable("ANDROID_NDK_ROOT")) {
+        case Some(value) where !trimAscii(value).isEmpty() => return trimTrailingSlash(trimAscii(value))
+        case _ => ()
+    }
+    if (sdkRoot.isEmpty()) { return "" }
+    let ndk = joinPath(sdkRoot, "ndk")
+    if (!exists(ndk)) { return "" }
+    try {
+        for (entry in Directory.readFrom(ndk)) {
+            if (entry.isDirectory()) { return entry.path.toString() }
+        }
+    } catch (_: Exception) {}
+    ""
+}
+
+func doctorReady(id: String, label: String, reason: String, evidence: String): DoctorCheck {
+    DoctorCheck(id, label, DoctorStatus.Ready, reason, DoctorActionKind.NoAction, "", evidence)
+}
+
+func doctorDegraded(id: String, label: String, reason: String, actionKind: DoctorActionKind,
+    suggestion: String, evidence: String): DoctorCheck {
+    DoctorCheck(id, label, DoctorStatus.Degraded, reason, actionKind, suggestion, evidence)
+}
+
+func doctorBlocked(id: String, label: String, reason: String, actionKind: DoctorActionKind,
+    suggestion: String, evidence: String): DoctorCheck {
+    DoctorCheck(id, label, DoctorStatus.Blocked, reason, actionKind, suggestion, evidence)
+}
+
+func doctorUnsupported(id: String, label: String, reason: String, suggestion: String, evidence: String): DoctorCheck {
+    DoctorCheck(id, label, DoctorStatus.Unsupported, reason, DoctorActionKind.Unsupported, suggestion, evidence)
+}
+
+func doctorStatusName(status: DoctorStatus): String {
+    match (status) {
+        case DoctorStatus.Ready => "ready"
+        case DoctorStatus.Degraded => "degraded"
+        case DoctorStatus.Blocked => "blocked"
+        case DoctorStatus.Unsupported => "unsupported"
+    }
+}
+
+func doctorActionKindName(kind: DoctorActionKind): String {
+    match (kind) {
+        case DoctorActionKind.NoAction => "none"
+        case DoctorActionKind.Automatic => "automatic"
+        case DoctorActionKind.Manual => "manual"
+        case DoctorActionKind.Unsupported => "unsupported"
+    }
+}
+
+func doctorStatusRank(status: DoctorStatus): Int64 {
+    match (status) {
+        case DoctorStatus.Ready => 0
+        case DoctorStatus.Degraded => 1
+        case DoctorStatus.Blocked => 2
+        case DoctorStatus.Unsupported => 3
+    }
+}
+
+func doctorStatusBlocks(status: DoctorStatus): Bool {
+    match (status) {
+        case DoctorStatus.Blocked => true
+        case DoctorStatus.Unsupported => true
+        case _ => false
+    }
+}
+
+func renderDoctorHuman(result: DoctorResult, verbose: Bool): Unit {
+    println("CangHui doctor (${CANGHUI_DOCTOR_SCHEMA})")
+    println("Host: ${result.host} ${result.architecture}")
+    println("Requested target: ${result.requestedTarget}")
+    for (group in result.groups) {
+        println("")
+        println("[${doctorStatusName(group.status())}] ${group.title} [${group.target}]")
+        for (check in group.checks) {
+            println("  [${doctorStatusName(check.status)}] ${check.label}: ${check.reason}")
+            if (!check.suggestion.isEmpty()) {
+                println("    fix(${doctorActionKindName(check.actionKind)}): ${check.suggestion}")
+            }
+            if (verbose && !check.evidence.isEmpty()) {
+                println("    evidence: ${doctorSafeEvidence(check.evidence)}")
+            }
+        }
+    }
+    println("")
+    println("Requested target ${result.requestedTarget}: ${doctorStatusName(result.requestedStatus())}; " +
+        "${result.requestedBlockers()} blocker(s)")
+}
+
+func renderDoctorJson(result: DoctorResult, verbose: Bool): String {
+    let out = StringBuilder()
+    out.append("{\"schema\":")
+    out.append(cuicJsonQuote(CANGHUI_DOCTOR_SCHEMA))
+    out.append(",\"cliVersion\":")
+    out.append(cuicJsonQuote(VERSION))
+    out.append(",\"host\":{\"platform\":")
+    out.append(cuicJsonQuote(result.host))
+    out.append(",\"architecture\":")
+    out.append(cuicJsonQuote(result.architecture))
+    out.append("},\"requestedTarget\":")
+    out.append(cuicJsonQuote(result.requestedTarget))
+    out.append(",\"status\":")
+    out.append(cuicJsonQuote(doctorStatusName(result.requestedStatus())))
+    out.append(",\"requestedBlockers\":")
+    out.append(result.requestedBlockers())
+    out.append(",\"exitCode\":")
+    out.append(result.exitCode())
+    out.append(",\"groups\":[")
+    var firstGroup = true
+    for (group in result.groups) {
+        if (!firstGroup) { out.append(",") }
+        firstGroup = false
+        out.append("{\"id\":")
+        out.append(cuicJsonQuote(group.id))
+        out.append(",\"title\":")
+        out.append(cuicJsonQuote(group.title))
+        out.append(",\"target\":")
+        out.append(cuicJsonQuote(group.target))
+        out.append(",\"status\":")
+        out.append(cuicJsonQuote(doctorStatusName(group.status())))
+        out.append(",\"checks\":[")
+        var firstCheck = true
+        for (check in group.checks) {
+            if (!firstCheck) { out.append(",") }
+            firstCheck = false
+            out.append("{\"id\":")
+            out.append(cuicJsonQuote(check.id))
+            out.append(",\"label\":")
+            out.append(cuicJsonQuote(check.label))
+            out.append(",\"status\":")
+            out.append(cuicJsonQuote(doctorStatusName(check.status)))
+            out.append(",\"reason\":")
+            out.append(cuicJsonQuote(check.reason))
+            out.append(",\"action\":{\"kind\":")
+            out.append(cuicJsonQuote(doctorActionKindName(check.actionKind)))
+            out.append(",\"suggestion\":")
+            out.append(cuicJsonQuote(check.suggestion))
+            out.append("},\"evidence\":")
+            out.append(cuicJsonQuote(if (verbose) { doctorSafeEvidence(check.evidence) } else { "" }))
+            out.append("}")
+        }
+        out.append("]}")
+    }
+    out.append("]}")
+    out.toString()
+}
+
+func doctorSafeEvidence(value: String): String {
+    var safe = value
+    for (name in ["TOKEN", "PASSWORD", "SECRET", "CREDENTIAL", "AUTHORIZATION"]) {
+        if (containsText(asciiUpperText(safe), name)) { return "redacted" }
+    }
+    safe
+}
+
+func asciiLowerText(value: String): String {
+    let out = StringBuilder()
+    for (r in value.toRuneArray()) { out.append(asciiLower(r).toString()) }
+    out.toString()
+}
+
+func asciiUpperText(value: String): String {
+    let lower = "abcdefghijklmnopqrstuvwxyz".toRuneArray()
+    let upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".toRuneArray()
+    let out = StringBuilder()
+    for (r in value.toRuneArray()) {
+        var mapped = r
+        var i: Int64 = 0
+        while (i < lower.size) {
+            if (lower[i] == r) { mapped = upper[i]; break }
+            i += 1
+        }
+        out.append(mapped.toString())
+    }
+    out.toString()
+}

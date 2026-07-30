@@ -108,6 +108,8 @@ Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染�
 ./tools/cuic/bin/cuic examples
 ```
 
+平台诊断的状态、退出码、隐私边界与 JSON 契约见 [`docs/doctor.md`](docs/doctor.md)。
+
 主题切换保留指针起点的圆形 reveal 与控件 InkWell；InkWell 从当前主题语义色派生，按控件圆角真实裁切，
 并允许点击热区与视觉反馈区分离。Checkbox、Switch、RadioButton 只在 indicator/track 内表达反馈，
 Slider 的任意轨道点击也会产生局部反馈。它们已接入按需渲染循环，通过连续帧请求在脏帧跳过模式下完成动画。

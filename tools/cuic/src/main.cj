@@ -43,8 +43,7 @@ func runCuic(args: Array<String>): Int64 {
         return listExamples(resolveFrameworkRoot(""))
     }
     if (command == "doctor") {
-        let platform = if (args.size > 2) { normalizePlatform(args[2]) } else { hostPlatform() }
-        return doctor(platform, resolveFrameworkRoot(""))
+        return doctorCommand(args, 2, resolveFrameworkRoot(""))
     }
     if (command == "bootstrap") {
         let platform = if (args.size > 2) { normalizePlatform(args[2]) } else { hostPlatform() }
@@ -106,7 +105,7 @@ func helpText(): String {
     "CangHui CLI\n\n" +
     "Usage:\n" +
     "  cuic init <directory> [--name <package>] [--platform <platform>] [--canghui-path <path>]\n" +
-    "  cuic doctor [platform]\n" +
+    "  cuic doctor [target] [--json] [--verbose]\n" +
     "  cuic bootstrap [platform]\n" +
     "  cuic font <status|install> [platform]\n" +
     "  cuic kmode diff [project]\n" +
@@ -393,55 +392,6 @@ func executeCommandQuiet(program: String, args: Array<String>, workingDirectory:
     }
 }
 
-func doctor(platform: String, framework: String): Int64 {
-    var failures: Int64 = 0
-    println("CangHui doctor")
-    println("  cli: ${VERSION}")
-    println("  cli root: ${cliRoot()}")
-    println("  framework: ${framework}")
-    println("  host: ${hostPlatform()}")
-    println("  target: ${platform}")
-    failures += doctorProgram("cjpm")
-    failures += doctorProgram("cjc")
-    doctorHarmonyFont(platform)
-    if (platform == "macos") {
-        failures += doctorProgram("brew")
-        failures += doctorInvocation("Homebrew sdl3 installed", "brew", ["--prefix", "sdl3"])
-        failures += doctorInvocation("Homebrew sdl3_ttf installed", "brew", ["--prefix", "sdl3_ttf"])
-    } else if (platform == "windows") {
-        failures += doctorFile("SDL3.dll bundled", joinPath(framework, "sdl/.sdl3/SDL3.dll"))
-        failures += doctorFile("SDL3_ttf.dll bundled", joinPath(framework, "sdl/.sdl3/SDL3_ttf.dll"))
-    } else if (platform == "linux") {
-        failures += doctorProgram("pkg-config")
-        failures += doctorInvocation("pkg-config sdl3 installed", "pkg-config", ["--exists", "sdl3"])
-        failures += doctorInvocation("pkg-config sdl3-ttf installed", "pkg-config", ["--exists", "sdl3-ttf"])
-    } else {
-        println("[fail] Android backend and packaging are not implemented")
-        failures += 1
-    }
-    if (platform != "android" && platform != hostPlatform()) {
-        println("[fail] native ${platform} host required")
-        failures += 1
-    }
-    if (failures > 0) {
-        println("doctor found ${failures} blocking check(s)")
-        return 1
-    }
-    println("doctor passed")
-    0
-}
-
-func doctorHarmonyFont(platform: String): Unit {
-    let installed = resolveInstalledHarmonyFont(platform)
-    if (installed.size > 0) {
-        println("[pass] HarmonyOS Sans SC installed at ${installed}")
-    } else if (exists(bundledHarmonyFont())) {
-        println("[info] HarmonyOS Sans SC is available to install with: cuic font install ${platform}")
-    } else {
-        println("[info] HarmonyOS Sans SC is not installed; CangHui will use its bundled fallback")
-    }
-}
-
 func resolveHarmonyFont(platform: String): String {
     let installed = resolveInstalledHarmonyFont(platform)
     if (installed.size > 0) { return installed }
@@ -523,25 +473,6 @@ func fontCommand(args: Array<String>, start: Int64): Int64 {
     println("HarmonyOS Sans SC installed: ${destination}")
     println("restart running CangHui applications to use the installed compatibility font")
     0
-}
-
-func doctorProgram(program: String): Int64 {
-    doctorInvocation("${program} available", program, ["--version"])
-}
-
-func doctorInvocation(label: String, program: String, args: Array<String>): Int64 {
-    try {
-        let (code, _, _) = executeWithOutput(program, args)
-        if (code == 0) { println("[pass] ${label}"); return 0 }
-    } catch (_: Exception) {}
-    println("[fail] ${label}")
-    1
-}
-
-func doctorFile(label: String, path: String): Int64 {
-    if (exists(path)) { println("[pass] ${label}"); return 0 }
-    println("[fail] ${label}")
-    1
 }
 
 func listExamples(framework: String): Int64 {
