@@ -15,6 +15,9 @@ printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"schema":"canghui.doctor.v0"'
 printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"requestedTarget":"macos"'
 printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"exitCode":0'
 "${ROOT_DIR}/bin/cuic" init "${FIXTURE_DIR}" --name canghui_cli_smoke --platform macos
+test -f "${FIXTURE_DIR}/assets/fonts/HarmonyOS_Sans_SC.ttf"
+test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_LICENSE.txt"
+test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_SOURCE.txt"
 "${ROOT_DIR}/bin/cuic" build macos "${FIXTURE_DIR}"
 "${ROOT_DIR}/bin/cuic" test macos "${FIXTURE_DIR}"
 "${ROOT_DIR}/bin/cuic" probe diff component-gallery

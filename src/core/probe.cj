@@ -808,6 +808,7 @@ private func renderProbeFrame(session: ComponentProbeSession, renderer: Renderer
     let _ = widget.handle(ctx, UiEvent.Frame(ctx.frame))
     renderer.clearDrawIr()
     session.beginDraw(elapsed)
+    ctx.syncThemeResources()
     renderer.beginScene(session.width, session.height, ctx.theme.bg)
     widget.draw(ctx)
     ctx.drawInkRipples()

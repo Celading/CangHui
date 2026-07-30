@@ -118,8 +118,9 @@ public class Label <: Widget {
     }
 
     /**
-     * Draws the text in a registered application font (see `Fonts.register`). An unknown name, or a
-     * font file that fails to load, falls back to the platform UI font.
+     * Draws the text in a registered application font (see `Fonts.register`). An unknown, unreadable,
+     * or glyph-incomplete face falls through Theme/application defaults, bundled HarmonyOS Sans, and
+     * finally the platform UI font.
      */
     public func fontFamily(name: String): Label {
         fontFace = Some(name)

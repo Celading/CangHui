@@ -389,6 +389,8 @@ func doctorFontGroup(framework: String): DoctorGroup {
         "Restore the unmodified HarmonyOS Sans asset."))
     checks.add(doctorRequiredFile("font.license", "HarmonyOS Sans license receipt", joinPath(framework, "assets/fonts/HARMONYOS_SANS_LICENSE.txt"),
         "Restore the HarmonyOS Sans license file beside the font asset."))
+    checks.add(doctorRequiredFile("font.source", "HarmonyOS Sans source notice", joinPath(framework, "assets/fonts/HARMONYOS_SANS_SOURCE.txt"),
+        "Restore the HarmonyOS Sans source notice beside the font asset."))
     let contract = joinPath(framework, "contracts/canghui-font-resolution-v0.json")
     checks.add(if (exists(contract)) {
         doctorReady("font.resolution", "Default and fallback resolution contract",

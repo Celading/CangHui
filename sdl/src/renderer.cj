@@ -130,6 +130,9 @@ public class Renderer {
     private var drawTextCount: UInt64 = 0
     private let metricsCache = TextMetricsCache(TEXT_METRICS_CAP_PER_SIZE)
     private let namedMetricsCaches = HashMap<String, TextMetricsCache>()
+    private let fontChains = HashMap<String, Array<FontResolution>>()
+    private var fontRegistryGeneration: UInt64 = 0
+    private var themeFontFamily: ?String = None
     private let recordsDrawIr: Bool
     private let drawIrLog = ArrayList<DrawIrCommand>()
     private let drawIrScopes = ArrayList<String>()
@@ -205,6 +208,38 @@ public class Renderer {
             ",\"name\":" + drawIrQuote(name) + "," + drawIrColor(color) +
             ",\"weight\":" + weight.toString() + ",\"filled\":" + filled.toString() +
             ",\"mirrored\":" + mirrored.toString())
+    }
+
+    /** Sets the Theme-level family used when a text call has no explicit family. */
+    public func setThemeFontFamily(family: ?String): Unit {
+        if (themeFontFamily != family) {
+            themeFontFamily = family
+            fontChains.clear()
+        }
+    }
+
+    /** Returns the first logical face in the current component/theme/bundled/system chain. */
+    public func fontResolution(font!: ?String = None<String>): FontResolution {
+        resolveFontChain(font)[0]
+    }
+
+    /** Reports the concrete fallback tier selected for one string on a live renderer. */
+    public func fontResolutionForText(
+        text: String,
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
+    ): FontResolution {
+        let resolutions = resolveFontChain(font)
+        match (textBackend) {
+            case Some(value) =>
+                let selected = value.resolvedPath(text, pointSize, style.ttfFlags(), fontPaths(resolutions))
+                for (resolution in resolutions) {
+                    if (!resolution.path.isEmpty() && resolution.path == selected) { return resolution }
+                }
+                resolutions[resolutions.size - 1]
+            case None => resolutions[0]
+        }
     }
 
     private func recordDrawIr(kind: String): Unit {
@@ -806,17 +841,21 @@ public class Renderer {
     ): Unit {
         drawTextCount += 1
         let requestedFont = match (font) { case Some(value) => value case None => "" }
+        let resolutions = resolveFontChain(font)
+        let resolved = resolutions[0]
+        let facePaths = fontPaths(resolutions)
         recordDrawIr("text", "\"text\":" + drawIrQuote(text) + ",\"x\":" + x.toString() +
             ",\"y\":" + y.toString() + ",\"pointSize\":" + pointSize.toString() +
             ",\"font\":" + drawIrQuote(requestedFont) + ",\"bold\":" + style.bold.toString() +
-            ",\"italic\":" + style.italic.toString() + "," + drawIrColor(color))
+            ",\"italic\":" + style.italic.toString() + ",\"resolvedFamily\":" +
+            drawIrQuote(resolved.family) + ",\"fontSource\":" + drawIrQuote(resolved.sourceName()) +
+            "," + drawIrColor(color))
         match (textBackend) {
             case Some(value) =>
                 let native = NativeTextColor(color.r, color.g, color.b, color.a)
                 let flags = style.ttfFlags()
-                let facePath = resolveFacePath(font)
                 if (scaleX == 1.0 && scaleY == 1.0) {
-                    value.draw(text, snapPixel(x, 1.0), snapPixel(y, 1.0), pointSize, flags, facePath, native)
+                    value.draw(text, snapPixel(x, 1.0), snapPixel(y, 1.0), pointSize, flags, facePaths, native)
                 } else {
                     let step: Float32 = if (ssEnabled) {
                         Float32(ssFactor)
@@ -827,7 +866,7 @@ public class Renderer {
                     let py = snapPixel(y * scaleY, step)
                     let _ = unsafe { SDL_SetRenderScale(ptr, 1.0, 1.0) }
                     applyClipForTextPass()
-                    value.draw(text, px, py, pointSize * scaleY, flags, facePath, native)
+                    value.draw(text, px, py, pointSize * scaleY, flags, facePaths, native)
                     let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
                     applyClip()
                 }
@@ -844,7 +883,7 @@ public class Renderer {
         style!: FontStyle = FontStyle.regular,
         font!: ?String = None<String>
     ): Float32 {
-        textMetrics(text, pointSize, style, resolveFacePath(font)).width
+        textMetrics(text, pointSize, style, resolveFontChain(font)).width
     }
 
     /**
@@ -855,7 +894,7 @@ public class Renderer {
         style!: FontStyle = FontStyle.regular,
         font!: ?String = None<String>
     ): Float32 {
-        textMetrics("国Ag", pointSize, style, resolveFacePath(font)).height
+        textMetrics("国Ag", pointSize, style, resolveFontChain(font)).height
     }
 
     /**
@@ -869,7 +908,7 @@ public class Renderer {
         style!: FontStyle = FontStyle.regular,
         font!: ?String = None<String>
     ): Unit {
-        let metrics = textMetrics(text, pointSize, style, resolveFacePath(font))
+        let metrics = textMetrics(text, pointSize, style, resolveFontChain(font))
         let tx = rect.centerX() - metrics.width / 2.0
         let ty = rect.centerY() - metrics.height / 2.0
         this.text(text, tx, ty, color, pointSize: pointSize, style: style, font: font)
@@ -913,45 +952,78 @@ public class Renderer {
         }
     }
 
-    private func resolveFacePath(font: ?String): String {
-        match (font) {
-            case None => ""
-            case Some(name) => match (Fonts.pathFor(name)) {
-                case Some(path) => path
-                case None => ""
-            }
+    private func resolveFontChain(font: ?String): Array<FontResolution> {
+        let generation = Fonts.generation()
+        if (generation != fontRegistryGeneration) {
+            fontRegistryGeneration = generation
+            fontChains.clear()
+            namedMetricsCaches.clear()
+        }
+        let explicit = match (font) { case Some(value) => value case None => "" }
+        let themed = match (themeFontFamily) { case Some(value) => value case None => "" }
+        let key = explicit + "\n" + themed
+        match (fontChains.get(key)) {
+            case Some(chain) => chain
+            case None =>
+                let chain = Fonts.resolutionChain(explicitFamily: font, themeFamily: themeFontFamily)
+                fontChains[key] = chain
+                chain
         }
     }
 
-    private func metricsCacheFor(facePath: String): TextMetricsCache {
-        if (facePath.isEmpty()) {
+    private func fontPaths(resolutions: Array<FontResolution>): Array<String> {
+        let out = ArrayList<String>()
+        for (resolution in resolutions) { out.add(resolution.path) }
+        out.toArray()
+    }
+
+    private func fontChainKey(resolutions: Array<FontResolution>): String {
+        let out = StringBuilder()
+        var first = true
+        for (resolution in resolutions) {
+            if (!first) { out.append("\n") }
+            first = false
+            out.append(resolution.path)
+        }
+        out.toString()
+    }
+
+    private func metricsCacheFor(chainKey: String): TextMetricsCache {
+        if (chainKey.isEmpty()) {
             return metricsCache
         }
-        match (namedMetricsCaches.get(facePath)) {
+        match (namedMetricsCaches.get(chainKey)) {
             case Some(cache) => cache
             case None =>
                 let cache = TextMetricsCache(TEXT_METRICS_CAP_PER_SIZE)
-                namedMetricsCaches[facePath] = cache
+                namedMetricsCaches[chainKey] = cache
                 cache
         }
     }
 
-    private func textMetrics(text: String, pointSize: Float32, style: FontStyle, facePath: String): NativeTextMetrics {
+    private func textMetrics(
+        text: String,
+        pointSize: Float32,
+        style: FontStyle,
+        resolutions: Array<FontResolution>
+    ): NativeTextMetrics {
         measureCount += 1
         let flags = style.ttfFlags()
+        let facePaths = fontPaths(resolutions)
+        let chainKey = fontChainKey(resolutions)
         // Cache the unscaled path only — all layout-time measurement and unscaled draw. The scaled
         // text-pass path (scaleX/scaleY != 1) is rare and recomputed. The cache sits above the
         // backend/estimate split, so it serves both the real font backend (skipping SDL_ttf) and the
         // headless estimate, and `computeCount` tracks the misses in either mode.
         if (scaleX == 1.0 && scaleY == 1.0) {
             let sizeKey = Int64(pointSize * Float32(256.0)) * 16 + Int64(flags)
-            let cache = metricsCacheFor(facePath)
+            let cache = metricsCacheFor(chainKey)
             match (cache.get(sizeKey, text)) {
                 case Some(cached) => return cached
                 case None => ()
             }
             computeCount += 1
-            let computed = computeMetrics(text, pointSize, style, facePath)
+            let computed = computeMetrics(text, pointSize, style, facePaths)
             cache.put(sizeKey, text, computed)
             return computed
         }
@@ -961,16 +1033,21 @@ public class Renderer {
                 // Measure the same scaled rasterization the text pass draws, mapped back to
                 // logical units — carets, selection bands and ellipsis decisions computed
                 // from these metrics then line up with the pixels actually painted.
-                let scaled = value.measure(text, pointSize * scaleY, flags, facePath)
+                let scaled = value.measure(text, pointSize * scaleY, flags, facePaths)
                 NativeTextMetrics(scaled.width / scaleX, scaled.height / scaleY)
             case None => headlessMetrics(text, pointSize, style)
         }
     }
 
     // The uncached measurement: the real font backend, or a proportional estimate when headless.
-    private func computeMetrics(text: String, pointSize: Float32, style: FontStyle, facePath: String): NativeTextMetrics {
+    private func computeMetrics(
+        text: String,
+        pointSize: Float32,
+        style: FontStyle,
+        facePaths: Array<String>
+    ): NativeTextMetrics {
         match (textBackend) {
-            case Some(value) => value.measure(text, pointSize, style.ttfFlags(), facePath)
+            case Some(value) => value.measure(text, pointSize, style.ttfFlags(), facePaths)
             case None => headlessMetrics(text, pointSize, style)
         }
     }

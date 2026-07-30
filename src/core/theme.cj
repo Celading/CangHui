@@ -31,6 +31,7 @@ public struct Theme {
     public let controlRadius: Float32
     public let borderWidth: Float32
     public let motionLevel: MotionLevel
+    public let fontFamily: ?String
 
     public init(
         bg!: Color,
@@ -50,7 +51,8 @@ public struct Theme {
         smallRadius!: Float32 = 7.0,
         controlRadius!: Float32 = 9.0,
         borderWidth!: Float32 = 1.0,
-        motionLevel!: MotionLevel = MotionLevel.Standard
+        motionLevel!: MotionLevel = MotionLevel.Standard,
+        fontFamily!: ?String = None<String>
     ) {
         this.bg = bg
         this.panel = panel
@@ -70,6 +72,7 @@ public struct Theme {
         this.controlRadius = controlRadius
         this.borderWidth = borderWidth
         this.motionLevel = motionLevel
+        this.fontFamily = fontFamily
     }
 
     public static func light(motionLevel!: MotionLevel = MotionLevel.Standard): Theme {
@@ -91,6 +94,31 @@ public struct Theme {
             smallRadius: 8.0,
             controlRadius: 10.0,
             motionLevel: motionLevel
+        )
+    }
+
+    /** Returns the same visual and motion tokens with a registered default font family. */
+    public func withFontFamily(value: ?String): Theme {
+        Theme(
+            bg: bg,
+            panel: panel,
+            panelEdge: panelEdge,
+            text: text,
+            mutedText: mutedText,
+            accent: accent,
+            accentText: accentText,
+            danger: danger,
+            field: field,
+            fieldActive: fieldActive,
+            panelRaised: panelRaised,
+            accentSoft: accentSoft,
+            shadow: shadow,
+            radius: radius,
+            smallRadius: smallRadius,
+            controlRadius: controlRadius,
+            borderWidth: borderWidth,
+            motionLevel: motionLevel,
+            fontFamily: value
         )
     }
 
@@ -136,7 +164,8 @@ public struct Theme {
             smallRadius: smallRadius,
             controlRadius: controlRadius,
             borderWidth: borderWidth,
-            motionLevel: value
+            motionLevel: value,
+            fontFamily: fontFamily
         )
     }
 
@@ -161,7 +190,8 @@ public struct Theme {
             smallRadius: smallRadius + (other.smallRadius - smallRadius) * k,
             controlRadius: controlRadius + (other.controlRadius - controlRadius) * k,
             borderWidth: borderWidth + (other.borderWidth - borderWidth) * k,
-            motionLevel: if (k < 0.5) { motionLevel } else { other.motionLevel }
+            motionLevel: if (k < 0.5) { motionLevel } else { other.motionLevel },
+            fontFamily: if (k < 0.5) { fontFamily } else { other.fontFamily }
         )
     }
 

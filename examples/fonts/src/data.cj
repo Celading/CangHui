@@ -6,7 +6,7 @@
  */
 package cui_fonts
 
-// 一种要加载的字体：显示名、注册名（None 表示系统默认字体，不走 fontFamily）、跨平台字体文件候选。
+// 一种要加载的字体：显示名、注册名（None 表示 CangHui 默认链，不走 fontFamily）、跨平台字体文件候选。
 struct TypeFace {
     let label: String
     let family: ?String
@@ -19,10 +19,10 @@ struct TypeFace {
     }
 }
 
-// 本示例尝试加载的字体：系统默认（对照）+ 一款衬线 + 一款等宽，均从本地已安装的字体文件加载。
-// 候选覆盖 Windows/macOS/Linux 常见路径，取第一个存在者；找不到则回退系统字体。
+// 本示例尝试加载的字体：CangHui 默认（随包 HarmonyOS Sans）+ 一款衬线 + 一款等宽。
+// 候选覆盖 Windows/macOS/Linux 常见路径，取第一个存在者；找不到或缺字则走默认回退链。
 let TYPEFACES: Array<TypeFace> = [
-    TypeFace("系统默认 System", None, []),
+    TypeFace("CangHui 默认", None, []),
     TypeFace(
         "衬线 Serif",
         "demo-serif",
@@ -65,7 +65,7 @@ func firstExisting(candidates: Array<String>, exists: (String) -> Bool): ?String
     None
 }
 
-// 选中下标对应的字体注册名（越界或系统默认项返回 None，即不套用 fontFamily）。
+// 选中下标对应的字体注册名（越界或默认项返回 None，即不套用 fontFamily）。
 func faceName(faces: Array<TypeFace>, index: Int64): ?String {
     if (index < 0 || index >= faces.size) {
         return None

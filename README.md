@@ -109,6 +109,8 @@ Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染�
 ```
 
 平台诊断的状态、退出码、隐私边界与 JSON 契约见 [`docs/doctor.md`](docs/doctor.md)。
+字体默认使用随包 HarmonyOS Sans，并支持组件、Theme 与应用级字体覆盖；解析与打包规则见
+[`docs/fonts.md`](docs/fonts.md)。
 
 主题切换保留指针起点的圆形 reveal 与控件 InkWell；InkWell 从当前主题语义色派生，按控件圆角真实裁切，
 并允许点击热区与视觉反馈区分离。Checkbox、Switch、RadioButton 只在 indicator/track 内表达反馈，

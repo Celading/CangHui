@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260730.3",
+  "matrixVersion": "CangHui.20260730.4",
   "project": "CangHui",
   "version": "0.9.2",
   "surfaceTier": "mother-framework-incubating",
@@ -14,7 +14,8 @@
     "proofs/20260726-cangjiegui-motion-system-and-gallery-v0.json",
     "proofs/20260726-cangjiegui-interaction-details-v0.json",
     "proofs/20260730-canghui-probe-v0.json",
-    "proofs/20260730-canghui-doctor-v0.json"
+    "proofs/20260730-canghui-doctor-v0.json",
+    "proofs/20260730-canghui-font-resolution-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -26,6 +27,7 @@
       "upstream 0.9.2 declarative controls, layout, animation, typography and example surface",
       "debug and supervised kMode registry, protocol and headless stdio host",
       "optional transparent channel module boundary without bundled credentials",
+      "bundled HarmonyOS Sans default, Theme/application overrides, and glyph fallback",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts"
     ],
     "doesNotOwn": [
@@ -141,6 +143,21 @@
         "tools/cuic/src/doctor_test.cj",
         "contracts/canghui-doctor-v0.schema.json",
         "docs/doctor.md"
+      ]
+    },
+    {
+      "id": "font-resolution-and-packaging",
+      "version": "canghui.font-resolution.v0",
+      "state": "source-test-cli-renderer-snapshot-proven; non-macos-native-packaging-remains-platform-specific",
+      "codeRefs": [
+        "assets/fonts",
+        "sdl/src/font_registry.cj",
+        "sdl/src/text/native_text.cj",
+        "sdl/src/renderer.cj",
+        "src/core/theme.cj",
+        "contracts/canghui-font-resolution-v0.json",
+        "docs/fonts.md",
+        "examples/fonts"
       ]
     },
     {

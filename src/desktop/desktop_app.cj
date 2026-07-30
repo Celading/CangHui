@@ -351,6 +351,7 @@ public class DesktopApp {
     // records them.
     private func draw(widget: Widget): (UInt64, UInt64, UInt64, UInt64) {
         let t0 = FrameProfiler.now()
+        ctx.syncThemeResources()
         ctx.renderer.beginScene(Float32(window.width), Float32(window.height), ctx.theme.bg)
         let t1 = FrameProfiler.now()
         let width = Float32(window.width)
@@ -391,18 +392,21 @@ public class DesktopApp {
                     height,
                     { =>
                         ctx.theme = transition.sourceTheme()
+                        ctx.syncThemeResources()
                         clearDrawRegistrations()
                         widget.draw(ctx)
                         ctx.drawActiveOverlay()
                     },
                     { =>
                         ctx.theme = transition.targetTheme()
+                        ctx.syncThemeResources()
                         clearDrawRegistrations()
                         widget.draw(ctx)
                         ctx.drawActiveOverlay()
                     }
                 )
                 ctx.theme = transition.sourceTheme()
+                ctx.syncThemeResources()
                 transition.draw(ctx.renderer, width, height)
                 ctx.drawInkRipples()
                 if (ready && transition.isComplete()) {

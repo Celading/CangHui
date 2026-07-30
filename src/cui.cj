@@ -17,6 +17,10 @@ public import sdl.DrawIrCommand
 public import sdl.FontSizes
 public import sdl.FontStyle
 public import sdl.Fonts
+public import sdl.FontResolution
+public import sdl.FontResolutionSource
+public import sdl.CANGHUI_DEFAULT_FONT_FAMILY
+public import sdl.fontResolutionSourceName
 public import sdl.FrameInfo
 public import sdl.IconName
 public import sdl.ImageFileFormat

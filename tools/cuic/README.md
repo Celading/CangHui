@@ -118,8 +118,9 @@ requested target. See [`docs/doctor.md`](../../docs/doctor.md) for status, JSON 
 
 ## Fonts
 
-CangHui owns the unmodified HarmonyOS Sans asset and license. `font install` remains an optional compatibility
-command; normal rendering uses the framework-owned bundled fallback without requiring host installation.
+CangHui owns the unmodified HarmonyOS Sans asset and license. `cuic init` copies both files into generated
+applications, and supervised build/run commands expose the framework-owned asset to the renderer. `font install`
+remains an optional compatibility command; normal rendering does not require host installation.
 
 Recommended macOS installation:
 
@@ -131,6 +132,9 @@ Recommended macOS installation:
 
 `install` copies the framework-owned font to `~/Library/Fonts/HarmonyOS_Sans_SC.ttf`. Restart running CangHui
 applications after installation. Users may instead open the TTF with Font Book or copy it into `~/Library/Fonts/`.
+
+Component, Theme, application, bundled, and system fallback behavior is documented in
+[`docs/fonts.md`](../../docs/fonts.md).
 
 The CLI-owned font is distributed unmodified under the
 [HarmonyOS Sans Fonts License Agreement](../../assets/fonts/HARMONYOS_SANS_LICENSE.txt). Its upstream package source is:

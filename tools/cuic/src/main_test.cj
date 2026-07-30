@@ -35,6 +35,11 @@ func harmonyFontCandidatesPreferInstalledMacFont(): Unit {
 }
 
 @Test
+func bundledHarmonyFontIsTheDefaultCliResolution(): Unit {
+    @Expect(resolveHarmonyFont("macos"), bundledHarmonyFont())
+}
+
+@Test
 func kModeLinkScannerAcceptsOnlyCanonicalSingleLineForm(): Unit {
     @Expect(extractKModeLinkEndpoint("@KModeLink[\"app.echo\"]") ?? "", "app.echo")
     @Expect(extractKModeLinkEndpoint("  @KModeLink[\"app.version\"]  ") ?? "", "app.version")

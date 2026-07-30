@@ -88,6 +88,12 @@ public class UiContext {
     public init(renderer: Renderer, theme: Theme) {
         this.renderer = renderer
         this.theme = theme
+        renderer.setThemeFontFamily(theme.fontFamily)
+    }
+
+    /** Applies Theme-owned renderer resources before a draw pass. */
+    protected func syncThemeResources(): Unit {
+        renderer.setThemeFontFamily(theme.fontFamily)
     }
 
     /** Converts a unit-carrying length into logical (virtual) pixels. */

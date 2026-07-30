@@ -9,6 +9,8 @@ foreign {
 
     func TTF_GetFontFamilyName(font: CPointer<Unit>): CString
 
+    func TTF_FontHasGlyph(font: CPointer<Unit>, codepoint: UInt32): Bool
+
     func TTF_GetStringSize(
         font: CPointer<Unit>,
         text: CString,

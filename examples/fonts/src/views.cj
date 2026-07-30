@@ -1,7 +1,7 @@
 /*
  * 字体加载视图层：标题 + 字体样本册（每种字体以自身渲染同一样张 + 文件路径）+ 字体选择器 + 大样张。
  *
- * 样本册固定并列展示系统默认、衬线、等宽三种字体；选择器切换大样张所用字体，Chip 叠加粗体。
+ * 样本册固定并列展示 CangHui 默认、衬线、等宽三种字体；选择器切换大样张所用字体，Chip 叠加粗体。
  * 字体状态（文件路径 / 回退提示）读全局 `Fonts` 注册表现算。
  */
 package cui_fonts
@@ -22,7 +22,7 @@ func fontsView(model: FontsModel): Unit {
 private func header(): Unit {
     VStack {
         Label("字体加载").fontSize(FontSizes.TITLE).bold()
-        Label("Fonts.register 从本地字体文件加载，Label.fontFamily 套用；找不到文件自动回退系统字体").muted()
+        Label("默认使用随包 HarmonyOS Sans；自定义字体找不到文件或缺字时自动进入回退链").muted()
             .fontSize(FontSizes.CAPTION)
     }.spacing(4.vp).crossAxisAlignment(CrossAxisAlignment.Start).hug()
 }
@@ -57,7 +57,7 @@ private func specimenPanel(model: FontsModel): Unit {
             }.spacing(10.vp).crossAxisAlignment(CrossAxisAlignment.Center).hug()
             Divider()
             fontSpecimen(SPECIMEN, FontSizes.TITLE, model.currentFace(), model.bold.value, wrap: true)
-            Label("提示：等宽字体下数字与字母等宽对齐，衬线字体带衬脚。Georgia/Consolas 等拉丁字体不含 CJK，中文仍用系统字体。")
+            Label("提示：等宽字体下数字与字母等宽对齐，衬线字体带衬脚。拉丁字体缺少 CJK 时，整段文字会回退到随包 HarmonyOS Sans。")
                 .muted().fontSize(FontSizes.CAPTION).wrap()
         }.spacing(12.vp).crossAxisAlignment(CrossAxisAlignment.Start).hug()
     }.contentPadding(16.vp)
@@ -79,13 +79,16 @@ private func fontSpecimen(text: String, size: Float32, family: ?String, bold: Bo
     }
 }
 
-// 字体的加载状态：系统字体、已加载的文件路径，或未找到时的回退提示。
+// 字体的加载状态：随包默认、已加载的文件路径，或未找到时的回退提示。
 private func faceStatus(face: TypeFace): String {
     match (face.family) {
-        case None => "系统 UI 字体"
+        case None => match (Fonts.bundledFallbackPath()) {
+            case Some(_) => "随包 HarmonyOS Sans · 已就绪"
+            case None => "随包字体不可用，已回退系统 UI"
+        }
         case Some(name) => match (Fonts.pathFor(name)) {
-            case Some(path) => path
-            case None => "未找到字体文件，已回退系统字体"
+            case Some(_) => "${face.label} · 已注册"
+            case None => "未找到字体文件，已回退 CangHui 默认字体"
         }
     }
 }

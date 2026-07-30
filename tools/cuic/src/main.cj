@@ -330,8 +330,9 @@ func runCjpm(action: String, platform: String, project: String): Int64 {
 
 func executeCjpm(project: String, cjpmArgs: Array<String>, framework: String): Int64 {
     let sdl = joinPath(framework, "sdl/.sdl3")
+    let font = runtimeHarmonyFont(framework)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, cjpmArgs)
+        let command = windowsCjpmCommand(sdl, font, cjpmArgs)
         return executeCommand("cmd", ["/D", "/C", command], project)
     }
     let args = ArrayList<String>()
@@ -340,6 +341,7 @@ func executeCjpm(project: String, cjpmArgs: Array<String>, framework: String): I
     } else {
         args.add("LD_LIBRARY_PATH=${sdl}:${readEnv("LD_LIBRARY_PATH")}")
     }
+    args.add("CANGHUI_HARMONYOS_SANS=${font}")
     args.add("cjpm")
     for (arg in cjpmArgs) { args.add(arg) }
     executeCommand("/usr/bin/env", args.toArray(), project)
@@ -347,8 +349,9 @@ func executeCjpm(project: String, cjpmArgs: Array<String>, framework: String): I
 
 func executeCjpmQuiet(project: String, cjpmArgs: Array<String>, framework: String): Int64 {
     let sdl = joinPath(framework, "sdl/.sdl3")
+    let font = runtimeHarmonyFont(framework)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, cjpmArgs)
+        let command = windowsCjpmCommand(sdl, font, cjpmArgs)
         return executeCommandQuiet("cmd", ["/D", "/C", command], project)
     }
     let args = ArrayList<String>()
@@ -357,6 +360,7 @@ func executeCjpmQuiet(project: String, cjpmArgs: Array<String>, framework: Strin
     } else {
         args.add("LD_LIBRARY_PATH=${sdl}:${readEnv("LD_LIBRARY_PATH")}")
     }
+    args.add("CANGHUI_HARMONYOS_SANS=${font}")
     args.add("cjpm")
     for (arg in cjpmArgs) { args.add(arg) }
     executeCommandQuiet("/usr/bin/env", args.toArray(), project)
@@ -393,10 +397,10 @@ func executeCommandQuiet(program: String, args: Array<String>, workingDirectory:
 }
 
 func resolveHarmonyFont(platform: String): String {
-    let installed = resolveInstalledHarmonyFont(platform)
-    if (installed.size > 0) { return installed }
     let bundled = bundledHarmonyFont()
     if (exists(bundled)) { return bundled }
+    let installed = resolveInstalledHarmonyFont(platform)
+    if (installed.size > 0) { return installed }
     ""
 }
 
@@ -438,19 +442,18 @@ func fontCommand(args: Array<String>, start: Int64): Int64 {
     let action = if (start < args.size) { args[start] } else { "status" }
     let platform = if (start + 1 < args.size) { normalizePlatform(args[start + 1]) } else { hostPlatform() }
     if (action == "status") {
+        let source = bundledHarmonyFont()
+        requireFile(source, "HarmonyOS Sans SC source is missing from CangHui")
+        println("HarmonyOS Sans SC bundled fallback: ${source}")
         let installed = resolveInstalledHarmonyFont(platform)
         if (installed.size > 0) {
-            println("HarmonyOS Sans SC installed: ${installed}")
-            return 0
-        }
-        let source = bundledHarmonyFont()
-        if (exists(source)) {
-            println("HarmonyOS Sans SC is not installed")
+            println("optional host installation: ${installed}")
+        } else {
+            println("optional host installation: not installed")
             println("install with: cuic font install ${platform}")
-            println("source: ${source}")
-            return 1
         }
-        throw CuicError("HarmonyOS Sans SC source is missing from CangHui")
+        println("default resolution: component -> theme/application -> bundled -> system")
+        return 0
     }
     if (action != "install") { throw CuicError("font action must be 'status' or 'install'") }
     if (platform != hostPlatform()) {
@@ -517,6 +520,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         Directory.create(directory, recursive: true)
     }
     Directory.create(joinPath(directory, "src"), recursive: true)
+    installProjectFontAssets(directory, framework)
     if (packageName.size == 0) { packageName = sanitizePackageName(basename(directory)) }
     let manifest = "[package]\n" +
         "cjc-version = \"1.0.5\"\n" +
@@ -614,11 +618,27 @@ func programAvailable(program: String): Bool {
     } catch (_: Exception) { false }
 }
 
-func windowsCjpmCommand(sdl: String, args: Array<String>): String {
+func windowsCjpmCommand(sdl: String, font: String, args: Array<String>): String {
     let out = StringBuilder()
-    out.append("set \"PATH=${sdl};%PATH%\" && cjpm")
+    out.append("set \"PATH=${sdl};%PATH%\" && set \"CANGHUI_HARMONYOS_SANS=${font}\" && cjpm")
     for (arg in args) { out.append(" \"${arg}\"") }
     out.toString()
+}
+
+func runtimeHarmonyFont(framework: String): String {
+    let configured = readEnv("CANGHUI_HARMONYOS_SANS")
+    if (!configured.isEmpty()) { return configured }
+    joinPath(framework, "assets/fonts/HarmonyOS_Sans_SC.ttf")
+}
+
+func installProjectFontAssets(project: String, framework: String): Unit {
+    let destination = joinPath(project, "assets/fonts")
+    Directory.create(destination, recursive: true)
+    for (name in ["HarmonyOS_Sans_SC.ttf", "HARMONYOS_SANS_LICENSE.txt", "HARMONYOS_SANS_SOURCE.txt"]) {
+        let source = joinPath(framework, "assets/fonts/${name}")
+        requireFile(source, "CangHui font asset is missing: ${source}")
+        File.writeTo(joinPath(destination, name), File.readFrom(source))
+    }
 }
 
 func requireFile(path: String, message: String): Unit {
