@@ -10,6 +10,7 @@
 - [示例应用](examples/)
 - [入门指南](docs/guide/index.md)
 - [API 文档](docs/api/index.md)
+- [Symbol 与可选图标 Provider](docs/symbols.md)
 
 ## 开发环境
 
@@ -82,6 +83,8 @@ main() {
 - 提供设计令牌尺度：间距 `Spacing`、圆角 `Radii`、动效 `Motion`，以及主题相邻的 `MotionLevel.Basic / Standard / Full`；它们与颜色 `Theme`、字号 `FontSizes`、
   高度 `Shadow.elevation` 一起构成一致的设计系统。
 - 提供文件对话框、消息框、剪贴板、光标、显示器、文件系统、时间、系统信息等平台能力接口。
+- 提供 provider-neutral `Symbol`，内建图标保持 `Icon`/`IconButton` 兼容；Material、Ant Design 与 Arco
+  作为独立可选包接入，`cuic symbol generate` 生成应用声明的注册子集。
 - 已实现图元缓存、惰性渲染、脏帧检测/按需刷新等性能优化机制。
 
 扩展阅读：[现代 GUI 核心范式洞察辨析：函数式/对象式，立即模式/保留模式](docs/modern-GUI-insights-and-analysis.md)
@@ -111,11 +114,12 @@ Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染�
 平台诊断的状态、退出码、隐私边界与 JSON 契约见 [`docs/doctor.md`](docs/doctor.md)。
 字体默认使用随包 HarmonyOS Sans，并支持组件、Theme 与应用级字体覆盖；解析与打包规则见
 [`docs/fonts.md`](docs/fonts.md)。
+Symbol provider、缺失/variant 回退与按需生成契约见 [`docs/symbols.md`](docs/symbols.md)。
 
 主题切换保留指针起点的圆形 reveal 与控件 InkWell；InkWell 从当前主题语义色派生，按控件圆角真实裁切，
 并允许点击热区与视觉反馈区分离。Checkbox、Switch、RadioButton 只在 indicator/track 内表达反馈，
 Slider 的任意轨道点击也会产生局部反馈。它们已接入按需渲染循环，通过连续帧请求在脏帧跳过模式下完成动画。
-Component Gallery 按 Actions、Selection、Navigation、Feedback 四类展示具名组件与 `cui.*` API，
+Component Gallery 按 Actions、Selection、Navigation、Feedback、Symbols 五类展示具名组件与 `cui.*` API，
 并可直接切换 Basic、Standard、Full 动效力度。Button 与 IconButton 共用 hover、press、InkWell、
 移出取消和 release-inside 激活语义；Chip、Breadcrumb、Pagination、Rating、Picker 与 Stepper 也遵守
 同一提交门。Stepper/Picker 使用方向文字切换，Rating 区分已选与 hover 预览，Breadcrumb 支持可回退和

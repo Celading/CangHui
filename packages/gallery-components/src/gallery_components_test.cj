@@ -1,6 +1,6 @@
 package canghui_gallery_components
 
-import cui.{ComponentCompatibility, HostPlatform, HostProfile}
+import cui.{ComponentCompatibility, HostPlatform, HostProfile, Symbols}
 
 @Test
 func galleryPackageIsPlatformNeutral(): Unit {
@@ -23,4 +23,15 @@ func gallerySurfaceStateCanBeOwnedByAnyHost(): Unit {
     @Expect(state.notificationsEnabled.value, false)
     @Expect(state.rating.value, 5)
     @Expect(state.page.value, 4)
+}
+
+@Test
+func gallerySymbolRegistryContainsOnlyItsDeclaredProviderSubset(): Unit {
+    registerCangHuiSymbols()
+    @Expect(Symbols.descriptors("material").size, 1)
+    @Expect(Symbols.descriptors("ant").size, 1)
+    @Expect(Symbols.descriptors("arco").size, 1)
+    @Expect(Symbols.resolve(material_add).resolved.qualified(), "material.add")
+    @Expect(Symbols.resolve(ant_check).resolved.qualified(), "ant.check")
+    @Expect(Symbols.resolve(arco_right).resolved.qualified(), "arco.right")
 }

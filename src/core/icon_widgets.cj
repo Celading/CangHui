@@ -1,23 +1,108 @@
 package cui.core
 
-import sdl.{Color, FontSizes, IconName, Key, Rect, Size, SurfaceStyle, UiEvent, drawIcon}
+import sdl.{Color, FontSizes, IconName, Key, Rect, Size, SurfaceStyle, UiEvent}
+import cui.symbol.{SymbolDirection, SymbolMissingPolicy, SymbolName, SymbolVariant, drawSymbol, symbolNameForIcon}
 
 private let ICON_DEFAULT_SIZE: Float32 = 18.0
 private let ICON_BUTTON_PAD: Float32 = 10.0
 private let ICON_TEXT_GAP: Float32 = 8.0
+
+/** Provider-neutral vector symbol with deterministic fallback and Draw IR reporting. */
+public class Symbol <: Widget {
+    private let symbolName: SymbolName
+    private var symbolExtent: Length
+    private var symbolColorOverride: ?Color
+    private var symbolWeight: Float32
+    private var symbolVariant: SymbolVariant
+    private var symbolDirection: SymbolDirection
+    private var mirrorSymbol: Bool
+    private var a11yLabel: String
+    private var missingPolicy: SymbolMissingPolicy
+    private var frame = Rect.zero()
+
+    public init(
+        name: SymbolName,
+        size!: Length = Length(ICON_DEFAULT_SIZE, LengthUnit.Vp),
+        color!: ?Color = None,
+        weight!: Float32 = 400.0,
+        variant!: SymbolVariant = SymbolVariant.Outlined,
+        direction!: SymbolDirection = SymbolDirection.Inherit,
+        mirrored!: Bool = false,
+        accessibilityLabel!: String = "",
+        missingPolicy!: SymbolMissingPolicy = SymbolMissingPolicy.Fallback
+    ) {
+        this.symbolName = name
+        this.symbolExtent = size
+        this.symbolColorOverride = color
+        this.symbolWeight = weight
+        this.symbolVariant = variant
+        this.symbolDirection = direction
+        this.mirrorSymbol = mirrored
+        this.a11yLabel = accessibilityLabel
+        this.missingPolicy = missingPolicy
+        emit(this)
+    }
+
+    public func symbolSize(value: Length): Symbol { symbolExtent = value; this }
+    public func symbolSize(value: Float32): Symbol { symbolSize(vpLength(value)) }
+    public func foregroundColor(value: Color): Symbol { symbolColorOverride = Some(value); this }
+    public func weight(value: Float32): Symbol { symbolWeight = value; this }
+    public func variant(value: SymbolVariant): Symbol { symbolVariant = value; this }
+    public func fill(value!: Bool = true): Symbol {
+        symbolVariant = if (value) { SymbolVariant.Filled } else { SymbolVariant.Outlined }
+        this
+    }
+    public func direction(value: SymbolDirection): Symbol { symbolDirection = value; this }
+    public func mirrored(value!: Bool = true): Symbol { mirrorSymbol = value; this }
+    public func accessibilityLabel(value: String): Symbol { a11yLabel = value; this }
+    public func accessibilityLabel(): String { a11yLabel }
+    public func missing(value: SymbolMissingPolicy): Symbol { missingPolicy = value; this }
+    public func strict(value!: Bool = true): Symbol {
+        missingPolicy = if (value) { SymbolMissingPolicy.Strict } else { SymbolMissingPolicy.Fallback }
+        this
+    }
+
+    public func measure(ctx: UiContext, _: Size): Size {
+        let extent = max(1.0, ctx.resolve(symbolExtent))
+        Size(extent, extent)
+    }
+
+    public func layout(_: UiContext, rect: Rect): Unit { frame = rect }
+
+    public func draw(ctx: UiContext): Unit {
+        let extent = max(1.0, ctx.resolve(symbolExtent))
+        let color = match (symbolColorOverride) {
+            case Some(value) => value
+            case None => ctx.theme.text
+        }
+        let _ = drawSymbol(ctx.renderer, symbolName, centeredIconRect(frame, extent), color,
+            weight: symbolWeight, variant: symbolVariant, direction: symbolDirection,
+            mirrored: mirrorSymbol, accessibilityLabel: a11yLabel, policy: missingPolicy)
+    }
+
+    public func handle(_: UiContext, _: UiEvent): Bool { false }
+}
 
 /**
  * A non-interactive vector icon drawn at a square extent (default 18 vp), in the theme text color
  * unless `foregroundColor` overrides it. For a clickable icon use `IconButton`.
  */
 public class Icon <: Widget {
-    private let icon: IconName
+    private let symbolName: SymbolName
     private var iconExtent: Length
     private var iconColorOverride: ?Color
     private var frame = Rect.zero()
 
     public init(icon: IconName, size!: Length = Length(ICON_DEFAULT_SIZE, LengthUnit.Vp), color!: ?Color = None) {
-        this.icon = icon
+        this.symbolName = symbolNameForIcon(icon)
+        this.iconExtent = size
+        this.iconColorOverride = color
+        emit(this)
+    }
+
+    /** Uses an optional Symbol provider while preserving the legacy Icon widget surface. */
+    public init(name: SymbolName, size!: Length = Length(ICON_DEFAULT_SIZE, LengthUnit.Vp), color!: ?Color = None) {
+        this.symbolName = name
         this.iconExtent = size
         this.iconColorOverride = color
         emit(this)
@@ -50,7 +135,7 @@ public class Icon <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        drawIcon(ctx.renderer, icon, centeredIconRect(frame, resolvedExtent(ctx)), iconColor(ctx))
+        let _ = drawSymbol(ctx.renderer, symbolName, centeredIconRect(frame, resolvedExtent(ctx)), iconColor(ctx))
     }
 
     private func resolvedExtent(ctx: UiContext): Float32 {
@@ -76,7 +161,7 @@ public class Icon <: Widget {
  * identities; `key` pins an identity that survives tree reshapes.
  */
 public class IconButton <: Widget {
-    private let icon: IconName
+    private let symbolName: SymbolName
     private var labelText: ?String
     private var buttonRole: ButtonRole
     private var customStyle: ?SurfaceStyle
@@ -93,7 +178,31 @@ public class IconButton <: Widget {
         style!: ?SurfaceStyle = None,
         onClick!: () -> Unit
     ) {
-        this.icon = icon
+        this.symbolName = symbolNameForIcon(icon)
+        this.labelText = label
+        this.buttonRole = role
+        this.customStyle = style
+        this.onClick = onClick
+        this.controlId = focusableControlIdentity(match (label) {
+            case Some(value) => "IconButton:${value}"
+            case None => "IconButton"
+        })
+        this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
+            InteractionAnimation()
+        }.value
+        this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        emit(this)
+    }
+
+    /** Creates an IconButton from any registered Symbol provider. */
+    public init(
+        name: SymbolName,
+        label!: ?String = None,
+        role!: ButtonRole = ButtonRole.Normal,
+        style!: ?SurfaceStyle = None,
+        onClick!: () -> Unit
+    ) {
+        this.symbolName = name
         this.labelText = label
         this.buttonRole = role
         this.customStyle = style
@@ -173,7 +282,7 @@ public class IconButton <: Widget {
         let visualFrame = animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
         drawSurface(ctx, visualFrame, buttonStyle(ctx, progress))
         let color = contentColor(ctx)
-        drawIcon(ctx.renderer, icon, iconFrame(visualFrame), color)
+        let _ = drawSymbol(ctx.renderer, symbolName, iconFrame(visualFrame), color)
         match (labelText) {
             case Some(value) => ctx
                 .renderer

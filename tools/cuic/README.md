@@ -26,10 +26,12 @@ cuic probe diff [project]
 cuic probe list [project] [--json]
 cuic probe describe [project] <probe> [--json]
 cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]
+cuic symbol list|discover [material|ant|arco] [--json]
+cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
 cuic build [platform] [project]
 cuic test [platform] [project]
 cuic run [platform] [project|example]
-cuic prnt [platform] [project|example] [--output <file.bmp|file.png>]
+cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [-- <app args...>]
 cuic clean [project]
 cuic examples
 cuic version
@@ -136,6 +138,24 @@ applications after installation. Users may instead open the TTF with Font Book o
 Component, Theme, application, bundled, and system fallback behavior is documented in
 [`docs/fonts.md`](../../docs/fonts.md).
 
+## Symbols
+
+`symbol list` reports the adapted provider inventory, frozen upstream revision,
+license, aliases, variants, and source paths. `symbol generate` validates those
+catalogs and writes a declared-subset registry for an application:
+
+```bash
+./bin/cuic symbol list --json
+./bin/cuic symbol generate material:add@primary_add ant:check arco:right \
+  --output ../../packages/gallery-components/src/gallery_symbols.cj \
+  --package canghui_gallery_components
+```
+
+Generated export names must be unique across providers. Alias-equivalent
+canonical duplicates are rejected. Provider packages remain optional and the
+complete upstream icon collections are not bundled. See
+[`docs/symbols.md`](../../docs/symbols.md) for registration and fallback rules.
+
 The CLI-owned font is distributed unmodified under the
 [HarmonyOS Sans Fonts License Agreement](../../assets/fonts/HARMONYOS_SANS_LICENSE.txt). Its upstream package source is:
 
@@ -152,6 +172,8 @@ to PNG with ImageMagick, macOS `sips`, or Windows System.Drawing.
 ```bash
 ./bin/cuic prnt macos notepad --output snapshots/notepad.png
 ./bin/cuic prnt macos ../HelloCangHui -o snapshots/hello.bmp
+./bin/cuic prnt macos component-gallery --output snapshots/symbols.png \
+  -- --preview desktop --section symbols
 ```
 
 This captures the application render surface rather than the surrounding desktop and does not require

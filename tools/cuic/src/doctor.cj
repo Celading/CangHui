@@ -415,7 +415,7 @@ func doctorSymbolGroup(framework: String): DoctorGroup {
     for ((id, title, path) in [
         ("material", "Material provider", "packages/symbol-material/cjpm.toml"),
         ("ant", "Ant Design provider", "packages/symbol-ant/cjpm.toml"),
-        ("acro", "Arco provider", "packages/symbol-arco/cjpm.toml")
+        ("arco", "Arco provider", "packages/symbol-arco/cjpm.toml")
     ]) {
         let full = joinPath(framework, path)
         checks.add(if (exists(full)) {

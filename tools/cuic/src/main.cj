@@ -52,6 +52,9 @@ func runCuic(args: Array<String>): Int64 {
     if (command == "font") {
         return fontCommand(args, 2)
     }
+    if (command == "symbol") {
+        return symbolCommand(args, 2, resolveFrameworkRoot(""))
+    }
     if (command == "kmode") {
         return kModeCommand(args, 2)
     }
@@ -108,6 +111,8 @@ func helpText(): String {
     "  cuic doctor [target] [--json] [--verbose]\n" +
     "  cuic bootstrap [platform]\n" +
     "  cuic font <status|install> [platform]\n" +
+    "  cuic symbol list [material|ant|arco] [--json]\n" +
+    "  cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]\n" +
     "  cuic kmode diff [project]\n" +
     "  cuic kmode list [project]\n" +
     "  cuic kmode describe [project] <endpoint>\n" +
@@ -119,7 +124,7 @@ func helpText(): String {
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +
-    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>]\n" +
+    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [-- <app args...>]\n" +
     "  cuic clean [project]\n" +
     "  cuic examples\n" +
     "  cuic version\n\n" +
@@ -560,6 +565,7 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     var requested = "notepad"
     var output = ""
     var projectSet = false
+    let appArgs = ArrayList<String>()
     var i = start
     if (i < args.size && isPlatform(args[i])) { platform = normalizePlatform(args[i]); i += 1 }
     while (i < args.size) {
@@ -569,6 +575,11 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
             output = args[i + 1]
             i += 2
             continue
+        }
+        if (current == "--") {
+            i += 1
+            while (i < args.size) { appArgs.add(args[i]); i += 1 }
+            break
         }
         if (startsWithText(current, "-")) { throw CuicError("unknown prnt option '${current}'") }
         if (projectSet) { throw CuicError("prnt accepts one project or example") }
@@ -590,7 +601,10 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     let snapshot = if (lowerBmp) { output } else { output + ".bmp" }
     removeIfExists(snapshot)
     println("==> capturing ${basename(project)} (${platform})")
-    let code = executeCjpm(project, ["run", "--", "--snapshot", snapshot], framework)
+    let runArgs = ArrayList<String>()
+    for (value in ["run", "--", "--snapshot", snapshot]) { runArgs.add(value) }
+    for (value in appArgs) { runArgs.add(value) }
+    let code = executeCjpm(project, runArgs.toArray(), framework)
     if (code != 0) { return code }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
     if (lowerPng) {

@@ -7,3 +7,6 @@ description = "Reference platform-neutral component package for CangHui."
 
 [dependencies]
 cui = { path = "../.." }
+canghui_symbol_material = { path = "../symbol-material" }
+canghui_symbol_ant = { path = "../symbol-ant" }
+canghui_symbol_arco = { path = "../symbol-arco" }

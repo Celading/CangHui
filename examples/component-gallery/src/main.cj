@@ -134,6 +134,7 @@ private func initialGallerySection(): Int64 {
                 case "selection" => 1
                 case "navigation" => 2
                 case "feedback" => 3
+                case "symbol" | "symbols" => 4
                 case _ => 0
             }
         }
@@ -157,6 +158,7 @@ main(): Int64 {
     if (runKModeStdioIfRequested()) {
         return 0
     }
+    registerCangHuiSymbols()
     let previews = commonPreviewMatrix()
     let selectedPreview = State<Int64>(initialPreviewIndex())
     let transitionTarget = transitionThemeArgument()

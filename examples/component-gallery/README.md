@@ -30,11 +30,15 @@ cjpm run -- --preview desktop --motion full
 ```
 
 Open one named specimen category directly with `--section actions`,
-`selection`, `navigation`, or `feedback`:
+`selection`, `navigation`, `feedback`, or `symbols`:
 
 ```bash
 cjpm run -- --preview harmony --section navigation
 ```
+
+The Symbols section is itself an on-demand consumer: its generated registry
+selects one Material, one Ant Design, and one Arco entry while the built-in
+provider remains available from core CangHui.
 
 Capture a deterministic in-progress circular reveal by selecting the target
 theme and an early snapshot frame. This route clicks the real theme IconButton,

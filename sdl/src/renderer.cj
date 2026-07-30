@@ -202,12 +202,23 @@ public class Renderer {
         color: Color,
         weight!: Float32 = 400.0,
         filled!: Bool = false,
-        mirrored!: Bool = false
+        mirrored!: Bool = false,
+        variant!: String = "outlined",
+        direction!: String = "inherit",
+        accessibilityLabel!: String = "",
+        requestedProvider!: String = "",
+        requestedName!: String = "",
+        fallback!: Bool = false,
+        variantFallback!: Bool = false
     ): Unit {
         recordDrawIr("symbol", drawIrRect(rect) + ",\"provider\":" + drawIrQuote(provider) +
             ",\"name\":" + drawIrQuote(name) + "," + drawIrColor(color) +
             ",\"weight\":" + weight.toString() + ",\"filled\":" + filled.toString() +
-            ",\"mirrored\":" + mirrored.toString())
+            ",\"mirrored\":" + mirrored.toString() + ",\"variant\":" + drawIrQuote(variant) +
+            ",\"direction\":" + drawIrQuote(direction) + ",\"accessibilityLabel\":" +
+            drawIrQuote(accessibilityLabel) + ",\"requestedProvider\":" + drawIrQuote(requestedProvider) +
+            ",\"requestedName\":" + drawIrQuote(requestedName) + ",\"fallback\":" + fallback.toString() +
+            ",\"variantFallback\":" + variantFallback.toString())
     }
 
     /** Sets the Theme-level family used when a text call has no explicit family. */

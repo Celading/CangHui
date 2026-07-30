@@ -12,7 +12,7 @@ public func galleryPackageDescriptor(): ComponentPackageDescriptor {
     ComponentPackageDescriptor(
         "canghui.gallery.common",
         "CangHui Gallery Common Components",
-        "0.2.0"
+        "0.3.0"
     )
 }
 
@@ -48,7 +48,7 @@ public func galleryCommonSurface(context: ComponentContext, state: GallerySurfac
 private func compactSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     VStack {
         surfaceHeader(context)
-        SegmentedControl(["Actions", "Selection", "Navigation", "Feedback"], state.selectedSection,
+        SegmentedControl(["Actions", "Selection", "Navigation", "Feedback", "Symbols"], state.selectedSection,
             key: "gallery-compact-sections")
         Divider()
         galleryScroll(context, state, "gallery-compact-scroll")
@@ -58,7 +58,7 @@ private func compactSurface(context: ComponentContext, state: GallerySurfaceStat
 private func mediumSurface(context: ComponentContext, state: GallerySurfaceState): Unit {
     VStack {
         surfaceHeader(context)
-        SegmentedControl(["Actions", "Selection", "Navigation", "Feedback"], state.selectedSection,
+        SegmentedControl(["Actions", "Selection", "Navigation", "Feedback", "Symbols"], state.selectedSection,
             key: "gallery-medium-sections")
         Divider()
         galleryScroll(context, state, "gallery-medium-scroll")
@@ -75,8 +75,9 @@ private func expandedSurface(context: ComponentContext, state: GallerySurfaceSta
             sectionButton("Selection", 1, state)
             sectionButton("Navigation", 2, state)
             sectionButton("Feedback", 3, state)
+            sectionButton("Symbols", 4, state)
             Spacer()
-            Label("Common package 0.2.0", muted: true)
+            Label("Common package 0.3.0", muted: true)
         }.spacing(8.vp).hug().padding(18.vp).width(220.vp)
         Divider()
         VStack {
@@ -116,6 +117,7 @@ private func galleryScroll(context: ComponentContext, state: GallerySurfaceState
             case 1 => selectionComponents(state)
             case 2 => navigationComponents(state)
             case 3 => feedbackComponents(state)
+            case 4 => symbolComponents()
             case _ => actionComponents(context.viewport.widthClass(), state)
         }
     }
@@ -274,6 +276,41 @@ private func feedbackComponents(state: GallerySurfaceState): Unit {
             }.spacing(8.vp)
         }
     }.spacing(14.vp).padding(2.vp)
+}
+
+private func symbolComponents(): Unit {
+    VStack {
+        categoryHeader("Symbols", "Provider-neutral names, declared subsets and deterministic fallback")
+        specimen("Symbol", "cui.Symbol") {
+            FlowRow {
+                symbolSpecimen("Built-in", SymbolName("save", provider: "builtin"))
+                symbolSpecimen("Material", material_add, variant: SymbolVariant.Filled)
+                symbolSpecimen("Ant Design", ant_check)
+                symbolSpecimen("Arco RTL", arco_right, direction: SymbolDirection.RightToLeft)
+                symbolSpecimen("Fallback", SymbolName("not-present", provider: "material"),
+                    detail: "missing -> builtin")
+            }.spacing(14.vp)
+        }
+        specimen("Icon compatibility", "cui.Icon + cui.IconButton") {
+            FlowRow {
+                Icon(material_add, size: 24.vp)
+                Icon(ant_check, size: 24.vp)
+                IconButton(arco_right, label: Some("Continue")) {=> ()}
+            }.spacing(12.vp)
+        }
+    }.spacing(14.vp).padding(2.vp)
+}
+
+private func symbolSpecimen(label: String, name: SymbolName,
+    variant!: SymbolVariant = SymbolVariant.Outlined,
+    direction!: SymbolDirection = SymbolDirection.Inherit,
+    detail!: String = ""): Unit {
+    VStack {
+        Symbol(name, size: 30.vp, weight: 520.0, variant: variant,
+            direction: direction, accessibilityLabel: label)
+        Label(label)
+        Label(if (detail.isEmpty()) { name.qualified() } else { detail }, muted: true).wrap()
+    }.spacing(4.vp).hug().width(128.vp)
 }
 
 private func categoryHeader(title: String, description: String): Unit {
