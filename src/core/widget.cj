@@ -319,6 +319,27 @@ public interface Widget {
         }
         applyModifier(this, WidgetModifier.Enabled(isEnabled))
     }
+
+    /**
+     * Adds a stable `cui.probe.v0` node around this widget. `semantics` may expose
+     * dynamic public state such as selected/disabled/value on each sampled frame.
+     */
+    func probe(id: String): Widget {
+        applyProbeModifier(this, id, "Widget", [], None)
+    }
+
+    func probe(id: String, widgetType: String): Widget {
+        applyProbeModifier(this, id, widgetType, [], None)
+    }
+
+    func probe(id: String, widgetType: String, properties: Array<ProbeProperty>): Widget {
+        applyProbeModifier(this, id, widgetType, properties, None)
+    }
+
+    func probe(id: String, widgetType: String, properties: Array<ProbeProperty>,
+        semantics: ProbeSemanticProvider): Widget {
+        applyProbeModifier(this, id, widgetType, properties, Some(semantics))
+    }
 }
 
 public enum Axis {

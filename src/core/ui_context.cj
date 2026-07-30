@@ -195,9 +195,14 @@ public class UiContext {
                 let eased = 1.0 - (1.0 - p) * (1.0 - p) * (1.0 - p)
                 let radius = 2.0 + max(ripple.frame.w, ripple.frame.h) * 0.52 * eased * ripple.strength
                 let fade = if (p < 0.35) { Float32(1.0) } else { max(0.0, (1.0 - p) / 0.65) }
-                renderer.fillRoundedRipple(ripple.frame.inset(1.0), max(0.0, ripple.cornerRadius - 1.0),
-                    ripple.originX, ripple.originY, radius,
-                    ripple.color.withAlpha(Int64(Float32(88.0) * fade * min(1.0, ripple.strength))))
+                renderer.pushDrawIrScope(ripple.id)
+                try {
+                    renderer.fillRoundedRipple(ripple.frame.inset(1.0), max(0.0, ripple.cornerRadius - 1.0),
+                        ripple.originX, ripple.originY, radius,
+                        ripple.color.withAlpha(Int64(Float32(88.0) * fade * min(1.0, ripple.strength))))
+                } finally {
+                    renderer.popDrawIrScope()
+                }
             }
             i -= 1
         }

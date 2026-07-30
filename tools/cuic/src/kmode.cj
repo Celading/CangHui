@@ -21,6 +21,18 @@ class KModeLinkLocation {
     }
 }
 
+class ProbeLinkLocation {
+    let endpoint: String
+    let path: String
+    let line: Int64
+
+    init(endpoint: String, path: String, line: Int64) {
+        this.endpoint = endpoint
+        this.path = path
+        this.line = line
+    }
+}
+
 class CuicKModeResponse {
     let id: Int64
     let ok: Bool
@@ -154,6 +166,143 @@ func kModeCommand(args: Array<String>, start: Int64): Int64 {
     throw CuicError("unknown kmode action '${action}'")
 }
 
+func probeCommand(args: Array<String>, start: Int64): Int64 {
+    if (start >= args.size) {
+        throw CuicError("probe requires diff, list, describe, or run")
+    }
+    let action = args[start]
+    if (action == "diff") {
+        let requested = if (start + 1 < args.size) { args[start + 1] } else { "" }
+        if (start + 2 < args.size) { throw CuicError("probe diff accepts one project") }
+        return runProbeDiff(resolveProject(requested, ""))
+    }
+    if (action == "list") {
+        var projectValue = ""
+        var json = false
+        var i = start + 1
+        while (i < args.size) {
+            if (args[i] == "--json") { json = true }
+            else if (projectValue.isEmpty()) { projectValue = args[i] }
+            else { throw CuicError("probe list accepts one project and --json") }
+            i += 1
+        }
+        return runProbeExchange(resolveProject(projectValue, ""), "cui.probe.list",
+            if (json) { "json" } else { "" }, "", json)
+    }
+    if (action == "describe") {
+        let parsed = parseProbeTarget(args, start + 1, false)
+        return runProbeExchange(parsed.project, "cui.probe.describe",
+            parsed.name + "\n" + (if (parsed.json) { "json" } else { "" }), parsed.name, parsed.json)
+    }
+    if (action == "run") {
+        let parsed = parseProbeTarget(args, start + 1, true)
+        return runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + parsed.script,
+            parsed.name, parsed.json)
+    }
+    throw CuicError("unknown probe action '${action}'")
+}
+
+class ProbeTargetSelection {
+    let project: String
+    let name: String
+    let script: String
+    let json: Bool
+
+    init(project: String, name: String, script: String, json: Bool) {
+        this.project = project
+        this.name = name
+        this.script = script
+        this.json = json
+    }
+}
+
+func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool): ProbeTargetSelection {
+    let positional = ArrayList<String>()
+    var script = ""
+    var json = false
+    var i = start
+    while (i < args.size) {
+        let value = args[i]
+        if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--script" || value == "--events") {
+            if (!allowScript) { throw CuicError("probe describe does not accept event scripts") }
+            if (i + 1 >= args.size) { throw CuicError(value + " requires a value") }
+            script = if (value == "--script") {
+                String.fromUtf8(File.readFrom(args[i + 1]))
+            } else {
+                args[i + 1]
+            }
+            i += 2
+            continue
+        }
+        if (startsWithText(value, "-")) { throw CuicError("unknown probe option '${value}'") }
+        positional.add(value)
+        i += 1
+    }
+    if (positional.isEmpty() || positional.size > 2) {
+        throw CuicError("probe requires [project] <probe>")
+    }
+    let project = if (positional.size == 2) {
+        resolveProject(positional[0], "")
+    } else {
+        resolveProject("", "")
+    }
+    let name = positional[positional.size - 1]
+    ProbeTargetSelection(project, name, script, json)
+}
+
+func runProbeExchange(projectValue: String, endpoint: String, payload: String,
+    probeName: String, json: Bool): Int64 {
+    let project = normalizeKModePath(projectValue)
+    let diffCode = runKModeDiff(project, quiet: true)
+    if (diffCode != 0) { return diffCode }
+    let probeDiffCode = runProbeDiff(project, quiet: true)
+    if (probeDiffCode != 0) { return probeDiffCode }
+    let framework = resolveFrameworkRoot(project)
+    let buildCode = if (json) {
+        executeCjpmQuiet(project, ["build"], framework)
+    } else {
+        executeCjpm(project, ["build"], framework)
+    }
+    if (buildCode != 0) { return buildCode }
+    let session = CuicKModeSession(project, framework)
+    try {
+        let response = session.exchange("invoke", endpoint: endpoint, payload: payload)
+        if (!response.ok) {
+            throw CuicError("probe ${response.status} (${response.errorCode}): ${response.errorMessage}")
+        }
+        let rendered = if (json && !startsWithText(trimAscii(response.payload), "{")) {
+            "{\"protocol\":\"cui.probe.v0\",\"probe\":" + cuicJsonQuote(probeName) +
+                ",\"ok\":true,\"result\":" + cuicJsonQuote(response.payload) + "}"
+        } else {
+            response.payload
+        }
+        if (!rendered.isEmpty()) { println(rendered) }
+        let exitCode = session.close()
+        if (exitCode != 0) { throw CuicError("probe process exited with ${exitCode}") }
+        if (containsText(rendered, "\"ok\":false")) { return 1 }
+        0
+    } catch (error: Exception) {
+        session.abort()
+        throw error
+    }
+}
+
+func cuicJsonQuote(value: String): String {
+    let out = StringBuilder()
+    out.append("\"")
+    for (r in value.toRuneArray()) {
+        if (r == r'\"') { out.append("\\\"") }
+        else if (r == r'\\') { out.append("\\\\") }
+        else if (r == r'\n') { out.append("\\n") }
+        else if (r == r'\r') { out.append("\\r") }
+        else if (r == r'\t') { out.append("\\t") }
+        else { out.append(r.toString()) }
+    }
+    out.append("\"")
+    out.toString()
+}
+
 func kModeCallCommand(args: Array<String>, start: Int64): Int64 {
     let remaining = args.size - start
     if (remaining <= 0 || remaining > 3) {
@@ -269,6 +418,43 @@ func runKModeDiff(projectValue: String, quiet!: Bool = false): Int64 {
     0
 }
 
+func runProbeDiff(projectValue: String, quiet!: Bool = false): Int64 {
+    let project = normalizeKModePath(projectValue)
+    let roots = ArrayList<String>()
+    collectKModeRoots(project, roots)
+    let links = ArrayList<ProbeLinkLocation>()
+    for (root in roots) {
+        let sourceRoot = kModeSourceRoot(root)
+        if (exists(sourceRoot)) { scanProbeDirectory(sourceRoot, links) }
+    }
+    var duplicateEndpoints: Int64 = 0
+    var i: Int64 = 0
+    while (i < links.size) {
+        if (!hasEarlierProbeEndpoint(links, i)) {
+            var count: Int64 = 0
+            for (candidate in links) { if (candidate.endpoint == links[i].endpoint) { count += 1 } }
+            if (count > 1) {
+                duplicateEndpoints += 1
+                println("duplicate probe '${links[i].endpoint}':")
+                for (candidate in links) {
+                    if (candidate.endpoint == links[i].endpoint) {
+                        println("  ${candidate.path}:${candidate.line}")
+                    }
+                }
+            }
+        }
+        i += 1
+    }
+    if (duplicateEndpoints > 0) {
+        println("probe diff failed: ${duplicateEndpoints} duplicate probe name(s)")
+        return 1
+    }
+    if (!quiet) {
+        println("probe diff passed: ${links.size} probe(s) across ${roots.size} local package root(s)")
+    }
+    0
+}
+
 func kModeSourceRoot(root: String): String {
     let manifest = joinPath(root, "cjpm.toml")
     if (exists(manifest)) {
@@ -362,6 +548,20 @@ func scanKModeDirectory(root: String, links: ArrayList<KModeLinkLocation>): Unit
     }
 }
 
+func scanProbeDirectory(root: String, links: ArrayList<ProbeLinkLocation>): Unit {
+    for (entry in Directory.readFrom(root)) {
+        let path = entry.path.toString()
+        let name = basename(path)
+        if (entry.isDirectory()) {
+            if (name != ".git" && name != ".cache" && name != "target") {
+                scanProbeDirectory(path, links)
+            }
+        } else if (endsWithText(name, ".cj") && !endsWithText(name, "_test.cj")) {
+            scanProbeSource(path, links)
+        }
+    }
+}
+
 func scanKModeSource(path: String, links: ArrayList<KModeLinkLocation>): Unit {
     let text = String.fromUtf8(File.readFrom(path))
     let lines = text.split("\n")
@@ -369,6 +569,19 @@ func scanKModeSource(path: String, links: ArrayList<KModeLinkLocation>): Unit {
     while (index < lines.size) {
         match (extractKModeLinkEndpoint(lines[index])) {
             case Some(endpoint) => links.add(KModeLinkLocation(endpoint, path, index + 1))
+            case None => ()
+        }
+        index += 1
+    }
+}
+
+func scanProbeSource(path: String, links: ArrayList<ProbeLinkLocation>): Unit {
+    let text = String.fromUtf8(File.readFrom(path))
+    let lines = text.split("\n")
+    var index: Int64 = 0
+    while (index < lines.size) {
+        match (extractCuiProbeEndpoint(lines[index])) {
+            case Some(endpoint) => links.add(ProbeLinkLocation(endpoint, path, index + 1))
             case None => ()
         }
         index += 1
@@ -385,7 +598,26 @@ func extractKModeLinkEndpoint(line: String): ?String {
     Some(substringTo(remainder, close))
 }
 
+func extractCuiProbeEndpoint(line: String): ?String {
+    let value = trimAscii(line)
+    let prefix = "@CuiProbe[\""
+    if (!startsWithText(value, prefix)) { return None }
+    let remainder = substringFrom(value, Int64(prefix.toRuneArray().size))
+    let close = indexOfText(remainder, "\"]")
+    if (close <= 0 || !trimAscii(substringFrom(remainder, close + 2)).isEmpty()) { return None }
+    Some(substringTo(remainder, close))
+}
+
 func hasEarlierKModeEndpoint(links: ArrayList<KModeLinkLocation>, index: Int64): Bool {
+    var i: Int64 = 0
+    while (i < index) {
+        if (links[i].endpoint == links[index].endpoint) { return true }
+        i += 1
+    }
+    false
+}
+
+func hasEarlierProbeEndpoint(links: ArrayList<ProbeLinkLocation>, index: Int64): Bool {
     var i: Int64 = 0
     while (i < index) {
         if (links[i].endpoint == links[index].endpoint) { return true }

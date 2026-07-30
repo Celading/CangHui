@@ -56,6 +56,9 @@ func runCuic(args: Array<String>): Int64 {
     if (command == "kmode") {
         return kModeCommand(args, 2)
     }
+    if (command == "probe") {
+        return probeCommand(args, 2)
+    }
     if (command == "init") {
         return initProject(args, 2)
     }
@@ -110,6 +113,10 @@ func helpText(): String {
     "  cuic kmode list [project]\n" +
     "  cuic kmode describe [project] <endpoint>\n" +
     "  cuic kmode call [project] <endpoint> [payload]\n" +
+    "  cuic probe diff [project]\n" +
+    "  cuic probe list [project] [--json]\n" +
+    "  cuic probe describe [project] <probe> [--json]\n" +
+    "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +
@@ -313,6 +320,8 @@ func copyNativeLibrary(source: String, destination: String): Unit {
 func runCjpm(action: String, platform: String, project: String): Int64 {
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
+    let probeDiffCode = runProbeDiff(project, quiet: true)
+    if (probeDiffCode != 0) { return probeDiffCode }
     let framework = resolveFrameworkRoot(project)
     let boot = bootstrap(platform, framework)
     if (boot != 0) { return boot }
@@ -337,6 +346,23 @@ func executeCjpm(project: String, cjpmArgs: Array<String>, framework: String): I
     executeCommand("/usr/bin/env", args.toArray(), project)
 }
 
+func executeCjpmQuiet(project: String, cjpmArgs: Array<String>, framework: String): Int64 {
+    let sdl = joinPath(framework, "sdl/.sdl3")
+    if (hostPlatform() == "windows") {
+        let command = windowsCjpmCommand(sdl, cjpmArgs)
+        return executeCommandQuiet("cmd", ["/D", "/C", command], project)
+    }
+    let args = ArrayList<String>()
+    if (hostPlatform() == "macos") {
+        args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
+    } else {
+        args.add("LD_LIBRARY_PATH=${sdl}:${readEnv("LD_LIBRARY_PATH")}")
+    }
+    args.add("cjpm")
+    for (arg in cjpmArgs) { args.add(arg) }
+    executeCommandQuiet("/usr/bin/env", args.toArray(), project)
+}
+
 func executeCommand(program: String, args: Array<String>, workingDirectory: String): Int64 {
     try {
         let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args, workingDirectory: Path(workingDirectory))
@@ -344,6 +370,22 @@ func executeCommand(program: String, args: Array<String>, workingDirectory: Stri
         let stderr = String.fromUtf8(stderrBytes)
         if (stdout.size > 0) { print(stdout, flush: true) }
         if (stderr.size > 0) { print(stderr, flush: true) }
+        code
+    } catch (e: Exception) {
+        println("error: failed to execute ${program}: ${e.message}")
+        127
+    }
+}
+
+func executeCommandQuiet(program: String, args: Array<String>, workingDirectory: String): Int64 {
+    try {
+        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args, workingDirectory: Path(workingDirectory))
+        if (code != 0) {
+            let stdout = String.fromUtf8(stdoutBytes)
+            let stderr = String.fromUtf8(stderrBytes)
+            if (stdout.size > 0) { print(stdout, flush: true) }
+            if (stderr.size > 0) { print(stderr, flush: true) }
+        }
         code
     } catch (e: Exception) {
         println("error: failed to execute ${program}: ${e.message}")

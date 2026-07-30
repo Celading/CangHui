@@ -2,6 +2,11 @@ package cui.kmode
 
 import std.collection.ArrayList
 import std.sync.Mutex
+import cui.probe.{describeProbeEndpoint, renderProbeEndpointList, runProbeEndpoint}
+
+private let PROBE_LIST_ENDPOINT = "cui.probe.list"
+private let PROBE_DESCRIBE_ENDPOINT = "cui.probe.describe"
+private let PROBE_RUN_ENDPOINT = "cui.probe.run"
 
 let kModeRegistryMutex = Mutex()
 let kModeEndpoints = ArrayList<KModeEndpoint>()
@@ -112,10 +117,24 @@ func renderKModeEndpointList(): String {
         first = false
         out += endpoint.name
     }
+    for (name in [PROBE_LIST_ENDPOINT, PROBE_DESCRIBE_ENDPOINT, PROBE_RUN_ENDPOINT]) {
+        if (!first) { out += "\n" }
+        first = false
+        out += name
+    }
     out
 }
 
 func describeKModeEndpoint(request: KModeRequest): KModeResponse {
+    if (request.endpoint == PROBE_LIST_ENDPOINT) {
+        return KModeResponse(request.id, true, "ok", payload: PROBE_LIST_ENDPOINT + "|inspect|list registered cui.probe.v0 probes")
+    }
+    if (request.endpoint == PROBE_DESCRIBE_ENDPOINT) {
+        return KModeResponse(request.id, true, "ok", payload: PROBE_DESCRIBE_ENDPOINT + "|inspect|describe one cui.probe.v0 probe")
+    }
+    if (request.endpoint == PROBE_RUN_ENDPOINT) {
+        return KModeResponse(request.id, true, "ok", payload: PROBE_RUN_ENDPOINT + "|invoke|run one bounded cui.probe.v0 probe")
+    }
     match (findKModeEndpoint(request.endpoint)) {
         case Some(endpoint) =>
             KModeResponse(
@@ -131,6 +150,33 @@ func describeKModeEndpoint(request: KModeRequest): KModeResponse {
 }
 
 func invokeKModeEndpoint(request: KModeRequest, policy: KModePolicy): KModeResponse {
+    if (request.endpoint == PROBE_LIST_ENDPOINT || request.endpoint == PROBE_DESCRIBE_ENDPOINT) {
+        if (!policy.allows(KModeCapability.Inspect)) {
+            return capabilityDenied(request, KModeCapability.Inspect)
+        }
+        try {
+            let payload = if (request.endpoint == PROBE_LIST_ENDPOINT) {
+                renderProbeEndpointList(json: request.payload == "json")
+            } else {
+                let parts = splitProbeTransportPayload(request.payload)
+                describeProbeEndpoint(parts[0], json: parts[1] == "json")
+            }
+            return KModeResponse(request.id, true, "ok", payload: payload)
+        } catch (error: Exception) {
+            return KModeResponse(request.id, false, "handler-error", errorCode: -32010, errorMessage: error.message)
+        }
+    }
+    if (request.endpoint == PROBE_RUN_ENDPOINT) {
+        if (!policy.allows(KModeCapability.Invoke)) {
+            return capabilityDenied(request, KModeCapability.Invoke)
+        }
+        try {
+            let parts = splitProbeTransportPayload(request.payload)
+            return KModeResponse(request.id, true, "ok", payload: runProbeEndpoint(parts[0], payload: parts[1]))
+        } catch (error: Exception) {
+            return KModeResponse(request.id, false, "handler-error", errorCode: -32010, errorMessage: error.message)
+        }
+    }
     match (findKModeEndpoint(request.endpoint)) {
         case Some(endpoint) =>
             if (!policy.allows(endpoint.capability)) {
@@ -156,6 +202,29 @@ func invokeKModeEndpoint(request: KModeRequest, policy: KModePolicy): KModeRespo
             }
         case None => missingKModeEndpoint(request)
     }
+}
+
+func splitProbeTransportPayload(payload: String): Array<String> {
+    let runes = payload.toRuneArray()
+    var index: Int64 = 0
+    while (index < runes.size) {
+        if (runes[index] == r'\n') {
+            return [substringProbe(payload, 0, index), substringProbe(payload, index + 1, runes.size)]
+        }
+        index += 1
+    }
+    [payload, ""]
+}
+
+func substringProbe(value: String, start: Int64, end: Int64): String {
+    let runes = value.toRuneArray()
+    let out = StringBuilder()
+    var i = start
+    while (i < end && i < runes.size) {
+        out.append(runes[i].toString())
+        i += 1
+    }
+    out.toString()
 }
 
 func missingKModeEndpoint(request: KModeRequest): KModeResponse {

@@ -64,6 +64,7 @@ public class Spring {
     public func animate(ctx: UiContext, target!: Float32): Float32 {
         goal = target
         tick(ctx.frame.deltaMs)
+        recordProbeAnimation(ctx, "spring", UInt64(0), "spring", current, goal)
         if (!settled()) {
             ctx.requestFrame()
         }
@@ -196,6 +197,7 @@ public class Animator {
     public func animate(ctx: UiContext, target!: Float32): Float32 {
         this.target(target)
         tick(ctx.frame.deltaMs)
+        recordProbeAnimation(ctx, "animator", UInt64(durationMs), easingName(easing), current, to)
         if (!settled()) {
             ctx.requestFrame()
         }
@@ -346,6 +348,7 @@ public class Pulse {
             tick(ctx.frame.deltaMs)
         }
         ctx.requestFrame()
+        recordProbeAnimation(ctx, "pulse", UInt64(periodMs), easingName(easing), value, 1.0)
         value
     }
 }

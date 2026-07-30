@@ -13,6 +13,7 @@ package cui
  */
 public import sdl.Color
 public import sdl.CuiException
+public import sdl.DrawIrCommand
 public import sdl.FontSizes
 public import sdl.FontStyle
 public import sdl.Fonts
@@ -56,6 +57,7 @@ public import cui.core.Binding
 public import cui.core.Button
 public import cui.core.ButtonRole
 public import cui.core.CrossAxisAlignment
+public import cui.core.ComponentProbe
 public import cui.core.CursorShape
 public import cui.core.DerivedState
 public import cui.core.Divider
@@ -92,6 +94,9 @@ public import cui.core.MotionLevel
 public import cui.core.Observable
 public import cui.core.Overlay
 public import cui.core.Panel
+public import cui.core.ProbeNode
+public import cui.core.ProbeProperty
+public import cui.core.ProbeSemanticProvider
 public import cui.core.Radii
 public import cui.core.Reveal
 public import cui.core.ScrollBar
@@ -120,6 +125,10 @@ public import cui.core.drawFocusRing
 public import cui.core.emit
 public import cui.core.focusableControlIdentity
 public import cui.core.rememberState
+public import cui.core.probeActivation
+public import cui.core.probedAction
+public import cui.core.easingName
+public import cui.core.motionLevelName
 public import cui.controls.Accordion
 public import cui.controls.AccordionSection
 public import cui.controls.Badge
@@ -248,6 +257,18 @@ public import cui.kmode.overrideKModeChannelModule
 public import cui.kmode.registerKModeEndpoint
 public import cui.kmode.runKModeStdio
 public import cui.kmode.runKModeStdioIfRequested
+public import cui.probe.CUI_PROBE_PROTOCOL
+public import cui.probe.CUI_PROBE_SCHEMA_REF
+public import cui.probe.ProbeEndpoint
+public import cui.probe.ProbeHandler
+public import cui.probe.ProbeKind
+public import cui.probe.describeProbeEndpoint
+public import cui.probe.findProbeEndpoint
+public import cui.probe.listProbeEndpoints
+public import cui.probe.probeKindName
+public import cui.probe.registerProbeEndpoint
+public import cui.probe.renderProbeEndpointList
+public import cui.probe.runProbeEndpoint
 public import cui.media.CanvasWidget
 public import cui.media.ImageFit
 public import cui.media.ImageView

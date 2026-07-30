@@ -22,6 +22,10 @@ cuic kmode diff [project]
 cuic kmode list [project]
 cuic kmode describe [project] <endpoint>
 cuic kmode call [project] <endpoint> [payload]
+cuic probe diff [project]
+cuic probe list [project] [--json]
+cuic probe describe [project] <probe> [--json]
+cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]
 cuic build [platform] [project]
 cuic test [platform] [project]
 cuic run [platform] [project|example]
@@ -76,6 +80,26 @@ registry remain additional fail-closed layers.
 The CLI sets `CANGHUI_KMODE=1` and `CANGHUI_KMODE_TRANSPORT=stdio` only for the supervised child process.
 It does not provide arbitrary shell execution. Optional SoonLink Channel persistence belongs in an external
 `KModeChannelModule` implementation; URLs, claim tokens and sessions are not CLI configuration.
+
+## No-Image Probes
+
+`cuic probe` runs explicit function and component probes through the same supervised child process while keeping
+the public `cui.probe.v0` data model independent from kMode transport. Component probes can assert stable trees,
+rectangles, semantic state, event routes, callback activation, logical-time animation samples, and Draw IR without
+opening a window.
+
+```bash
+./bin/cuic probe diff component-gallery
+./bin/cuic probe list component-gallery --json
+./bin/cuic probe describe component-gallery gallery.primary-button --json
+./bin/cuic probe run component-gallery gallery.primary-button \
+  --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
+  --json
+```
+
+The scanner follows recursive local path dependencies and reports every duplicate source location before the
+child build. Macro-generated symbols and the runtime registry remain fail-closed backstops. See
+[`docs/probe.md`](../../docs/probe.md) for annotation, scripting, assertion, and report details.
 
 ## Platform Matrix
 

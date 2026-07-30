@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260730.1",
+  "matrixVersion": "CangHui.20260730.2",
   "project": "CangHui",
   "version": "0.9.2",
   "surfaceTier": "mother-framework-incubating",
@@ -12,7 +12,8 @@
     "proofs/20260725-cangjiegui-sdl3-apple-host-reference-v0.json",
     "proofs/20260726-cangjiegui-upstream-0.9.2-component-intake-v0.json",
     "proofs/20260726-cangjiegui-motion-system-and-gallery-v0.json",
-    "proofs/20260726-cangjiegui-interaction-details-v0.json"
+    "proofs/20260726-cangjiegui-interaction-details-v0.json",
+    "proofs/20260730-canghui-probe-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -114,6 +115,20 @@
         "src/kmode",
         "contracts/canghui-kmode-v0.schema.json",
         "examples/component-gallery/src/main.cj"
+      ]
+    },
+    {
+      "id": "build-level-no-image-instrumentation",
+      "version": "cui.probe.v0",
+      "state": "source-test-cli-e2e-schema-proven",
+      "codeRefs": [
+        "src/probe",
+        "src/core/probe.cj",
+        "src/kmode/macros/link.cj",
+        "sdl/src/draw_ir.cj",
+        "tools/cuic/src/kmode.cj",
+        "contracts/cui-probe-v0.schema.json",
+        "docs/probe.md"
       ]
     },
     {

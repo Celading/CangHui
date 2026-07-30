@@ -60,6 +60,14 @@ public enum MotionLevel {
     }
 }
 
+public func motionLevelName(value: MotionLevel): String {
+    match (value) {
+        case MotionLevel.Basic => "basic"
+        case MotionLevel.Standard => "standard"
+        case MotionLevel.Full => "full"
+    }
+}
+
 /**
  * A reusable animation property. `automatic` timings follow the active theme's motion level;
  * constructing a spec directly keeps the requested duration and easing exact.

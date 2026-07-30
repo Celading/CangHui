@@ -68,6 +68,25 @@ public enum Easing {
     }
 }
 
+/** Stable protocol spelling used by animation probes and diagnostic output. */
+public func easingName(value: Easing): String {
+    match (value) {
+        case Easing.Linear => "linear"
+        case Easing.EaseInQuad => "ease-in-quad"
+        case Easing.EaseOutQuad => "ease-out-quad"
+        case Easing.EaseInOutQuad => "ease-in-out-quad"
+        case Easing.EaseInCubic => "ease-in-cubic"
+        case Easing.EaseOutCubic => "ease-out-cubic"
+        case Easing.EaseInOutCubic => "ease-in-out-cubic"
+        case Easing.EaseInSine => "ease-in-sine"
+        case Easing.EaseOutSine => "ease-out-sine"
+        case Easing.EaseInOutSine => "ease-in-out-sine"
+        case Easing.EaseOutBack => "ease-out-back"
+        case Easing.CubicBezier(x1, y1, x2, y2) => "cubic-bezier(" + x1.toString() + "," +
+            y1.toString() + "," + x2.toString() + "," + y2.toString() + ")"
+    }
+}
+
 private func trigCos(radians: Float32): Float32 {
     Float32(cos(Float64(radians)))
 }

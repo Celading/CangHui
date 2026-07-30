@@ -43,6 +43,14 @@ func kModeLinkScannerAcceptsOnlyCanonicalSingleLineForm(): Unit {
 }
 
 @Test
+func probeScannerAcceptsOnlyCanonicalSingleLineForm(): Unit {
+    @Expect(extractCuiProbeEndpoint("@CuiProbe[\"app.button\"]") ?? "", "app.button")
+    @Expect(extractCuiProbeEndpoint("  @CuiProbe[\"app.version\"]  ") ?? "", "app.version")
+    @Expect(extractCuiProbeEndpoint("@CuiProbe [\"app.bad\"]").isNone())
+    @Expect(extractCuiProbeEndpoint("// @CuiProbe[\"app.comment\"]").isNone())
+}
+
+@Test
 func kModeWireCodecPreservesUtf8AndPipes(): Unit {
     let encoded = encodeCuicKModeRequest(9, "invoke", "app.echo", "仓颉|ready")
     @Expect(containsText(encoded, "仓颉"), false)
@@ -72,4 +80,18 @@ func integratedFrameworkRootWinsBeforeCompatibilityAliases(): Unit {
     let root = integratedFrameworkRoot()
     @Expect(root.endsWith("/CangjieGUI") || root.endsWith("/CangHui"))
     @Expect(frameworkRootCandidate(root))
+}
+
+@Test
+func probeTargetParserPreservesScriptAndJsonMode(): Unit {
+    let parsed = parseProbeTarget(
+        ["cuic", "probe", "run", "component-gallery", "gallery.primary-button",
+            "--events", "move-in 10 10\npress 10 10", "--json"],
+        3,
+        true
+    )
+    @Expect(parsed.name, "gallery.primary-button")
+    @Expect(parsed.script, "move-in 10 10\npress 10 10")
+    @Expect(parsed.json)
+    @Expect(parsed.project.endsWith("/examples/component-gallery"))
 }

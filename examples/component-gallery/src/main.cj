@@ -20,6 +20,31 @@ func galleryViewportClass(value: String): String {
     }
 }
 
+@CuiProbe["gallery.primary-button"]
+func galleryPrimaryButtonProbe(script: String): String {
+    let clicks = State<Int64>(0)
+    ComponentProbe("gallery.primary-button", width: 320.0, height: 120.0).run(script) {
+        ProbeNode("gallery-root", widgetType: "VStack",
+            properties: [ProbeProperty("role", "fixture")]) {
+            VStack(padding: LengthInsets(16.vp)) {
+                Button("Run probe", probedAction("primary-button.click", { => clicks.value += 1 }),
+                    role: ButtonRole.Primary)
+                    .key("primary-button")
+                    .probe(
+                        "primary-button",
+                        "Button",
+                        [ProbeProperty("label", "Run probe")],
+                        { => [
+                            ProbeProperty("clicks", clicks.value.toString()),
+                            ProbeProperty("disabled", "false"),
+                            ProbeProperty("selected", (clicks.value > 0).toString())
+                        ] }
+                    )
+            }
+        }
+    }
+}
+
 private func previewLabels(): Array<String> {
     ["Android", "Harmony", "Tablet", "Desktop", "iOS layout"]
 }
