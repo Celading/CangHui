@@ -307,10 +307,12 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 iOS 采用静态库嵌入 Xcode 宿主。母体框架提供可独立交叉编译的 host-contract 源集、稳定的
 `canghui_ios_host_abi_version` C ABI 与 device/simulator 构建脚本；旧的
 `cangjiegui_ios_host_abi_version` 仅作为源兼容别名保留。Xcode 宿主负责运行时静态库链接、
-签名和应用生命周期。当前真机证据已证明 runtime 初始化、固定后台 UI scheduler 和 N2C foreign-thread
-调用门可用，也已成功调用一个最小仓颉静态包；但 CangHui `cui.host` 静态包仍卡在正式包初始化协议，
-因此尚不声称 ABI 函数已返回，也不证明 UIKit 生命周期、触摸、safe area、IME、无障碍或
-首个产品验收应用仍需在独立仓库完成适配。
+签名和应用生命周期。框架同时提供 Objective-C bootstrap helper：以最终 executable basename
+调用 `InitCJLibrary` 完成静态包初始化，并通过 `RunCJTask` 进入 `@C` 函数；应用不再需要自行
+编写 C shim，也不应把 `InitCJLibraryStub` 当作包初始化器。当前 Apple Silicon simulator 与物理
+iPad 均返回 `runtime=0 / scheduler=ready / library=0 / task=0 / abi=1`。这只证明 runtime、固定
+scheduler、静态包和 N2C ABI 门，不证明 UIKit 生命周期、触摸、safe area、IME、无障碍、
+native-surface renderer 或产品应用验收。
 
 ### XComponent-like 原生表面代理
 

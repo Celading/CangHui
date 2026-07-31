@@ -29,6 +29,8 @@ build_target() {
 
     (
         cd "$OUTPUT_DIR"
+        # The validated 1.3.0-alpha iOS toolchain needs optimized static
+        # package code so safepoint slow paths return to their call site.
         "$CJC" \
             "$ROOT_DIR/src/host/host_capabilities.cj" \
             "$ROOT_DIR/src/host/mobile_host_contracts.cj" \
@@ -36,6 +38,7 @@ build_target() {
             "$ROOT_DIR/src/host/ios_host_bootstrap.cj" \
             --target="$target" \
             --output-type=staticlib \
+            -O2 \
             -o "$OUTPUT_DIR/$output_name"
     )
 }
