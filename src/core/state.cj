@@ -1,16 +1,17 @@
 package cui.core
 
 import std.collection.{ArrayList, HashMap, HashSet}
+import std.sync.AtomicInt64
 
 /*
  * A process-global counter bumped on every `State` assignment, used by the desktop loop's dirty-frame
  * skipping (档 0): when it has not moved since the last rendered frame, no state changed and — with no
- * input events and no animation pending — the frame can be skipped. A background thread's write bumps
- * it too; the increment is not atomic, but a lost increment still leaves the value different from the
- * last snapshot (it only ever advances), so a real change is never missed, only occasionally
- * over-counted into a harmless extra render.
+ * input events and no animation pending — the frame can be skipped. The counter is atomic so frame-loop
+ * observation itself has no data race. This does not make `State` thread-safe: values, listeners and
+ * synchronous callbacks remain UI-owner state; workers must return results through `UiOwnerQueue` or
+ * `DesktopApp.postToUi` before assigning them.
  */
-var stateWriteGeneration: UInt64 = 0
+let stateWriteGeneration = AtomicInt64(0)
 
 class StateListener<T> {
     let callback: (T, T) -> Unit
@@ -96,7 +97,7 @@ public interface Bindable<T> <: Observable<T> {
 /**
  * An observable, single-source-of-truth value used by stateful controls and views.
  * Assigning `value` updates the revision and notifies observers synchronously on the
- * caller thread. UI state should be mutated on the desktop UI thread.
+ * caller thread. UI state must be mutated by the UI owner; background workers should post an owner task.
  */
 public class State<T> <: Bindable<T> {
     private var storedValue: T
@@ -119,7 +120,7 @@ public class State<T> <: Bindable<T> {
             let previous = storedValue
             storedValue = next
             stateRevision = nextRevision(stateRevision)
-            stateWriteGeneration = nextRevision(stateWriteGeneration)
+            let _ = stateWriteGeneration.fetchAdd(1)
             notify(previous, next)
         }
     }
@@ -191,7 +192,7 @@ internal func nextRevision(current: UInt64): UInt64 {
 
 /** The current global state-write generation. The desktop loop compares this across frames. */
 public func currentStateGeneration(): UInt64 {
-    stateWriteGeneration
+    UInt64(stateWriteGeneration.load())
 }
 
 /**

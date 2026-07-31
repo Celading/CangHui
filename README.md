@@ -81,6 +81,9 @@ main() {
 - 使用有顺序语义的链式修饰器配置尺寸、约束、内边距、表面、圆角、边框、阴影、渐变背景、弹性、可见性和可用性，支持 `.px`，`.vp`，`.fp` 尺寸单位表达。
 - 以 `Observable`/`Bindable` 实现状态管理：可写 `State<T>`，带缓存的派生只读 `DerivedState`
   （`derive`/`map`），双向投影 `Binding`（`project`），控件按读写需要接受对应抽象。
+- 提供线程安全的 `UiOwnerQueue` 与 `DesktopApp.postToUi`：后台任务准备不可变结果，UI owner 在下一次
+  声明式构建前按 ticket 顺序提交；可选 epoch/native-surface generation 门、取消、关闭与 receipt
+  让过期或退出后的结果可被明确拒绝。`State` 本身仍只允许 UI owner 修改。
 - 以 `Keyed`、`rememberState`、`ForEach` 明确复杂嵌套树与列表中的局部状态身份，控件交互身份按构建顺序自动唯一。
 - 支持主轴/交叉轴排列、权重布局、内容自适应、流式换行、裁剪滚动和可复用组件组合。
 - 使用 GPU 几何图元和超采样渲染圆角、描边、图标、阴影及抗锯齿图形。
@@ -103,6 +106,7 @@ main() {
 - `ComponentPackageDescriptor`、`ComponentContext` 与 `ViewportSpec` 为组件包注入宿主事实和逻辑视口；
 - `Compact / Medium / Expanded` 响应式分级与 Component Gallery 用于公共布局回归；
 - `cui.host` 定义生命周期、安全区、触摸、文件选择、存储、主题、通知、后台任务和 native-surface 边界；
+- `UiOwnerQueue` 定义 worker 结果回到单一 UI owner 的顺序、过期检查和完成回执；
 - Debug 或显式监管运行可通过 kMode 在不创建窗口、不遍历布局时调用已注册函数。
 
 Android、HarmonyOS 与 iOS 预览只证明公共布局。iOS 另有 device/simulator

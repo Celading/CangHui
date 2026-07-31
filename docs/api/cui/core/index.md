@@ -6,7 +6,7 @@
 import cui.core.*
 ```
 
-UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网格/流式/层叠/滚动/按需创建的布局容器、按钮与文本等基础控件、状态与双向绑定、动画、主题、每帧上下文 [`UiContext`](UiContext.md)，以及浮层和焦点处理。`cui.controls`、`cui.text`、`cui.media` 的控件都建立在本包之上。
+UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网格/流式/层叠/滚动/按需创建的布局容器、按钮与文本等基础控件、状态与双向绑定、动画、主题、每帧上下文 [`UiContext`](UiContext.md)、[`UiOwnerQueue`](UiOwnerQueue.md)，以及浮层和焦点处理。`cui.controls`、`cui.text`、`cui.media` 的控件都建立在本包之上。
 
 ## 类型
 
@@ -49,6 +49,9 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`StateStore`](StateStore.md) | 跨声明式重建保留显式键控局部状态的容器：一次完整构建未访问的条目会被移除，与视图卸载语义一致。 |
 | [`Tooltip`](Tooltip.md) | 为任意控件包上悬停提示：指针在子组件上驻留 500 毫秒后，提示文本被绘制在整棵组件树之上；其余时刻是完全透明的包装。 |
 | [`UiContext`](UiContext.md) | 每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。 |
+| [`UiOwnerQueue`](UiOwnerQueue.md) | 多 producer、单 UI owner 的顺序提交队列，提供 epoch/surface generation 门、取消、关闭和完成回执。 |
+| [`UiOwnerReceipt`](UiOwnerQueue.md#uiownerreceipt) | owner task 的不可变最终回执：状态、执行 epoch、追踪 hash 与消息。 |
+| [`UiOwnerTicket`](UiOwnerQueue.md#uiownerticket) | producer 持有的任务票据：暴露顺序号、取消入口和最终回执。 |
 | [`VStack`](VStack.md) | 沿垂直主轴排布子组件的弹性栈容器：以尾随 lambda 声明子组件，间距、主轴/交叉轴对齐与弹性参与可链式配置。 |
 | [`ZStack`](ZStack.md) | 把子组件按声明顺序自底向顶叠放、并在同一框架内对齐的层叠容器。 |
 
@@ -85,6 +88,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`LengthUnit`](LengthUnit.md) | 长度值的单位：物理像素 `Px`、虚拟像素 `Vp` 或随用户字体缩放的字体像素 `Fp`。 |
 | [`MainAxisAlignment`](MainAxisAlignment.md) | 栈沿主轴分配剩余空间的策略：靠端、居中或三种等分间隔。 |
 | [`TextAlign`](TextAlign.md) | 文本在所分配框架内的水平对齐方式：行首、居中或行尾。 |
+| [`UiOwnerTaskStatus`](UiOwnerQueue.md#uiownertaskstatus) | owner task 的最终状态：提交、取消、关闭/过期拒绝或失败。 |
 
 **外部类型扩展**
 
@@ -101,7 +105,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ForEach`](functions.md#foreach) | 为每个数据项声明一棵键控子树。 |
 | [`ForEachIndexed`](functions.md#foreachindexed) | 以位置为标识、为每个数据项声明一棵键控子树。 |
 | [`LazyGrid`](functions.md#lazygrid) | 垂直滚动的虚拟化网格：`data` 排成 `columns` 等宽列并按行开窗，海量均匀单元格（照片墙、卡片网格）只花一屏的成本。 |
-| [`currentStateGeneration`](functions.md#currentstategeneration) | 当前 UI 线程的全局状态写代数。 |
+| [`currentStateGeneration`](functions.md#currentstategeneration) | 原子读取进程级状态写入观察代号。 |
 | [`rememberState`](functions.md#rememberstate) | 返回由活动 [`DesktopApp`](../desktop/DesktopApp.md) 构建保留的局部状态。 |
 | [`drawFocusRing`](functions.md#drawfocusring) | 绘制键盘焦点环：贴着控件的强调色圆角描边，画在边界外 2 像素处，读作独立于控件自身边缘的光晕。 |
 | [`emit`](functions.md#emit) | 把新构造的组件注册进最内层打开的构建块。 |

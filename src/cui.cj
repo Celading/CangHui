@@ -120,6 +120,12 @@ public import cui.core.Theme
 public import cui.core.ThemeTransition
 public import cui.core.Tooltip
 public import cui.core.UiContext
+public import cui.core.UiOwnerQueue
+public import cui.core.UiOwnerReceipt
+public import cui.core.UiOwnerTaskHandler
+public import cui.core.UiOwnerTaskStatus
+public import cui.core.UiOwnerTicket
+public import cui.core.UiOwnerWakeHandler
 public import cui.core.VStack
 public import cui.core.Widget
 public import cui.core.ZStack
@@ -134,6 +140,7 @@ public import cui.core.probeActivation
 public import cui.core.probedAction
 public import cui.core.easingName
 public import cui.core.motionLevelName
+public import cui.core.uiOwnerTaskStatusName
 public import cui.symbol.CANGHUI_SYMBOL_PROTOCOL
 public import cui.symbol.SymbolAdapter
 public import cui.symbol.SymbolAlias

@@ -269,8 +269,19 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 ## 事件与线程
 
 事件从最外层视图向内分发，容器通常按逆序把指针和键盘事件交给子项，以符合视觉层叠顺序；
-`UiEvent.Frame` 会广播给整棵树。UI 构建和绘制必须位于同一线程。耗时工作应通过 `spawn` 执行，
-并使用 `Mutex`、原子对象或并发集合把结果传回 UI 帧。
+`UiEvent.Frame` 会广播给整棵树。UI 构建、状态提交和绘制必须由同一个 UI owner 执行。耗时工作可通过
+`spawn` 准备不可变结果，但 worker 不得直接修改 `State`、Widget、Renderer 或其他 live UI 对象。
+
+`UiOwnerQueue` 是 worker 与 owner 之间的提交门：多个 producer 在锁内取得全序 ticket，owner 通过
+`drain` 串行执行一个有界快照。`DesktopApp` 在每个需要渲染的帧首、构建声明式树之前 drain；因此 owner
+任务中的 `State` 写入会被当前帧观察，而任务内部再次投递的工作留到下一帧。队列可用 `baseEpoch` 拒绝
+基于旧 UI 快照准备的结果，用 `surfaceGeneration` 拒绝针对旧 native surface 的结果；取消只有在 owner
+领取任务前才成功。任务失败也推进 epoch，因为异常前可能已经发生部分 live-state 修改，后续基于旧 epoch
+的结果必须失效。
+
+这条合同提供确定性顺序、陈旧结果门和 receipt，不提供回滚、隔离或原子 SceneDiff 事务。不可变输入仍是
+应用和上层协议必须遵守的约定；自定义宿主也必须保证只有同一 UI owner 调用 `drain`。队列关闭后，待处理
+任务完成为 `cancelled`，后续投递立即完成为 `rejected-closed`，避免宿主退出后留下永久悬空 ticket。
 
 ## 资源生命周期
 

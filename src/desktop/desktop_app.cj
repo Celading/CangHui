@@ -13,7 +13,7 @@ import sdl.system.ApplicationMetadata
 import sdl.system.SdlHintSetting
 import sdl.system.SdlHints
 import cui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot,
-    currentStateGeneration, drawTooltip}
+    UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip}
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
@@ -35,6 +35,7 @@ public class DesktopApp {
     private let resources = ArrayList<Resource>()
     private let queuedEvents = ArrayList<UiEvent>()
     private let stateStore = StateStore()
+    private let uiOwnerQueue = UiOwnerQueue()
     private let snapshotPath: ?String
     private let snapshotFrame: UInt64
     // Per-phase frame timing, enabled with `--profile`; None (and zero cost) in a normal run.
@@ -140,6 +141,23 @@ public class DesktopApp {
         stateStore.clear()
     }
 
+    /**
+     * Posts work prepared on any thread for deterministic execution by this application's UI owner.
+     * The task runs before the next declarative tree build and therefore may safely update UI `State`.
+     */
+    public func postToUi(
+        action: UiOwnerTaskHandler,
+        baseEpoch!: ?UInt64 = None,
+        topologyHash!: String = ""
+    ): UiOwnerTicket {
+        uiOwnerQueue.post(action, baseEpoch: baseEpoch, topologyHash: topologyHash)
+    }
+
+    /** Current owner epoch for optimistic `postToUi(baseEpoch:)` preparation. */
+    public func uiOwnerEpoch(): UInt64 {
+        uiOwnerQueue.currentEpoch()
+    }
+
     /** Queues a pointer click through the normal CUI hit-test and event route. */
     public func queuePointerClick(x: Float32, y: Float32): Unit {
         queuedEvents.add(UiEvent.MouseDown(MouseButton.Left, x, y))
@@ -203,9 +221,9 @@ public class DesktopApp {
             }
             var previousTick = window.ticks()
             // Dirty-frame skipping (档 0): a frame is built, laid out, and drawn only when something can
-            // have changed — the first frame, pending input, a state write since the last render, a
-            // resize, or a continuous-frame request (a blinking caret, a tooltip counting down, a
-            // per-frame FrameHandler). Otherwise the loop keeps polling input at the frame cadence but
+            // have changed — the first frame, pending input or owner work, a state write since the last
+            // render, a resize, or a continuous-frame request (a blinking caret, a tooltip counting
+            // down, a per-frame FrameHandler). Otherwise the loop keeps polling input at the frame cadence but
             // leaves the last presented frame on screen, so an idle window costs nothing to build, lay
             // out, or draw. State is snapshotted at the TOP of each rendered frame, so a write made
             // during that frame's layout/dispatch/draw reliably triggers the reflecting render next.
@@ -224,12 +242,18 @@ public class DesktopApp {
                 ctx.viewportHeight = Float32(viewportH)
 
                 let events = collectPendingEvents()
-                let stateGen = currentStateGeneration()
-                let mustRender = continuousRequested || !events.isEmpty() || stateGen != lastRenderedGen ||
+                let observedStateGen = currentStateGeneration()
+                let ownerWorkPending = uiOwnerQueue.hasPending()
+                let mustRender = continuousRequested || ownerWorkPending || !events.isEmpty() ||
+                    observedStateGen != lastRenderedGen ||
                     viewportW != renderedWidth || viewportH != renderedHeight || snapshotPath.isSome() ||
                     profiler.isSome() || themeTransition.isSome()
 
                 if (mustRender) {
+                    // Drain a bounded snapshot before build. Reentrant posts remain pending for the
+                    // next frame, and State writes made here are included in this frame's generation.
+                    let _ = uiOwnerQueue.drain()
+                    let frameStateGen = currentStateGeneration()
                     let tBuild = FrameProfiler.now()
                     let widget = buildRoot(body, stateStore)
                     let tLayout = FrameProfiler.now()
@@ -241,7 +265,7 @@ public class DesktopApp {
                     let tDraw = FrameProfiler.now()
                     frames += 1
                     let (beginNs, treeNs, resolveNs, presentNs) = draw(widget)
-                    lastRenderedGen = stateGen
+                    lastRenderedGen = frameStateGen
                     continuousRequested = ctx.takeFrameRequest() || themeTransition.isSome()
                     renderedWidth = viewportW
                     renderedHeight = viewportH
@@ -256,6 +280,7 @@ public class DesktopApp {
                 window.delay(frameDelay)
             }
         } finally {
+            let _ = uiOwnerQueue.close(reason: "desktop application closed")
             closeThemeTransition()
             closeManagedResources()
             window.close()

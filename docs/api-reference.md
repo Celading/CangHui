@@ -90,6 +90,26 @@
 控件的交互身份（焦点、按压）默认在每次构建中按声明顺序自动唯一化，并受 `Keyed` 命名空间
 隔离；`.id(...)` 仅在身份需要跨树形变化保持时使用。
 
+### UI owner 提交队列
+
+`UiOwnerQueue` 接受任意线程准备好的 owner task，但 live UI 只能由唯一 owner 调用 `drain` 后修改。
+`DesktopApp.postToUi` 已把这条队列接入桌面帧循环，并在下一次声明式构建前执行任务。
+
+| API | 说明 |
+|---|---|
+| `UiOwnerQueue(wake:)` | 创建队列；可选 wake 回调只负责唤醒宿主，异常不会撤销已完成的投递 |
+| `post(action, baseEpoch:, surfaceGeneration:, topologyHash:)` | 返回单调 ticket；可选 epoch/surface generation 在执行前检查，`topologyHash` 仅作追踪元数据 |
+| `drain(maxTasks:)` | 由 UI owner 串行执行一个有界快照；任务内的重入投递留给下一次 drain |
+| `cancelAllPending(reason:)` | 取消当前尚未被 drain 领取的任务，但队列仍可继续接收投递 |
+| `close(reason:)` | 永久关闭队列、取消待处理任务；之后的投递立即得到 `RejectedClosed` receipt |
+| `currentEpoch()` / `setSurfaceGeneration(...)` | 读取 owner epoch，或设置当前 native-surface generation |
+| `UiOwnerTicket` | 暴露 `sequence`、可选门条件、`cancel()`、`receipt()` |
+| `UiOwnerReceipt` | 记录最终 status、owner epoch、追踪 hash 和消息 |
+
+`UiOwnerTaskStatus` 包含 `Committed`、`Cancelled`、`RejectedClosed`、`RejectedStaleEpoch`、
+`RejectedSurfaceGeneration` 与 `Failed`。队列不提供回滚或事务隔离；任务抛异常时 receipt 为 `Failed`，
+owner epoch 仍会推进，因为任务可能已部分修改 live state。
+
 ## 4. 上下文与枚举
 
 `UiContext` 公开渲染器、主题、焦点/悬停/拖动/按压 ID、鼠标状态、关闭标志、`FrameInfo`，以及
