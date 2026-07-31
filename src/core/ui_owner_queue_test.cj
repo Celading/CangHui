@@ -167,6 +167,20 @@ func uiOwnerQueueWakeIsBestEffortAndDrainIsBounded(): Unit {
 }
 
 @Test
+func uiOwnerQueueWakeFailureDoesNotLosePostedWork(): Unit {
+    let queue = UiOwnerQueue(wake: {=>
+        throw IllegalStateException("wake failed")
+    })
+    let applied = AtomicInt64(0)
+
+    let ticket = queue.post({=> let _ = applied.fetchAdd(1)})
+    @Expect(ticket.receipt().isNone())
+    @Expect(queue.drain().size, 1)
+    @Expect(applied.load(), 1)
+    @Expect(requireOwnerReceipt(ticket).status == UiOwnerTaskStatus.Committed)
+}
+
+@Test
 func uiOwnerQueueRejectsInvalidGenerationAndDrainLimit(): Unit {
     let queue = UiOwnerQueue()
     var generationRejected = false
@@ -209,6 +223,66 @@ func uiOwnerQueueCloseResolvesPendingAndFuturePosts(): Unit {
     @Expect(queue.close(reason: "later close").isEmpty())
     let stillRejected = queue.post({=> ()})
     @Expect(requireOwnerReceipt(stillRejected).message, "owner stopped")
+}
+
+@Test
+func uiOwnerQueueCancelAllPendingKeepsQueueOpen(): Unit {
+    let queue = UiOwnerQueue()
+    let applied = AtomicInt64(0)
+    let first = queue.post({=> let _ = applied.fetchAdd(1)})
+    let second = queue.post({=> let _ = applied.fetchAdd(1)})
+
+    let cancelled = queue.cancelAllPending(reason: "replace prepared frame")
+    @Expect(cancelled.size, 2)
+    @Expect(requireOwnerReceipt(first).status == UiOwnerTaskStatus.Cancelled)
+    @Expect(requireOwnerReceipt(second).status == UiOwnerTaskStatus.Cancelled)
+    @Expect(requireOwnerReceipt(first).message, "replace prepared frame")
+    @Expect(!queue.isClosed())
+    @Expect(!queue.hasPending())
+
+    let replacement = queue.post({=> let _ = applied.fetchAdd(1)})
+    @Expect(queue.drain().size, 1)
+    @Expect(applied.load(), 1)
+    @Expect(requireOwnerReceipt(replacement).status == UiOwnerTaskStatus.Committed)
+}
+
+@Test
+func uiOwnerQueueConcurrentCloseAndPostsResolveEveryTicket(): Unit {
+    let queue = UiOwnerQueue()
+    let start = AtomicBool(false)
+    let applied = AtomicInt64(0)
+    let futures = ArrayList<Future<UiOwnerTicket>>()
+    for (_ in 0..64) {
+        futures.add(spawn {
+            while (!start.load()) {
+                sleep(Duration.millisecond)
+            }
+            queue.post({=> let _ = applied.fetchAdd(1)})
+        })
+    }
+    let closer = spawn {
+        while (!start.load()) {
+            sleep(Duration.millisecond)
+        }
+        let _ = queue.close(reason: "concurrent shutdown")
+    }
+
+    start.store(true)
+    let tickets = ArrayList<UiOwnerTicket>()
+    for (future in futures) {
+        tickets.add(future.get())
+    }
+    closer.get()
+
+    @Expect(queue.isClosed())
+    @Expect(!queue.hasPending())
+    @Expect(applied.load(), 0)
+    for (ticket in tickets) {
+        let receipt = requireOwnerReceipt(ticket)
+        @Expect(receipt.status == UiOwnerTaskStatus.Cancelled ||
+            receipt.status == UiOwnerTaskStatus.RejectedClosed)
+        @Expect(receipt.message, "concurrent shutdown")
+    }
 }
 
 @Test
