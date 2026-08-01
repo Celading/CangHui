@@ -163,6 +163,30 @@ func dropdownLongListScrollsInsidePopup(): Unit {
     @Expect(!ctx.hasOverlay())
 }
 
+@Test
+func dropdownKeyboardRevealCancelsAnInFlightSmoothWheelTarget(): Unit {
+    let ctx = controlTestContext()
+    ctx.viewportWidth = 300.0
+    ctx.viewportHeight = 300.0
+    let selected = State<Int64>(0)
+    let dropdown = Dropdown(Array<String>(30, {i => "row ${i}"}), selected, key: "keyboard-cancel")
+    dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
+    dropdown.draw(ctx)
+
+    // Start a retained wheel target without advancing it, then move the highlight to another
+    // already-visible row. Keyboard ownership must cancel the old target even though revealRow
+    // does not need to change the current offset.
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseWheel(0.0, -1.0, 100.0, 150.0)))
+    @Expect(ctx.dispatchOverlay(UiEvent.KeyDown(Key.Down, false)))
+    @Expect(selected.value, Int64(1))
+
+    ctx.frame = FrameInfo(UInt64(220), UInt64(220))
+    dropdown.draw(ctx)
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 84.0)))
+    @Expect(selected.value, Int64(0))
+}
+
 // The popup scrollbar rides in the standard right-edge lane: grabbing the thumb neither
 // selects nor closes, and dragging it scrolls the window.
 @Test

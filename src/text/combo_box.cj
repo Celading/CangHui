@@ -231,8 +231,10 @@ public class ComboBox <: Widget {
         let clamped = clampScrollOffset(next, contentHeight(filtered), listH)
         if (clamped != popupScroll.value) {
             popupScroll.value = clamped
-            cancelScrollMotion(popupScrollMotion, popupScroll)
         }
+        // Keyboard navigation owns the visible row even when no offset write was needed.
+        // Cancel a retained wheel target so it cannot move the highlight away next frame.
+        cancelScrollMotion(popupScrollMotion, popupScroll)
     }
 
     // Fills the field with the chosen suggestion (caret to end, no selection) and closes.

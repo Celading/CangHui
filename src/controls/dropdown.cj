@@ -236,8 +236,10 @@ public class Dropdown <: Widget {
         let clamped = clampScrollOffset(next, contentHeight(), listH)
         if (clamped != popupScroll.value) {
             popupScroll.value = clamped
-            cancelScrollMotion(popupScrollMotion, popupScroll)
         }
+        // Keyboard navigation owns the visible row even when no offset write was needed.
+        // Cancel a retained wheel target so it cannot move the highlight away next frame.
+        cancelScrollMotion(popupScrollMotion, popupScroll)
     }
 
     // Maps a pointer y inside the popup to an item index, honouring the scroll offset.

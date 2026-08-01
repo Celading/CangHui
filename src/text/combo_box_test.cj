@@ -1,6 +1,6 @@
 package cui.text
 
-import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
+import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
 import cui.controls.Modal
 import cui.core.{ScrollOptions, State, Theme, UiContext}
 
@@ -140,6 +140,24 @@ func comboBoxKeyboardWalksBeyondFirstScreen(): Unit {
     @Expect(ctx.dispatchOverlay(UiEvent.KeyDown(Key.Enter, false)))
     @Expect(text.value, "城市 20")
     @Expect(!ctx.hasOverlay())
+}
+
+@Test
+func comboBoxKeyboardRevealCancelsAnInFlightSmoothWheelTarget(): Unit {
+    let ctx = comboTestContext()
+    let text = State<String>("")
+    let combo = ComboBox(text, Array<String>(30, {i => "item ${i}"}), key: "keyboard-cancel")
+    combo.layout(ctx, Rect(0.0, 0.0, 200.0, 38.0))
+    let _ = combo.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 185.0, 19.0))
+    combo.draw(ctx)
+
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseWheel(0.0, -1.0, 100.0, 100.0)))
+    @Expect(ctx.dispatchOverlay(UiEvent.KeyDown(Key.Down, false)))
+
+    ctx.frame = FrameInfo(UInt64(220), UInt64(220))
+    combo.draw(ctx)
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 48.0)))
+    @Expect(text.value, "item 0")
 }
 
 // Escape closes without changing the typed text.

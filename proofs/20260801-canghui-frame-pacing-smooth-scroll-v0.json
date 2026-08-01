@@ -14,9 +14,9 @@
   },
   "verification": {
     "frameworkBuild": "pass: cjpm build",
-    "frameworkRegression": "pass: 485/485 tests",
+    "frameworkRegression": "pass: 487/487 tests",
     "framePacing": "pass: device-present pacing, fixed remaining-budget waits, kMode unbounded rendered frames, idle yielding, legacy delay compatibility, invalid-rate rejection",
-    "smoothScroll": "pass: Web defaults, Basic/Standard/Full duration resolution, immediate compatibility, eased settlement, repeated-wheel target accumulation, external-write cancellation, boundary clamp and content-shrink cancellation",
+    "smoothScroll": "pass: Web defaults, Basic/Standard/Full duration resolution, immediate compatibility, eased settlement, repeated-wheel target accumulation, external-write cancellation, keyboard-reveal cancellation with and without an offset write, boundary clamp and content-shrink cancellation",
     "scrollConsumers": "source-test pass: ScrollView, LazyColumn, LazyRow, LazyList, ListView, Table, TreeView, TextArea, Dropdown and ComboBox",
     "sdlRegression": "pass: 88/88 tests",
     "integratedCli": "pass: framework doctor/build, generated local consumer build/test, kMode/probe diff, Symbol collision checks and complete CLI smoke",
