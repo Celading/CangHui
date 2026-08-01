@@ -113,8 +113,16 @@ func parsePlatformAndProject(args: Array<String>, start: Int64, defaultExample: 
         platform = normalizePlatform(args[index])
         index += 1
     }
-    let requested = if (index < args.size) { args[index] } else { defaultExample }
+    let requested = if (index < args.size) {
+        args[index]
+    } else {
+        implicitProjectRequest(defaultExample, exists(joinPath(currentDirectory(), "cjpm.toml")))
+    }
     ProjectSelection(platform, resolveProject(requested, ""))
+}
+
+func implicitProjectRequest(defaultExample: String, currentProjectAvailable: Bool): String {
+    if (currentProjectAvailable) { "" } else { defaultExample }
 }
 
 func helpText(): String {

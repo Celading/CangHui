@@ -9,6 +9,12 @@ func platformAliasesNormalize(): Unit {
 }
 
 @Test
+func implicitRunPrefersCurrentProjectBeforeExampleFallback(): Unit {
+    @Expect(implicitProjectRequest("notepad", true), "")
+    @Expect(implicitProjectRequest("notepad", false), "notepad")
+}
+
+@Test
 func pathHelpersKeepRootAndBasenameStable(): Unit {
     @Expect(joinPath("/tmp/root/", "/child"), "/tmp/root/child")
     @Expect(parentPath("/tmp/root/child"), "/tmp/root")

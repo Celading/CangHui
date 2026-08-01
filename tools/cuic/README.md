@@ -86,6 +86,10 @@ not depend on the application having built or started.
 
 On macOS and Linux use `bin/cuic`. On Windows use `bin\\cuic.cmd` or `bin\\cuic.ps1`.
 
+From a directory containing `cjpm.toml`, bare `cuic run` runs that current
+application. Outside a Cangjie project, the same command retains the built-in
+`notepad` example fallback. An explicit project or example always wins.
+
 ## Framework Resolution
 
 `cuic` resolves CangHui in this order:
