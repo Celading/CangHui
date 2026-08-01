@@ -2,7 +2,7 @@ package cui.kmode
 
 public let KMODE_PROTOCOL = "canghui.kmode.v0"
 public let KMODE_SCHEMA_REF = "canghui://schemas/kmode-call-v0"
-public let KMODE_CHANNEL_PROTOCOL = "soonlink.channel.v1"
+public let KMODE_CHANNEL_PROTOCOL = "canghui.kmode.channel.v0"
 
 public enum KModeCapability <: Equatable<KModeCapability> {
     | Inspect

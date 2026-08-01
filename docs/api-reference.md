@@ -344,4 +344,4 @@ func echo(payload: String): String { payload }
 只接受字符串并返回字符串，应用可在字符串内承载自己的 JSON schema。
 
 `KModeChannelModule` 提供 `connect/send/poll/ack/resumeCursor`。覆写只允许在启用且具有 Admin 能力
-的策略下发生；框架不提供 SoonLink URL、凭据或默认网络实现。
+的策略下发生；框架不提供中继 URL、凭据或默认网络实现。

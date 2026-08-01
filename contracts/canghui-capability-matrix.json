@@ -260,22 +260,22 @@
       "codeRefs": [
         "src/host/native_surface_proxy.cj",
         "src/host/native_surface_proxy_test.cj",
-        "docs/reference-intake-sdl3-apple-host.md"
+        "docs/sdl3-apple-host.md"
       ]
     }
   ],
   "platformImplementations": [
     {
-      "project": "CangHUI Harmony adapter",
-      "role": "HarmonyOS and HarmonyPC platform implementation and feature proving source",
-      "state": "external-device-proven-provider; not vendored into mother framework"
+      "project": "External HarmonyOS host adapter",
+      "role": "HarmonyOS and HarmonyPC native host integration",
+      "state": "maintained outside this repository; not shipped with CangHui"
     }
   ],
   "residuals": [
-    "Define an explicit compatibility and sync protocol between the mother framework and the CangHUI Harmony adapter.",
-    "Prove a platform adapter consuming the CangHui mother contracts without source duplication.",
+    "Define a public compatibility protocol between CangHui and independently maintained platform adapters.",
+    "Prove a platform adapter consuming CangHui host contracts without source duplication.",
     "Add lifecycle, IME, accessibility and native-surface service interfaces before claiming a complete platform host abstraction.",
-    "Implement and independently verify an external SoonLink Channel v1 KModeChannelModule before claiming relay-backed operation.",
+    "Implement and independently verify an external KModeChannelModule before claiming relay-backed operation.",
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
     "Do not claim Android or iOS runtime support from desktop layout previews.",
     "Implement and device-verify the UIKit CAMetalLayer/MTKView surface proxy on top of the proven static-package bootstrap.",

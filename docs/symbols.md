@@ -1,5 +1,7 @@
 # Symbols
 
+**English** | [中文](symbols.zh-CN.md)
+
 CangHui exposes provider-neutral vector symbols through `SymbolName`,
 `Symbol`, `SymbolProvider`, `SymbolAdapter`, and `Symbols`. The core package
 contains a small built-in compatibility provider. Material Symbols, Ant Design

@@ -1,4 +1,6 @@
-# SDL3 Apple Host Reference Intake
+# SDL3 Apple Host Notes
+
+**English** | [中文](sdl3-apple-host.zh-CN.md)
 
 ## Sources
 
@@ -7,33 +9,31 @@
 - `KevinVitale/SwiftSDL@c9c26670c6aaa8130001064e3133a305082f70dc`
   under MIT.
 
-The sources were reviewed as design references. No Swift or C++ source was
+The projects were reviewed as design references. No Swift or C++ source was
 copied into CangHui.
 
-## Adopted
-
-### Two host modes
+## Host Modes
 
 An SDL3 application and an embedded native view are different deployment
-shapes and should not be forced through one fake window model:
+shapes and should not be forced through one window model:
 
 - `OwnedWindow`: SDL3 owns application callbacks, event pumping, the window
   and renderer. This is the preferred route for a standalone CangHui app.
-- `EmbeddedSurface`: UIKit, Harmony or another application owns the native
+- `EmbeddedSurface`: UIKit, HarmonyOS or another application owns the native
   view and forwards a generation-bearing surface to CangHui.
 
-Both modes share `HostApplicationLoop`, host lifecycle/input services and the
-same Cangjie widget/layout tree.
+Both modes share `HostApplicationLoop`, host lifecycle and input services, and
+the same Cangjie widget/layout tree.
 
-### Callback lifecycle
+## Callback Lifecycle
 
 SDL3's `SDL_AppInit`, `SDL_AppIterate`, `SDL_AppEvent` and `SDL_AppQuit`
 separate initialization, frame work, event delivery and guaranteed shutdown.
-CangHui adopts the portable part as `HostLoopResult` and
-`HostApplicationLoop`; the platform adapter remains responsible for mapping
-those callbacks onto the fixed Cangjie scheduler thread.
+CangHui represents the portable part with `HostLoopResult` and
+`HostApplicationLoop`. A platform adapter maps those callbacks onto the fixed
+Cangjie scheduler thread.
 
-### Apple packaging facts
+## Apple Packaging Facts
 
 The Apple host must preserve:
 
@@ -44,11 +44,11 @@ The Apple host must preserve:
 - resources placed in the application bundle rather than process-relative
   desktop paths.
 
-## Already Covered
+## Existing Ownership Rules
 
 SwiftSDL's generic pointer owner, destroy callback, typed SDL failure and
-allocate-copy-free helpers are good binding design, but CangHui already has
-the equivalent rules:
+allocation helpers are useful binding patterns, but CangHui already provides
+equivalent rules:
 
 - `Resource` implementations with idempotent deterministic `close`;
 - `CuiException` plus checked SDL return values;
@@ -56,13 +56,14 @@ the equivalent rules:
   releasing SDL memory;
 - reverse-order managed-resource shutdown in `DesktopApp`.
 
-Adding a second generic owner abstraction would weaken rather than improve the
-current ownership model.
+Adding a second generic owner abstraction would weaken the current ownership
+model.
 
-## Deferred
+## Current Limits
 
-- Direct `SDL_EnterAppMainCallbacks` binding is deferred until the Cangjie iOS
-  static-package initialization entry is established.
-- SDL3 GPU wrappers and shader packaging are a separate renderer packet.
-- Vendoring SDL3 source or an XCFramework is not part of this intake.
-- A SwiftUI/UIKit application shell is not framework source.
+- Direct `SDL_EnterAppMainCallbacks` binding waits for a complete iOS host
+  entry and lifecycle integration.
+- SDL3 GPU wrappers and shader packaging belong to renderer-specific work.
+- CangHui does not vendor SDL3 source or an XCFramework.
+- A SwiftUI/UIKit application shell remains application-side code rather than
+  shared framework source.

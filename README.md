@@ -8,7 +8,7 @@
 </p>
 <div align="center">
 <span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
-<span style="font-weight:100;font-size:24px">Cangjie Multiplatform Declarative GUI Mother Framework</span>
+<span style="font-weight:100;font-size:24px">Cangjie Multiplatform Declarative GUI Framework</span>
 <p align="center">
   <strong>Self-rendered, declarative, and platform-contract driven UI for Cangjie applications</strong><br/>
   <sub>Widgets · State · Layout · Text · Media · Animation · Tooling · Native host contracts</sub>
@@ -22,7 +22,7 @@
 
 ## What is CangHui
 
-CangHui is a self-rendered, declarative GUI mother framework written in the
+CangHui is a self-rendered, declarative GUI framework written in the
 [Cangjie programming language](https://cangjie-lang.cn/). It evolved from
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) and
 retains its upstream attribution and MIT license. The declarative core (`cui`)
@@ -33,9 +33,9 @@ primitives, and native host contracts.
 The framework is designed to be platform-neutral at the source level: common
 widgets and product components depend only on typed host capabilities and
 viewport facts, while each platform adapter owns lifecycle, native surfaces,
-IME, accessibility, packaging, and signing. The HarmonyOS/HarmonyPC platform
-implementation is maintained by the HarmonyHap/CangHUI provider; this
-repository is the mother framework it consumes.
+IME, accessibility, packaging, and signing. Platform-specific hosts can be
+implemented independently without changing common widgets or application
+state.
 
 ## Platform Status
 
@@ -46,7 +46,7 @@ do not prove a mobile runtime, and a bootstrap proof is not a renderer.
 | --- | --- | --- |
 | macOS desktop | Available | Build, the full framework/SDL/CLI test suites, the interactive gallery, and deterministic snapshots pass on this host. |
 | iOS | Bootstrap proven, renderer open | Device/simulator static-package bootstrap and ABI return are proven; the UIKit native-surface renderer, lifecycle, IME and accessibility adapters are not implemented yet. |
-| HarmonyOS / HarmonyPC | Provider-side device proven | The native OHNativeWindow/Vulkan/EGL adapter lives in the HarmonyHap/CangHUI platform provider; the mother framework does not ship an ArkTS/HAP host. |
+| HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
 | Android | Not implemented | No renderer backend, SDL activity bridge, NDK packaging, or APK runner exists yet. |
 
@@ -185,9 +185,12 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
 - [Getting started](docs/guide/index.md)
 - [API reference](docs/api/index.md)
 - [Architecture](docs/architecture.md)
+- [Consumer workflow](docs/consumer-workflow.md)
+- [Multiplatform doctor](docs/doctor.md)
 - [Symbols and providers](docs/symbols.md)
 - [Fonts](docs/fonts.md)
 - [Probe and kMode](docs/probe.md)
+- [SDL3 Apple host notes](docs/sdl3-apple-host.md)
 - [Modern GUI insights](docs/modern-GUI-insights-and-analysis.md)
 
 ## License

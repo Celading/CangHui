@@ -8,7 +8,7 @@
 </p>
 <div align="center">
 <span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
-<span style="font-weight:100;font-size:24px">仓颉多平台声明式 GUI 母体框架</span>
+<span style="font-weight:100;font-size:24px">仓颉多平台声明式 GUI 框架</span>
 <p align="center">
   <strong>为仓颉应用提供自渲染、声明式、平台契约驱动的 UI</strong><br/>
   <sub>组件 · 状态 · 布局 · 文本 · 媒体 · 动画 · 工具链 · 原生宿主契约</sub>
@@ -22,15 +22,14 @@
 
 ## 这是什么
 
-CangHui 是用[仓颉编程语言](https://cangjie-lang.cn/)实现的自渲染、声明式 GUI 母体框架。项目从
+CangHui 是用[仓颉编程语言](https://cangjie-lang.cn/)实现的自渲染、声明式 GUI 框架。项目从
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) 演进而来，
 持续保留其上游归属与 MIT 许可证。声明式核心 `cui`、安全的 SDL3 封装 `sdl`、
 集成工具链 `cuic`、组件包契约、响应式布局原语与原生宿主契约都维护在本仓库。
 
 框架在源码层保持平台中立：公共组件只依赖类型化的宿主能力（`HostCapability`）与
 视口事实（`ViewportSpec`），各平台适配层负责生命周期、原生 surface、IME、无障碍、
-打包与签名。HarmonyOS/HarmonyPC 平台实现由 HarmonyHap/CangHUI 平台提供方维护，
-本仓库是它所消费的母体框架。
+打包与签名。平台宿主可以独立实现，不需要修改公共组件或应用状态。
 
 ## 平台状态
 
@@ -40,7 +39,7 @@ CangHui 是用[仓颉编程语言](https://cangjie-lang.cn/)实现的自渲染�
 | --- | --- | --- |
 | macOS 桌面 | 可用 | 本机通过构建、框架/SDL/CLI 全量测试套件、交互式 Gallery 与确定性截图。 |
 | iOS | bootstrap 已证明，渲染器未完成 | 设备/模拟器静态包 bootstrap 与 ABI 返回已证明；UIKit native-surface 渲染器、生命周期、IME 与无障碍适配尚未实现。 |
-| HarmonyOS / HarmonyPC | 平台侧设备验证过 | OHNativeWindow/Vulkan/EGL 原生适配位于 HarmonyHap/CangHUI 平台提供方；母体框架不内置 ArkTS/HAP 宿主。 |
+| HarmonyOS / HarmonyPC | 本仓库未提供应用宿主 | 公共契约覆盖原生 surface 与宿主能力，但本仓库不包含 ArkTS/HAP 应用宿主，也不声明独立的设备运行验收。 |
 | Windows / Linux | 仅有代码路径 | `cuic` 提供 bootstrap、doctor 与构建代码路径；本仓库不声称这两个平台的主机级运行时证明。 |
 | Android | 未实现 | 尚无渲染后端、SDL activity 桥、NDK 打包或 APK runner。 |
 
@@ -89,7 +88,7 @@ main() {
 }
 ```
 
-完整的缓存、锁定与本地覆盖规则见[轻量消费工作流](docs/consumer-workflow.md)。
+完整的缓存、锁定与本地覆盖规则见[轻量消费工作流](docs/consumer-workflow.zh-CN.md)。
 
 ## 核心能力
 
@@ -138,7 +137,8 @@ main() {
 - `cuic check` / `dev` / `snapshot-ui`：由 `canghui.toml` 声明的生命周期别名
   （限定在既有 cuic 动作内）
 
-doctor 状态模型与 JSON 契约见 [`docs/doctor.md`](docs/doctor.md)。
+doctor 状态模型与 JSON 契约见
+[`docs/doctor.zh-CN.md`](docs/doctor.zh-CN.md)。
 
 ## 组件、Gallery 与包
 
@@ -158,9 +158,12 @@ doctor 状态模型与 JSON 契约见 [`docs/doctor.md`](docs/doctor.md)。
 - [入门指南](docs/guide/index.md)
 - [API 文档](docs/api/index.md)
 - [架构说明](docs/architecture.md)
-- [Symbol 与可选图标 Provider](docs/symbols.md)
-- [字体](docs/fonts.md)
-- [Probe 与 kMode](docs/probe.md)
+- [轻量消费工作流](docs/consumer-workflow.zh-CN.md)
+- [多平台 Doctor](docs/doctor.zh-CN.md)
+- [Symbol 与可选图标 Provider](docs/symbols.zh-CN.md)
+- [字体](docs/fonts.zh-CN.md)
+- [Probe 与 kMode](docs/probe.zh-CN.md)
+- [SDL3 Apple 宿主说明](docs/sdl3-apple-host.zh-CN.md)
 - [现代 GUI 核心范式洞察辨析](docs/modern-GUI-insights-and-analysis.md)
 
 ## 许可证

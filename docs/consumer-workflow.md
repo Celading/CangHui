@@ -1,5 +1,7 @@
 # Lightweight Consumer Workflow
 
+**English** | [中文](consumer-workflow.zh-CN.md)
+
 CangHui applications can depend on the framework without keeping a sibling source checkout or copying the
 framework into every project. The workflow has three independently versioned parts:
 

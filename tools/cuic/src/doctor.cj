@@ -458,7 +458,7 @@ func doctorHarmonyGroup(framework: String, liveChecks: Bool): DoctorGroup {
         "Install the OpenHarmony native/NDK component from SDK Manager."))
     checks.add(doctorHarmonyDeviceCheck(hdc, liveChecks))
     checks.add(doctorBlocked("harmony.adapter", "CangHui HarmonyOS application adapter",
-        "The mother framework does not ship an ArkTS/HAP host or application packaging project.",
+        "This repository does not ship an ArkTS/HAP host or application packaging project.",
         DoctorActionKind.Manual, "Configure a HarmonyOS platform adapter that consumes the public CangHui contracts.",
         "framework contract only"))
     DoctorGroup("platform.harmonyos", "HarmonyOS/OpenHarmony SDK, native toolchain, and device readiness",

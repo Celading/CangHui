@@ -141,8 +141,8 @@ preflight automatically. Duplicate names report every source location; the macro
 registry remain additional fail-closed layers.
 
 The CLI sets `CANGHUI_KMODE=1` and `CANGHUI_KMODE_TRANSPORT=stdio` only for the supervised child process.
-It does not provide arbitrary shell execution. Optional SoonLink Channel persistence belongs in an external
-`KModeChannelModule` implementation; URLs, claim tokens and sessions are not CLI configuration.
+It does not provide arbitrary shell execution. Optional relay persistence belongs in an external
+`KModeChannelModule` implementation; URLs, credentials and sessions are not CLI configuration.
 
 ## No-Image Probes
 
@@ -172,7 +172,7 @@ child build. Macro-generated symbols and the runtime registry remain fail-closed
 | Windows | yes | bundled DLL check | native host | structural preservation; run on Windows for runtime proof |
 | Linux | yes | Cangjie-managed pkg-config SDL copy | native host | implementation present; Linux host proof pending |
 | iOS | grouped diagnostic | no | static host contracts only | package initialization, signing and renderer return remain blocked |
-| HarmonyOS/OpenHarmony | grouped diagnostic | no | adapter-owned | mother framework does not ship an ArkTS/HAP host |
+| HarmonyOS/OpenHarmony | grouped diagnostic | no | external host required | this repository does not ship an ArkTS/HAP host |
 | Android | grouped diagnostic | no | no | backend, NDK bridge, APK packaging and runner not implemented |
 
 The CLI intentionally rejects unconfigured cross-host builds and unsupported Android execution.

@@ -1,5 +1,7 @@
 # Font Resolution
 
+**English** | [中文](fonts.zh-CN.md)
+
 CangHui ships the unmodified HarmonyOS Sans SC font and uses it as the default
 cross-platform text face. Installing the font into the host operating system is
 optional.

@@ -1,5 +1,7 @@
 # Multiplatform Doctor
 
+**English** | [中文](doctor.zh-CN.md)
+
 `cuic doctor` reports CangHui development readiness without implying that every
 listed platform is implemented or validated on the current host.
 
