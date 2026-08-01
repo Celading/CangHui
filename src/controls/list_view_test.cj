@@ -1,7 +1,7 @@
 package cui.controls
 
 import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{State, StateStore, Theme, UiContext, buildRoot}
+import cui.core.{ScrollOptions, State, StateStore, Theme, UiContext, buildRoot}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -13,6 +13,7 @@ func listViewUsesScrollOffsetWhenSelectingRows(): Unit {
     let selected = State<Int64>(0)
     let scroll = State<Float32>(0.0)
     let list = ListView(["A", "B", "C", "D", "E", "F"], selected, scroll: Some(scroll))
+        .scrollOptions(ScrollOptions.immediate())
 
     list.layout(ctx, Rect(0.0, 0.0, 180.0, 60.0))
 
@@ -70,6 +71,7 @@ func listViewRetainsScrollAcrossRebuildsWithoutExternalState(): Unit {
         let _ = buildRoot({
             =>
             let list = ListView(["A", "B", "C", "D", "E", "F", "G", "H"], selected)
+                .scrollOptions(ScrollOptions.immediate())
             captured.value = Some(list)
         }, store)
     }

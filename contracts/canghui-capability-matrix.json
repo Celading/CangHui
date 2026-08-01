@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260801.9",
+  "matrixVersion": "CangHui.20260801.10",
   "project": "CangHui",
   "version": "0.9.2",
   "surfaceTier": "mother-framework-incubating",
@@ -20,7 +20,8 @@
     "proofs/20260730-canghui-lightweight-consumer-workflow-v0.json",
     "proofs/20260731-canghui-cuic-project-scripts-v0.json",
     "proofs/20260731-canghui-ios-static-package-bootstrap-v1.json",
-    "proofs/20260801-canghui-ui-owner-queue-v0.json"
+    "proofs/20260801-canghui-ui-owner-queue-v0.json",
+    "proofs/20260801-canghui-frame-pacing-smooth-scroll-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -35,6 +36,7 @@
       "bundled HarmonyOS Sans default, Theme/application overrides, and glyph fallback",
       "provider-neutral Symbol core, optional provider packages, and declared-subset generation",
       "deterministic single-owner task commit queue for immutable worker results",
+      "device-aware desktop frame pacing and shared retained smooth-scroll policy",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts"
     ],
     "doesNotOwn": [
@@ -62,6 +64,27 @@
         "src/core/state.cj",
         "src/desktop/desktop_app.cj",
         "docs/api/cui/core/UiOwnerQueue.md"
+      ]
+    },
+    {
+      "id": "device-frame-pacing-and-smooth-scroll",
+      "version": "canghui.frame-scroll.v0",
+      "state": "source-test-host-build-proven; remote-consumer-device-refresh-measurement-and-non-macos-runtime-proof-open",
+      "codeRefs": [
+        "src/desktop/frame_pacing.cj",
+        "src/desktop/desktop_app.cj",
+        "src/core/scrolling.cj",
+        "src/core/lazy_column.cj",
+        "src/core/lazy_row.cj",
+        "src/core/lazy_list.cj",
+        "src/controls/selection_widgets.cj",
+        "src/controls/table.cj",
+        "src/controls/tree_view.cj",
+        "src/controls/dropdown.cj",
+        "src/text/text_area.cj",
+        "src/text/combo_box.cj",
+        "docs/api/cui/desktop/FramePacing.md",
+        "docs/api/cui/core/ScrollOptions.md"
       ]
     },
     {

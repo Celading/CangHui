@@ -55,6 +55,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择建议列表的平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(...)`](#measure) | [`Widget`](../core/Widget.md) 协议实现：占满可用宽度，高度固定为标准控件高 38 逻辑像素。 |
 | [`layout(...)`](#layout) | [`Widget`](../core/Widget.md) 协议实现：记录框架矩形，并把同一矩形交给内嵌编辑框布局。 |
 | [`draw(...)`](#draw) | [`Widget`](../core/Widget.md) 协议实现：绘制内嵌编辑框与右缘下拉箭头；列表打开时把弹层注册进浮层栈。 |
@@ -83,6 +84,18 @@ public init(text: Bindable<String>, options: Array<String>, key!: ?String = None
 - `IllegalArgumentException` — `key` 传入空字符串时。
 
 ## 方法
+
+### scrollOptions
+
+为建议列表的滚轮输入选择共享策略；默认 `ScrollOptions.web()`。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): ComboBox
+```
+
+**参数** `value`: [`ScrollOptions`](../core/ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `ComboBox` — 本组合框自身，用于链式调用。
 
 ### measure
 

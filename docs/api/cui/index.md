@@ -66,6 +66,8 @@ import cui.*
 | [`rememberState`](core/functions.md#rememberstate) | 返回由活动 `DesktopApp` 构建保留的局部状态。 |
 | [`Reveal`](core/Reveal.md) | 在零与内容自然高度之间缓动过渡的展开/收起容器，切换 `shown` 即让内容滑入滑出。 |
 | [`ScrollBar`](core/ScrollBar.md) | 供滚动容器内部复用的垂直滚动条拖拽控制器，把命中滚动条的按下与移动转发给它，即得一致的滑块拖拽与轨道分页行为。 |
+| [`ScrollBehavior`](core/ScrollBehavior.md) | 滚轮输入立即改变偏移，或沿保留式缓动曲线逐帧到达目标。 |
+| [`ScrollOptions`](core/ScrollOptions.md) | 可滚动组件共享的滚轮策略：选择即时或平滑行为，并配置步长、播放时长与曲线。 |
 | [`ScrollView`](core/ScrollView.md) | 裁剪显示、支持滚轮与拖动滚动条的垂直滚动视口，滚动位置按稳定标识跨帧保留。 |
 | [`Shadow`](core/Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
 | [`Spacer`](core/Spacer.md) | 测量为零并吸收所在栈剩余空间的空白弹性组件，把兄弟组件推向两端。 |
@@ -153,6 +155,7 @@ import cui.*
 | 符号 | 说明 |
 |---|---|
 | [`DesktopApp`](desktop/DesktopApp.md) | 桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 `run` 的界面构建函数重建组件树、布局、分发输入、绘制。 |
+| [`FramePacing`](desktop/FramePacing.md) | 桌面渲染帧的设备同步、固定目标帧率或不封顶策略。 |
 
 ## 再导出（外部模块 sdl）
 

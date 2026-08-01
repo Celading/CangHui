@@ -130,6 +130,14 @@ override rules.
 - Animation primitives: `Spring`, duration/easing `Animator`, repeating `Pulse`,
   render-loop-as-clock with dirty-frame continuation, and `AnimationSpec` scaled
   by theme `MotionLevel`.
+- Device-paced desktop rendering uses renderer VSync without adding a second
+  fixed delay. `FramePacing.Fixed(fps)` and `FramePacing.Unbounded` are explicit
+  alternatives; kMode selects unbounded rendered frames unless the application
+  chooses another policy.
+- Scrollable views use browser-like retained wheel easing by default. A shared
+  `ScrollOptions` policy configures immediate or smooth behavior, logical-pixel
+  wheel step, duration, and easing across views, lazy lists, tables, trees,
+  text areas, dropdowns, and combo boxes.
 - Design tokens: `Spacing`, `Radii`, `Motion`, color `Theme`, `FontSizes`, and
   `Shadow.elevation`.
 - Pointer-origin light/dark theme reveal and semantic-color InkWell feedback

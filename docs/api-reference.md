@@ -156,6 +156,8 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 | `Axis` | `Horizontal`、`Vertical` |
 | `ButtonRole` | `Normal`、`Primary`、`Danger` |
 | `MotionLevel` | `Basic`、`Standard`、`Full` |
+| `ScrollBehavior` | `Immediate`、`Smooth` |
+| `FramePacing` | `Device`、`Fixed(UInt32)`、`Unbounded` |
 | `TextAlign` | `Leading`、`Center`、`Trailing` |
 | `MainAxisAlignment` | `Start`、`Center`、`End`、`SpaceBetween`、`SpaceAround`、`SpaceEvenly` |
 | `CrossAxisAlignment` | `Start`、`Center`、`End`、`Stretch` |
@@ -180,11 +182,11 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 | `ZStack` | `body` | `alignment`；后声明的子项绘制在上层 |
 | `Grid` | `columns`、`body` | `spacing(all)`、`spacing(horizontal, vertical)`；列数小于 1 抛异常 |
 | `FlowRow` | `body` | `spacing`；空间不足自动换行 |
-| `ScrollView` | `id`、`body` | 垂直滚动；`scrollState` 接管偏移；溢出时为滚动条预留轨道，不遮挡内容；滑块可拖动、轨道可翻页 |
+| `ScrollView` | `id`、`body` | 垂直滚动；`scrollState` 接管偏移；`scrollOptions` 选择默认 Web 式缓动、即时模式或自定义步长/时长/曲线；溢出时为滚动条预留轨道，不遮挡内容；滑块可拖动、轨道可翻页 |
 | `Accordion` | `sections`；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header hover/press、chevron 与高度 reveal 动画；`.animation(AnimationSpec)`；按下后移出取消，release-inside 才切换 |
 | `Panel` | `body`（可选 `padding: LengthInsets`） | `contentPadding`、`style`、`flexible`、`hug` |
 | `Tooltip` | `text`、`body` | 悬停约 500ms 后在树上层绘制提示气泡；透明包裹，不改变布局/事件 |
-| `Dropdown` | `id`、`items`、`selected` | 下拉选择：点击/Enter 打开，弹出列表浮于树上（下方放不下翻到上方）；选中/外点/Esc 关闭，上下键移动高亮。长列表在弹层内部滚动：滚轮、可拖动滑块、方向键揭示高亮，打开时选中行滚入视野 |
+| `Dropdown` | `id`、`items`、`selected` | 下拉选择：点击/Enter 打开，弹出列表浮于树上（下方放不下翻到上方）；选中/外点/Esc 关闭，上下键移动高亮。长列表在弹层内部按 `scrollOptions` 滚动：滚轮、可拖动滑块、方向键揭示高亮，打开时选中行滚入视野 |
 | `ContextMenu` | `items`、`body` | 为子控件附加右键菜单：指针处弹出，选中运行动作并关闭、外点/Esc 取消、方向键与悬停移动高亮；透明包裹，仅拦截子区域内右键 |
 | `Modal` | `presented`、`body`（可选 `onDismiss`） | 模态对话框：`presented` 为真时暗化背景+居中面板，承载真实控件子树；拦截全部输入，`Tab` 在对话框内循环（焦点陷阱），每帧 Frame 转发进子树（`autofocus` 可用）；外点/Esc 关闭；对话框内可再开 `Dropdown`/`ComboBox`/`ContextMenu`（弹层经浮层栈压在面板之上，逐层关闭）；零尺寸、仅呈现时构建 `body`，置于根部 `ZStack` |
 | `Flexible` | `body` | 兼容的权重包装容器，新代码可用 `.flex` |
@@ -298,7 +300,7 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 ## 11. `DesktopApp`
 
 ```cangjie
-DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), fontScale: 1.0, metadata: None, hints: [])
+DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None, fontScale: 1.0, metadata: None, hints: [])
 ```
 
 | 方法 | 说明 |
@@ -315,6 +317,11 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), fontScale: 1.0, m
 | `openFileDialog`、`saveFileDialog`、`openFolderDialog` | 创建异步文件对话框请求 |
 
 `fontScale` 作用于全部 `fp` 尺寸；`WindowSpec.scale` 决定 `px` 与 `vp` 的换算。
+
+`framePacing` 显式给出时优先于 `WindowSpec.vsync` 与兼容参数 `frameDelay`：`Device` 由渲染器
+VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩余帧预算等待（1..1000），
+`Unbounded` 对实际渲染帧不加等待。未显式给出时，普通 VSync 窗口使用 `Device`，kMode 使用
+`Unbounded`；只有 `vsync: false` 的旧调用继续沿用 `frameDelay`。
 
 底层重新导出类型与方法的完整定义见 [SDL API 参考](../sdl/docs/api-reference.md)。
 

@@ -4,7 +4,7 @@
 
 `cui.desktop` 包中的 public class
 
-桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 [`run`](#run) 的界面构建函数重建组件树、布局、分发输入、绘制。闲置帧被跳过：只有输入、[`State`](../core/State.md) 写入、待处理的 [`UiOwnerQueue`](../core/UiOwnerQueue.md) 任务、窗口缩放或组件的 `ctx.requestFrame()` 才触发渲染，时间驱动的动画必须请求帧否则冻结。
+桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 [`run`](#run) 的界面构建函数重建组件树、布局、分发输入、绘制。闲置帧被跳过：只有输入、[`State`](../core/State.md) 写入、待处理的 [`UiOwnerQueue`](../core/UiOwnerQueue.md) 任务、窗口缩放或组件的 `ctx.requestFrame()` 才触发渲染，时间驱动的动画必须请求帧否则冻结。实际渲染帧由 [`FramePacing`](FramePacing.md) 决定跟随设备 VSync、固定目标帧率或不封顶。
 
 ## 声明
 
@@ -46,7 +46,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
-| [`init(...)`](#init) | 以窗口规格、主题、帧间隔、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。 |
+| [`init(...)`](#init) | 以窗口规格、主题、帧节奏、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。 |
 
 **方法**
 
@@ -67,13 +67,14 @@ main(): Unit {
 
 ### init
 
-以窗口规格、主题、帧间隔、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。元数据与 hint 在建窗前生效。
+以窗口规格、主题、帧节奏、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。元数据与 hint 在建窗前生效。
 
 ```cangjie
 public init(
     spec: WindowSpec,
     theme!: Theme = Theme.light(),
     frameDelay!: UInt32 = UInt32(16),
+    framePacing!: ?FramePacing = None,
     fontScale!: Float32 = 1.0,
     metadata!: ?AppMetadata = None,
     hints!: Array<SdlHintSetting> = []
@@ -84,7 +85,8 @@ public init(
 
 - `spec`: `WindowSpec` — 标题、逻辑尺寸、DPI/垂直同步/超采样等一次性窗口选项（sdl 模块）。
 - `theme!`: [`Theme`](../core/Theme.md) — 语义调色板；默认值为 `Theme.light()`。
-- `frameDelay!`: `UInt32` — 每帧轮询后的等待毫秒数（帧节奏）；默认值为 `UInt32(16)`。
+- `frameDelay!`: `UInt32` — 兼容旧 `vsync: false` 调用的固定等待；显式 `framePacing` 或 VSync 设备模式不叠加此等待。默认 `16`。
+- `framePacing!`: `?`[`FramePacing`](FramePacing.md) — 显式帧节奏；默认 `None`，普通 VSync 窗口跟随设备，kMode 对实际渲染帧不封顶。
 - `fontScale!`: `Float32` — 应用到 `fp` 长度的用户字体缩放；下限 0.1。默认 `1.0`。
 - `metadata!`: `?AppMetadata` — 应用名/版本等元数据（sdl.system）。默认 `None`。
 - `hints!`: `Array<SdlHintSetting>` — 建窗前应用的 SDL hint。默认空。

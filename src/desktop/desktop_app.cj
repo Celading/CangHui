@@ -14,6 +14,7 @@ import sdl.system.SdlHintSetting
 import sdl.system.SdlHints
 import cui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot,
     UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip}
+import cui.kmode.kModeEnabled
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
@@ -31,7 +32,7 @@ private let SNAPSHOT_SETTLE_FRAMES: UInt64 = 48
 public class DesktopApp {
     private let window: SdlWindow
     private let ctx: UiContext
-    private let frameDelay: UInt32
+    private let resolvedPacing: ResolvedFramePacing
     private let resources = ArrayList<Resource>()
     private let queuedEvents = ArrayList<UiEvent>()
     private let stateStore = StateStore()
@@ -55,6 +56,7 @@ public class DesktopApp {
         spec: WindowSpec,
         theme!: Theme = Theme.light(),
         frameDelay!: UInt32 = UInt32(16),
+        framePacing!: ?FramePacing = None,
         fontScale!: Float32 = 1.0,
         metadata!: ?AppMetadata = None,
         hints!: Array<SdlHintSetting> = []
@@ -63,7 +65,11 @@ public class DesktopApp {
         this.ctx = UiContext(window.renderer, theme)
         this.ctx.displayScale = window.scale
         this.ctx.fontScale = max(0.1, fontScale)
-        this.frameDelay = frameDelay
+        this.resolvedPacing = resolveFramePacing(framePacing, spec.vsync, frameDelay, kModeEnabled())
+        let wantsVsync = framePacingUsesVSync(this.resolvedPacing)
+        if (wantsVsync != spec.vsync) {
+            window.renderer.setVSync(if (wantsVsync) { Int32(1) } else { Int32(0) })
+        }
         this.snapshotPath = snapshotArgument()
         this.snapshotFrame = snapshotFrameArgument()
         this.profiler = if (profileEnabled()) {
@@ -216,7 +222,7 @@ public class DesktopApp {
         try {
             match (profiler) {
                 case Some(_) =>
-                    println("[profile] 渲染后端 ${ctx.renderer.driverName()}｜超采样 ${ctx.renderer.supersampleFactor()}x｜视口 ${window.width}x${window.height} @ ${window.scale}x")
+                    println("[profile] 渲染后端 ${ctx.renderer.driverName()}｜超采样 ${ctx.renderer.supersampleFactor()}x｜视口 ${window.width}x${window.height} @ ${window.scale}x｜帧节奏 ${resolvedFramePacingName(resolvedPacing)}")
                 case None => ()
             }
             var previousTick = window.ticks()
@@ -232,6 +238,8 @@ public class DesktopApp {
             var renderedWidth: Int32 = -1
             var renderedHeight: Int32 = -1
             while (!ctx.shouldClose) {
+                let loopStart = window.ticks()
+                var rendered = false
                 let frame = nextFrame(previousTick)
                 previousTick = frame.elapsedMs
                 ctx.frame = frame
@@ -250,6 +258,7 @@ public class DesktopApp {
                     profiler.isSome() || themeTransition.isSome()
 
                 if (mustRender) {
+                    rendered = true
                     // Drain a bounded snapshot before build. Reentrant posts remain pending for the
                     // next frame, and State writes made here are included in this frame's generation.
                     let _ = uiOwnerQueue.drain()
@@ -277,7 +286,10 @@ public class DesktopApp {
                 } else {
                     continuousRequested = ctx.takeFrameRequest()
                 }
-                window.delay(frameDelay)
+                let delay = framePacingDelay(resolvedPacing, tickDelta(loopStart, window.ticks()), rendered)
+                if (delay > UInt32(0)) {
+                    window.delay(delay)
+                }
             }
         } finally {
             let _ = uiOwnerQueue.close(reason: "desktop application closed")

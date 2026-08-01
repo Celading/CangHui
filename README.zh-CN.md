@@ -112,6 +112,11 @@ main() {
   按每帧确定的构建顺序派生。
 - 动画原语：`Spring`、时长/缓动 `Animator`、重复时间线 `Pulse`，渲染循环充当动画时钟，
   脏帧下自动续帧；`AnimationSpec` 可随主题 `MotionLevel` 缩放。
+- 桌面默认跟随渲染器 VSync，不再额外叠加固定等待；也可显式选择
+  `FramePacing.Fixed(fps)` 或 `FramePacing.Unbounded`。kMode 未显式配置时仅对实际渲染帧
+  采用不封顶节奏。
+- 可滚动组件默认采用类似 Web 的保留式滚轮缓动；共享 `ScrollOptions` 可统一配置即时/平滑模式、
+  逻辑像素步长、播放时长与曲线，覆盖视口、懒列表、表格、树、文本区、下拉与组合框。
 - 设计令牌：`Spacing`、`Radii`、`Motion`、颜色 `Theme`、`FontSizes` 与 `Shadow.elevation`。
 - 指针起点明暗主题 reveal 与按真实圆角裁切的语义色 InkWell 反馈，统一 release-inside
   激活与移出永久取消。

@@ -1,6 +1,6 @@
 package cui.core
 
-import sdl.{MouseButton, Rect, Size, UiEvent}
+import sdl.{FrameInfo, MouseButton, Rect, Size, UiEvent}
 
 private class CollapsibleScrollProbe <: Widget {
     let contentExtent: State<Float32>
@@ -43,7 +43,7 @@ func scrollWheelClampsOffsetWithinContent(): Unit {
 }
 
 @Test
-func scrollViewUsesExternalOffsetAndClampsWheelInput(): Unit {
+func scrollViewUsesExternalOffsetAndEasesDefaultWheelInput(): Unit {
     let ctx = testContext()
     let offset = State<Float32>(0.0)
     let child = SizedLayoutProbe(Size(120.0, 240.0))
@@ -53,8 +53,17 @@ func scrollViewUsesExternalOffsetAndClampsWheelInput(): Unit {
 
     view.layout(ctx, Rect(0.0, 0.0, 120.0, 80.0))
     @Expect(view.handle(ctx, UiEvent.MouseWheel(0.0, -1.0, 20.0, 20.0)))
-    view.layout(ctx, Rect(0.0, 0.0, 120.0, 80.0))
+    @Expect(offset.value, Float32(0.0))
+    @Expect(ctx.takeFrameRequest())
 
+    ctx.frame = FrameInfo(UInt64(110), UInt64(110))
+    view.layout(ctx, Rect(0.0, 0.0, 120.0, 80.0))
+    @Expect(offset.value > Float32(0.0))
+    @Expect(offset.value < Float32(72.0))
+    @Expect(child.rect.y < Float32(0.0))
+
+    ctx.frame = FrameInfo(UInt64(330), UInt64(220))
+    view.layout(ctx, Rect(0.0, 0.0, 120.0, 80.0))
     @Expect(offset.value, Float32(72.0))
     @Expect(child.rect.y, Float32(-72.0))
 }

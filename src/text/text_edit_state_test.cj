@@ -1,7 +1,7 @@
 package cui.text
 
 import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{CursorShape, State, StateStore, Theme, UiContext, buildRoot}
+import cui.core.{CursorShape, ScrollOptions, State, StateStore, Theme, UiContext, buildRoot}
 
 private func textTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -59,6 +59,7 @@ func textAreaWheelUpdatesSharedScrollState(): Unit {
     let text = State<String>("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight")
     let scroll = State<Float32>(0.0)
     let area = TextArea(text, key: "notes", scroll: Some(scroll))
+        .scrollOptions(ScrollOptions.immediate())
 
     area.layout(ctx, Rect(0.0, 0.0, 180.0, 100.0))
 

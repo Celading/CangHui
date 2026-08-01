@@ -105,6 +105,9 @@ public import cui.core.Radii
 public import cui.core.Reveal
 public import cui.core.ScrollBar
 public import cui.core.ScrollView
+public import cui.core.ScrollBehavior
+public import cui.core.ScrollOptions
+public import cui.core.scrollBehaviorName
 public import cui.core.Shadow
 public import cui.core.Spacer
 public import cui.core.Spacing
@@ -214,6 +217,8 @@ public import cui.component.ViewportSpec
 public import cui.component.classifyViewport
 public import cui.component.componentApiVersion
 public import cui.desktop.DesktopApp
+public import cui.desktop.FramePacing
+public import cui.desktop.framePacingName
 public import cui.desktop.ClientWindowChrome
 public import cui.desktop.ClientWindowChromeStyle
 public import cui.desktop.WindowChromeControl

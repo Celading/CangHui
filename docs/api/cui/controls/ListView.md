@@ -53,6 +53,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`scrollState(value: State<Float32>)`](#scrollstate) | 改用外部持有的滚动偏移并返回自身，支持位置恢复与联动。 |
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(_: UiContext, available: Size)`](#measure) | 占满可用空间（宽高均取 `available`）。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配到的框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 画底面、可见行与选中高亮、滚动条；选择变化时把选中行滚入视区。 |
@@ -97,6 +98,18 @@ public func scrollState(value: State<Float32>): ListView
 - `value`: `State<Float32>` — 外部滚动偏移，逻辑像素；控件滚动时写回它。
 
 **返回值** `ListView` — 本实例，支持 `ListView(...).scrollState(...)` 链式写法。
+
+### scrollOptions
+
+为滚轮输入选择共享策略；默认 `ScrollOptions.web()`，直接跳转可用 `ScrollOptions.immediate()`。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): ListView
+```
+
+**参数** `value`: [`ScrollOptions`](../core/ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `ListView` — 本列表自身，用于链式调用。
 
 ### measure
 

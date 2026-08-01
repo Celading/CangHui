@@ -52,6 +52,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`static of(...)`](#of) | 数据驱动形式：由 `Array<T>` 与每条目的构建器建条带，无需手写 `count` 与按索引取数。 |
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(...)`](#measure) | 恒占满全部可用空间：条带填满父容器分配的区域。 |
 | [`layout(...)`](#layout) | 记录视口宽度供下一帧构建、把滚动偏移限制在有效范围，并把每个已构建列摆到内容坐标减滚动偏移的位置。 |
 | [`draw(...)`](#draw) | 裁剪到视口逐列绘制，内容溢出时在底缘画滚动条。 |
@@ -126,6 +127,18 @@ LazyRow.of(model.photos, 160.0, key: {p => p.id}) {
     photo => photoCard(photo)
 }
 ```
+
+### scrollOptions
+
+为横向滚动输入选择共享策略；默认 `ScrollOptions.web()`，直接跳转可用 `ScrollOptions.immediate()`。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): LazyRow
+```
+
+**参数** `value`: [`ScrollOptions`](ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `LazyRow` — 本条带自身，用于链式调用。
 
 ### measure
 

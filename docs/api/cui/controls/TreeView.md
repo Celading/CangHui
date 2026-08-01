@@ -66,6 +66,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`scrollState(value: State<Float32>)`](#scrollstate) | 改用外部持有的滚动偏移，便于恢复与协同。 |
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(_: UiContext, available: Size)`](#measure) | 占满全部可用尺寸（[`Widget`](../core/Widget.md) 协议）。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配的矩形作为视口与命中的基准（[`Widget`](../core/Widget.md) 协议）。 |
 | [`draw(ctx: UiContext)`](#draw) | 只绘制视口附近的可见行，并按需滚入新选中的行（[`Widget`](../core/Widget.md) 协议）。 |
@@ -118,6 +119,18 @@ public func scrollState(value: State<Float32>): TreeView
 - `value`: `State<Float32>` — 外部持有的滚动偏移（逻辑像素）。
 
 **返回值** `TreeView` — 自身，便于链式声明。
+
+### scrollOptions
+
+为滚轮输入选择共享策略；默认 `ScrollOptions.web()`。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): TreeView
+```
+
+**参数** `value`: [`ScrollOptions`](../core/ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `TreeView` — 本树视图自身，用于链式调用。
 
 ### measure
 

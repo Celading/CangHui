@@ -312,6 +312,8 @@ public class ScrollView <: Widget {
     private let child: Widget
     private var scrollOffset: State<Float32>
     private let scrollBar: ScrollBar
+    private let scrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     private let preserveDynamicAnchor: State<Bool>
     private let previousRawHeight: State<Float32>
     private let retainedTailPadding: State<Float32>
@@ -322,8 +324,12 @@ public class ScrollView <: Widget {
     public init(key!: ?String = None, body!: () -> Unit) {
         let ident = resolveControlKey(key, "ScrollView")
         child = buildChild(body)
-        scrollOffset = localState<Float32>("ScrollView:${ident}:offset") {0.0}
+        let initialScroll = localState<Float32>("ScrollView:${ident}:offset") {0.0}
+        scrollOffset = initialScroll
         scrollBar = ScrollBar("ScrollView:${ident}:thumb")
+        scrollMotion = localState<ScrollMotion>("ScrollView:${ident}:motion") {
+            ScrollMotion(initialScroll.value)
+        }.value
         preserveDynamicAnchor = localState<Bool>("ScrollView:${ident}:preserve-anchor") {false}
         previousRawHeight = localState<Float32>("ScrollView:${ident}:previous-raw-height") {0.0}
         retainedTailPadding = localState<Float32>("ScrollView:${ident}:retained-tail-padding") {0.0}
@@ -333,6 +339,12 @@ public class ScrollView <: Widget {
     /** Uses an externally owned vertical scroll offset. */
     public func scrollState(value: State<Float32>): ScrollView {
         scrollOffset = value
+        this
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
+    public func scrollOptions(value: ScrollOptions): ScrollView {
+        scrollPolicy = value
         this
     }
 
@@ -364,6 +376,7 @@ public class ScrollView <: Widget {
         }
         previousRawHeight.value = rawContentHeight
         contentHeight = rawContentHeight + retainedTailPadding.value
+        advanceScrollMotion(ctx, scrollMotion, scrollOffset, contentHeight, rect.h, scrollPolicy)
         // Clamp writes only on change: layout runs every frame, and the offset may be an
         // externally owned state whose observers should not fire for no-op writes.
         let clamped = clampScrollOffset(scrollOffset.value, contentHeight, rect.h)
@@ -393,7 +406,7 @@ public class ScrollView <: Widget {
                 // dead zone inside an enclosing scroller, so the event falls through instead.
                 if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentHeight, frame.h) > 0.0) {
                     releaseDynamicAnchor()
-                    scrollOffset.value = scrollOffsetAfterWheel(scrollOffset.value, wheelY, contentHeight, frame.h)
+                    applyWheelScroll(ctx, scrollMotion, scrollOffset, wheelY, contentHeight, frame.h, scrollPolicy)
                     return true
                 }
             case UiEvent.MouseDown(_, x, y) =>
@@ -401,6 +414,7 @@ public class ScrollView <: Widget {
                     releaseDynamicAnchor()
                 }
                 if (scrollBar.press(ctx, frame, scrollOffset, contentHeight, frame.h, x, y)) {
+                    cancelScrollMotion(scrollMotion, scrollOffset)
                     return true
                 }
                 if (!frame.contains(x, y)) {
@@ -408,6 +422,7 @@ public class ScrollView <: Widget {
                 }
             case UiEvent.MouseMove(x, y) =>
                 if (scrollBar.drag(ctx, frame, scrollOffset, contentHeight, frame.h, y)) {
+                    cancelScrollMotion(scrollMotion, scrollOffset)
                     return true
                 }
                 // While a child drag is live (a slider knob, a text selection), track the
@@ -442,6 +457,7 @@ public class ScrollView <: Widget {
         retainedTailPadding.value = 0.0
         contentHeight = rawContentHeight
         scrollOffset.value = clampScrollOffset(scrollOffset.value, contentHeight, frame.h)
+        cancelScrollMotion(scrollMotion, scrollOffset)
     }
 }
 

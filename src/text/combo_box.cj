@@ -2,8 +2,9 @@ package cui.text
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, Overlay, ScrollBar, State, UiContext, Widget, resolveControlKey, buildChild,
-    clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, scrollBarGutter, scrollOffsetAfterWheel}
+import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State,
+    UiContext, Widget, resolveControlKey, advanceScrollMotion, applyWheelScroll, buildChild, cancelScrollMotion,
+    clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, scrollBarGutter}
 
 private let COMBO_POPUP_PAD: Float32 = 5.0
 private let COMBO_GAP: Float32 = 4.0
@@ -36,6 +37,8 @@ public class ComboBox <: Widget {
     // Scroll offset of the suggestion list, retained across the per-frame rebuild while open.
     private let popupScroll: State<Float32>
     private let popupBar: ScrollBar
+    private let popupScrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     private var frame = Rect.zero()
 
     public init(text: Bindable<String>, options: Array<String>, key!: ?String = None) {
@@ -57,7 +60,16 @@ public class ComboBox <: Widget {
         this.highlight = localState<Int64>("ComboBox:${ident}:hl") {0}
         this.popupScroll = localState<Float32>("ComboBox:${ident}:popupScroll") {0.0}
         this.popupBar = ScrollBar("ComboBox:${ident}:popupBar")
+        this.popupScrollMotion = localState<ScrollMotion>("ComboBox:${ident}:popup-scroll-motion") {
+            ScrollMotion(0.0)
+        }.value
         emit(this)
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing for suggestions. */
+    public func scrollOptions(value: ScrollOptions): ComboBox {
+        scrollPolicy = value
+        this
     }
 
     public func measure(_: UiContext, available: Size): Size {
@@ -73,7 +85,10 @@ public class ComboBox <: Widget {
         field.draw(ctx)
         drawChevron(ctx)
         if (open.value) {
-            let popup = popupRect(ctx, filteredOptions())
+            let filtered = filteredOptions()
+            let popup = popupRect(ctx, filtered)
+            advanceScrollMotion(ctx, popupScrollMotion, popupScroll, contentHeight(filtered), listHeight(popup),
+                scrollPolicy)
             ctx.setOverlay(Overlay(handleEvent: {c, e => handleOverlay(c, e, popup)},
                 render: {c => drawPopup(c, popup)}, owner: overlayOwner))
         }
@@ -117,6 +132,7 @@ public class ComboBox <: Widget {
         open.value = true
         highlight.value = 0
         popupScroll.value = 0.0 // the highlight restarts at the top, so the list does too
+        cancelScrollMotion(popupScrollMotion, popupScroll)
         ctx.focus(fieldId) // keep the field focused so typing filters the open list
     }
 
@@ -150,6 +166,7 @@ public class ComboBox <: Widget {
                 if (popup.contains(x, y)) {
                     if (popupBar.press(ctx, listRect(popup), popupScroll, contentHeight(filtered),
                         listHeight(popup), x, y)) {
+                        cancelScrollMotion(popupScrollMotion, popupScroll)
                         return true // the press grabbed the scrollbar; the popup stays open
                     }
                     commit(ctx, filtered, itemIndexAt(popup, y))
@@ -161,11 +178,16 @@ public class ComboBox <: Widget {
                 chevronRect().contains(x, y)
             case UiEvent.MouseMove(_, y) =>
                 // While the thumb is grabbed the move scrolls the list; hover falls through.
-                popupBar.drag(ctx, listRect(popup), popupScroll, contentHeight(filtered), listHeight(popup), y)
+                let dragged = popupBar.drag(ctx, listRect(popup), popupScroll, contentHeight(filtered),
+                    listHeight(popup), y)
+                if (dragged) {
+                    cancelScrollMotion(popupScrollMotion, popupScroll)
+                }
+                dragged
             case UiEvent.MouseWheel(_, wheelY, x, y) =>
                 if (popup.contains(x, y)) {
-                    popupScroll.value = scrollOffsetAfterWheel(popupScroll.value, wheelY, contentHeight(filtered),
-                        listHeight(popup))
+                    applyWheelScroll(ctx, popupScrollMotion, popupScroll, wheelY, contentHeight(filtered),
+                        listHeight(popup), scrollPolicy)
                     return true
                 }
                 false
@@ -209,6 +231,7 @@ public class ComboBox <: Widget {
         let clamped = clampScrollOffset(next, contentHeight(filtered), listH)
         if (clamped != popupScroll.value) {
             popupScroll.value = clamped
+            cancelScrollMotion(popupScrollMotion, popupScroll)
         }
     }
 
@@ -284,6 +307,7 @@ public class ComboBox <: Widget {
         let offset = clampScrollOffset(popupScroll.value, contentH, listH)
         if (offset != popupScroll.value) {
             popupScroll.value = offset
+            cancelScrollMotion(popupScrollMotion, popupScroll)
         }
         ctx.renderer.pushClip(list)
         if (filtered.isEmpty()) {

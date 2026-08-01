@@ -70,7 +70,7 @@ func lazyRowWheelScrollsHorizontally(): Unit {
     let scroll = State<Float32>(0.0)
     let row = LazyRow(100, 100.0, scroll: scroll, id: "test.lazyrow.wheel") {
         _ => emit(Spacer())
-    }
+    }.scrollOptions(ScrollOptions.immediate())
     row.layout(ctx, Rect(0.0, 0.0, 500.0, 200.0))
 
     // Wheel toward the user (scroll down) advances the strip by one wheel step (72px).
@@ -84,7 +84,7 @@ func lazyRowHorizontalWheelPansTheStrip(): Unit {
     let scroll = State<Float32>(0.0)
     let row = LazyRow(100, 100.0, scroll: scroll, id: "test.lazyrow.hwheel") {
         _ => emit(Spacer())
-    }
+    }.scrollOptions(ScrollOptions.immediate())
     row.layout(ctx, Rect(0.0, 0.0, 500.0, 200.0))
 
     // A horizontal delta (trackpad pan / tilt wheel, wheel.x positive to the right) pans right

@@ -2,7 +2,7 @@ package cui.text
 
 import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
 import cui.controls.Modal
-import cui.core.{State, Theme, UiContext}
+import cui.core.{ScrollOptions, State, Theme, UiContext}
 
 private func comboTestContext(): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())
@@ -99,6 +99,7 @@ func comboBoxLongListScrollsInsidePopup(): Unit {
     let ctx = comboTestContext()
     let text = State<String>("")
     let combo = ComboBox(text, Array<String>(30, {i => "选项 ${i}"}), key: "long")
+        .scrollOptions(ScrollOptions.immediate())
     combo.layout(ctx, Rect(0.0, 0.0, 200.0, 38.0))
     let _ = combo.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 185.0, 19.0))
     combo.draw(ctx)

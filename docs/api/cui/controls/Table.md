@@ -54,6 +54,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`static of<T>(...)`](#of) | 数据驱动的构建形式：由类型化数组与 `DataColumn` 列生成表格。 |
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择表体的平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(_: UiContext, available: Size)`](#measure) | 占满可用空间（宽高均取 `available`）。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配到的框架。 |
 | [`isFlexible()`](#isflexible) | 恒返回 `true`——表格在栈中分得剩余空间。 |
@@ -102,6 +103,18 @@ public static func of<T>(
 - `key!`: `?String` — 显式控件标识；空串抛 `IllegalArgumentException`。默认 `None`。
 
 **返回值** `Table` — 生成的表格组件。
+
+### scrollOptions
+
+为表体滚轮输入选择共享策略；默认 `ScrollOptions.web()`。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): Table
+```
+
+**参数** `value`: [`ScrollOptions`](../core/ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `Table` — 本表格自身，用于链式调用。
 
 ### measure
 

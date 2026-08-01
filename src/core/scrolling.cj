@@ -7,6 +7,207 @@ internal let CUI_SCROLL_MARGIN: Float32 = 2.0
 internal let CUI_SCROLL_MIN_THUMB_H: Float32 = 18.0
 internal let CUI_SCROLL_WHEEL_STEP: Float32 = 72.0
 
+/** Whether wheel input moves immediately or follows a retained easing curve. */
+public enum ScrollBehavior {
+    | Immediate
+    | Smooth
+}
+
+public func scrollBehaviorName(value: ScrollBehavior): String {
+    match (value) {
+        case ScrollBehavior.Immediate => "immediate"
+        case ScrollBehavior.Smooth => "smooth"
+    }
+}
+
+/**
+ * Wheel-scrolling policy shared by scrollable containers, lists, tables and popup menus.
+ * `web()` is the framework default and follows the active theme motion level; `immediate()`
+ * preserves the pre-animation behavior. Construct a value directly to choose the wheel step,
+ * exact/automatic duration and easing curve.
+ */
+public struct ScrollOptions {
+    public let behavior: ScrollBehavior
+    public let wheelStep: Float32
+    public let animation: AnimationSpec
+
+    public init(
+        behavior!: ScrollBehavior = ScrollBehavior.Smooth,
+        wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        animation!: AnimationSpec = AnimationSpec.automatic(
+            duration: Motion.normal,
+            easing: Easing.CubicBezier(0.22, 1.0, 0.36, 1.0)
+        )
+    ) {
+        if (wheelStep <= 0.0) {
+            throw IllegalArgumentException("scroll wheel step must be positive")
+        }
+        this.behavior = behavior
+        this.wheelStep = wheelStep
+        this.animation = animation
+    }
+
+    /** Browser-like wheel motion that follows Basic / Standard / Full theme timing. */
+    public static func web(
+        wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        duration!: UInt64 = Motion.normal,
+        easing!: Easing = Easing.CubicBezier(0.22, 1.0, 0.36, 1.0)
+    ): ScrollOptions {
+        ScrollOptions(behavior: ScrollBehavior.Smooth, wheelStep: wheelStep,
+            animation: AnimationSpec.automatic(duration: duration, easing: easing))
+    }
+
+    /** Immediate wheel motion with no retained animation. */
+    public static func immediate(wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP): ScrollOptions {
+        ScrollOptions(behavior: ScrollBehavior.Immediate, wheelStep: wheelStep,
+            animation: AnimationSpec(duration: UInt64(1), easing: Easing.Linear))
+    }
+}
+
+/*
+ * Retained wheel motion. Repeated wheel events accumulate against the previous target, while a
+ * direct offset write (scrollbar, keyboard reveal or application-owned State) cancels the motion.
+ * Widgets retain one through localState and drive it from layout/draw with the frame delta.
+ */
+protected class ScrollMotion {
+    private var from: Float32
+    private var targetOffset: Float32
+    private var lastApplied: Float32
+    private var elapsedMs: UInt64 = UInt64(0)
+    private var moving = false
+
+    public init(value: Float32) {
+        let initial = max(0.0, value)
+        this.from = initial
+        this.targetOffset = initial
+        this.lastApplied = initial
+    }
+
+    public func active(): Bool {
+        moving
+    }
+
+    public func cancel(value: Float32): Unit {
+        let next = max(0.0, value)
+        from = next
+        targetOffset = next
+        lastApplied = next
+        elapsedMs = UInt64(0)
+        moving = false
+    }
+
+    public func wheel(
+        current: Float32,
+        wheelDelta: Float32,
+        contentExtent: Float32,
+        viewportExtent: Float32,
+        options: ScrollOptions
+    ): Float32 {
+        syncExternal(current)
+        let maxOffset = maxScrollOffset(contentExtent, viewportExtent)
+        let baseTarget = if (moving) { targetOffset } else { current }
+        let nextTarget = clampF32(baseTarget - wheelDelta * options.wheelStep, 0.0, maxOffset)
+        match (options.behavior) {
+            case ScrollBehavior.Immediate =>
+                cancel(nextTarget)
+                nextTarget
+            case ScrollBehavior.Smooth =>
+                from = clampF32(current, 0.0, maxOffset)
+                targetOffset = nextTarget
+                lastApplied = from
+                elapsedMs = UInt64(0)
+                moving = targetOffset != from
+                from
+        }
+    }
+
+    public func advance(
+        current: Float32,
+        contentExtent: Float32,
+        viewportExtent: Float32,
+        motionLevel: MotionLevel,
+        deltaMs: UInt64,
+        options: ScrollOptions
+    ): Float32 {
+        syncExternal(current)
+        let maxOffset = maxScrollOffset(contentExtent, viewportExtent)
+        let boundedCurrent = clampF32(current, 0.0, maxOffset)
+        if (boundedCurrent != current) {
+            cancel(boundedCurrent)
+            return boundedCurrent
+        }
+        match (options.behavior) {
+            case ScrollBehavior.Immediate =>
+                cancel(boundedCurrent)
+                boundedCurrent
+            case ScrollBehavior.Smooth =>
+                targetOffset = clampF32(targetOffset, 0.0, maxOffset)
+                if (!moving || targetOffset == boundedCurrent) {
+                    cancel(boundedCurrent)
+                    return boundedCurrent
+                }
+                let duration = options.animation.resolvedDuration(motionLevel)
+                elapsedMs = min(duration, elapsedMs + deltaMs)
+                let progress = Float32(Int64(elapsedMs)) / Float32(Int64(duration))
+                let next = clampF32(from + (targetOffset - from) * options.animation.easing.ease(progress),
+                    0.0, maxOffset)
+                lastApplied = next
+                if (elapsedMs >= duration) {
+                    cancel(targetOffset)
+                    targetOffset
+                } else {
+                    next
+                }
+        }
+    }
+
+    private func syncExternal(value: Float32): Unit {
+        if (value != lastApplied) {
+            cancel(value)
+        }
+    }
+}
+
+protected func advanceScrollMotion(
+    ctx: UiContext,
+    motion: ScrollMotion,
+    offset: State<Float32>,
+    contentExtent: Float32,
+    viewportExtent: Float32,
+    options: ScrollOptions
+): Unit {
+    let next = motion.advance(offset.value, contentExtent, viewportExtent, ctx.theme.motionLevel,
+        ctx.frame.deltaMs, options)
+    if (next != offset.value) {
+        offset.value = next
+    }
+    if (motion.active()) {
+        ctx.requestFrame()
+    }
+}
+
+protected func applyWheelScroll(
+    ctx: UiContext,
+    motion: ScrollMotion,
+    offset: State<Float32>,
+    wheelDelta: Float32,
+    contentExtent: Float32,
+    viewportExtent: Float32,
+    options: ScrollOptions
+): Unit {
+    let next = motion.wheel(offset.value, wheelDelta, contentExtent, viewportExtent, options)
+    if (next != offset.value) {
+        offset.value = next
+    }
+    if (motion.active()) {
+        ctx.requestFrame()
+    }
+}
+
+protected func cancelScrollMotion(motion: ScrollMotion, offset: State<Float32>): Unit {
+    motion.cancel(offset.value)
+}
+
 /**
  * Viewport width a scrollable container reserves for the bar once content overflows,
  * so the bar rides in its own lane instead of covering the content's right edge.

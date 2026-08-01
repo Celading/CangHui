@@ -1,7 +1,7 @@
 package cui.controls
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import cui.core.{ScrollOptions, State, Theme, UiContext}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -124,6 +124,7 @@ func dropdownLongListScrollsInsidePopup(): Unit {
     ctx.viewportHeight = 300.0
     let selected = State<Int64>(0)
     let dropdown = Dropdown(Array<String>(30, {i => "项 ${i}"}), selected, key: "long")
+        .scrollOptions(ScrollOptions.immediate())
     dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
 
     // Below the control there are 218px, above only 32px: the popup opens below at 218px

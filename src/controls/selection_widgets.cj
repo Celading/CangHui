@@ -1,10 +1,11 @@
 package cui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, ScrollBar, maxScrollOffset, Spring, State, UiContext, Widget, requireControlId,
-    claimHoverIfInside, clampScrollOffset, drawFocusRing, drawSurface, drawVerticalScrollBar, emit,
-    focusableControlIdentity, handlePointerClick, localState, reregisterFocusable, scrollLineIndex, scrollLineRemainder,
-    scrollOffsetAfterWheel}
+import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions,
+    maxScrollOffset, Spring, State, UiContext, Widget, requireControlId, advanceScrollMotion, applyWheelScroll,
+    cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawFocusRing, drawSurface, drawVerticalScrollBar,
+    emit, focusableControlIdentity, handlePointerClick, localState, reregisterFocusable, scrollLineIndex,
+    scrollLineRemainder}
 
 public class Checkbox <: Widget {
     private let label: String
@@ -116,6 +117,8 @@ public class ListView <: Widget {
     private var scrollStateValue: State<Float32>
     private let controlId: String
     private let scrollBar: ScrollBar
+    private let scrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     // The selection last scrolled into view, retained across rebuilds. Draw reveals the selected
     // row only when it differs — so a changed selection (however it changed) scrolls into view,
     // but plain wheel/drag scrolling (selection unchanged) is left alone.
@@ -144,11 +147,15 @@ public class ListView <: Widget {
         // Without an external scroll state, retain the offset across the per-frame rebuild via
         // localState keyed by control id — a fresh State each frame would reset the offset, so
         // wheel/drag scrolling would spring back every frame.
-        this.scrollStateValue = match (scroll) {
+        let initialScroll = match (scroll) {
             case Some(value) => value
             case None => localState<Float32>("${cid}:scroll") {0.0}
         }
+        this.scrollStateValue = initialScroll
         this.scrollBar = ScrollBar("ListView:${cid}:thumb")
+        this.scrollMotion = localState<ScrollMotion>("${cid}:scroll-motion") {
+            ScrollMotion(initialScroll.value)
+        }.value
         this.lastRevealed = localState<Int64>("${cid}:revealed") {Int64.Min}
         emit(this)
     }
@@ -159,12 +166,20 @@ public class ListView <: Widget {
         this
     }
 
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
+    public func scrollOptions(value: ScrollOptions): ListView {
+        scrollPolicy = value
+        this
+    }
+
     public func measure(_: UiContext, available: Size): Size {
         Size(available.w, available.h)
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, listContentHeight(items), listViewport(rect).h,
+            scrollPolicy)
     }
 
     public func draw(ctx: UiContext): Unit {
@@ -174,6 +189,7 @@ public class ListView <: Widget {
             listViewport(frame).h)
         if (clampedScroll != scrollStateValue.value) {
             scrollStateValue.value = clampedScroll
+            cancelScrollMotion(scrollMotion, scrollStateValue)
         }
         // Reveal the selected row when the selection changed since the last frame — this catches
         // selections driven from outside the list (e.g. app-level key routing) that never reached
@@ -205,6 +221,7 @@ public class ListView <: Widget {
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (scrollBar.press(ctx, frame, scrollStateValue, contentH, viewportH, x, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 if (frame.contains(x, y)) {
@@ -222,12 +239,13 @@ public class ListView <: Widget {
                 }
             case UiEvent.MouseMove(_, y) =>
                 if (scrollBar.drag(ctx, frame, scrollStateValue, contentH, viewportH, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
             case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
                 // Content that fits leaves the wheel to an enclosing scroller (no dead zone).
                 if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentH, viewportH) > 0.0) {
-                    scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, wheelY, contentH, viewportH)
+                    applyWheelScroll(ctx, scrollMotion, scrollStateValue, wheelY, contentH, viewportH, scrollPolicy)
                     return true
                 }
             case UiEvent.KeyDown(Key.Up, _) => return moveSelection(ctx, -1)
@@ -296,6 +314,7 @@ public class ListView <: Widget {
             scroll = rowBottom - viewportH
         }
         scrollStateValue.value = clampScrollOffset(scroll, listContentHeight(items), viewportH)
+        cancelScrollMotion(scrollMotion, scrollStateValue)
     }
 
     private func drawRow(ctx: UiContext, i: Int64, row: Rect): Unit {

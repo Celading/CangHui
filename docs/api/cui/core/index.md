@@ -64,6 +64,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Length`](Length.md) | 带显式单位的一维尺寸，写作 `100.px`、`24.vp` 或 `15.fp`。 |
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |
 | [`Shadow`](Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
+| [`ScrollOptions`](ScrollOptions.md) | 可滚动组件共享的滚轮策略：选择即时或平滑行为，并配置步长、播放时长与曲线。 |
 | [`Theme`](Theme.md) | 组件共用的外观设置：按用途提供背景、面板、输入框、文字、强调色和危险色，并保存统一的圆角与描边宽度（逻辑像素）。 |
 
 **接口**
@@ -87,6 +88,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Easing`](Easing.md) | 把 `[0, 1]` 内的动画进度映射为缓动后进度的时序曲线。 |
 | [`LengthUnit`](LengthUnit.md) | 长度值的单位：物理像素 `Px`、虚拟像素 `Vp` 或随用户字体缩放的字体像素 `Fp`。 |
 | [`MainAxisAlignment`](MainAxisAlignment.md) | 栈沿主轴分配剩余空间的策略：靠端、居中或三种等分间隔。 |
+| [`ScrollBehavior`](ScrollBehavior.md) | 滚轮输入立即改变偏移，或沿保留式缓动曲线逐帧到达目标。 |
 | [`TextAlign`](TextAlign.md) | 文本在所分配框架内的水平对齐方式：行首、居中或行尾。 |
 | [`UiOwnerTaskStatus`](UiOwnerQueue.md#uiownertaskstatus) | owner task 的最终状态：提交、取消、关闭/过期拒绝或失败。 |
 
@@ -107,6 +109,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`LazyGrid`](functions.md#lazygrid) | 垂直滚动的虚拟化网格：`data` 排成 `columns` 等宽列并按行开窗，海量均匀单元格（照片墙、卡片网格）只花一屏的成本。 |
 | [`currentStateGeneration`](functions.md#currentstategeneration) | 原子读取进程级状态写入观察代号。 |
 | [`rememberState`](functions.md#rememberstate) | 返回由活动 [`DesktopApp`](../desktop/DesktopApp.md) 构建保留的局部状态。 |
+| `scrollBehaviorName` | 返回 `immediate` 或 `smooth` 的稳定诊断名称。 |
 | [`drawFocusRing`](functions.md#drawfocusring) | 绘制键盘焦点环：贴着控件的强调色圆角描边，画在边界外 2 像素处，读作独立于控件自身边缘的光晕。 |
 | [`emit`](functions.md#emit) | 把新构造的组件注册进最内层打开的构建块。 |
 | [`focusableControlIdentity`](functions.md#focusablecontrolidentity) | 一步完成按构建顺序分配标识并注册为焦点项。 |
