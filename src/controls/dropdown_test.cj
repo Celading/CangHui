@@ -1,7 +1,7 @@
 package cui.controls
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{ScrollOptions, State, Theme, UiContext}
+import cui.core.{MotionLevel, ScrollOptions, State, Theme, UiContext}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -10,6 +10,12 @@ private func controlTestContext(): UiContext {
 private func clickDropdownControl(ctx: UiContext, dropdown: Dropdown, x: Float32, y: Float32): Unit {
     let _ = dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, x, y))
     let _ = dropdown.handle(ctx, UiEvent.MouseUp(MouseButton.Left, x, y))
+}
+
+private func clickDropdownOverlay(ctx: UiContext, x: Float32, y: Float32): Bool {
+    let pressed = ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, x, y))
+    let released = ctx.dispatchOverlay(UiEvent.MouseUp(MouseButton.Left, x, y))
+    pressed && released
 }
 
 @Test
@@ -29,7 +35,7 @@ func dropdownOpensThenSelectsAnItemViaTheOverlay(): Unit {
 
     // The popup sits below the box; y=120 lands on the second row. The overlay consumes the
     // click, selects it and closes.
-    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 120.0)))
+    @Expect(clickDropdownOverlay(ctx, 100.0, 120.0))
     @Expect(selected.value, Int64(1))
     @Expect(!ctx.hasOverlay())
 }
@@ -104,7 +110,7 @@ func dropdownInsideModalSelectsWithoutClosingDialog(): Unit {
 
     // The popup opens below the box at (105,221); rows start at y=226, 28px each, so y=260
     // lands on the second item. Selecting closes the popup only — the dialog stays open.
-    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 120.0, 260.0)))
+    @Expect(clickDropdownOverlay(ctx, 120.0, 260.0))
     @Expect(selected.value, Int64(1))
     @Expect(ctx.overlayCount(), Int64(1))
     @Expect(presented.value)
@@ -135,7 +141,7 @@ func dropdownLongListScrollsInsidePopup(): Unit {
 
     // One wheel notch scrolls 72px; a click at y=88 then lands on row (88-83+72)/28 = 2.
     @Expect(ctx.dispatchOverlay(UiEvent.MouseWheel(0.0, -1.0, 100.0, 150.0)))
-    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 88.0)))
+    @Expect(clickDropdownOverlay(ctx, 100.0, 88.0))
     @Expect(selected.value, Int64(2))
     @Expect(!ctx.hasOverlay())
 
@@ -158,7 +164,7 @@ func dropdownLongListScrollsInsidePopup(): Unit {
         presses += 1
     }
     @Expect(selected.value, Int64(12))
-    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 84.0)))
+    @Expect(clickDropdownOverlay(ctx, 100.0, 84.0))
     @Expect(selected.value, Int64(5))
     @Expect(!ctx.hasOverlay())
 }
@@ -183,7 +189,7 @@ func dropdownKeyboardRevealCancelsAnInFlightSmoothWheelTarget(): Unit {
 
     ctx.frame = FrameInfo(UInt64(220), UInt64(220))
     dropdown.draw(ctx)
-    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 84.0)))
+    @Expect(clickDropdownOverlay(ctx, 100.0, 84.0))
     @Expect(selected.value, Int64(0))
 }
 
@@ -210,7 +216,7 @@ func dropdownPopupScrollbarDragsAndStaysOpen(): Unit {
 
     // After the drag a click near the top of the list lands deep in the list, proving the
     // window scrolled (offset ≈ 453 → row 16); an unscrolled window would select row 0.
-    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 90.0)))
+    @Expect(clickDropdownOverlay(ctx, 100.0, 90.0))
     @Expect(selected.value > Int64(5))
     @Expect(!ctx.hasOverlay())
 }
@@ -229,7 +235,7 @@ func dropdownCloseKeepsANonInteractiveAnimatedOverlay(): Unit {
     dropdown.draw(ctx)
     @Expect(ctx.hasOverlay())
 
-    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 92.0)))
+    @Expect(clickDropdownOverlay(ctx, 100.0, 92.0))
     @Expect(!ctx.hasOverlay())
 
     ctx.frame = FrameInfo(UInt64(116), UInt64(16))
@@ -240,6 +246,78 @@ func dropdownCloseKeepsANonInteractiveAnimatedOverlay(): Unit {
     ctx.frame = FrameInfo(UInt64(500), UInt64(384))
     dropdown.draw(ctx)
     @Expect(!ctx.hasOverlay())
+}
+
+@Test
+func dropdownControlMoveOutCancelsWithoutReactivatingOnMoveIn(): Unit {
+    let ctx = controlTestContext()
+    ctx.viewportWidth = 300.0
+    ctx.viewportHeight = 400.0
+    let dropdown = Dropdown(["A", "B"], State<Int64>(0), key: "control-cancel")
+    dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
+
+    @Expect(dropdown.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 30.0, 50.0)))
+    let _ = dropdown.handle(ctx, UiEvent.MouseMove(240.0, 50.0))
+    let _ = dropdown.handle(ctx, UiEvent.MouseMove(30.0, 50.0))
+    @Expect(!dropdown.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 30.0, 50.0)))
+    dropdown.draw(ctx)
+    @Expect(!ctx.hasOverlay())
+}
+
+@Test
+func dropdownPopupRowMoveOutCancelsWithoutReactivatingOnMoveIn(): Unit {
+    let ctx = controlTestContext()
+    ctx.viewportWidth = 300.0
+    ctx.viewportHeight = 400.0
+    let selected = State<Int64>(0)
+    let dropdown = Dropdown(["A", "B", "C"], selected, key: "row-cancel")
+    dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
+    dropdown.draw(ctx)
+
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 120.0)))
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseMove(240.0, 120.0)))
+    let _ = ctx.dispatchOverlay(UiEvent.MouseMove(100.0, 120.0))
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseUp(MouseButton.Left, 100.0, 120.0)))
+    @Expect(selected.value, Int64(0))
+    @Expect(ctx.hasOverlay())
+
+    @Expect(clickDropdownOverlay(ctx, 100.0, 120.0))
+    @Expect(selected.value, Int64(1))
+    @Expect(!ctx.hasOverlay())
+}
+
+@Test
+func dropdownPopupMotionUsesThemeAnimationStrength(): Unit {
+    let basicCtx = UiContext(Renderer.headless(), Theme.light(motionLevel: MotionLevel.Basic))
+    basicCtx.viewportWidth = 300.0
+    basicCtx.viewportHeight = 400.0
+    let basic = Dropdown(["A", "B"], State<Int64>(0), key: "motion-basic")
+    basic.layout(basicCtx, Rect(20.0, 40.0, 180.0, 34.0))
+    clickDropdownControl(basicCtx, basic, 30.0, 50.0)
+    basicCtx.frame = FrameInfo(UInt64(100), UInt64(100))
+    basic.draw(basicCtx)
+    @Expect(clickDropdownOverlay(basicCtx, 100.0, 92.0))
+    basicCtx.frame = FrameInfo(UInt64(266), UInt64(166))
+    basic.draw(basicCtx)
+    @Expect(!basicCtx.hasOverlay())
+
+    let fullCtx = UiContext(Renderer.headless(), Theme.light(motionLevel: MotionLevel.Full))
+    fullCtx.viewportWidth = 300.0
+    fullCtx.viewportHeight = 400.0
+    let full = Dropdown(["A", "B"], State<Int64>(0), key: "motion-full")
+    full.layout(fullCtx, Rect(20.0, 40.0, 180.0, 34.0))
+    clickDropdownControl(fullCtx, full, 30.0, 50.0)
+    fullCtx.frame = FrameInfo(UInt64(100), UInt64(100))
+    full.draw(fullCtx)
+    @Expect(clickDropdownOverlay(fullCtx, 100.0, 92.0))
+    fullCtx.frame = FrameInfo(UInt64(266), UInt64(166))
+    full.draw(fullCtx)
+    @Expect(fullCtx.hasOverlay())
+    @Expect(!fullCtx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 92.0)))
+    fullCtx.frame = FrameInfo(UInt64(600), UInt64(334))
+    full.draw(fullCtx)
+    @Expect(!fullCtx.hasOverlay())
 }
 
 // A column's custom cell painter replaces its text rendering: it runs once per visible row
