@@ -84,3 +84,27 @@ func stepIndicatorIgnoresPressesAwayFromNodes(): Unit {
     @Expect(!steps.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 44.0, 50.0)))
     @Expect(picked.value, -1)
 }
+
+@Test
+func stepIndicatorClampsOutOfRangeCurrentForInteraction(): Unit {
+    @Expect(clampStepIndex(0, 4), 0)
+    @Expect(clampStepIndex(3, -2), 0)
+    @Expect(clampStepIndex(3, 9), 2)
+
+    let ctx = stepTestContext()
+    let firstPicked = State<Int64>(-1)
+    let beforeFirst = StepIndicator(["A", "B", "C"], -2,
+        onSelect: {i => firstPicked.value = i}, key: "before-first")
+    beforeFirst.layout(ctx, Rect(0.0, 0.0, 440.0, 60.0))
+    @Expect(beforeFirst.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 44.0, STEP_NODE_CY)))
+    @Expect(beforeFirst.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 44.0, STEP_NODE_CY)))
+    @Expect(firstPicked.value, 0)
+
+    let lastPicked = State<Int64>(-1)
+    let afterLast = StepIndicator(["A", "B", "C"], 9,
+        onSelect: {i => lastPicked.value = i}, key: "after-last")
+    afterLast.layout(ctx, Rect(0.0, 0.0, 440.0, 60.0))
+    @Expect(afterLast.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 396.0, STEP_NODE_CY)))
+    @Expect(afterLast.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 396.0, STEP_NODE_CY)))
+    @Expect(lastPicked.value, 2)
+}

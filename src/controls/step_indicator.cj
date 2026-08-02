@@ -40,7 +40,9 @@ public class StepIndicator <: Widget {
         this.steps = steps
         this.current = current
         this.onSelect = onSelect
-        this.currentAnimation = localState<Animator>("${ident}:current-motion") {Animator(Float32(current))}.value
+        this.currentAnimation = localState<Animator>("${ident}:current-motion") {
+            Animator(Float32(clampStepIndex(steps.size, current)))
+        }.value
         this.nodeAnimations = Array<InteractionAnimation>(steps.size, {index =>
             localState<InteractionAnimation>("${ident}:node-motion:${index}") {InteractionAnimation()}.value
         })
@@ -69,7 +71,8 @@ public class StepIndicator <: Widget {
         }
         let cy = frame.y + STEP_TOP_PAD + STEP_CIRCLE_R
         let xs = stepCenters()
-        let animatedCurrent = currentAnimation.animate(ctx, target: Float32(current), spec: animationSpec)
+        let normalizedCurrent = clampStepIndex(n, current)
+        let animatedCurrent = currentAnimation.animate(ctx, target: Float32(normalizedCurrent), spec: animationSpec)
         // Connectors first, behind the nodes: done segments accent, the rest neutral.
         var i = 0
         while (i < n - 1) {
@@ -93,7 +96,7 @@ public class StepIndicator <: Widget {
             case Some(callback) =>
                 let cy = frame.y + STEP_TOP_PAD + STEP_CIRCLE_R
                 let xs = stepCenters()
-                let reachedCount = min(steps.size, max(Int64(0), current + 1))
+                let reachedCount = min(steps.size, clampStepIndex(steps.size, current) + 1)
                 for (step in 0..reachedCount) {
                     let hit = STEP_CIRCLE_R + 4.0
                     let hitFrame = Rect(xs[step] - hit, cy - hit, hit * 2.0, hit * 2.0)
@@ -164,5 +167,13 @@ public class StepIndicator <: Widget {
         let pen = Pen(width: 2.0, color: color)
         ctx.renderer.strokeLine(cx - 5.0, cy, cx - 1.5, cy + 4.0, pen)
         ctx.renderer.strokeLine(cx - 1.5, cy + 4.0, cx + 5.5, cy - 4.0, pen)
+    }
+}
+
+internal func clampStepIndex(stepCount: Int64, current: Int64): Int64 {
+    if (stepCount <= 0) {
+        0
+    } else {
+        max(Int64(0), min(stepCount - 1, current))
     }
 }

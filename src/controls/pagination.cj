@@ -21,7 +21,8 @@ public class Pagination <: Widget {
     private let id: String
     private let pageCount: Int64
     private let current: Bindable<Int64>
-    private let items: Array<Int64>
+    private let window: Int64
+    private var items: Array<Int64>
     private let maxItemCells: Int64
     private var frame = Rect.zero()
     private var prevRect = Rect.zero()
@@ -36,15 +37,17 @@ public class Pagination <: Widget {
     public init(pageCount: Int64, current: Bindable<Int64>, window!: Int64 = 1, key!: ?String = None) {
         let ident = resolveControlKey(key, "Pagination")
         let normalizedCount = max(1, pageCount)
-        let builtItems = paginationItems(normalizedCount, clampPage(current.value, normalizedCount), max(0, window))
+        let normalizedWindow = max(0, window)
+        let builtItems = paginationItems(normalizedCount, clampPage(current.value, normalizedCount), normalizedWindow)
         this.id = ident
         this.pageCount = normalizedCount
         this.current = current
+        this.window = normalizedWindow
         this.items = builtItems
-        this.maxItemCells = min(normalizedCount, max(1, max(0, window) * 2 + 5))
-        this.itemRects = Array<Rect>(builtItems.size, {_ => Rect.zero()})
-        this.itemAnimations = Array<InteractionAnimation>(builtItems.size, {i =>
-            localState<InteractionAnimation>("Pagination:${ident}:item:${i}:${builtItems[i]}") {
+        this.maxItemCells = min(normalizedCount, max(1, normalizedWindow * 2 + 5))
+        this.itemRects = Array<Rect>(maxItemCells, {_ => Rect.zero()})
+        this.itemAnimations = Array<InteractionAnimation>(maxItemCells, {i =>
+            localState<InteractionAnimation>("Pagination:${ident}:item:${i}") {
                 InteractionAnimation()
             }.value
         })
@@ -66,18 +69,23 @@ public class Pagination <: Widget {
 
     public func layout(_: UiContext, rect: Rect): Unit {
         frame = rect
-        var cursor = rect.x
-        prevRect = Rect(cursor, rect.y, PAGE_BTN_W, PAGE_BTN_H)
-        cursor += PAGE_BTN_W + PAGE_GAP
+        refreshItemsAndRects()
+    }
+
+    private func refreshItemsAndRects(): Unit {
+        items = paginationItems(pageCount, clampPage(current.value, pageCount), window)
+        prevRect = Rect(frame.x, frame.y, PAGE_BTN_W, PAGE_BTN_H)
+        var cursor = frame.x + PAGE_BTN_W + PAGE_GAP
         for (i in 0..items.size) {
-            itemRects[i] = Rect(cursor, rect.y, PAGE_BTN_W, PAGE_BTN_H)
+            itemRects[i] = Rect(cursor, frame.y, PAGE_BTN_W, PAGE_BTN_H)
             cursor += PAGE_BTN_W + PAGE_GAP
         }
-        nextRect = Rect(rect.x + Float32(maxItemCells + 1) * (PAGE_BTN_W + PAGE_GAP),
-            rect.y, PAGE_BTN_W, PAGE_BTN_H)
+        nextRect = Rect(frame.x + Float32(maxItemCells + 1) * (PAGE_BTN_W + PAGE_GAP),
+            frame.y, PAGE_BTN_W, PAGE_BTN_H)
     }
 
     public func draw(ctx: UiContext): Unit {
+        refreshItemsAndRects()
         let page = clampPage(current.value, pageCount)
         let selectedRect = currentPageRect(page)
         if (!selectionInitialized.value) {
@@ -101,6 +109,7 @@ public class Pagination <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        refreshItemsAndRects()
         let page = clampPage(current.value, pageCount)
         if (page > 0 && handlePointerClick(ctx, event, prevRect, "${id}:previous", {=> current.value = page - 1},
             inkRadius: ctx.theme.smallRadius, inkColor: Some(ctx.theme.inkColor()), claimFocus: false)) {
