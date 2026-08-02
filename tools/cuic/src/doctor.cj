@@ -206,7 +206,7 @@ func collectDoctorResult(requestedTarget: String, framework: String, project!: S
     groups.add(doctorLinuxGroup(host))
     groups.add(doctorIosGroup(host, framework, requestedTarget == "ios"))
     groups.add(doctorHarmonyGroup(framework, requestedTarget == "harmonyos"))
-    groups.add(doctorAndroidGroup())
+    groups.add(doctorAndroidGroup(framework))
     groups.add(doctorFontGroup(framework))
     groups.add(doctorSymbolGroup(framework))
     groups.add(doctorProbeGroup(framework))
@@ -473,7 +473,7 @@ func doctorHarmonyGroup(framework: String, liveChecks: Bool): DoctorGroup {
         "harmonyos", checks.toArray())
 }
 
-func doctorAndroidGroup(): DoctorGroup {
+func doctorAndroidGroup(framework: String): DoctorGroup {
     let checks = ArrayList<DoctorCheck>()
     let sdkRoot = doctorAndroidSdkRoot()
     checks.add(if (sdkRoot.isEmpty()) {
@@ -489,10 +489,50 @@ func doctorAndroidGroup(): DoctorGroup {
     } else {
         doctorReady("android.ndk", "Android NDK", "An Android NDK root is configured.", ndkRoot)
     })
-    checks.add(doctorUnsupported("android.backend", "CangHui Android backend and package runner",
-        "The Android renderer backend, native bridge, package assembly, and runner are not implemented.",
-        "No automatic repair is available in this version.", "unsupported by current CangHui version"))
-    DoctorGroup("platform.android", "Android SDK, NDK, backend, and package readiness", "android", checks.toArray())
+    let javaHost = joinPath(framework,
+        "platform/android/src/main/java/dev/canghui/android/CangHuiNativeSurfaceHost.java")
+    let nativeHost = joinPath(framework, "platform/android/src/main/cpp/canghui_android_surface.cpp")
+    let buildScript = joinPath(framework, "scripts/build-android-native-surface.sh")
+    let verifyScript = joinPath(framework, "scripts/verify-android-toolchain.sh")
+    checks.add(doctorRequiredFile("android.surface-java", "Android SurfaceView host", javaHost,
+        "Use a CangHui revision that includes the Android native-surface bootstrap."))
+    checks.add(doctorRequiredFile("android.surface-native", "Android ANativeWindow bridge", nativeHost,
+        "Use a CangHui revision that includes the generation-safe JNI/ANativeWindow bridge."))
+    checks.add(doctorRequiredFile("android.surface-build", "Android native-surface build", buildScript,
+        "Restore the Android native-surface build verifier."))
+    checks.add(doctorRequiredFile("android.surface-verify", "Android native-surface verification", verifyScript,
+        "Restore the Android ABI and JNI export verifier."))
+
+    let cangjieRoot = doctorAndroidCangjieRoot()
+    let cangjieModules = doctorAndroidCrossDirectory(joinPath(cangjieRoot, "modules"))
+    let cangjieRuntime = doctorAndroidCrossDirectory(joinPath(joinPath(cangjieRoot, "runtime"), "lib"))
+    checks.add(if (!cangjieModules.isEmpty() && !cangjieRuntime.isEmpty()) {
+        doctorReady("android.cangjie", "Cangjie Android cross SDK",
+            "Android modules and runtime are available for the arm64 Cangjie target.",
+            cangjieModules + " | " + cangjieRuntime)
+    } else {
+        doctorBlocked("android.cangjie", "Cangjie Android cross SDK",
+            "The selected Cangjie SDK does not provide Android arm64 modules and runtime.",
+            DoctorActionKind.Manual,
+            "Install a Cangjie Android cross SDK before linking the framework bridge.", cangjieRoot)
+    })
+
+    let nativeBootstrap = exists(javaHost) && exists(nativeHost) && exists(buildScript) && exists(verifyScript)
+    checks.add(if (nativeBootstrap) {
+        doctorDegraded("android.backend", "CangHui Android renderer and package runner",
+            "The Java/JNI/NDK native-surface bootstrap is present, but the Cangjie renderer bridge, " +
+                "Activity lifecycle, input, IME, APK packaging and device runtime proof remain open.",
+            DoctorActionKind.Manual,
+            "Complete the shared Cangjie ABI and device-backed Android application host.",
+            "native-surface bootstrap only")
+    } else {
+        doctorUnsupported("android.backend", "CangHui Android renderer and package runner",
+            "The Android native-surface bootstrap, renderer, package assembly, and runner are not available.",
+            "Use a CangHui revision with the Android bootstrap before implementing the renderer.",
+            "unsupported by current CangHui revision")
+    })
+    DoctorGroup("platform.android", "Android SDK, NDK, native surface, Cangjie, and package readiness",
+        "android", checks.toArray())
 }
 
 func doctorFontGroup(framework: String): DoctorGroup {
@@ -765,6 +805,27 @@ func doctorAndroidNdkRoot(sdkRoot: String): String {
     try {
         for (entry in Directory.readFrom(ndk)) {
             if (entry.isDirectory()) { return entry.path.toString() }
+        }
+    } catch (_: Exception) {}
+    ""
+}
+
+func doctorAndroidCangjieRoot(): String {
+    match (getVariable("CANGJIE_HOME")) {
+        case Some(value) => trimTrailingSlash(trimAscii(value))
+        case None => ""
+    }
+}
+
+func doctorAndroidCrossDirectory(parent: String): String {
+    if (parent.isEmpty() || !exists(parent)) { return "" }
+    try {
+        for (entry in Directory.readFrom(parent)) {
+            let name = basename(entry.path.toString())
+            if (entry.isDirectory() && startsWithText(name, "linux_android") &&
+                endsWithText(name, "_aarch64_cjnative")) {
+                return entry.path.toString()
+            }
         }
     } catch (_: Exception) {}
     ""

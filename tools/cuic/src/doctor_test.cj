@@ -64,3 +64,22 @@ func doctorIosReportsBootstrapAndNativeSurfaceAdapter(): Unit {
     @Expect(readySurfaceAssets, Int64(3))
     @Expect(rendererReady)
 }
+
+@Test
+func doctorAndroidReportsBootstrapWithoutClaimingRuntimeCompletion(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let checks = doctorAndroidGroup(framework).checks
+    var readySurfaceAssets: Int64 = 0
+    var backendDegraded = false
+    for (check in checks) {
+        if (startsWithText(check.id, "android.surface-") &&
+            doctorStatusName(check.status) == "ready") {
+            readySurfaceAssets += 1
+        }
+        if (check.id == "android.backend" && doctorStatusName(check.status) == "degraded") {
+            backendDegraded = true
+        }
+    }
+    @Expect(readySurfaceAssets, Int64(4))
+    @Expect(backendDegraded)
+}
