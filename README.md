@@ -105,7 +105,9 @@ main() {
 - `cui.host` 定义生命周期、安全区、触摸、文件选择、存储、主题、通知、后台任务和 native-surface 边界；
 - Debug 或显式监管运行可通过 kMode 在不创建窗口、不遍历布局时调用已注册函数。
 
-Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染器、生命周期、IME、无障碍、签名和打包仍由宿主适配层实现，不构成对应平台运行或发布声明。
+Android、HarmonyOS 与 iOS 预览只证明公共布局。iOS 另有 device/simulator
+静态包 bootstrap 与 ABI 返回验收，但平台窗口、native-surface 渲染器、生命周期、
+输入、IME、无障碍、签名和产品打包仍由宿主适配层实现，不构成完整 iOS GUI 或发布声明。
 
 ## 集成工具链
 

@@ -22,8 +22,12 @@ printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"exitCode":0'
 test -f "${FIXTURE_DIR}/assets/fonts/HarmonyOS_Sans_SC.ttf"
 test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_LICENSE.txt"
 test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_SOURCE.txt"
-"${ROOT_DIR}/bin/cuic" build macos "${FIXTURE_DIR}"
-"${ROOT_DIR}/bin/cuic" test macos "${FIXTURE_DIR}"
+test -f "${FIXTURE_DIR}/canghui.toml"
+"${ROOT_DIR}/bin/cuic" scripts list "${FIXTURE_DIR}" | grep -q '^  check:'
+(
+    cd "${FIXTURE_DIR}"
+    "${ROOT_DIR}/bin/cuic" check
+)
 "${ROOT_DIR}/bin/cuic" init "${REMOTE_FIXTURE_DIR}" --name canghui_cli_remote_smoke --platform macos
 grep -q 'git = "https://github.com/Celading/CangHui.git"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
 grep -q 'commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"

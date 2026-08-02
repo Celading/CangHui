@@ -396,20 +396,47 @@ func doctorIosGroup(host: String, framework: String, liveChecks: Bool): DoctorGr
         checks.add(doctorUnsupported("ios.xcode", "Xcode and iPhoneOS SDK",
             "iOS builds require a macOS host with Xcode.", "Run cuic doctor ios on macOS.", "host=" + host))
     }
-    let iosToolchain = "/Library/Frameworks/Cangjie/1.3.0-alpha-ios"
+    let iosToolchain = doctorIosToolchainRoot()
     checks.add(doctorRequiredFile("ios.cangjie-compiler", "Cangjie iOS compiler", joinPath(iosToolchain, "bin/cjc"),
         "Install the Cangjie iOS toolchain under /Library/Frameworks/Cangjie."))
-    checks.add(doctorRequiredDirectory("ios.runtime", "Cangjie iOS runtime", joinPath(iosToolchain, "runtime/lib/ios_aarch64_cjnative"),
+    checks.add(doctorRequiredDirectory("ios.runtime", "Cangjie iOS runtime", joinPath(iosToolchain, "lib/ios_aarch64_cjnative"),
         "Install a Cangjie toolchain that includes ios_aarch64_cjnative runtime libraries."))
-    checks.add(doctorRequiredFile("ios.host-script", "CangHui iOS static-library build", joinPath(framework, "scripts/build-ios-host-staticlibs.sh"),
-        "Restore the CangHui iOS host build script."))
+    for (check in doctorIosFrameworkChecks(framework)) { checks.add(check) }
     checks.add(doctorIosSigningCheck(host, liveChecks))
     checks.add(doctorIosDeviceCheck(host, liveChecks))
-    checks.add(doctorBlocked("ios.package-bootstrap", "CangHui iOS application bootstrap",
-        "The host contracts cross-compile, but full CangHui package initialization and renderer return are not complete.",
-        DoctorActionKind.Manual, "Complete the official Cangjie static-package initialization path before device release testing.",
-        "platform/ios and scripts/build-ios-host-staticlibs.sh are contract/build surfaces"))
     DoctorGroup("platform.ios", "iOS Xcode, SDK, signing, device, and Cangjie readiness", "ios", checks.toArray())
+}
+
+func doctorIosToolchainRoot(): String {
+    for (name in ["CANGHUI_IOS_HOME", "CANGJIE_IOS_HOME"]) {
+        match (getVariable(name)) {
+            case Some(value) where !trimAscii(value).isEmpty() =>
+                return trimTrailingSlash(trimAscii(value))
+            case _ => ()
+        }
+    }
+    "/Library/Frameworks/Cangjie/1.3.0-alpha-ios"
+}
+
+func doctorIosFrameworkChecks(framework: String): Array<DoctorCheck> {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorRequiredFile("ios.host-script", "CangHui iOS static-library build",
+        joinPath(framework, "scripts/build-ios-host-staticlibs.sh"),
+        "Restore the CangHui iOS host build script."))
+    checks.add(doctorRequiredFile("ios.bootstrap-helper", "CangHui iOS runtime bootstrap helper",
+        joinPath(framework, "platform/ios/bootstrap/CangHuiRuntimeBootstrap.m"),
+        "Use a CangHui revision that includes the Objective-C runtime bootstrap helper."))
+    checks.add(doctorRequiredFile("ios.bootstrap-verifier", "CangHui iOS static-package verifier",
+        joinPath(framework, "scripts/verify-ios-static-package.sh"),
+        "Use a CangHui revision that includes simulator and device bootstrap verification."))
+    checks.add(doctorRequiredFile("ios.bootstrap-proof", "CangHui iOS bootstrap proof receipt",
+        joinPath(framework, "proofs/20260731-canghui-ios-static-package-bootstrap-v1.json"),
+        "Re-run the iOS static-package verifier and retain its public proof receipt."))
+    checks.add(doctorBlocked("ios.renderer", "CangHui iOS native-surface renderer",
+        "Runtime, scheduler, static-package initialization and ABI return are proven, but the UIKit native-surface renderer is not implemented.",
+        DoctorActionKind.Manual, "Implement and device-verify the CAMetalLayer or MTKView surface proxy before application release testing.",
+        "platform/ios bootstrap proof does not include renderer acceptance"))
+    checks.toArray()
 }
 
 func doctorHarmonyGroup(framework: String, liveChecks: Bool): DoctorGroup {

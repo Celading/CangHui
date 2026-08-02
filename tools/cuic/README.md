@@ -18,6 +18,9 @@ cjpm build
 ./bin/cuic doctor macos --verbose
 ```
 
+The repository launchers rebuild the integrated binary when `src/` or `cjpm.toml` is newer than the current
+binary. An installed `cuic` remains a fixed compiled artifact until it is explicitly reinstalled or upgraded.
+
 `bin/cuic` and `bin\\cuic.ps1` are thin launchers. Command parsing and lifecycle orchestration live in
 the compiled Cangjie executable under `src/`.
 
@@ -37,6 +40,8 @@ cuic probe diff [project]
 cuic probe list [project] [--json]
 cuic probe describe [project] <probe> [--json]
 cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]
+cuic scripts init|list [project]
+cuic scripts run <name> [project]
 cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
 cuic build [platform] [project]
@@ -47,6 +52,37 @@ cuic clean [project]
 cuic examples
 cuic version
 ```
+
+## Project Scripts
+
+`cuic` automatically discovers named lifecycle pipelines from `canghui.toml` in the application project.
+`cuic init` writes a portable starting set:
+
+```toml
+[scripts]
+check = ["doctor", "test", "build"]
+dev = ["run"]
+snapshot-ui = ["prnt --output dist/preview.png"]
+```
+
+Run the scripts with either the explicit or shorthand surface:
+
+```bash
+cuic scripts list
+cuic scripts run check
+cuic check
+```
+
+Each array item is parsed as an existing `cuic` lifecycle action. The runner injects the owning project and
+uses the host platform when a platform is omitted. It does not invoke a shell, so the same manifest works on
+macOS, Linux, and Windows and cannot silently become an arbitrary command-execution surface. Current portable
+steps are `doctor`, `build`, `test`, `run`, `prnt`, and `clean`.
+
+Existing projects can add the default manifest once with `cuic scripts init`. Runtime application state is a
+separate concern: `State`, `rememberState`, and `StateStore` are reactive/in-memory facilities, while
+`HostApplicationStorage` only supplies host directories. CangHui does not currently expose an
+`AppStorage.init()` persistent global key-value implementation, and project script discovery deliberately does
+not depend on the application having built or started.
 
 On macOS and Linux use `bin/cuic`. On Windows use `bin\\cuic.cmd` or `bin\\cuic.ps1`.
 
