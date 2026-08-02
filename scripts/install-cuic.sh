@@ -84,6 +84,26 @@ else
     git -C "${CHECKOUT}" checkout -q --detach FETCH_HEAD
 fi
 
+SOURCE_REVISION="$(git -C "${SOURCE_ROOT:-${CHECKOUT}}" rev-parse HEAD 2>/dev/null || true)"
+[[ "${SOURCE_REVISION}" =~ ^[0-9a-fA-F]{40}$ ]] || SOURCE_REVISION="unknown"
+BUILD_CHANNEL="release"
+if [[ -n "${SOURCE_ROOT}" ]]; then
+    BUILD_CHANNEL="local-source"
+    if [[ -n "$(git -C "${SOURCE_ROOT}" status --porcelain 2>/dev/null || true)" ]]; then
+        SOURCE_REVISION="${SOURCE_REVISION}+dirty"
+    fi
+fi
+cat > "${WORK_DIR}/CangHui/tools/cuic/src/build_identity.cj" <<EOF
+package cuic
+
+let CUIC_BUILD_CHANNEL = "${BUILD_CHANNEL}"
+let CUIC_BUILD_REVISION = "${SOURCE_REVISION}"
+
+func renderCuicVersion(): String {
+    "cuic \${VERSION} (\${CUIC_BUILD_CHANNEL}@\${CUIC_BUILD_REVISION})"
+}
+EOF
+
 mkdir -p "${INSTALL_ROOT}"
 cjpm install --path "${WORK_DIR}/CangHui/tools/cuic" --root "${INSTALL_ROOT}"
 "${INSTALL_ROOT}/bin/cuic" version

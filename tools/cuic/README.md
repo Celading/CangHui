@@ -20,6 +20,9 @@ cjpm build
 
 The repository launchers rebuild the integrated binary when `src/` or `cjpm.toml` is newer than the current
 binary. An installed `cuic` remains a fixed compiled artifact until it is explicitly reinstalled or upgraded.
+`cuic version` keeps the semantic version and appends a provenance channel and revision. Sparse installs report
+`release@<commit>`, local-source installs report `local-source@<commit>` (plus `+dirty` when applicable), and a
+direct repository build reports `development@unembedded` instead of claiming an unproven source revision.
 
 `bin/cuic` and `bin\\cuic.ps1` are thin launchers. Command parsing and lifecycle orchestration live in
 the compiled Cangjie executable under `src/`.

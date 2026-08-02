@@ -886,6 +886,7 @@ func doctorStatusBlocks(status: DoctorStatus): Bool {
 
 func renderDoctorHuman(result: DoctorResult, verbose: Bool): Unit {
     println("CangHui doctor (${CANGHUI_DOCTOR_SCHEMA})")
+    println("CLI: ${renderCuicVersion()}")
     println("Host: ${result.host} ${result.architecture}")
     println("Requested target: ${result.requestedTarget}")
     for (group in result.groups) {
@@ -912,6 +913,11 @@ func renderDoctorJson(result: DoctorResult, verbose: Bool): String {
     out.append(cuicJsonQuote(CANGHUI_DOCTOR_SCHEMA))
     out.append(",\"cliVersion\":")
     out.append(cuicJsonQuote(VERSION))
+    out.append(",\"cliProvenance\":{\"channel\":")
+    out.append(cuicJsonQuote(CUIC_BUILD_CHANNEL))
+    out.append(",\"revision\":")
+    out.append(cuicJsonQuote(CUIC_BUILD_REVISION))
+    out.append("}")
     out.append(",\"host\":{\"platform\":")
     out.append(cuicJsonQuote(result.host))
     out.append(",\"architecture\":")

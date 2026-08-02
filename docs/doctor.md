@@ -47,6 +47,13 @@ The JSON document follows
 tool versions and filesystem locations, but signing identities and connected
 device identities are summarized rather than emitted.
 
+New reports include `cliProvenance` beside the stable `cliVersion`. Its
+`channel` is `development`, `local-source`, or `release`; `revision` is an exact
+Git commit for installed artifacts, carries `+dirty` for a local-source build
+with uncommitted input, or is the honest `unembedded` marker for a direct
+repository build. The field is optional in the v0 schema so previously stored
+reports remain valid.
+
 ## Check Groups
 
 The report covers:

@@ -17,6 +17,15 @@
   "properties": {
     "schema": { "const": "canghui.doctor.v0" },
     "cliVersion": { "type": "string", "minLength": 1 },
+    "cliProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel", "revision"],
+      "properties": {
+        "channel": { "enum": ["development", "local-source", "release"] },
+        "revision": { "type": "string", "minLength": 1 }
+      }
+    },
     "host": {
       "type": "object",
       "additionalProperties": false,

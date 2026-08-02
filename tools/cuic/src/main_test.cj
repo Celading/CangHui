@@ -1,6 +1,11 @@
 package cuic
 
 @Test
+func versionCarriesAnHonestBuildIdentity(): Unit {
+    @Expect(renderCuicVersion(), "cuic 0.4.0 (development@unembedded)")
+}
+
+@Test
 func platformAliasesNormalize(): Unit {
     @Expect(normalizePlatform("mac"), "macos")
     @Expect(normalizePlatform("darwin"), "macos")

@@ -10,7 +10,7 @@ FRAMEWORK_ROOT="$(cd "${ROOT_DIR}/../.." && pwd)"
 rm -rf "${FIXTURE_DIR}"
 rm -rf "${REMOTE_FIXTURE_DIR}"
 
-"${ROOT_DIR}/bin/cuic" version
+"${ROOT_DIR}/bin/cuic" version | grep -Fq 'cuic 0.4.0 (development@unembedded)'
 "${ROOT_DIR}/bin/cuic" examples | grep -q '^notepad$'
 "${ROOT_DIR}/bin/cuic" doctor macos
 MACOS_DOCTOR_JSON="$("${ROOT_DIR}/bin/cuic" doctor macos --json)"

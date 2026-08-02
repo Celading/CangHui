@@ -40,7 +40,7 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
         return 0
     }
     if (command == "version" || command == "--version" || command == "-V") {
-        println("cuic ${VERSION}")
+        println(renderCuicVersion())
         return 0
     }
     if (command == "examples") {
