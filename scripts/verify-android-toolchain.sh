@@ -81,9 +81,30 @@ done
 
 CLASS_FILE="${OUTPUT_DIR}/java/dev/canghui/android/CangHuiNativeSurfaceHost.class"
 [[ -f "${CLASS_FILE}" ]] || { echo "error: Java host class was not compiled" >&2; exit 1; }
+ACTIVITY_CLASS_FILE="${OUTPUT_DIR}/java/dev/canghui/android/CangHuiSurfaceActivity.class"
+[[ -f "${ACTIVITY_CLASS_FILE}" ]] || { echo "error: Java Activity host class was not compiled" >&2; exit 1; }
 JNI_HEADER="${OUTPUT_DIR}/jni/dev_canghui_android_CangHuiNativeSurfaceHost.h"
 [[ -f "${JNI_HEADER}" ]] || { echo "error: javac did not generate the JNI contract header" >&2; exit 1; }
 echo "android.java_surface_host=ready class=${CLASS_FILE}"
+
+ACTIVITY_BYTECODE="$(javap -classpath "${OUTPUT_DIR}/java" -c -p \
+    dev.canghui.android.CangHuiSurfaceActivity)"
+for lifecycle_method in onCreate onStart onStop onDestroy; do
+    if [[ "${ACTIVITY_BYTECODE}" != *"${lifecycle_method}"* ]]; then
+        echo "error: Activity host bytecode is missing ${lifecycle_method}" >&2
+        exit 1
+    fi
+done
+for lifecycle_call in \
+    'CangHuiNativeSurfaceHost.bind' \
+    'CangHuiNativeSurfaceHost.unbind' \
+    'CangHuiNativeSurfaceHost.close'; do
+    if [[ "${ACTIVITY_BYTECODE}" != *"${lifecycle_call}"* ]]; then
+        echo "error: Activity host bytecode is missing ${lifecycle_call}" >&2
+        exit 1
+    fi
+done
+echo "android.activity_surface_lifecycle=ready class=${ACTIVITY_CLASS_FILE}"
 if [[ -n "${JAVA_HOME:-}" && ! -d "${JAVA_HOME}" ]]; then
     echo "android.gradle_environment=degraded reason=JAVA_HOME-not-directory value=${JAVA_HOME}"
 else

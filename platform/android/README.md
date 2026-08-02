@@ -1,9 +1,9 @@
 # Android Native Surface First Slice
 
-This directory contains the first Android-specific CangHui adapter slice. It
-owns only the `SurfaceView` to JNI to `ANativeWindow` lifecycle boundary. It
-does not contain an Activity, APK packaging, SDL integration, or a Cangjie
-runtime bridge.
+This directory contains the Android-specific CangHui host bootstrap. It owns a
+minimal Activity lifecycle plus the `SurfaceView` to JNI to `ANativeWindow`
+boundary. It does not contain APK packaging, SDL integration, a renderer, or a
+Cangjie runtime bridge.
 
 ## Contract
 
@@ -15,6 +15,12 @@ returned by its attach; a stale callback cannot release a newer native window.
 The native side owns each `ANativeWindow_fromSurface` reference until it is
 replaced, detached, or destroyed. Width and height queries are synchronized
 with the same owner state.
+
+`CangHuiSurfaceActivity` creates the host and `SurfaceView` in `onCreate`, binds
+callbacks in `onStart`, detaches in `onStop`, and closes the native owner in
+`onDestroy`. Applications may subclass it and use the protected accessors, but
+they still own manifest declaration, packaging, theme, input, IME and renderer
+integration.
 
 ## Static Proof
 
@@ -37,8 +43,9 @@ libraries.
 - Freeze the shared Cangjie-to-Android host ABI in a separate integration change.
 - Cross-compile the CangHui Cangjie package with the Android Cangjie SDK.
 - Bind the generation-safe native surface to SDL or another renderer owner.
-- Add Activity lifecycle, input, IME, accessibility, APK packaging, signing,
-  install, launch, and device proof.
+- Add input, IME, accessibility, APK packaging, signing, install, launch, and
+  device proof.
 
-This slice proves only Android NDK and Java compilation of the native-surface
-boundary. It is not Android runtime support.
+This slice proves only Android NDK and Java compilation plus bytecode-level
+Activity lifecycle ownership of the native-surface boundary. It is not Android
+runtime support.
