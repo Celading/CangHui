@@ -432,10 +432,18 @@ func doctorIosFrameworkChecks(framework: String): Array<DoctorCheck> {
     checks.add(doctorRequiredFile("ios.bootstrap-proof", "CangHui iOS bootstrap proof receipt",
         joinPath(framework, "proofs/20260731-canghui-ios-static-package-bootstrap-v1.json"),
         "Re-run the iOS static-package verifier and retain its public proof receipt."))
-    checks.add(doctorBlocked("ios.renderer", "CangHui iOS native-surface renderer",
-        "Runtime, scheduler, static-package initialization and ABI return are proven, but the UIKit native-surface renderer is not implemented.",
-        DoctorActionKind.Manual, "Implement and device-verify the CAMetalLayer or MTKView surface proxy before application release testing.",
-        "platform/ios bootstrap proof does not include renderer acceptance"))
+    checks.add(doctorRequiredFile("ios.surface-header", "CangHui iOS native-surface ABI",
+        joinPath(framework, "platform/ios/include/CangHuiNativeSurface.h"),
+        "Use a CangHui revision that includes the integer-only native-surface ABI."))
+    checks.add(doctorRequiredFile("ios.surface-view", "CangHui iOS Metal surface view",
+        joinPath(framework, "platform/ios/runtime/CangHuiMetalSurfaceView.m"),
+        "Use a CangHui revision that includes the UIKit CAMetalLayer adapter."))
+    checks.add(doctorRequiredFile("ios.surface-clock", "CangHui iOS display-link driver",
+        joinPath(framework, "platform/ios/runtime/CangHuiDisplayLinkDriver.m"),
+        "Use a CangHui revision that includes the CADisplayLink frame clock."))
+    checks.add(doctorReady("ios.renderer", "CangHui iOS native-surface adapter",
+        "The UIKit CAMetalLayer adapter, lifecycle, safe-area, touch, frame-clock and surface-generation replay are present.",
+        "platform/ios runtime and native-surface proof"))
     checks.toArray()
 }
 

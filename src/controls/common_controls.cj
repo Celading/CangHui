@@ -269,7 +269,8 @@ public class Picker <: Widget {
         textMotion.sync(label)
         // Item text comes from application data; clip it so a long item cannot paint
         // over the chevrons or escape the control surface.
-        let labelArea = Rect(frame.x + PICKER_BUTTON_W, frame.y, max(0.0, frame.w - PICKER_BUTTON_W * 2.0), frame.h)
+        let buttonW = pickerButtonWidth()
+        let labelArea = Rect(frame.x + buttonW, frame.y, max(0.0, frame.w - buttonW * 2.0), frame.h)
         ctx.renderer.pushClip(labelArea)
         textMotion.draw(ctx, labelArea, ctx.theme.text)
         ctx.renderer.popClip()
@@ -326,11 +327,17 @@ public class Picker <: Widget {
     }
 
     private func leftButton(): Rect {
-        Rect(frame.x, frame.y, min(PICKER_BUTTON_W, frame.w), frame.h)
+        let width = pickerButtonWidth()
+        Rect(frame.x, frame.y, width, frame.h)
     }
 
     private func rightButton(): Rect {
-        Rect(max(frame.x, frame.right() - PICKER_BUTTON_W), frame.y, min(PICKER_BUTTON_W, frame.w), frame.h)
+        let width = pickerButtonWidth()
+        Rect(frame.right() - width, frame.y, width, frame.h)
+    }
+
+    private func pickerButtonWidth(): Float32 {
+        min(PICKER_BUTTON_W, max(0.0, frame.w / 2.0))
     }
 }
 
@@ -495,15 +502,22 @@ public class Stepper <: Widget {
     }
 
     private func decrementButton(): Rect {
-        Rect(frame.x, frame.y, min(STEPPER_BUTTON_W, frame.w), frame.h)
+        let width = stepperButtonWidth()
+        Rect(frame.x, frame.y, width, frame.h)
     }
 
     private func incrementButton(): Rect {
-        Rect(max(frame.x, frame.right() - STEPPER_BUTTON_W), frame.y, min(STEPPER_BUTTON_W, frame.w), frame.h)
+        let width = stepperButtonWidth()
+        Rect(frame.right() - width, frame.y, width, frame.h)
     }
 
     private func valueFrame(): Rect {
-        Rect(frame.x + STEPPER_BUTTON_W, frame.y, max(0.0, frame.w - STEPPER_BUTTON_W * 2.0), frame.h)
+        let buttonW = stepperButtonWidth()
+        Rect(frame.x + buttonW, frame.y, max(0.0, frame.w - buttonW * 2.0), frame.h)
+    }
+
+    private func stepperButtonWidth(): Float32 {
+        min(STEPPER_BUTTON_W, max(0.0, frame.w / 2.0))
     }
 }
 

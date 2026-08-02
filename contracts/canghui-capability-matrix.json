@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260801.10",
+  "matrixVersion": "CangHui.20260802.11",
   "project": "CangHui",
   "version": "0.9.2",
   "surfaceTier": "mother-framework-incubating",
@@ -21,7 +21,8 @@
     "proofs/20260731-canghui-cuic-project-scripts-v0.json",
     "proofs/20260731-canghui-ios-static-package-bootstrap-v1.json",
     "proofs/20260801-canghui-ui-owner-queue-v0.json",
-    "proofs/20260801-canghui-frame-pacing-smooth-scroll-v0.json"
+    "proofs/20260801-canghui-frame-pacing-smooth-scroll-v0.json",
+    "proofs/20260802-canghui-ios-native-surface-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -37,12 +38,13 @@
       "provider-neutral Symbol core, optional provider packages, and declared-subset generation",
       "deterministic single-owner task commit queue for immutable worker results",
       "device-aware desktop frame pacing and shared retained smooth-scroll policy",
-      "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts"
+      "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
+      "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
       "ArkTS or Android application host",
-      "platform lifecycle, IME or accessibility implementation",
+      "non-iOS platform lifecycle, IME or accessibility implementation",
       "rollback-capable UI transactions or a complete immutable SceneDiff engine",
       "application identity, signing or package assembly"
     ]
@@ -246,7 +248,7 @@
     {
       "id": "mobile-host-contracts",
       "version": "0.1.0",
-      "state": "source-test-proven; ios-runtime-static-package-n2c-abi-proven-on-simulator-and-device; ios-renderer-unproven",
+      "state": "source-test-proven; ios-runtime-static-package-n2c-abi-and-native-surface-adapter-proven-on-simulator-and-device; full-scene-renderer-open",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
         "src/host/mobile_host_contracts_test.cj"
@@ -255,7 +257,7 @@
     {
       "id": "ios-host-bootstrap",
       "version": "abi-v1",
-      "state": "runtime-scheduler-package-init-n2c-abi-proven-on-simulator-and-device; legacy-cangjiegui-abi-compatibility-retained; renderer-unproven",
+      "state": "runtime-scheduler-package-init-n2c-abi-and-uikit-native-surface-proven-on-simulator-and-device; legacy-cangjiegui-abi-compatibility-retained; product-scene-renderer-open",
       "codeRefs": [
         "src/host/ios_host_bootstrap.cj",
         "scripts/build-ios-host-staticlibs.sh",
@@ -269,11 +271,26 @@
     {
       "id": "native-surface-proxy",
       "version": "0.1.0",
-      "state": "source-test-contract; ios-and-harmony-runtime-adapters-unproven",
+      "state": "source-test-contract; ios-uikit-cametallayer-adapter-runtime-proven; harmony-runtime-adapter-unproven",
       "codeRefs": [
         "src/host/native_surface_proxy.cj",
         "src/host/native_surface_proxy_test.cj",
         "platform/ios/README.md"
+      ]
+    },
+    {
+      "id": "ios-native-surface-adapter",
+      "version": "canghui.ios-native-surface.v0",
+      "state": "simulator-device-runtime-proven; metal-clear-pass-only; full-cui-scene-ime-accessibility-product-acceptance-open",
+      "codeRefs": [
+        "src/host/ios_native_surface_bridge.cj",
+        "platform/ios/include/CangHuiNativeSurface.h",
+        "platform/ios/runtime/CangHuiUIKitHostView.m",
+        "platform/ios/runtime/CangHuiMetalSurfaceView.m",
+        "platform/ios/runtime/CangHuiDisplayLinkDriver.m",
+        "platform/ios/probe/AppDelegate.m",
+        "scripts/verify-ios-native-surface-contract.sh",
+        "scripts/verify-ios-static-package.sh"
       ]
     },
     {
@@ -297,11 +314,11 @@
   "residuals": [
     "Define a public compatibility protocol between CangHui and independently maintained platform adapters.",
     "Prove a platform adapter consuming CangHui host contracts without source duplication.",
-    "Add lifecycle, IME, accessibility and native-surface service interfaces before claiming a complete platform host abstraction.",
+    "Complete IME, accessibility, file-picker, secure-storage and product lifecycle services before claiming a complete iOS application host.",
     "Implement and independently verify an external KModeChannelModule before claiming relay-backed operation.",
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
-    "Do not claim Android or iOS runtime support from desktop layout previews.",
-    "Implement and device-verify the UIKit CAMetalLayer/MTKView surface proxy on top of the proven static-package bootstrap.",
+    "Do not claim Android runtime support or full iOS product support from desktop layout previews or the native-surface clear-pass probe.",
+    "Bind the declarative CUI scene renderer to the proven UIKit CAMetalLayer adapter before claiming product UI rendering.",
     "Build immutable semantic SceneDiff preparation and native-surface owner integration on top of UiOwnerQueue before claiming incremental scene commit.",
     "Keep UiOwnerQueue receipts separate from rollback-capable transactions: task failure advances the owner epoch but does not restore partially changed live state.",
     "Bind SDL_EnterAppMainCallbacks for OwnedWindow mode only after Cangjie static-package initialization is established.",

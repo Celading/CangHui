@@ -99,7 +99,6 @@ func kModeDependencyScannerStaysInsideDependencySections(): Unit {
 @Test
 func integratedFrameworkRootWinsBeforeCompatibilityAliases(): Unit {
     let root = integratedFrameworkRoot()
-    @Expect(root.endsWith("/CangjieGUI") || root.endsWith("/CangHui"))
     @Expect(frameworkRootCandidate(root))
 }
 

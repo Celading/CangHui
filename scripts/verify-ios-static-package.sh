@@ -7,7 +7,7 @@ OUTPUT_ROOT="${2:-${PROJECT_ROOT}/target/ios-static-package-probe}"
 CANGJIE_IOS_HOME="${CANGJIE_IOS_HOME:-${CANGHUI_IOS_HOME:-${CANGJIE_HOME:-}}}"
 DEPLOYMENT_TARGET="${CANGHUI_IOS_DEPLOYMENT_TARGET:-13.0}"
 EXECUTABLE_NAME="CangHuiBootstrapProbe"
-EXPECTED_RESULT="CANGHUI_IOS_PROBE result runtime=0 scheduler=ready library=0 task=0 abi=1"
+EXPECTED_RESULT="CANGHUI_IOS_SURFACE result passed=1"
 COMPILED_APP_DIR=""
 
 if [[ -z "${CANGJIE_IOS_HOME}" ]]; then
@@ -64,16 +64,31 @@ compile_probe_app() {
 
     rm -rf "${build_dir}"
     mkdir -p "${app_dir}"
+    mkdir -p "${build_dir}/modules"
     cp "${PROJECT_ROOT}/platform/ios/probe/Info.plist" "${app_dir}/Info.plist"
     plutil -replace CFBundleIdentifier -string "${bundle_id}" "${app_dir}/Info.plist"
 
     "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
-        -fobjc-arc -fblocks \
+        -fobjc-arc -fblocks -fmodules \
+        -fmodules-cache-path="${build_dir}/modules" \
         -I "${PROJECT_ROOT}/platform/ios/include" \
         -c "${PROJECT_ROOT}/platform/ios/bootstrap/CangHuiRuntimeBootstrap.m" \
         -o "${build_dir}/CangHuiRuntimeBootstrap.o"
+    for source in \
+        CangHuiUIKitHostView.m \
+        CangHuiMetalSurfaceView.m \
+        CangHuiDisplayLinkDriver.m
+    do
+        "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
+            -fobjc-arc -fblocks -fmodules \
+            -fmodules-cache-path="${build_dir}/modules" \
+            -I "${PROJECT_ROOT}/platform/ios/include" \
+            -c "${PROJECT_ROOT}/platform/ios/runtime/${source}" \
+            -o "${build_dir}/${source%.m}.o"
+    done
     "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
-        -fobjc-arc -fblocks \
+        -fobjc-arc -fblocks -fmodules \
+        -fmodules-cache-path="${build_dir}/modules" \
         -I "${PROJECT_ROOT}/platform/ios/include" \
         -c "${PROJECT_ROOT}/platform/ios/probe/AppDelegate.m" \
         -o "${build_dir}/AppDelegate.o"
@@ -81,16 +96,24 @@ compile_probe_app() {
     "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
         "${build_dir}/AppDelegate.o" \
         "${build_dir}/CangHuiRuntimeBootstrap.o" \
+        "${build_dir}/CangHuiUIKitHostView.o" \
+        "${build_dir}/CangHuiMetalSurfaceView.o" \
+        "${build_dir}/CangHuiDisplayLinkDriver.o" \
         "$(runtime_archive "${runtime_dir}" section.o)" \
         "$(runtime_archive "${runtime_dir}" cjstart.o)" \
         "${host_archive}" \
         "$(runtime_archive "${runtime_dir}" libcangjie-std-collection.a)" \
         "$(runtime_archive "${runtime_dir}" libcangjie-std-math.a)" \
+        "$(runtime_archive "${runtime_dir}" libcangjie-std-sync.a)" \
+        "$(runtime_archive "${runtime_dir}" libcangjie-std-time.a)" \
+        "$(runtime_archive "${runtime_dir}" libcangjie-std-binary.a)" \
+        "$(runtime_archive "${runtime_dir}" libcangjie-std-convert.a)" \
+        "$(runtime_archive "${runtime_dir}" libcangjie-std-io.a)" \
         "$(runtime_archive "${runtime_dir}" libcangjie-std-core.a)" \
         "$(runtime_archive "${runtime_dir}" libcangjie-runtime.a)" \
         "$(runtime_archive "${runtime_dir}" libboundscheck-static.a)" \
         "$(runtime_archive "${runtime_dir}" libcangjie-thread.a)" \
-        -framework UIKit -framework Foundation -lc++ \
+        -framework UIKit -framework Foundation -framework QuartzCore -framework Metal -lc++ \
         -Wl,-no_compact_unwind \
         -o "${app_dir}/${EXECUTABLE_NAME}"
 
@@ -191,6 +214,7 @@ verify_device() {
 
     security cms -D -i "${CANGHUI_IOS_PROVISIONING_PROFILE}" > "${profile_plist}"
     plutil -extract Entitlements xml1 -o "${entitlements}" "${profile_plist}"
+    plutil -remove keychain-access-groups "${entitlements}" >/dev/null 2>&1 || true
     application_identifier="$(plutil -extract Entitlements.application-identifier raw -o - "${profile_plist}")"
     allowed_bundle="${application_identifier#*.}"
     if [[ "${allowed_bundle}" == *'*' ]]; then
@@ -207,7 +231,8 @@ verify_device() {
 
     cp "${CANGHUI_IOS_PROVISIONING_PROFILE}" "${app_dir}/embedded.mobileprovision"
     codesign --force --sign "${CANGHUI_IOS_CODESIGN_IDENTITY}" \
-        --entitlements "${entitlements}" --timestamp=none "${app_dir}"
+        --entitlements "${entitlements}" --generate-entitlement-der \
+        --timestamp=none "${app_dir}"
     codesign --verify --deep --strict "${app_dir}"
     xcrun devicectl device install app --device "${CANGHUI_IOS_DEVICE}" "${app_dir}"
 

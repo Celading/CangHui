@@ -226,6 +226,21 @@ func pickerWrapsSelectionAndRespondsToArrowKeys(): Unit {
 }
 
 @Test
+func compactPickerKeepsPreviousAndNextHitZonesDistinct(): Unit {
+    let ctx = controlTestContext()
+    let selected = State<Int64>(1)
+    let picker = Picker(["A", "B", "C"], selected, key: "compact-picker")
+    picker.layout(ctx, Rect(0.0, 0.0, 50.0, 38.0))
+
+    @Expect(picker.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 10.0, 12.0)))
+    @Expect(picker.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 10.0, 12.0)))
+    @Expect(selected.value, Int64(0))
+    @Expect(picker.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 40.0, 12.0)))
+    @Expect(picker.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 40.0, 12.0)))
+    @Expect(selected.value, Int64(1))
+}
+
+@Test
 func stepperClampsRangeWithoutIntegerOverflow(): Unit {
     let ctx = controlTestContext()
     let value = State<Int64>(9)
@@ -237,6 +252,21 @@ func stepperClampsRangeWithoutIntegerOverflow(): Unit {
     @Expect(value.value, Int64(10))
     @Expect(stepper.handle(ctx, UiEvent.KeyDown(Key.Left, false)))
     @Expect(value.value, Int64(7))
+}
+
+@Test
+func compactStepperKeepsDecrementAndIncrementHitZonesDistinct(): Unit {
+    let ctx = controlTestContext()
+    let value = State<Int64>(5)
+    let stepper = Stepper(value, key: "compact-stepper", lower: 0, upper: 10)
+    stepper.layout(ctx, Rect(0.0, 0.0, 50.0, 38.0))
+
+    @Expect(stepper.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 10.0, 12.0)))
+    @Expect(stepper.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 10.0, 12.0)))
+    @Expect(value.value, Int64(4))
+    @Expect(stepper.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 40.0, 12.0)))
+    @Expect(stepper.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 40.0, 12.0)))
+    @Expect(value.value, Int64(5))
 }
 
 // A range pressed against the Int64 extremes must not overflow when stepping: the guard saturates
