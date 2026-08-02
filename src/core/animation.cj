@@ -222,7 +222,14 @@ public class Animator {
 
     /** Advances the animation by `deltaMs` milliseconds toward the target. */
     public func tick(deltaMs: UInt64): Unit {
-        if (settled()) {
+        if (from == to) {
+            return
+        }
+        // A live automatic animation can be reconfigured when the theme motion level changes.
+        // If the new timeline is shorter than the already elapsed time, finish at the goal before
+        // reporting settled; otherwise it would freeze forever at the previous partial value.
+        if (elapsedMs >= totalMs) {
+            current = to
             return
         }
         // Duration-based motion tracks the wall clock, so a long stall (window drag, GC pause) lands

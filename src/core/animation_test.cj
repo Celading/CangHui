@@ -337,3 +337,28 @@ func animatorCtxAnimateRequestsFrameWhileMoving(): Unit {
     let _ = anim.animate(ctx, target: 1.0)
     @Expect(!ctx.takeFrameRequest())
 }
+
+@Test
+func animatorShorterSpecMidFlightCompletesAtGoal(): Unit {
+    let ctx = testContext()
+    let anim = Animator(0.0)
+    let automatic = AnimationSpec.automatic(duration: UInt64(200), easing: Easing.Linear)
+
+    ctx.theme = Theme.light(motionLevel: MotionLevel.Full)
+    ctx.frame = FrameInfo(UInt64(200), UInt64(200))
+    let partial = anim.animate(ctx, target: 1.0, spec: automatic)
+    @Expect(partial > Float32(0.0))
+    @Expect(partial < Float32(1.0))
+    @Expect(!anim.settled())
+
+    // A runtime motion-level change shortens the same automatic timeline below the elapsed time.
+    // Completion must pin to the goal instead of becoming "settled" at the partial value.
+    ctx.theme = Theme.light(motionLevel: MotionLevel.Basic)
+    ctx.frame = FrameInfo(UInt64(216), UInt64(16))
+    let _ = ctx.takeFrameRequest()
+    let completed = anim.animate(ctx, target: 1.0, spec: automatic)
+    @Expect(anim.settled())
+    @Expect(completed, Float32(1.0))
+    @Expect(anim.value, anim.goal)
+    @Expect(!ctx.takeFrameRequest())
+}
