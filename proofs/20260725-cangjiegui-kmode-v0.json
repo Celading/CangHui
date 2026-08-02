@@ -34,13 +34,13 @@
   "channelBoundary": {
     "interface": "KModeChannelModule connect/send/poll/ack/resumeCursor",
     "test": "fake module proves admin-only override, opaque nested JSON string, cursor and ACK flow",
-    "soonlinkClaim": "adapter contract only; no checked-in URL, claim, session, token, or live relay proof",
+    "adapterClaim": "transport-neutral adapter contract only; no checked-in URL, credential, session, or live relay proof",
     "ackMeaning": "relay consumption only; business result remains KModeResponse"
   },
   "nonClaims": [
     "no production remote administration",
     "no arbitrary shell or unrestricted filesystem execution",
-    "no live SoonLink interoperability acceptance",
+    "no live external-relay interoperability acceptance",
     "no release or LTS claim"
   ],
   "knownEnvironmentNote": "Homebrew SDL dylibs and the Cangjie static runtime emit inherited macOS minimum-version linker warnings."

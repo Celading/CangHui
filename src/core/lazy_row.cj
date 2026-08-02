@@ -23,6 +23,8 @@ public class LazyRow <: Widget {
     private let scrollStateValue: State<Float32>
     private let viewportWidthState: State<Float32>
     private let scrollBar: HScrollBar
+    private let scrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     // Columns materialized this frame, each paired with its absolute index for positioning and events.
     private let visibleItems: Array<(Int64, Widget)>
     // The scroll offset snapshotted for the whole frame so build, layout and draw agree.
@@ -50,14 +52,18 @@ public class LazyRow <: Widget {
         this.count = max(0, count)
         this.itemWidth = max(1.0, itemWidth)
         this.spacing = max(0.0, spacing)
-        this.scrollStateValue = match (scroll) {
+        let initialScroll = match (scroll) {
             case Some(value) => value
             case None => localState<Float32>("LazyRow:${ident}:scroll") {0.0}
         }
+        this.scrollStateValue = initialScroll
         // Retained so the build pass (which has no layout rect yet) knows how wide the viewport was
         // last frame and thus which columns to materialize; layout updates it for the next frame.
         this.viewportWidthState = localState<Float32>("LazyRow:${ident}:viewportW") {LAZY_DEFAULT_VIEWPORT}
         this.scrollBar = HScrollBar("LazyRow:${ident}:thumb")
+        this.scrollMotion = localState<ScrollMotion>("LazyRow:${ident}:motion") {
+            ScrollMotion(initialScroll.value)
+        }.value
         // lazyContentHeight computes count*(item+spacing)-spacing along any axis; here it is the width.
         let content = lazyContentHeight(this.count, this.itemWidth, this.spacing)
         this.frameScroll = clampScrollOffset(this.scrollStateValue.value, content, this.viewportWidthState.value)
@@ -65,6 +71,12 @@ public class LazyRow <: Widget {
             this.spacing, this.count, LAZY_OVERSCAN)
         this.visibleItems = buildLazyChildren("LazyRow:${ident}", first, last, lazyKeyOrIndex(key), item)
         emit(this)
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
+    public func scrollOptions(value: ScrollOptions): LazyRow {
+        scrollPolicy = value
+        this
     }
 
     /**
@@ -104,6 +116,7 @@ public class LazyRow <: Widget {
         // Record the viewport width for the next frame's build; write-on-change to avoid churn.
         let _ = viewportWidthState.setIfChanged(rect.w)
         let content = lazyContentHeight(count, itemWidth, spacing)
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, content, rect.w, scrollPolicy)
         // Correct the live offset for the next frame in case the content shrank.
         let clamped = clampScrollOffset(scrollStateValue.value, content, rect.w)
         if (clamped != scrollStateValue.value) {
@@ -164,11 +177,12 @@ public class LazyRow <: Widget {
                     } else {
                         wheelY
                     }
-                    scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, delta, content, viewportW)
+                    applyWheelScroll(ctx, scrollMotion, scrollStateValue, delta, content, viewportW, scrollPolicy)
                     return true
                 }
             case UiEvent.MouseDown(_, x, y) =>
                 if (scrollBar.press(ctx, frame, scrollStateValue, content, viewportW, x, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 if (!frame.contains(x, y)) {
@@ -176,6 +190,7 @@ public class LazyRow <: Widget {
                 }
             case UiEvent.MouseMove(x, y) =>
                 if (scrollBar.drag(ctx, frame, scrollStateValue, content, viewportW, x)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 // While a child drag is live, track the pointer past the edge to the release.

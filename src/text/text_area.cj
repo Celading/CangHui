@@ -2,9 +2,10 @@ package cui.text
 
 import sdl.{FontSizes, Key, MouseButton, Point, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
-import cui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, maxScrollOffset, State, UiContext, Widget, claimHoverIfInside,
+import cui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
+    State, UiContext, Widget, advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside,
     clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, registerFocusable, resolveControlKey,
-    scrollLineIndex, scrollLineRemainder, scrollOffsetAfterWheel}
+    scrollLineIndex, scrollLineRemainder}
 
 // SDL reports letter keys as their uppercase ASCII code (see the Ctrl+letter shortcuts).
 private let AREA_LETTER_A: UInt8 = 65
@@ -51,6 +52,8 @@ public class TextArea <: Widget {
     private var anchorStateValue: State<Int64>
     private var isEditable: Bool
     private let scrollBar: ScrollBar
+    private let scrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     private let history: UndoHistory
     private let lineCache: TextLineCache
     private var autofocusRequested = false
@@ -68,10 +71,11 @@ public class TextArea <: Widget {
         let ident = resolveControlKey(key, "TextArea")
         this.id = ident
         this.text = text
-        this.scrollStateValue = match (scroll) {
+        let initialScroll = match (scroll) {
             case Some(value) => value
             case None => localState<Float32>("TextArea:${ident}:scroll") {0.0}
         }
+        this.scrollStateValue = initialScroll
         this.cursorStateValue = match (cursor) {
             case Some(value) => value
             case None => localState<Int64>("TextArea:${ident}:cursor") {text.value.size}
@@ -87,6 +91,9 @@ public class TextArea <: Widget {
         }
         this.isEditable = editable
         this.scrollBar = ScrollBar("TextArea:${ident}:thumb")
+        this.scrollMotion = localState<ScrollMotion>("TextArea:${ident}:scroll-motion") {
+            ScrollMotion(initialScroll.value)
+        }.value
         this.history = localState<UndoHistory>("TextArea:${ident}:history") {UndoHistory()}.value
         this.lineCache = localState<TextLineCache>("TextArea:${ident}:lines") {TextLineCache()}.value
         this.autofocusDone = localState<Bool>("TextArea:${ident}:autofocused") {false}
@@ -95,6 +102,12 @@ public class TextArea <: Widget {
             registerFocusable(ident)
         }
         emit(this)
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
+    public func scrollOptions(value: ScrollOptions): TextArea {
+        scrollPolicy = value
+        this
     }
 
     /** Claims keyboard focus the first time an editable area appears (e.g. a compose box). */
@@ -123,8 +136,10 @@ public class TextArea <: Widget {
         Size(available.w, available.h)
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, textContentHeight(lines()), textViewport(rect).h,
+            scrollPolicy)
     }
 
     // The document split into lines, cached by text revision so scrolling never re-splits per frame.
@@ -142,6 +157,7 @@ public class TextArea <: Widget {
             textViewport(frame).h)
         if (clampedScroll != scrollStateValue.value) {
             scrollStateValue.value = clampedScroll
+            cancelScrollMotion(scrollMotion, scrollStateValue)
         }
         let content = TextAreaContent(text.value, cursorStateValue.value, scrollStateValue.value)
         drawTextAreaBox(ctx, frame, id, content, docLines, edit.selectionStart(), edit.selectionEnd(),
@@ -158,12 +174,14 @@ public class TextArea <: Widget {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (scrollBar.press(ctx, frame, scrollStateValue, textContentHeight(lines()),
                     textViewport(frame).h, x, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 return pressAt(ctx, edit, x, y)
             case UiEvent.MouseMove(x, y) =>
                 if (scrollBar.drag(ctx, frame, scrollStateValue, textContentHeight(lines()),
                     textViewport(frame).h, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 if (ctx.isDragging(id) && ctx.leftMouseDown) {
@@ -175,7 +193,7 @@ public class TextArea <: Widget {
                 let contentH = textContentHeight(lines())
                 let viewportH = textViewport(frame).h
                 if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentH, viewportH) > 0.0) {
-                    scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, wheelY, contentH, viewportH)
+                    applyWheelScroll(ctx, scrollMotion, scrollStateValue, wheelY, contentH, viewportH, scrollPolicy)
                     return true
                 }
             case UiEvent.TextInput(value) => return recordedEdit(ctx, {=> edit.insert(value)})
@@ -268,6 +286,7 @@ public class TextArea <: Widget {
         if (clamped != scrollStateValue.value) {
             scrollStateValue.value = clamped
         }
+        cancelScrollMotion(scrollMotion, scrollStateValue)
     }
 
     private func pointOffset(ctx: UiContext, x: Float32, y: Float32): Int64 {

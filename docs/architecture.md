@@ -41,6 +41,12 @@ View modifier、Jetpack Compose 的 Modifier tree 采用相同的核心思想。
 模型或提升后的 `State<T>` 中；局部状态由 `StateStore` 按 `Keyed` scope 与显式 key 保存。成功构建
 后没有再次访问的局部状态会被清理，因此状态生命周期与声明式子树的挂载生命周期一致。
 
+桌面循环把“何时需要渲染”与“渲染帧如何限速”分开：脏帧机制决定是否构建/布局/绘制，
+`FramePacing` 决定渲染器 VSync、固定目标帧率或不封顶。`Device` 模式的 `present()` 已由显示设备同步，
+因此呈现后不再叠加固定 `delay`；未渲染的空闲轮询只短暂让出执行权。kMode 未显式选策略时使用
+`Unbounded`，但仍保留空闲让步，避免无帧请求时占满 CPU。旧的 `vsync: false + frameDelay` 仅作为
+未采用新策略的兼容路径保留。
+
 `State<T>` 的值向下流入视图，用户事件向上修改状态或调用模型方法。该单向数据流避免控件内部状态
 与业务模型形成多个事实源。对于重复或条件子树，身份由 key 决定，而不是由临时 Widget 实例决定；
 `ForEach` 按业务键为每个条目建立 `Keyed` 子树，使局部状态跟随条目而非位置。
@@ -211,7 +217,15 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 上下两侧都放不下完整列表时按空间较大的一侧定高、在弹层内部滚动：滚轮与滑块沿用上述控制器，方向键
 移动高亮时按“滚动到恰好可见”揭示，命中计算叠加滚动偏移，上下内边距条带不命中任何行。`ListView` 另实现键盘导航：注册进焦点环后可 `Tab` 聚焦，方向键在钳制范围内
 移动选中项。滚动偏移在未传入外部 `State` 时用 `localState` 按控件身份保留——否则每帧重建都新建一个
-归零的 `State`，滚轮/拖动滚动会每帧弹回原处。“把选中行滚入可视区”改由 draw 侧的**选择变化即揭示**驱动：
+归零的 `State`，滚轮/拖动滚动会每帧弹回原处。“把选中行滚入可视区”改由 draw 侧的**选择变化即揭示**驱动。
+
+滚轮输入另由共享 `ScrollMotion` 保留目标偏移。默认 `ScrollOptions.web()` 使用 72 逻辑像素步长、
+220ms 基准时长和 `cubic-bezier(0.22, 1, 0.36, 1)`，自动跟随主题 Basic / Standard / Full 动效档；
+连续滚轮事件在前一目标上累计，布局逐帧推进并请求下一帧，直到精确落在边界内。
+`ScrollOptions.immediate()` 保留直接跳转语义，也可显式给步长、时长与 `Easing`。应用直接写外部滚动
+`State`、拖动/分页滚动条、键盘揭示选择项或内容缩短导致钳位时，当前滚轮动画立即取消，避免旧目标
+覆盖新的业务意图。这份策略由 `ScrollView`、`LazyColumn`、`LazyRow`、`LazyList`、`ListView`、
+`Table`、`TreeView`、`TextArea`、`Dropdown` 与 `ComboBox` 共同消费。
 
 动态折叠内容还有一条单独的锚点协议：Accordion 切换时向最近的 `ScrollView` 请求保留视觉锚点；若内容
 高度在随后的动画帧收缩，ScrollView 临时把减少量保留为尾部空间，避免当前偏移被立即钳制而带动整页跳动。
@@ -269,8 +283,19 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 ## 事件与线程
 
 事件从最外层视图向内分发，容器通常按逆序把指针和键盘事件交给子项，以符合视觉层叠顺序；
-`UiEvent.Frame` 会广播给整棵树。UI 构建和绘制必须位于同一线程。耗时工作应通过 `spawn` 执行，
-并使用 `Mutex`、原子对象或并发集合把结果传回 UI 帧。
+`UiEvent.Frame` 会广播给整棵树。UI 构建、状态提交和绘制必须由同一个 UI owner 执行。耗时工作可通过
+`spawn` 准备不可变结果，但 worker 不得直接修改 `State`、Widget、Renderer 或其他 live UI 对象。
+
+`UiOwnerQueue` 是 worker 与 owner 之间的提交门：多个 producer 在锁内取得全序 ticket，owner 通过
+`drain` 串行执行一个有界快照。`DesktopApp` 在每个需要渲染的帧首、构建声明式树之前 drain；因此 owner
+任务中的 `State` 写入会被当前帧观察，而任务内部再次投递的工作留到下一帧。队列可用 `baseEpoch` 拒绝
+基于旧 UI 快照准备的结果，用 `surfaceGeneration` 拒绝针对旧 native surface 的结果；取消只有在 owner
+领取任务前才成功。任务失败也推进 epoch，因为异常前可能已经发生部分 live-state 修改，后续基于旧 epoch
+的结果必须失效。
+
+这条合同提供确定性顺序、陈旧结果门和 receipt，不提供回滚、隔离或原子 SceneDiff 事务。不可变输入仍是
+应用和上层协议必须遵守的约定；自定义宿主也必须保证只有同一 UI owner 调用 `drain`。队列关闭后，待处理
+任务完成为 `cancelled`，后续投递立即完成为 `rejected-closed`，避免宿主退出后留下永久悬空 ticket。
 
 ## 资源生命周期
 
@@ -286,7 +311,7 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 
 ## 多平台组件边界
 
-母体框架把跨平台复用拆成三个稳定层次：
+CangHui 把跨平台复用拆成三个稳定层次：
 
 1. 公共组件层只依赖 `ComponentContext`、CUI 控件和应用持有的状态；
 2. 宿主合同层以 `HostProfile` 和 `HostCapability` 描述平台事实，不暴露平台 SDK 类型；
@@ -294,7 +319,7 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 
 `ViewportSpec` 采用逻辑尺寸，并通过固定的 Compact、Medium、Expanded 分级选择布局。桌面
 Component Gallery 可以覆盖公共布局和状态连续性，但不能替代移动端或其他宿主的生命周期、输入、
-无障碍、原生表面与发布验证。平台后端应消费母体合同，不应让公共组件反向依赖宿主工程。
+无障碍、原生表面与发布验证。平台后端应实现公共宿主合同，不应让公共组件反向依赖宿主工程。
 
 组件包可以附带符合 `contracts/canghui-component-package-v0.schema.json` 的元数据，供工具链
 发现资源与原生制品；运行时 API 仍以强类型 Cangjie 接口为准。
@@ -304,13 +329,15 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 文件选择结果使用 `PlatformResourceRef`，其中 locator 由宿主解释，可以对应路径、安全域 URL、bookmark
 或其他不透明令牌。这样公共组件无需知道 UIKit、PhotoKit、Keychain 或 Harmony 平台类型。
 
-iOS 采用静态库嵌入 Xcode 宿主。母体框架提供可独立交叉编译的 host-contract 源集、稳定的
+iOS 采用静态库嵌入 Xcode 宿主。CangHui 提供可独立交叉编译的 host-contract 源集、稳定的
 `canghui_ios_host_abi_version` C ABI 与 device/simulator 构建脚本；旧的
 `cangjiegui_ios_host_abi_version` 仅作为源兼容别名保留。Xcode 宿主负责运行时静态库链接、
-签名和应用生命周期。当前真机证据已证明 runtime 初始化、固定后台 UI scheduler 和 N2C foreign-thread
-调用门可用，也已成功调用一个最小仓颉静态包；但 CangHui `cui.host` 静态包仍卡在正式包初始化协议，
-因此尚不声称 ABI 函数已返回，也不证明 UIKit 生命周期、触摸、safe area、IME、无障碍或
-首个产品验收应用仍需在独立仓库完成适配。
+签名和应用生命周期。框架同时提供 Objective-C bootstrap helper：以最终 executable basename
+调用 `InitCJLibrary` 完成静态包初始化，并通过 `RunCJTask` 进入 `@C` 函数；应用不再需要自行
+编写 C shim，也不应把 `InitCJLibraryStub` 当作包初始化器。当前 Apple Silicon simulator 与物理
+iPad 均返回 `runtime=0 / scheduler=ready / library=0 / task=0 / abi=1`。这只证明 runtime、固定
+scheduler、静态包和 N2C ABI 门，不证明 UIKit 生命周期、触摸、safe area、IME、无障碍、
+native-surface renderer 或产品应用验收。
 
 ### XComponent-like 原生表面代理
 
@@ -338,25 +365,25 @@ HarmonyOS 可将同一合同映射到 `XComponent/OHNativeWindow`，iOS 映射�
 
 两种模式共用组件树、布局、状态和宿主能力合同，但不共用虚假的窗口所有权。
 Apple bundle 还必须提供 LaunchScreen、high-DPI 声明、bundle resource 布局和正确的静态/嵌入式
-依赖。详细参考 `docs/reference-intake-sdl3-apple-host.md`。
+依赖。详细参考 [`SDL3 Apple 宿主说明`](sdl3-apple-host.zh-CN.md)。
 
 ## kMode 无界面控制面
 
-kMode 是母体框架拥有的 Debug/受监管控制面，不依赖布局树。应用使用
+kMode 是 CangHui 提供的 Debug 无窗口控制面，不依赖布局树。应用使用
 `@KModeLink["stable.endpoint"]` 把一个 `(String) -> String` 顶层函数注册为稳定端点；宏按端点名
 生成确定性符号，同包重名会在编译期报重复定义，注册表再对跨包重名做运行期拒绝。
 
 应用必须在创建 `DesktopApp` 之前调用 `runKModeStdioIfRequested()`。由 `cuic` 设置
 `CANGHUI_KMODE=1` 与 `CANGHUI_KMODE_TRANSPORT=stdio` 时，进程只运行 `health/list/describe/invoke/shutdown`
-协议循环并直接退出，不初始化 SDL 或窗口。编译器 `debug` 条件也会启用 kMode；普通受监管运行仍需显式
+协议循环并直接退出，不初始化 SDL 或窗口。编译器 `debug` 条件也会启用 kMode；普通运行仍需显式
 环境开关，发布构建不因 CLI 命令而隐式开放管理能力。
 
-`KModeChannelModule` 是可覆写的透明通道 SPI，只在启用且具备 Admin 能力时允许安装。SoonLink Channel v1
-适配器应在框架外实现 claim/handshake/send/poll/cursor/ACK，把
-`contracts/canghui-kmode-v0.schema.json` 的 JSON 值作为 opaque payload 中继。ACK 只表示消息已被消费，
-业务成功由 kMode response 表达；cursor 仅在持久消费后推进，凭据不得写入日志、配置或仓库。
-`KModeChannelConfig.protocol` 表示 `soonlink.channel.v1` 中继协议，`payloadProtocol/schemaRef` 分别表示
-`canghui.kmode.v0` 业务协议及其 schema；二者不得混为一个版本号。
+`KModeChannelModule` 是可覆写的透明通道 SPI，只在启用且具备 Admin 能力时允许安装。外部适配器负责
+connect/send/poll/cursor/ACK，并把 `contracts/canghui-kmode-v0.schema.json` 的 JSON 值作为 opaque
+payload 中继。ACK 只表示消息已被消费，业务成功由 kMode response 表达；cursor 仅在持久消费后推进，
+凭据不得写入日志、配置或仓库。`KModeChannelConfig.protocol` 默认使用
+`canghui.kmode.channel.v0` 通道协议，`payloadProtocol/schemaRef` 分别表示 `canghui.kmode.v0` 业务协议
+及其 schema；两类版本号互不替代。
 
 控制面只分派已注册函数，收到的 payload 不会被转换为任意 shell 命令或不受限文件系统操作。
 

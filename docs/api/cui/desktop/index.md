@@ -15,3 +15,15 @@ import cui.desktop.*
 | 类型 | 说明 |
 |---|---|
 | [`DesktopApp`](DesktopApp.md) | 桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 [`run`](DesktopApp.md#run) 的界面构建函数重建组件树、布局、分发输入、绘制。 |
+
+**枚举**
+
+| 类型 | 说明 |
+|---|---|
+| [`FramePacing`](FramePacing.md) | 桌面渲染帧的设备同步、固定目标帧率或不封顶策略。 |
+
+## 函数
+
+| 函数 | 说明 |
+|---|---|
+| `framePacingName` | 返回 `device`、`fixed-<fps>fps` 或 `unbounded` 的稳定诊断名称。 |

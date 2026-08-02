@@ -5,7 +5,7 @@ import sdl.{FrameInfo, Rect, UiEvent}
 /*
  * Dirty-frame skipping (档 0) verification. The desktop loop renders a frame only when there is input,
  * a state change, or a continuous-frame request; these tests cover the load-bearing signals that gate
- * that decision — the state-write generation counter and each animation's requestFrame — so the loop
+ * that decision — the atomic state-write generation counter and each animation's requestFrame — so the loop
  * integration (which needs a window and is validated interactively) rests on unit-checked pieces.
  */
 
@@ -14,8 +14,7 @@ func stateWriteBumpsGlobalGeneration(): Unit {
     let s = State<Int64>(0)
     let before = currentStateGeneration()
     s.value = 5
-    // Any write moves the counter off the snapshot; this holds even if another test writes concurrently
-    // because the counter only ever advances.
+    // Any owner write moves the atomic observation counter off the frame-loop snapshot.
     @Expect(currentStateGeneration() != before)
 }
 

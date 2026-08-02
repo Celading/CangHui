@@ -57,6 +57,7 @@ main(): Unit {
 | [`autofocus()`](#autofocus) | 可编辑区域首次出现时申请键盘焦点，返回自身以便链式声明。 |
 | [`undo()`](#undo) | 回退最近一组编辑；同时绑定在 Ctrl+Z。 |
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(...)`](#measure) | [`Widget`](../core/Widget.md) 协议实现：占满全部可用空间。 |
 | [`layout(...)`](#layout) | [`Widget`](../core/Widget.md) 协议实现：记录分配的框架矩形，供绘制与命中测试使用。 |
 | [`draw(...)`](#draw) | [`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、可见行、光标与右缘滚动条。 |
@@ -121,6 +122,18 @@ public func undo(): Unit
 ```cangjie
 public func redo(): Unit
 ```
+
+### scrollOptions
+
+为文本区滚轮输入选择共享策略；默认 `ScrollOptions.web()`。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): TextArea
+```
+
+**参数** `value`: [`ScrollOptions`](../core/ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `TextArea` — 本文本区自身，用于链式调用。
 
 ### measure
 

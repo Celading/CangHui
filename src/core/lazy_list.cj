@@ -22,6 +22,8 @@ public class LazyList <: Widget {
     private let scrollStateValue: State<Float32>
     private let viewportHeightState: State<Float32>
     private let scrollBar: ScrollBar
+    private let scrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     // Running row tops: rowTops[i] is the top of row i in content space; rowTops[count] is the total
     // content height (spacing sits only between rows, not after the last).
     private let rowTops: Array<Float32>
@@ -48,12 +50,16 @@ public class LazyList <: Widget {
         this.id = ident
         this.count = max(0, count)
         this.heightOf = heightOf
-        this.scrollStateValue = match (scroll) {
+        let initialScroll = match (scroll) {
             case Some(value) => value
             case None => localState<Float32>("LazyList:${ident}:scroll") {0.0}
         }
+        this.scrollStateValue = initialScroll
         this.viewportHeightState = localState<Float32>("LazyList:${ident}:viewportH") {LAZY_DEFAULT_VIEWPORT}
         this.scrollBar = ScrollBar("LazyList:${ident}:thumb")
+        this.scrollMotion = localState<ScrollMotion>("LazyList:${ident}:motion") {
+            ScrollMotion(initialScroll.value)
+        }.value
         this.rowTops = lazyListRowTops(this.count, heightOf, max(0.0, spacing))
         let content = this.rowTops[this.count]
         this.frameScroll = clampScrollOffset(this.scrollStateValue.value, content, this.viewportHeightState.value)
@@ -61,6 +67,12 @@ public class LazyList <: Widget {
             LAZY_OVERSCAN)
         this.visibleItems = buildLazyChildren("LazyList:${ident}", first, last, lazyKeyOrIndex(key), item)
         emit(this)
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
+    public func scrollOptions(value: ScrollOptions): LazyList {
+        scrollPolicy = value
+        this
     }
 
     /**
@@ -97,6 +109,7 @@ public class LazyList <: Widget {
         frame = rect
         let _ = viewportHeightState.setIfChanged(rect.h)
         let content = rowTops[count]
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, content, rect.h, scrollPolicy)
         let clamped = clampScrollOffset(scrollStateValue.value, content, rect.h)
         if (clamped != scrollStateValue.value) {
             scrollStateValue.value = clamped
@@ -144,11 +157,12 @@ public class LazyList <: Widget {
             case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
                 // Content that fits leaves the wheel to an enclosing scroller (no dead zone).
                 if (frame.contains(pointerX, pointerY) && maxScrollOffset(content, viewportH) > 0.0) {
-                    scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, wheelY, content, viewportH)
+                    applyWheelScroll(ctx, scrollMotion, scrollStateValue, wheelY, content, viewportH, scrollPolicy)
                     return true
                 }
             case UiEvent.MouseDown(_, x, y) =>
                 if (scrollBar.press(ctx, frame, scrollStateValue, content, viewportH, x, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 if (!frame.contains(x, y)) {
@@ -156,6 +170,7 @@ public class LazyList <: Widget {
                 }
             case UiEvent.MouseMove(x, y) =>
                 if (scrollBar.drag(ctx, frame, scrollStateValue, content, viewportH, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 if (!frame.contains(x, y) && ctx.dragId.isEmpty()) {

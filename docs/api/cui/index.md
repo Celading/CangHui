@@ -66,6 +66,8 @@ import cui.*
 | [`rememberState`](core/functions.md#rememberstate) | 返回由活动 `DesktopApp` 构建保留的局部状态。 |
 | [`Reveal`](core/Reveal.md) | 在零与内容自然高度之间缓动过渡的展开/收起容器，切换 `shown` 即让内容滑入滑出。 |
 | [`ScrollBar`](core/ScrollBar.md) | 供滚动容器内部复用的垂直滚动条拖拽控制器，把命中滚动条的按下与移动转发给它，即得一致的滑块拖拽与轨道分页行为。 |
+| [`ScrollBehavior`](core/ScrollBehavior.md) | 滚轮输入立即改变偏移，或沿保留式缓动曲线逐帧到达目标。 |
+| [`ScrollOptions`](core/ScrollOptions.md) | 可滚动组件共享的滚轮策略：选择即时或平滑行为，并配置步长、播放时长与曲线。 |
 | [`ScrollView`](core/ScrollView.md) | 裁剪显示、支持滚轮与拖动滚动条的垂直滚动视口，滚动位置按稳定标识跨帧保留。 |
 | [`Shadow`](core/Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
 | [`Spacer`](core/Spacer.md) | 测量为零并吸收所在栈剩余空间的空白弹性组件，把兄弟组件推向两端。 |
@@ -153,12 +155,13 @@ import cui.*
 | 符号 | 说明 |
 |---|---|
 | [`DesktopApp`](desktop/DesktopApp.md) | 桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 `run` 的界面构建函数重建组件树、布局、分发输入、绘制。 |
+| [`FramePacing`](desktop/FramePacing.md) | 桌面渲染帧的设备同步、固定目标帧率或不封顶策略。 |
 
 ## 再导出（外部模块 sdl）
 
 以下符号定义于 **sdl 模块**（本文档范围之外），由伞包再导出以便应用单一导入。每个分组标题都链接到同版本 SDL API 的包索引；在这里按符号确认可直接导入的名称，再从对应包索引进入类型页查看精确声明和成员。本节不计入 CUI 手册的覆盖率。
 
-**来自 [`sdl`](../../../sdl/api/sdl/index.md)**
+**来自 [`sdl`](../../../sdl/docs/api-reference.md)**
 
 | 符号 | 说明 |
 |---|---|
@@ -199,7 +202,7 @@ import cui.*
 | `WindowProgressState` | 原生任务栏进度指示的状态（Windows 任务栏按钮的进度条），经 `SdlWindow.setProgressState` 设置。 |
 | `WindowSpec` | 创建窗口时的一次性选项：标题、逻辑尺寸、DPI 与缩放行为、垂直同步和渲染器的超采样倍数。 |
 
-**来自 [`sdl.dialogs`](../../../sdl/api/sdl/dialogs/index.md)**
+**来自 [`sdl.dialogs`](../../../sdl/docs/api-reference.md)**
 
 | 符号 | 说明 |
 |---|---|
@@ -217,7 +220,7 @@ import cui.*
 | `showMessageBox` | 按 `MessageBoxOptions` 弹出自定义按钮的原生消息框，返回用户点击的按钮编号。 |
 | `showSimpleMessageBox` | 弹出只有一个"确定"按钮的原生消息框，用户关闭后返回。 |
 
-**来自 [`sdl.displays`](../../../sdl/api/sdl/displays/index.md)**
+**来自 [`sdl.displays`](../../../sdl/docs/api-reference.md)**
 
 | 符号 | 说明 |
 |---|---|
@@ -237,7 +240,7 @@ import cui.*
 | `FullscreenModeRequest` | 查找最接近的全屏显示模式时的期望参数：目标分辨率、刷新率与是否考虑高像素密度模式。 |
 | `primaryDisplayInfo` | 返回主显示器的聚合信息。 |
 
-**来自 [`sdl.input`](../../../sdl/api/sdl/input/index.md)**
+**来自 [`sdl.input`](../../../sdl/docs/api-reference.md)**
 
 | 符号 | 说明 |
 |---|---|
@@ -250,7 +253,7 @@ import cui.*
 | `MouseState` | 某一时刻的鼠标快照：指针位置（已按窗口缩放折算为逻辑像素）、左中右三键的按下状态与原始按键掩码。 |
 | `SystemCursor` | 操作系统内置的光标形状，交给 `Cursor.system` 创建对应的原生光标。 |
 
-**来自 [`sdl.system`](../../../sdl/api/sdl/system/index.md)**
+**来自 [`sdl.system`](../../../sdl/docs/api-reference.md)**
 
 | 符号 | 说明 |
 |---|---|

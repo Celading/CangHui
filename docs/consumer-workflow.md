@@ -1,5 +1,7 @@
 # Lightweight Consumer Workflow
 
+**English** | [中文](consumer-workflow.zh-CN.md)
+
 CangHui applications can depend on the framework without keeping a sibling source checkout or copying the
 framework into every project. The workflow has three independently versioned parts:
 
@@ -33,6 +35,19 @@ cuic doctor macos
 cuic build macos
 cuic run macos
 ```
+
+`cuic init` also creates `canghui.toml`. Its `[scripts]` table is automatically discovered, allowing a project
+to replace host-specific wrapper files with named, shell-free lifecycle pipelines:
+
+```bash
+cuic check
+cuic dev
+cuic snapshot-ui
+```
+
+The pipeline steps remain normal `cuic` commands; platform selection still follows the current host unless a
+step names a supported platform explicitly. Script discovery is static project metadata and remains available
+before the application can build or initialize runtime state.
 
 The generated dependency is shaped as follows:
 

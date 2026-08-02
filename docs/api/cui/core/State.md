@@ -4,7 +4,7 @@
 
 `cui.core` 包中的 public class
 
-可写的单一数据源可观察状态：对 `value` 赋值会推进修订号，并在调用线程上同步通知全部观察者。只读展示走 [`Observable`](Observable.md) 抽象，双向输入走 [`Bindable`](Bindable.md)，因此一个 `State` 能同时驱动两类控件。UI 状态应在桌面 UI 线程上修改。
+可写的单一数据源可观察状态：对 `value` 赋值会推进修订号，并在调用线程上同步通知全部观察者。只读展示走 [`Observable`](Observable.md) 抽象，双向输入走 [`Bindable`](Bindable.md)，因此一个 `State` 能同时驱动两类控件。`State` 的值、观察者和回调不是线程安全容器；UI 状态必须由 UI owner 修改，worker 应通过 [`UiOwnerQueue`](UiOwnerQueue.md) 或 `DesktopApp.postToUi` 提交结果。
 
 ## 声明
 
@@ -18,7 +18,7 @@ public class State<T> <: Bindable<T>
 
 ## 说明
 
-赋相等的值同样推进修订号并触发通知；要跳过空写，用扩展方法 [`setIfChanged`](#setifchanged)（要求 `T <: Equatable<T>`）。通知遍历监听者快照：在回调中取消观察或注册新观察都是安全的，回调中新注册的观察者只会看到之后的赋值。每次赋值还会推进进程级写入代号（见 [`currentStateGeneration`](functions.md#currentstategeneration)），桌面循环靠它跳过无变化的帧。
+赋相等的值同样推进修订号并触发通知；要跳过空写，用扩展方法 [`setIfChanged`](#setifchanged)（要求 `T <: Equatable<T>`）。通知遍历监听者快照：在回调中取消观察或注册新观察都是安全的，回调中新注册的观察者只会看到之后的赋值。每次赋值还会原子推进进程级写入代号（见 [`currentStateGeneration`](functions.md#currentstategeneration)），桌面循环靠它观察跨帧变化；该原子代号不使 `State` 本身具备并发写入能力。
 
 ## 示例
 
@@ -148,3 +148,4 @@ public func setIfChanged(next: T): Bool
 - [Bindable](Bindable.md) — 可读写抽象与 `project` 字段绑定。
 - [StateStore](StateStore.md) / [rememberState](functions.md#rememberstate) — 跨声明式重建保留的键控局部状态。
 - [derive](functions.md#derive) — 从多个源计算派生状态。
+- [UiOwnerQueue](UiOwnerQueue.md) — worker 结果回到单一 UI owner 的提交门。

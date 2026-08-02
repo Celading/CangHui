@@ -1,5 +1,7 @@
 # Multiplatform Doctor
 
+**English** | [中文](doctor.zh-CN.md)
+
 `cuic doctor` reports CangHui development readiness without implying that every
 listed platform is implemented or validated on the current host.
 
@@ -60,3 +62,12 @@ The report covers:
 Signing and connected-device commands run only when `ios` or `harmonyos` is
 explicitly requested. This keeps the default desktop diagnosis bounded and
 predictable.
+
+The iOS group deliberately separates the proven static-package bootstrap from
+the open GUI backend. The build script, Objective-C bootstrap helper, replay
+script and dual-target proof receipt report independently; the
+`CAMetalLayer/MTKView` native-surface renderer remains a blocking check for an
+iOS application target until its own device acceptance lands.
+
+Set `CANGHUI_IOS_HOME` or `CANGJIE_IOS_HOME` when the iOS SDK is installed outside
+the default `/Library/Frameworks/Cangjie/1.3.0-alpha-ios` location.

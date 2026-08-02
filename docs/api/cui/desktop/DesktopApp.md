@@ -4,7 +4,7 @@
 
 `cui.desktop` 包中的 public class
 
-桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 [`run`](#run) 的界面构建函数重建组件树、布局、分发输入、绘制。闲置帧被跳过：只有输入、[`State`](../core/State.md) 写入、窗口缩放或组件的 `ctx.requestFrame()` 才触发渲染，时间驱动的动画必须请求帧否则冻结。
+桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 [`run`](#run) 的界面构建函数重建组件树、布局、分发输入、绘制。闲置帧被跳过：只有输入、[`State`](../core/State.md) 写入、待处理的 [`UiOwnerQueue`](../core/UiOwnerQueue.md) 任务、窗口缩放或组件的 `ctx.requestFrame()` 才触发渲染，时间驱动的动画必须请求帧否则冻结。实际渲染帧由 [`FramePacing`](FramePacing.md) 决定跟随设备 VSync、固定目标帧率或不封顶。
 
 ## 声明
 
@@ -14,7 +14,7 @@ public class DesktopApp
 
 ## 说明
 
-帧循环统一处理焦点、悬停、连续点击和指针事件。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，`finally` 也会执行这套清理。内置命令行开关：`--snapshot <path.bmp>` 在界面稳定后截图并退出，供视觉测试和文档配图使用；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
+帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，`finally` 也会关闭 owner queue、完成待处理 ticket 并执行这套清理。内置命令行开关：`--snapshot <path.bmp>` 在界面稳定后截图并退出，供视觉测试和文档配图使用；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
 
 ## 示例
 
@@ -46,7 +46,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
-| [`init(...)`](#init) | 以窗口规格、主题、帧间隔、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。 |
+| [`init(...)`](#init) | 以窗口规格、主题、帧节奏、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。 |
 
 **方法**
 
@@ -56,6 +56,8 @@ main(): Unit {
 | [`setMinimumSize(...)`](#setminimumsize) | 阻止窗口被缩小到给定逻辑尺寸以下。 |
 | [`useBaseCursor(...)`](#usebasecursor) | 设置窗口的基础光标——没有控件申请其它形状时显示的形状（如绘图画布上的十字线）。 |
 | [`clearRememberedState()`](#clearrememberedstate) | 在下一次重建前丢弃全部 `rememberState` 局部值。 |
+| [`postToUi(...)`](#posttoui) | 从任意线程投递任务，在下一次声明式构建前由 UI owner 串行执行。 |
+| [`uiOwnerEpoch()`](#uiownerepoch) | 读取 owner epoch，供 worker 准备乐观提交条件。 |
 | [`openFileDialog(...)`](#openfiledialog) | 发起系统"打开文件"对话框，返回可轮询的请求。 |
 | [`saveFileDialog(...)`](#savefiledialog) | 发起系统"保存文件"对话框。 |
 | [`openFolderDialog(...)`](#openfolderdialog) | 发起系统"选择文件夹"对话框。 |
@@ -65,13 +67,14 @@ main(): Unit {
 
 ### init
 
-以窗口规格、主题、帧间隔、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。元数据与 hint 在建窗前生效。
+以窗口规格、主题、帧节奏、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。元数据与 hint 在建窗前生效。
 
 ```cangjie
 public init(
     spec: WindowSpec,
     theme!: Theme = Theme.light(),
     frameDelay!: UInt32 = UInt32(16),
+    framePacing!: ?FramePacing = None,
     fontScale!: Float32 = 1.0,
     metadata!: ?AppMetadata = None,
     hints!: Array<SdlHintSetting> = []
@@ -82,7 +85,8 @@ public init(
 
 - `spec`: `WindowSpec` — 标题、逻辑尺寸、DPI/垂直同步/超采样等一次性窗口选项（sdl 模块）。
 - `theme!`: [`Theme`](../core/Theme.md) — 语义调色板；默认值为 `Theme.light()`。
-- `frameDelay!`: `UInt32` — 每帧轮询后的等待毫秒数（帧节奏）；默认值为 `UInt32(16)`。
+- `frameDelay!`: `UInt32` — 兼容旧 `vsync: false` 调用的固定等待；显式 `framePacing` 或 VSync 设备模式不叠加此等待。默认 `16`。
+- `framePacing!`: `?`[`FramePacing`](FramePacing.md) — 显式帧节奏；默认 `None`，普通 VSync 窗口跟随设备，kMode 对实际渲染帧不封顶。
 - `fontScale!`: `Float32` — 应用到 `fp` 长度的用户字体缩放；下限 0.1。默认 `1.0`。
 - `metadata!`: `?AppMetadata` — 应用名/版本等元数据（sdl.system）。默认 `None`。
 - `hints!`: `Array<SdlHintSetting>` — 建窗前应用的 SDL hint。默认空。
@@ -140,6 +144,40 @@ public func useBaseCursor(kind: SystemCursor): Unit
 ```cangjie
 public func clearRememberedState(): Unit
 ```
+
+### postToUi
+
+把 worker 已准备好的结果投递给应用的 UI owner。任务按 ticket 顺序在下一次声明式树构建之前执行，
+因此可在任务体内修改 UI `State`。`baseEpoch` 可选：若执行时 owner epoch 已变化，任务不会运行，ticket
+完成为 `RejectedStaleEpoch`。任务失败不阻断后续任务，但会完成为 `Failed`；应用关闭后投递立即完成为
+`RejectedClosed`。
+
+```cangjie
+public func postToUi(
+    action: UiOwnerTaskHandler,
+    baseEpoch!: ?UInt64 = None,
+    topologyHash!: String = ""
+): UiOwnerTicket
+```
+
+**参数**
+
+- `action`: `() -> Unit` — 只在 UI owner 上执行的小型提交任务。
+- `baseEpoch!`: `?UInt64` — worker 开始准备时读取的 owner epoch；默认不检查。
+- `topologyHash!`: `String` — 可选追踪元数据，队列不解释其内容。
+
+**返回值** [`UiOwnerTicket`](../core/UiOwnerQueue.md#uiownerticket) — 可在 owner 领取前取消，并轮询最终 receipt。
+
+### uiOwnerEpoch
+
+原子读取当前 owner epoch。worker 可先保存此值，准备不可变结果，再把它作为 `postToUi(baseEpoch:)`
+传回；期间若已有其他 owner task 提交或失败，旧结果会被拒绝。
+
+```cangjie
+public func uiOwnerEpoch(): UInt64
+```
+
+**返回值** `UInt64` — 当前 owner epoch。
 
 ### openFileDialog
 
@@ -210,5 +248,6 @@ public func run(body: () -> Unit): Unit
 ## 另请参阅
 
 - [`UiContext`](../core/UiContext.md) — 帧循环驱动的每帧上下文。
+- [`UiOwnerQueue`](../core/UiOwnerQueue.md) — 底层 owner-task 顺序、取消与过期门合同。
 - [`rememberState`](../core/functions.md#rememberstate) — 构建间保留的局部状态。
 - `WindowSpec` / `SdlWindow`（见同版本 SDL API 参考）— 窗口层。

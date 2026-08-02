@@ -55,6 +55,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择弹出列表的平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(_: UiContext, available: Size)`](#measure) | 宽为可用宽与 190 逻辑像素的较小者，高固定 38。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配到的框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 画字段（当前项文本与下箭头）；打开时把选项列表注册为交互浮层。 |
@@ -79,6 +80,18 @@ public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = Non
 - `key!`: `?String` — 显式控件标识（同时标识浮层注册）；空串抛 `IllegalArgumentException`。默认 `None`，按构建顺序自动派生。
 
 ## 方法
+
+### scrollOptions
+
+为弹出列表的滚轮输入选择共享策略；默认 `ScrollOptions.web()`。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): Dropdown
+```
+
+**参数** `value`: [`ScrollOptions`](../core/ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `Dropdown` — 本下拉框自身，用于链式调用。
 
 ### measure
 

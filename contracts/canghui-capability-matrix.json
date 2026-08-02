@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260730.6",
+  "matrixVersion": "CangHui.20260801.10",
   "project": "CangHui",
   "version": "0.9.2",
   "surfaceTier": "mother-framework-incubating",
@@ -17,7 +17,11 @@
     "proofs/20260730-canghui-doctor-v0.json",
     "proofs/20260730-canghui-font-resolution-v0.json",
     "proofs/20260730-canghui-symbol-v0.json",
-    "proofs/20260730-canghui-lightweight-consumer-workflow-v0.json"
+    "proofs/20260730-canghui-lightweight-consumer-workflow-v0.json",
+    "proofs/20260731-canghui-cuic-project-scripts-v0.json",
+    "proofs/20260731-canghui-ios-static-package-bootstrap-v1.json",
+    "proofs/20260801-canghui-ui-owner-queue-v0.json",
+    "proofs/20260801-canghui-frame-pacing-smooth-scroll-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -31,12 +35,15 @@
       "optional transparent channel module boundary without bundled credentials",
       "bundled HarmonyOS Sans default, Theme/application overrides, and glyph fallback",
       "provider-neutral Symbol core, optional provider packages, and declared-subset generation",
+      "deterministic single-owner task commit queue for immutable worker results",
+      "device-aware desktop frame pacing and shared retained smooth-scroll policy",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
       "ArkTS or Android application host",
       "platform lifecycle, IME or accessibility implementation",
+      "rollback-capable UI transactions or a complete immutable SceneDiff engine",
       "application identity, signing or package assembly"
     ]
   },
@@ -46,6 +53,39 @@
       "version": "0.9.2",
       "state": "source-test-proven",
       "codeRefs": ["src", "sdl", "cjpm.toml"]
+    },
+    {
+      "id": "ui-owner-queue",
+      "version": "canghui.ui-owner-queue.v0",
+      "state": "source-test-desktop-loop-ios-device-simulator-cross-build-proven; immutable-scene-diff-native-renderer-runtime-open",
+      "codeRefs": [
+        "src/core/ui_owner_queue.cj",
+        "src/core/ui_owner_queue_test.cj",
+        "src/core/state.cj",
+        "src/desktop/desktop_app.cj",
+        "docs/api/cui/core/UiOwnerQueue.md"
+      ]
+    },
+    {
+      "id": "device-frame-pacing-and-smooth-scroll",
+      "version": "canghui.frame-scroll.v0",
+      "state": "source-test-host-build-proven; remote-consumer-device-refresh-measurement-and-non-macos-runtime-proof-open",
+      "codeRefs": [
+        "src/desktop/frame_pacing.cj",
+        "src/desktop/desktop_app.cj",
+        "src/core/scrolling.cj",
+        "src/core/lazy_column.cj",
+        "src/core/lazy_row.cj",
+        "src/core/lazy_list.cj",
+        "src/controls/selection_widgets.cj",
+        "src/controls/table.cj",
+        "src/controls/tree_view.cj",
+        "src/controls/dropdown.cj",
+        "src/text/text_area.cj",
+        "src/text/combo_box.cj",
+        "docs/api/cui/desktop/FramePacing.md",
+        "docs/api/cui/core/ScrollOptions.md"
+      ]
     },
     {
       "id": "arkui-oriented-component-surface",
@@ -192,9 +232,21 @@
       ]
     },
     {
+      "id": "portable-project-script-discovery",
+      "version": "cuic.scripts.v0",
+      "state": "source-test-cli-e2e-macos-host-proven; declarations-are-platform-neutral; windows-and-linux-host-replay-open",
+      "codeRefs": [
+        "tools/cuic/src/scripts.cj",
+        "tools/cuic/src/main.cj",
+        "tools/cuic/scripts/test-cli.sh",
+        "tools/cuic/README.md",
+        "docs/consumer-workflow.md"
+      ]
+    },
+    {
       "id": "mobile-host-contracts",
       "version": "0.1.0",
-      "state": "source-test-proven; ios-runtime-n2c-proven; ios-package-init-blocked; ios-renderer-unproven",
+      "state": "source-test-proven; ios-runtime-static-package-n2c-abi-proven-on-simulator-and-device; ios-renderer-unproven",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
         "src/host/mobile_host_contracts_test.cj"
@@ -203,10 +255,14 @@
     {
       "id": "ios-host-bootstrap",
       "version": "abi-v1",
-      "state": "runtime-scheduler-n2c-proven; legacy-cangjiegui-abi-compatibility-retained; package-init-blocked; abi-return-unproven",
+      "state": "runtime-scheduler-package-init-n2c-abi-proven-on-simulator-and-device; legacy-cangjiegui-abi-compatibility-retained; renderer-unproven",
       "codeRefs": [
         "src/host/ios_host_bootstrap.cj",
         "scripts/build-ios-host-staticlibs.sh",
+        "scripts/verify-ios-static-package.sh",
+        "platform/ios/bootstrap/CangHuiRuntimeBootstrap.m",
+        "platform/ios/include/CangHuiRuntimeBootstrap.h",
+        "platform/ios/probe",
         "platform/ios"
       ]
     },
@@ -227,30 +283,33 @@
       "codeRefs": [
         "src/host/native_surface_proxy.cj",
         "src/host/native_surface_proxy_test.cj",
-        "docs/reference-intake-sdl3-apple-host.md"
+        "docs/sdl3-apple-host.md"
       ]
     }
   ],
   "platformImplementations": [
     {
-      "project": "CangHUI Harmony adapter",
-      "role": "HarmonyOS and HarmonyPC platform implementation and feature proving source",
-      "state": "external-device-proven-provider; not vendored into mother framework"
+      "project": "External HarmonyOS host adapter",
+      "role": "HarmonyOS and HarmonyPC native host integration",
+      "state": "maintained outside this repository; not shipped with CangHui"
     }
   ],
   "residuals": [
-    "Define an explicit compatibility and sync protocol between the mother framework and the CangHUI Harmony adapter.",
-    "Prove a platform adapter consuming the CangHui mother contracts without source duplication.",
+    "Define a public compatibility protocol between CangHui and independently maintained platform adapters.",
+    "Prove a platform adapter consuming CangHui host contracts without source duplication.",
     "Add lifecycle, IME, accessibility and native-surface service interfaces before claiming a complete platform host abstraction.",
-    "Implement and independently verify an external SoonLink Channel v1 KModeChannelModule before claiming relay-backed operation.",
+    "Implement and independently verify an external KModeChannelModule before claiming relay-backed operation.",
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
     "Do not claim Android or iOS runtime support from desktop layout previews.",
-    "Implement the UIKit CAMetalLayer/MTKView surface proxy after the static-package bootstrap protocol is available.",
+    "Implement and device-verify the UIKit CAMetalLayer/MTKView surface proxy on top of the proven static-package bootstrap.",
+    "Build immutable semantic SceneDiff preparation and native-surface owner integration on top of UiOwnerQueue before claiming incremental scene commit.",
+    "Keep UiOwnerQueue receipts separate from rollback-capable transactions: task failure advances the owner epoch but does not restore partially changed live state.",
     "Bind SDL_EnterAppMainCallbacks for OwnedWindow mode only after Cangjie static-package initialization is established.",
     "Keep product models, relay endpoints, credentials and file-manager screens in consumer applications; use them as acceptance consumers rather than framework source.",
     "Keep ArkUI Search, Counter, indeterminate LoadingProgress, Refresh, Swiper and navigation-stack semantics open until dedicated common controls and interaction tests land.",
     "Treat Material, Ant Design and Arco provider catalogs as the currently audited subsets; expand each inventory only with frozen upstream source and renderer proof.",
     "Add a separate reduced-motion/accessibility policy before claiming accessibility-complete motion behavior.",
-    "Keep Web, Video, Map and XComponent-class host rendering platform-bound; desktop common-layout previews do not prove those adapters."
+    "Keep Web, Video, Map and XComponent-class host rendering platform-bound; desktop common-layout previews do not prove those adapters.",
+    "Keep runtime application-global persistence separate from cuic project script discovery; State, rememberState, StateStore and HostApplicationStorage do not currently constitute AppStorage.init()."
   ]
 }

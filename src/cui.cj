@@ -105,6 +105,9 @@ public import cui.core.Radii
 public import cui.core.Reveal
 public import cui.core.ScrollBar
 public import cui.core.ScrollView
+public import cui.core.ScrollBehavior
+public import cui.core.ScrollOptions
+public import cui.core.scrollBehaviorName
 public import cui.core.Shadow
 public import cui.core.Spacer
 public import cui.core.Spacing
@@ -120,6 +123,12 @@ public import cui.core.Theme
 public import cui.core.ThemeTransition
 public import cui.core.Tooltip
 public import cui.core.UiContext
+public import cui.core.UiOwnerQueue
+public import cui.core.UiOwnerReceipt
+public import cui.core.UiOwnerTaskHandler
+public import cui.core.UiOwnerTaskStatus
+public import cui.core.UiOwnerTicket
+public import cui.core.UiOwnerWakeHandler
 public import cui.core.VStack
 public import cui.core.Widget
 public import cui.core.ZStack
@@ -134,6 +143,7 @@ public import cui.core.probeActivation
 public import cui.core.probedAction
 public import cui.core.easingName
 public import cui.core.motionLevelName
+public import cui.core.uiOwnerTaskStatusName
 public import cui.symbol.CANGHUI_SYMBOL_PROTOCOL
 public import cui.symbol.SymbolAdapter
 public import cui.symbol.SymbolAlias
@@ -207,6 +217,8 @@ public import cui.component.ViewportSpec
 public import cui.component.classifyViewport
 public import cui.component.componentApiVersion
 public import cui.desktop.DesktopApp
+public import cui.desktop.FramePacing
+public import cui.desktop.framePacingName
 public import cui.desktop.ClientWindowChrome
 public import cui.desktop.ClientWindowChromeStyle
 public import cui.desktop.WindowChromeControl

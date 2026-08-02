@@ -39,3 +39,22 @@ func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     @Expect(json.contains("\"kind\":\"manual\""))
     @Expect(json.contains("\"evidence\":\"\""))
 }
+
+@Test
+func doctorIosSeparatesProvenBootstrapFromOpenRenderer(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let checks = doctorIosFrameworkChecks(framework)
+    var readyBootstrapAssets: Int64 = 0
+    var rendererBlocked = false
+    for (check in checks) {
+        if (startsWithText(check.id, "ios.bootstrap-") &&
+            doctorStatusName(check.status) == "ready") {
+            readyBootstrapAssets += 1
+        }
+        if (check.id == "ios.renderer" && doctorStatusName(check.status) == "blocked") {
+            rendererBlocked = true
+        }
+    }
+    @Expect(readyBootstrapAssets, Int64(3))
+    @Expect(rendererBlocked)
+}

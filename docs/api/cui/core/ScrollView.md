@@ -18,7 +18,7 @@ ScrollView <: [`Widget`](Widget.md)
 
 ## 说明
 
-滚动偏移是距内容顶部的逻辑像素，始终被限制在 0 与最大偏移（内容高 − 视口高，不小于 0）之间；滚轮每格步进 72 逻辑像素。内容装得下时视口不拥有滚轮——事件穿透给外层滚动面，不会形成"死区"。滚动条只在内容溢出时出现：内容让出条的槽宽（10 逻辑像素）以免被遮，滑块可拖拽（记录抓取点、不跳变），点击滑块之外的轨道按 0.9 视口高分页。
+滚动偏移是距内容顶部的逻辑像素，始终被限制在 0 与最大偏移（内容高 − 视口高，不小于 0）之间。默认 [`ScrollOptions.web`](ScrollOptions.md#web) 让每格 72 逻辑像素的滚轮输入沿 Web 式曲线缓动；连续输入累计目标并自动续帧。内容装得下时视口不拥有滚轮——事件穿透给外层滚动面，不会形成"死区"。滚动条只在内容溢出时出现：内容让出条的槽宽（10 逻辑像素）以免被遮，滑块可拖拽（记录抓取点、不跳变），点击滑块之外的轨道按 0.9 视口高分页；直接拖动、分页或外部写偏移会取消仍在进行的滚轮动画。
 
 偏移与滑块拖动状态标识默认由声明顺序自动派生；树的结构会变化（条件分支、动态列表）时给显式 `key!`，或用 [`scrollState`](#scrollstate) 换成外部持有的状态以便程序化滚动（如"发送后滚到底部"）。绘制在滚动轴上精确裁剪，交叉轴留出阴影余量，视口边缘卡片的软阴影不会被竖直切掉。
 
@@ -41,7 +41,7 @@ main(): Unit {
                     Label("动态 ${i}").height(30.0)
                 }
             }
-        }.scrollState(offset)
+        }.scrollState(offset).scrollOptions(ScrollOptions.web(duration: 180))
         // 运行时：滚轮滚动超出视口的活动列表，内容装得下时滚轮可继续冒泡。
     }
 }
@@ -60,6 +60,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`scrollState(value: State<Float32>)`](#scrollstate) | 改用外部持有的垂直滚动偏移状态。 |
+| [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(_: UiContext, available: Size)`](#measure) | 原样返回可用空间：视口总是填满分到的区域。 |
 | [`layout(ctx: UiContext, rect: Rect)`](#layout) | 先用不限高度的空间测量内容；确认溢出后为滚动条留出宽度并再测量一次。 |
 | [`draw(ctx: UiContext)`](#draw) | 在滚动轴上精确裁剪地绘制内容，内容溢出时再绘制滚动条。 |
@@ -99,6 +100,21 @@ public func scrollState(value: State<Float32>): ScrollView
 **参数**
 
 - `value`: [`State`](State.md)`<Float32>` — 外部拥有的偏移状态；替换掉按标识保留的内部状态。
+
+**返回值** `ScrollView` — 本视口自身，用于链式调用。
+
+### scrollOptions
+
+选择平滑/即时滚轮行为，并配置逻辑像素步长、时长与曲线。默认值是 `ScrollOptions.web()`；
+`ScrollOptions.immediate()` 保留滚轮后立即写入偏移的兼容语义。
+
+```cangjie
+public func scrollOptions(value: ScrollOptions): ScrollView
+```
+
+**参数**
+
+- `value`: [`ScrollOptions`](ScrollOptions.md) — 本视口采用的滚轮策略。
 
 **返回值** `ScrollView` — 本视口自身，用于链式调用。
 
@@ -179,5 +195,6 @@ public func focusableIds(): Array<String>
 ## 另请参阅
 
 - [ScrollBar](ScrollBar.md) — 视口复用的滑块拖拽与轨道分页控制器。
+- [ScrollOptions](ScrollOptions.md) — 默认 Web 式缓动、即时模式与自定义参数。
 - [LazyColumn](LazyColumn.md) / [LazyList](LazyList.md) — 大数据量下只构建视口附近行的惰性容器。
 - [State](State.md) — 外部滚动偏移的状态载体。

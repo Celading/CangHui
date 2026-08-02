@@ -5,7 +5,7 @@ import std.env.{getCommandLine, getVariable}
 import std.fs.{Directory, File, Path, exists, removeIfExists}
 import std.process.executeWithOutput
 
-let VERSION = "0.3.0"
+let VERSION = "0.4.0"
 
 class CuicError <: Exception {
     init(message: String) {
@@ -26,6 +26,10 @@ main(): Int64 {
 }
 
 func runCuic(args: Array<String>): Int64 {
+    runCuicInternal(args, true)
+}
+
+func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (args.size <= 1) {
         println(helpText())
         return 0
@@ -61,6 +65,9 @@ func runCuic(args: Array<String>): Int64 {
     if (command == "probe") {
         return probeCommand(args, 2)
     }
+    if (command == "scripts") {
+        return scriptsCommand(args, 2)
+    }
     if (command == "init") {
         return initProject(args, 2)
     }
@@ -79,6 +86,12 @@ func runCuic(args: Array<String>): Int64 {
         let requested = if (args.size > 2) { args[2] } else { "" }
         let project = resolveProject(requested, "")
         return executeCommand("cjpm", ["clean"], project)
+    }
+    if (allowProjectScripts) {
+        match (tryRunProjectScript(args, command)) {
+            case Some(code) => return code
+            case None => ()
+        }
     }
     throw CuicError("unknown command '${command}'")
 }
@@ -100,8 +113,16 @@ func parsePlatformAndProject(args: Array<String>, start: Int64, defaultExample: 
         platform = normalizePlatform(args[index])
         index += 1
     }
-    let requested = if (index < args.size) { args[index] } else { defaultExample }
+    let requested = if (index < args.size) {
+        args[index]
+    } else {
+        implicitProjectRequest(defaultExample, exists(joinPath(currentDirectory(), "cjpm.toml")))
+    }
     ProjectSelection(platform, resolveProject(requested, ""))
+}
+
+func implicitProjectRequest(defaultExample: String, currentProjectAvailable: Bool): String {
+    if (currentProjectAvailable) { "" } else { defaultExample }
 }
 
 func helpText(): String {
@@ -122,6 +143,8 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
+    "  cuic scripts init|list [project]\n" +
+    "  cuic scripts run <name> [project]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +
@@ -129,6 +152,7 @@ func helpText(): String {
     "  cuic clean [project]\n" +
     "  cuic examples\n" +
     "  cuic version\n\n" +
+    "Project scripts: declare portable lifecycle pipelines in canghui.toml, then run cuic <name>.\n" +
     "Framework: generated projects use a public Git dependency pinned by commit and CJPM cache. " +
     "Use --canghui-path or CANGHUI_FRAMEWORK_ROOT only for local framework development."
 }
@@ -566,6 +590,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         "[dependencies]\n" +
         renderFrameworkDependency(dependency) + "\n"
     File.writeTo(joinPath(directory, "cjpm.toml"), manifest.toArray())
+    File.writeTo(joinPath(directory, PROJECT_MANIFEST), defaultProjectManifest().toArray())
     File.writeTo(joinPath(directory, ".gitignore"), "target/\ndist/\n".toArray())
     File.writeTo(joinPath(directory, "src/main.cj"), generatedMain(packageName).toArray())
     println("created CangHui project: ${directory}")

@@ -2,9 +2,9 @@ package cui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
 import cui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, Motion, Overlay,
-    ScrollBar, State, UiContext, Widget, resolveControlKey, claimHoverIfInside, clampScrollOffset, drawSurface,
-    drawVerticalScrollBar, emit, handlePointerClick, localState, registerFocusable, scrollBarGutter,
-    scrollOffsetAfterWheel}
+    ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget, resolveControlKey, advanceScrollMotion,
+    applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawSurface,
+    drawVerticalScrollBar, emit, handlePointerClick, localState, registerFocusable, scrollBarGutter}
 
 private let DROPDOWN_DEFAULT_W: Float32 = 190.0
 private let DROPDOWN_POPUP_PAD: Float32 = 5.0
@@ -33,6 +33,8 @@ public class Dropdown <: Widget {
     // Scroll offset of the popup list, retained across the per-frame rebuild while open.
     private let popupScroll: State<Float32>
     private let popupBar: ScrollBar
+    private let popupScrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     private let popupAnimator: Animator
     private var frame = Rect.zero()
 
@@ -45,9 +47,18 @@ public class Dropdown <: Widget {
         this.open = localState<Bool>("Dropdown:${ident}:open") {false}
         this.popupScroll = localState<Float32>("Dropdown:${ident}:popupScroll") {0.0}
         this.popupBar = ScrollBar("Dropdown:${ident}:popupBar")
+        this.popupScrollMotion = localState<ScrollMotion>("Dropdown:${ident}:popup-scroll-motion") {
+            ScrollMotion(0.0)
+        }.value
         this.popupAnimator = localState<Animator>("Dropdown:${ident}:popup-motion") {Animator(0.0)}.value
         registerFocusable(ident)
         emit(this)
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing for the popup list. */
+    public func scrollOptions(value: ScrollOptions): Dropdown {
+        scrollPolicy = value
+        this
     }
 
     public func measure(_: UiContext, available: Size): Size {
@@ -73,6 +84,10 @@ public class Dropdown <: Widget {
         // gets events before the tree (see the shell's dispatch order).
         if (open.value || popupProgress > 0.001) {
             let popup = popupRect(ctx)
+            if (open.value) {
+                advanceScrollMotion(ctx, popupScrollMotion, popupScroll, contentHeight(), listHeight(popup),
+                    scrollPolicy)
+            }
             let visible = animatedPopupRect(popup, popupProgress)
             ctx.setOverlay(Overlay(handleEvent: {c, e => if (open.value) {
                 handleOverlay(c, e, popup)
@@ -118,6 +133,7 @@ public class Dropdown <: Widget {
         let listH = listHeight(popupRect(ctx))
         let target = Float32(selected.value) * CUI_SMALL_H - (listH - CUI_SMALL_H) / 2.0
         popupScroll.value = clampScrollOffset(target, contentHeight(), listH)
+        cancelScrollMotion(popupScrollMotion, popupScroll)
     }
 
     private func contentHeight(): Float32 {
@@ -140,6 +156,7 @@ public class Dropdown <: Widget {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (popup.contains(x, y)) {
                     if (popupBar.press(ctx, listRect(popup), popupScroll, contentHeight(), listHeight(popup), x, y)) {
+                        cancelScrollMotion(popupScrollMotion, popupScroll)
                         return true // the press grabbed the scrollbar; the popup stays open
                     }
                     let index = itemIndexAt(popup, y)
@@ -155,11 +172,15 @@ public class Dropdown <: Widget {
                 if (popup.contains(x, y)) {
                     ctx.claimHover(overlayOwner, CursorShape.Default)
                 }
-                popupBar.drag(ctx, listRect(popup), popupScroll, contentHeight(), listHeight(popup), y)
+                let dragged = popupBar.drag(ctx, listRect(popup), popupScroll, contentHeight(), listHeight(popup), y)
+                if (dragged) {
+                    cancelScrollMotion(popupScrollMotion, popupScroll)
+                }
+                dragged
             case UiEvent.MouseWheel(_, wheelY, x, y) =>
                 if (popup.contains(x, y)) {
-                    popupScroll.value = scrollOffsetAfterWheel(popupScroll.value, wheelY, contentHeight(),
-                        listHeight(popup))
+                    applyWheelScroll(ctx, popupScrollMotion, popupScroll, wheelY, contentHeight(), listHeight(popup),
+                        scrollPolicy)
                     return true
                 }
                 false
@@ -216,6 +237,9 @@ public class Dropdown <: Widget {
         if (clamped != popupScroll.value) {
             popupScroll.value = clamped
         }
+        // Keyboard navigation owns the visible row even when no offset write was needed.
+        // Cancel a retained wheel target so it cannot move the highlight away next frame.
+        cancelScrollMotion(popupScrollMotion, popupScroll)
     }
 
     // Maps a pointer y inside the popup to an item index, honouring the scroll offset.
@@ -262,6 +286,7 @@ public class Dropdown <: Widget {
         let offset = clampScrollOffset(popupScroll.value, contentH, listH)
         if (offset != popupScroll.value) {
             popupScroll.value = offset
+            cancelScrollMotion(popupScrollMotion, popupScroll)
         }
         let gutter: Float32 = if (contentH > listH) {
             scrollBarGutter()

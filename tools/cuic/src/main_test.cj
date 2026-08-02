@@ -9,6 +9,12 @@ func platformAliasesNormalize(): Unit {
 }
 
 @Test
+func implicitRunPrefersCurrentProjectBeforeExampleFallback(): Unit {
+    @Expect(implicitProjectRequest("notepad", true), "")
+    @Expect(implicitProjectRequest("notepad", false), "notepad")
+}
+
+@Test
 func pathHelpersKeepRootAndBasenameStable(): Unit {
     @Expect(joinPath("/tmp/root/", "/child"), "/tmp/root/child")
     @Expect(parentPath("/tmp/root/child"), "/tmp/root")
@@ -146,4 +152,75 @@ func repositoryCacheParserHonorsTheCjpmCacheSection(): Unit {
         "/Users/demo"
     )
     @Expect(configured, "/Users/demo/project-cache")
+}
+
+@Test
+func projectScriptManifestParsesPortablePipelines(): Unit {
+    let scripts = parseProjectScripts(
+        "[application]\nname = \"demo\"\n\n" +
+        "[scripts]\n" +
+        "check = [\"doctor --verbose\", \"test\", \"build\"]\n" +
+        "snapshot-ui = [\"prnt --output \\\"dist/ui preview.png\\\"\"] # portable\n"
+    )
+    @Expect(scripts.size, 2)
+    @Expect(scripts[0].name, "check")
+    @Expect(scripts[0].steps.size, 3)
+    @Expect(scripts[1].steps[0], "prnt --output \"dist/ui preview.png\"")
+}
+
+@Test
+func projectScriptCommandsInjectOwningProject(): Unit {
+    let doctor = scriptStepCommand("doctor macos --verbose", "/work/demo")
+    @Expect(doctor[doctor.size - 2], "--project")
+    @Expect(doctor[doctor.size - 1], "/work/demo")
+
+    let snapshot = scriptStepCommand("prnt --output preview.png -- --preview desktop", "/work/demo")
+    @Expect(snapshot[4], "/work/demo")
+    @Expect(snapshot[5], "--")
+
+    let windowsPath = splitScriptCommand("prnt --output \"C:\\work dir\\preview.png\"")
+    @Expect(windowsPath[2], "C:\\work dir\\preview.png")
+}
+
+@Test
+func projectScriptsRejectShellAndReservedCommands(): Unit {
+    var shellRejected = false
+    try {
+        let _ = parseProjectScripts("[scripts]\nbad = [\"sh scripts/build.sh\"]\n")
+    } catch (_: CuicError) {
+        shellRejected = true
+    }
+    @Expect(shellRejected)
+
+    var reservedRejected = false
+    try {
+        let _ = parseProjectScripts("[scripts]\nbuild = [\"test\"]\n")
+    } catch (_: CuicError) {
+        reservedRejected = true
+    }
+    @Expect(reservedRejected)
+
+    var duplicateRejected = false
+    try {
+        let _ = parseProjectScripts("[scripts]\nverify = [\"test\"]\nverify = [\"build\"]\n")
+    } catch (_: CuicError) {
+        duplicateRejected = true
+    }
+    @Expect(duplicateRejected)
+
+    var overrideRejected = false
+    try {
+        let _ = parseProjectScripts("[scripts]\nverify = [\"doctor --project /tmp/other\"]\n")
+    } catch (_: CuicError) {
+        overrideRejected = true
+    }
+    @Expect(overrideRejected)
+
+    var malformedRejected = false
+    try {
+        let _ = parseProjectScripts("[scripts]\nverify = \"test\"\n")
+    } catch (_: CuicError) {
+        malformedRejected = true
+    }
+    @Expect(malformedRejected)
 }

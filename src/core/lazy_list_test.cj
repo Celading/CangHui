@@ -98,7 +98,7 @@ func lazyListWheelScrollsVertically(): Unit {
     let scroll = State<Float32>(0.0)
     let list = LazyList(1000, {_ => 50.0}, scroll: scroll, id: "test.lazylist.wheel") {
         _ => emit(Spacer())
-    }
+    }.scrollOptions(ScrollOptions.immediate())
     list.layout(ctx, Rect(0.0, 0.0, 300.0, 400.0))
     @Expect(list.handle(ctx, UiEvent.MouseWheel(0.0, -1.0, 150.0, 200.0)))
     @Expect(scroll.value, Float32(72.0)) // one wheel step

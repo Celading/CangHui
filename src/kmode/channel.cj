@@ -3,8 +3,8 @@ package cui.kmode
 import std.sync.Mutex
 
 /**
- * Transparent relay SPI. SoonLink owns delivery/cursor/ACK; kMode owns payloads.
- * Implementations must keep claim and session tokens out of logs and artifacts.
+ * Transport-neutral relay SPI. Implementations own delivery, cursor and ACK;
+ * kMode owns the opaque payload contract. Credentials must stay out of logs.
  */
 public interface KModeChannelModule {
     func name(): String

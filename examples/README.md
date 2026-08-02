@@ -11,7 +11,7 @@
 
 ## 画廊
 
-`component-gallery` 是母体框架的宿主/响应式验收面：同一份组件包在 Compact、Medium、Expanded
+`component-gallery` 是 CangHui 的宿主/响应式验收面：同一份组件包在 Compact、Medium、Expanded
 逻辑视口中重排，并可通过 kMode 做无窗口函数检测。其移动平台条目仍是桌面布局预览。
 
 下表截图由 `python .devtools/shoot_examples.py` 生成（各示例窗口的真实渲染快照，存放于

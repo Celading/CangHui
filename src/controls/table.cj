@@ -1,9 +1,10 @@
 package cui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, CUI_SMALL_H, ScrollBar, State, UiContext, Widget, resolveControlKey, clampScrollOffset, maxScrollOffset, drawSurface,
-    drawVerticalScrollBar, emit, localState, registerFocusable, scrollLineIndex, scrollLineRemainder,
-    scrollOffsetAfterWheel}
+import cui.core.{Bindable, CUI_SMALL_H, ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget,
+    resolveControlKey, advanceScrollMotion, applyWheelScroll, cancelScrollMotion, clampScrollOffset,
+    maxScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, registerFocusable, scrollLineIndex,
+    scrollLineRemainder}
 
 private let TABLE_HEADER_H: Float32 = 32.0
 private let TABLE_CELL_PAD: Float32 = 10.0
@@ -91,6 +92,8 @@ public class Table <: Widget {
     private let sortCol: State<Int64>
     private let sortAsc: State<Bool>
     private let scrollBar: ScrollBar
+    private let scrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     // The selection last scrolled into view, retained across rebuilds — so a changed selection
     // (however it changed, including an app setting it directly) is revealed, like ListView does.
     private let lastRevealed: State<Int64>
@@ -108,14 +111,24 @@ public class Table <: Widget {
         this.selected = selected
         // Keys carry the widget-type prefix like every sibling control, so they can never
         // collide with an app's own rememberState keys (or another widget's) built from `id`.
-        this.scrollOffset = localState<Float32>("Table:${ident}:scroll") {0.0}
+        let initialScroll = localState<Float32>("Table:${ident}:scroll") {0.0}
+        this.scrollOffset = initialScroll
         this.sortCol = localState<Int64>("Table:${ident}:sortCol") {-1}
         this.sortAsc = localState<Bool>("Table:${ident}:sortAsc") {true}
         this.scrollBar = ScrollBar("Table:${ident}:thumb")
+        this.scrollMotion = localState<ScrollMotion>("Table:${ident}:scroll-motion") {
+            ScrollMotion(initialScroll.value)
+        }.value
         this.lastRevealed = localState<Int64>("Table:${ident}:revealed") {Int64.Min}
         this.sortCache = localState<TableSortCache>("Table:${ident}:sortCache") {TableSortCache()}.value
         registerFocusable(ident)
         emit(this)
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
+    public func scrollOptions(value: ScrollOptions): Table {
+        scrollPolicy = value
+        this
     }
 
     /**
@@ -153,8 +166,10 @@ public class Table <: Widget {
         Size(available.w, available.h)
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        let body = bodyRect()
+        advanceScrollMotion(ctx, scrollMotion, scrollOffset, contentHeight(), body.h, scrollPolicy)
     }
 
     public func isFlexible(): Bool {
@@ -165,7 +180,11 @@ public class Table <: Widget {
         let order = displayOrder()
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id)))
         let body = bodyRect()
-        scrollOffset.value = clampScrollOffset(scrollOffset.value, contentHeight(), body.h)
+        let clamped = clampScrollOffset(scrollOffset.value, contentHeight(), body.h)
+        if (clamped != scrollOffset.value) {
+            scrollOffset.value = clamped
+            cancelScrollMotion(scrollMotion, scrollOffset)
+        }
         // Reveal the selection when it changed since last frame — including an app setting it
         // directly (e.g. a "find row" action) rather than through this table's own keys.
         if (selected.value != lastRevealed.value) {
@@ -188,6 +207,7 @@ public class Table <: Widget {
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (scrollBar.press(ctx, body, scrollOffset, contentH, body.h, x, y)) {
+                    cancelScrollMotion(scrollMotion, scrollOffset)
                     return true
                 }
                 if (headerRect().contains(x, y)) {
@@ -211,12 +231,13 @@ public class Table <: Widget {
                 }
             case UiEvent.MouseMove(_, y) =>
                 if (scrollBar.drag(ctx, body, scrollOffset, contentH, body.h, y)) {
+                    cancelScrollMotion(scrollMotion, scrollOffset)
                     return true
                 }
             case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
                 // Content that fits leaves the wheel to an enclosing scroller (no dead zone).
                 if (body.contains(pointerX, pointerY) && maxScrollOffset(contentH, body.h) > 0.0) {
-                    scrollOffset.value = scrollOffsetAfterWheel(scrollOffset.value, wheelY, contentH, body.h)
+                    applyWheelScroll(ctx, scrollMotion, scrollOffset, wheelY, contentH, body.h, scrollPolicy)
                     return true
                 }
             case UiEvent.KeyDown(Key.Up, _) => return moveSelection(ctx, -1)
@@ -405,6 +426,7 @@ public class Table <: Widget {
             scroll = rowBottom - body.h
         }
         scrollOffset.value = clampScrollOffset(scroll, contentHeight(), body.h)
+        cancelScrollMotion(scrollMotion, scrollOffset)
     }
 
     // The display position of a selected row, or -1 when nothing valid is selected — so the next

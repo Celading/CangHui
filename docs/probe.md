@@ -1,5 +1,7 @@
 # CangHui Probe Protocol
 
+**English** | [中文](probe.zh-CN.md)
+
 `cui.probe.v0` is CangHui's deterministic, device-free instrumentation
 protocol. It verifies callable behavior, component structure, event routing,
 animation samples, and renderer command shape without creating an SDL window.

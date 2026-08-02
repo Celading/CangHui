@@ -1,37 +1,67 @@
-# CangHui / CUI：仓颉多平台 GUI 母体框架
+<p align="center">
+  <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
+  <img src="https://img.shields.io/badge/version-0.9.2-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.9.2" />
+  <img src="https://img.shields.io/badge/package-cui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package cui" />
+  <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
+  <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
+  <img src="https://img.shields.io/badge/license-MIT-d69e2e?style=for-the-badge&labelColor=1f2430" alt="MIT License" />
+</p>
+<div align="center">
+<span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
+<span style="font-weight:100;font-size:24px">Cangjie Multiplatform Declarative GUI Framework</span>
+<p align="center">
+  <strong>Self-rendered, declarative, and platform-contract driven UI for Cangjie applications</strong><br/>
+  <sub>Widgets · State · Layout · Text · Media · Animation · Tooling · Native host contracts</sub>
+</p>
+</div>
 
-用[仓颉编程语言](https://cangjie-lang.cn/)实现的跨平台、自渲染、声明式 GUI 母体框架，提供声明式界面构建、状态管理、常用组件、文本渲染、矢量绘制以及系统能力集成等。项目从 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) 演进并持续保留其许可证与上游归属；底层依赖[仓颉 SDL 图形库](https://github.com/SunriseSummer/CangjieSDL)。
+**English** | [中文](README.zh-CN.md)
 
 <img src="./examples/.images/cangcui.png" />
 <img src="./images/gallery.jpg" />
 
-## 文档与示例
+## What is CangHui
 
-- [示例应用](examples/)
-- [入门指南](docs/guide/index.md)
-- [API 文档](docs/api/index.md)
-- [Symbol 与可选图标 Provider](docs/symbols.md)
+CangHui is a self-rendered, declarative GUI framework written in the
+[Cangjie programming language](https://cangjie-lang.cn/). It evolved from
+[`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) and
+retains its upstream attribution and MIT license. The declarative core (`cui`)
+and the safe SDL3 wrapper (`sdl`) live in this repository, together with the
+integrated `cuic` toolchain, component-package contracts, responsive layout
+primitives, and native host contracts.
 
-## 使用环境
+The framework is designed to be platform-neutral at the source level: common
+widgets and product components depend only on typed host capabilities and
+viewport facts, while each platform adapter owns lifecycle, native surfaces,
+IME, accessibility, packaging, and signing. Platform-specific hosts can be
+implemented independently without changing common widgets or application
+state.
 
-- Cangjie SDK 1.1.3 或更新的兼容版本
-- Windows/Mac/Linux
-- 当前母体分支保留仓库内 `sdl` 模块，并持续吸收 [`CangjieSDL`](https://github.com/SunriseSummer/CangjieSDL) 上游能力；`cuic` 按目标平台诊断并准备 SDL 和 SDL_ttf 动态库
+## Platform Status
 
-安装 `cuic` 只会稀疏获取并编译 `tools/cuic`，不会在工程旁保留一份完整框架仓库：
+Platform claims below are intentionally conservative. Desktop layout previews
+do not prove a mobile runtime, and a bootstrap proof is not a renderer.
+
+| Platform | Status | Notes |
+| --- | --- | --- |
+| macOS desktop | Available | Build, the full framework/SDL/CLI test suites, the interactive gallery, and deterministic snapshots pass on this host. |
+| iOS | Bootstrap proven, renderer open | Device/simulator static-package bootstrap and ABI return are proven; the UIKit native-surface renderer, lifecycle, IME and accessibility adapters are not implemented yet. |
+| HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
+| Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
+| Android | Not implemented | No renderer backend, SDL activity bridge, NDK packaging, or APK runner exists yet. |
+
+## Quick Start
+
+The easiest way to create, build, and run a CangHui application is through the
+integrated `cuic` CLI. Installing `cuic` only sparse-fetches and builds
+`tools/cuic`; it does not keep a full framework checkout next to your project.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Celading/CangHui/main/scripts/install-cuic.sh | bash
 cuic version
 ```
 
-> [!IMPORTANT]
->
-> 发布和部署基于 CUI 的桌面软件时，请确保 SDL 和 SDL_ttf 动态库位于仓颉可执行文件目录，或在目标平台的动态库搜索路径中，即可以作为私有资产打包或在目标平台作为公共运行时安装。
-
-## 快速开始
-
-用 `cuic` 创建并运行一个空白工程：
+Create and run a blank project:
 
 ```bash
 cuic init HelloCangHui --name hello_canghui --platform macos
@@ -41,24 +71,25 @@ cuic build macos
 cuic run macos
 ```
 
-生成工程通过公开 Git `commitId` 依赖 CangHui，并由 `cjpm.lock` 固定实际提交。CJPM 将源码下载到用户级缓存，
-不会把框架复制进每个应用。框架开发者仍可显式使用 `cuic init ... --canghui-path <path>`。
+Generated applications depend on the public CangHui Git repository pinned by
+commit, pin a `cjpm.lock`, and resolve through the CJPM cache instead of copying
+the framework into every project.
 
-在 `src/main.cj` 中编写代码创建一个简单窗口：
+A minimal window in `src/main.cj`:
 
 ```cangjie
 import cui.*
 
 main() {
-    let message = State<String>("你好，CUI")
-    let app = DesktopApp(WindowSpec("CUI 示例", 640, 420))
+    let message = State<String>("Hello, CUI")
+    let app = DesktopApp(WindowSpec("CUI Example", 640, 420))
 
     app.run {
         VStack {
             Panel {
                 Label(message.value)
             }.flexible(false)
-            Button("更新文本", {=> message.value = "状态已更新"})
+            Button("Update", {=> message.value = "State updated"})
                 .role(ButtonRole.Primary)
                 .width(160.vp)
         }.spacing(12.vp).padding(20.vp)
@@ -66,74 +97,118 @@ main() {
 }
 ```
 
-执行 `cuic run` 即可运行查看效果。完整缓存、锁定和本地覆盖规则见
-[轻量消费工作流](docs/consumer-workflow.md)。
+See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
+override rules.
 
-## 核心能力
+## Core Capabilities
 
-- 基于 SDL3 实现自渲染 GUI 引擎。
-- 基于仓颉尾随 lambda、extend、prop 等特性构建声明式 UI 编码范式。
-- 提供 `VStack`、`HStack`、`ZStack`、`Grid`、`Panel`、`FlowRow`、`ScrollView`、`SplitView`、`Accordion`、动画折叠
-  容器 `Reveal` 等布局容器，以及数据驱动、只渲染视口附近的懒加载容器 `LazyColumn`、`LazyRow`、`LazyList` 与 `LazyGrid`。
-- 提供按钮、文本框、开关、复选框、单选框、选择器、步进器、滑块、进度条、环形进度、评分、状态徽标、过滤标签、
-  步骤条、分页导航、面包屑、列表、数据表格、树视图、日期选择器、时间选择器、拖动重排列表、分段控件、标签页、下拉和组合框等控件。
-- 提供下拉/右键菜单、应用菜单栏、选择器、提示、通知与模态对话框等浮层，浮层按栈管理、可嵌套，对话框内可继续打开下拉、组合框与右键菜单。
-- 使用有顺序语义的链式修饰器配置尺寸、约束、内边距、表面、圆角、边框、阴影、渐变背景、弹性、可见性和可用性，支持 `.px`，`.vp`，`.fp` 尺寸单位表达。
-- 以 `Observable`/`Bindable` 实现状态管理：可写 `State<T>`，带缓存的派生只读 `DerivedState`
-  （`derive`/`map`），双向投影 `Binding`（`project`），控件按读写需要接受对应抽象。
-- 以 `Keyed`、`rememberState`、`ForEach` 明确复杂嵌套树与列表中的局部状态身份，控件交互身份按构建顺序自动唯一。
-- 支持主轴/交叉轴排列、权重布局、内容自适应、流式换行、裁剪滚动和可复用组件组合。
-- 使用 GPU 几何图元和超采样渲染圆角、描边、图标、阴影及抗锯齿图形。
-- 提供动画原语：物理弹簧 `Spring`、时长驱动可选缓动曲线与延迟的补间 `Animator`，以及永不静止的重复时间线 `Pulse`，
-  由渲染循环充当动画时钟，脏帧下自动续帧；`AnimationSpec` 可选择随主题动效力度自动缩放，或锁定精确播放时间与曲线。
-- 提供设计令牌尺度：间距 `Spacing`、圆角 `Radii`、动效 `Motion`，以及主题相邻的 `MotionLevel.Basic / Standard / Full`；它们与颜色 `Theme`、字号 `FontSizes`、
-  高度 `Shadow.elevation` 一起构成一致的设计系统。
-- 提供文件对话框、消息框、剪贴板、光标、显示器、文件系统、时间、系统信息等平台能力接口。
-- 提供 provider-neutral `Symbol`，内建图标保持 `Icon`/`IconButton` 兼容；Material、Ant Design 与 Arco
-  作为独立可选包接入，`cuic symbol generate` 生成应用声明的注册子集。
-- 已实现图元缓存、惰性渲染、脏帧检测/按需刷新等性能优化机制。
+- Self-rendered GUI engine on SDL3 with GPU geometry, supersampled anti-aliasing,
+  rounded corners, strokes, icons, shadows, and gradient fills.
+- Declarative UI built on Cangjie trailing lambdas, `extend`, and `prop`.
+- Layout containers: `VStack`, `HStack`, `ZStack`, `Grid`, `Panel`, `FlowRow`,
+  `ScrollView`, `SplitView`, `Accordion`, animated `Reveal`, and viewport-focused
+  lazy containers `LazyColumn`, `LazyRow`, `LazyList`, and `LazyGrid`.
+- Controls: buttons, text fields, switches, checkboxes, radio buttons, pickers,
+  steppers, sliders, progress bars, rating, badges, chips, step indicators,
+  pagination, breadcrumbs, lists, data tables, tree views, date/time pickers,
+  reorderable lists, segmented controls, tabs, dropdowns, and combo boxes.
+- Overlays: dropdowns, context menus, menu bars, pickers, tooltips,
+  notifications, and modal dialogs with a stack that supports nesting.
+- Order-sensitive chained modifiers for size, constraints, padding, surface,
+  radius, border, shadow, gradient, flex, visibility, and enabled state, with
+  `.px`, `.vp`, and `.fp` units.
+- State management: read/write split `Observable`/`Bindable`, writable
+  `State<T>`, cached `DerivedState` (`derive`/`map`), and two-way `Binding`
+  (`project`).
+- Thread-safe `UiOwnerQueue` and `DesktopApp.postToUi`: workers prepare
+  immutable results, and the single UI owner commits them in ticket order before
+  the next declarative build, with epoch/native-surface-generation gates,
+  cancellation, close receipts, and bounded draining. `State` itself remains
+  UI-owner-only.
+- Stable widget identity via `Keyed`, `rememberState`, and `ForEach`; focus,
+  hover, cursor, and click identity follow deterministic per-frame build order.
+- Animation primitives: `Spring`, duration/easing `Animator`, repeating `Pulse`,
+  render-loop-as-clock with dirty-frame continuation, and `AnimationSpec` scaled
+  by theme `MotionLevel`.
+- Device-paced desktop rendering uses renderer VSync without adding a second
+  fixed delay. `FramePacing.Fixed(fps)` and `FramePacing.Unbounded` are explicit
+  alternatives; kMode selects unbounded rendered frames unless the application
+  chooses another policy.
+- Scrollable views use browser-like retained wheel easing by default. A shared
+  `ScrollOptions` policy configures immediate or smooth behavior, logical-pixel
+  wheel step, duration, and easing across views, lazy lists, tables, trees,
+  text areas, dropdowns, and combo boxes.
+- Design tokens: `Spacing`, `Radii`, `Motion`, color `Theme`, `FontSizes`, and
+  `Shadow.elevation`.
+- Pointer-origin light/dark theme reveal and semantic-color InkWell feedback
+  clipped to real rounded geometry, with release-inside activation and permanent
+  move-out cancellation.
+- Text editing: UTF-8 cursor/selection, double-click word selection, triple-click
+  line selection, clipboard best-effort, undo/redo grouping, and IME anchor
+  reporting.
+- Platform capability SPI: file dialogs, message boxes, clipboard, cursor,
+  displays, filesystem, time, and system information.
+- Provider-neutral `Symbol` with built-in icon compatibility and optional
+  Material, Ant Design, and Arco provider packages; `cuic symbol generate`
+  emits declared subsets with duplicate/collision rejection.
+- Bundled HarmonyOS Sans with explicit component, theme, application, bundled,
+  and system resolution tiers plus license/source notices.
 
-扩展阅读：[现代 GUI 核心范式洞察辨析：函数式/对象式，立即模式/保留模式](docs/modern-GUI-insights-and-analysis.md)
+## Integrated Toolchain (`cuic`)
 
-## 多平台组件母体
+`tools/cuic` is the framework-owned CLI:
 
-本分支在上游 `0.9.2` 桌面组件集之上保留平台无关的母体合同：
+- `cuic init` / `build` / `test` / `run` with per-platform preparation
+- `cuic doctor` for grouped Cangjie, repository, SDL, macOS, Windows, Linux,
+  iOS, HarmonyOS, Android, font, Symbol, kMode, and probe readiness
+- `cuic kmode` for debug/supervised headless invocation without opening a window
+- `cuic probe` for deterministic component/function/event/animation and Draw IR
+  reports without a window
+- `cuic symbol` for declared provider subsets and generation
+- `cuic font` for font preparation and registration
+- `cuic prnt` for deterministic settled-frame screenshots
+- `cuic check` / `dev` / `snapshot-ui` lifecycle aliases declared in
+  `canghui.toml` (bounded to existing cuic actions)
 
-- `HostProfile` 与 `HostCapability` 描述宿主平台和真实可用能力；
-- `ComponentPackageDescriptor`、`ComponentContext` 与 `ViewportSpec` 为组件包注入宿主事实和逻辑视口；
-- `Compact / Medium / Expanded` 响应式分级与 Component Gallery 用于公共布局回归；
-- `cui.host` 定义生命周期、安全区、触摸、文件选择、存储、主题、通知、后台任务和 native-surface 边界；
-- Debug 或显式监管运行可通过 kMode 在不创建窗口、不遍历布局时调用已注册函数。
+Doctor status model and JSON contract:
+[`docs/doctor.md`](docs/doctor.md).
 
-Android、HarmonyOS 与 iOS 预览只证明公共布局。平台窗口、渲染器、生命周期、IME、无障碍、签名和打包仍由宿主适配层实现，不构成对应平台运行或发布声明。
+## Components, Gallery, and Packages
 
-## 集成工具链
+Common component packages are normal CJPM source dependencies. They expose a
+typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
+`HostProfile` and `ViewportSpec`, and may branch on `Compact`, `Medium`, and
+`Expanded` layout classes without importing a platform host.
 
-`tools/cuic` 是 CangHui 自带的仓颉工具链，统一负责项目初始化、构建、测试、kMode、无图探针、平台诊断、字体、Symbol 资源与渲染截图。命令名保持为 `cuic`：
+- Reference package: `packages/gallery-components`
+- Desktop gallery: `examples/component-gallery`
+- Responsive preview matrix: `src/testkit/preview_matrix.cj`
+- Component-package schema: `contracts/canghui-component-package-v0.schema.json`
+- Symbol providers: `packages/symbol-material`, `packages/symbol-ant`,
+  `packages/symbol-arco`
 
-```bash
-./tools/cuic/bin/cuic version
-./tools/cuic/bin/cuic doctor
-./tools/cuic/bin/cuic examples
-```
+## Documentation
 
-普通应用无需从框架仓内调用这些路径；安装后的 `cuic` 会从应用依赖和 CJPM 缓存解析对应 CangHui 版本。
+- [Examples](examples/)
+- [Getting started](docs/guide/index.md)
+- [API reference](docs/api/index.md)
+- [Architecture](docs/architecture.md)
+- [Consumer workflow](docs/consumer-workflow.md)
+- [Multiplatform doctor](docs/doctor.md)
+- [Symbols and providers](docs/symbols.md)
+- [Fonts](docs/fonts.md)
+- [Probe and kMode](docs/probe.md)
+- [SDL3 Apple host notes](docs/sdl3-apple-host.md)
+- [Modern GUI insights](docs/modern-GUI-insights-and-analysis.md)
 
-平台诊断的状态、退出码、隐私边界与 JSON 契约见 [`docs/doctor.md`](docs/doctor.md)。
-字体默认使用随包 HarmonyOS Sans，并支持组件、Theme 与应用级字体覆盖；解析与打包规则见
-[`docs/fonts.md`](docs/fonts.md)。
-Symbol provider、缺失/variant 回退与按需生成契约见 [`docs/symbols.md`](docs/symbols.md)。
+## License
 
-主题切换保留指针起点的圆形 reveal 与控件 InkWell；InkWell 从当前主题语义色派生，按控件圆角真实裁切，
-并允许点击热区与视觉反馈区分离。Checkbox、Switch、RadioButton 只在 indicator/track 内表达反馈，
-Slider 的任意轨道点击也会产生局部反馈。它们已接入按需渲染循环，通过连续帧请求在脏帧跳过模式下完成动画。
-Component Gallery 按 Actions、Selection、Navigation、Feedback、Symbols 五类展示具名组件与 `cui.*` API，
-并可直接切换 Basic、Standard、Full 动效力度。Button 与 IconButton 共用 hover、press、InkWell、
-移出取消和 release-inside 激活语义；Chip、Breadcrumb、Pagination、Rating、Picker 与 Stepper 也遵守
-同一提交门。Stepper/Picker 使用方向文字切换，Rating 区分已选与 hover 预览，Breadcrumb 支持可回退和
-重新前进的 history 高亮，Pagination 使用稳定槽位和滑动选中底板，Dropdown 与 Accordion 使用保留动画；
-Accordion 在滚动容器内展开收起时保持当前视觉锚点。StepIndicator 的 Gallery 范例提供独立前后步骤按钮。
+This project is released under the [MIT License](LICENSE). The SDL3 and SDL3_ttf
+run-time libraries use the Zlib license; see the respective upstream projects.
+The upstream source attribution remains
+[`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI).
 
-## 许可证
-
-本项目以 [MIT 许可证](LICENSE) 发布。
+> [!IMPORTANT]
+> When distributing desktop software built with CUI, ensure the SDL and SDL_ttf
+> dynamic libraries are placed beside the Cangjie executable or on the target
+> platform's dynamic-library search path.

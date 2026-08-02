@@ -111,13 +111,13 @@ LazyGrid(photos, 4, 160.0, spacing: 12.0, columnSpacing: 12.0) { photo => photoC
 
 ### currentStateGeneration
 
-当前 UI 线程的全局状态写代数。桌面循环跨帧比较它：没动过就说明 UI 线程没有写入状态，配合无输入、无动画即可跳帧。任何 [`State`](State.md) 赋值都会推进它；此计数器是普通 `UInt64`，不提供跨线程同步或原子性保证。UI 状态须在桌面 UI 线程修改；后台并发写入既可能与状态值、观察者回调竞态，也可能让脏帧检测漏掉变化。
+进程级状态写入观察代号。桌面循环跨帧比较它：没变化时，配合无输入、无 owner task、无动画即可跳帧。任何 [`State`](State.md) 赋值都会原子推进该代号，因此读取本身可跨线程观察；这不使状态值、观察者列表或同步回调线程安全。worker 必须经 [`UiOwnerQueue`](UiOwnerQueue.md) 或 `DesktopApp.postToUi` 把结果交给 UI owner，而不是直接写 `State`。
 
 ```cangjie
 public func currentStateGeneration(): UInt64
 ```
 
-**返回值** `UInt64` — UI 线程每次状态赋值都会推进的写代数；到达 `UInt64.Max` 后回绕到零。
+**返回值** `UInt64` — 用于相等性比较的状态写入观察代号；调用方不应依赖其算术差值或具体回绕点。
 
 ### rememberState
 

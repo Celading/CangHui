@@ -34,6 +34,8 @@ public class LazyColumn <: Widget {
     private let scrollStateValue: State<Float32>
     private let viewportHeightState: State<Float32>
     private let scrollBar: ScrollBar
+    private let scrollMotion: ScrollMotion
+    private var scrollPolicy = ScrollOptions.web()
     // Rows materialized this frame, each paired with its absolute index for positioning and events.
     private let visibleItems: Array<(Int64, Widget)>
     // The scroll offset snapshotted for the whole frame so build, layout and draw agree.
@@ -60,20 +62,30 @@ public class LazyColumn <: Widget {
         this.count = max(0, count)
         this.itemHeight = max(1.0, itemHeight)
         this.spacing = max(0.0, spacing)
-        this.scrollStateValue = match (scroll) {
+        let initialScroll = match (scroll) {
             case Some(value) => value
             case None => localState<Float32>("LazyColumn:${ident}:scroll") {0.0}
         }
+        this.scrollStateValue = initialScroll
         // Retained so the build pass (which has no layout rect yet) knows how tall the viewport was
         // last frame and thus which rows to materialize; layout updates it for the next frame.
         this.viewportHeightState = localState<Float32>("LazyColumn:${ident}:viewportH") {LAZY_DEFAULT_VIEWPORT}
         this.scrollBar = ScrollBar("LazyColumn:${ident}:thumb")
+        this.scrollMotion = localState<ScrollMotion>("LazyColumn:${ident}:motion") {
+            ScrollMotion(initialScroll.value)
+        }.value
         let content = lazyContentHeight(this.count, this.itemHeight, this.spacing)
         this.frameScroll = clampScrollOffset(this.scrollStateValue.value, content, this.viewportHeightState.value)
         let (first, last) = lazyVisibleRange(this.frameScroll, this.viewportHeightState.value, this.itemHeight,
             this.spacing, this.count, LAZY_OVERSCAN)
         this.visibleItems = buildLazyChildren("LazyColumn:${ident}", first, last, lazyKeyOrIndex(key), item)
         emit(this)
+    }
+
+    /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
+    public func scrollOptions(value: ScrollOptions): LazyColumn {
+        scrollPolicy = value
+        this
     }
 
     /**
@@ -114,6 +126,7 @@ public class LazyColumn <: Widget {
         // Record the viewport height for the next frame's build; write-on-change to avoid churn.
         let _ = viewportHeightState.setIfChanged(rect.h)
         let content = lazyContentHeight(count, itemHeight, spacing)
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, content, rect.h, scrollPolicy)
         // Correct the live offset for the next frame in case the content shrank.
         let clamped = clampScrollOffset(scrollStateValue.value, content, rect.h)
         if (clamped != scrollStateValue.value) {
@@ -165,11 +178,12 @@ public class LazyColumn <: Widget {
             case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
                 // Content that fits leaves the wheel to an enclosing scroller (no dead zone).
                 if (frame.contains(pointerX, pointerY) && maxScrollOffset(content, viewportH) > 0.0) {
-                    scrollStateValue.value = scrollOffsetAfterWheel(scrollStateValue.value, wheelY, content, viewportH)
+                    applyWheelScroll(ctx, scrollMotion, scrollStateValue, wheelY, content, viewportH, scrollPolicy)
                     return true
                 }
             case UiEvent.MouseDown(_, x, y) =>
                 if (scrollBar.press(ctx, frame, scrollStateValue, content, viewportH, x, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 if (!frame.contains(x, y)) {
@@ -177,6 +191,7 @@ public class LazyColumn <: Widget {
                 }
             case UiEvent.MouseMove(x, y) =>
                 if (scrollBar.drag(ctx, frame, scrollStateValue, content, viewportH, y)) {
+                    cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
                 // While a child drag is live, track the pointer past the edge to the release.

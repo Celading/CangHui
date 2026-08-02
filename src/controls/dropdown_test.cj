@@ -1,7 +1,7 @@
 package cui.controls
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import cui.core.{ScrollOptions, State, Theme, UiContext}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -124,6 +124,7 @@ func dropdownLongListScrollsInsidePopup(): Unit {
     ctx.viewportHeight = 300.0
     let selected = State<Int64>(0)
     let dropdown = Dropdown(Array<String>(30, {i => "项 ${i}"}), selected, key: "long")
+        .scrollOptions(ScrollOptions.immediate())
     dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
 
     // Below the control there are 218px, above only 32px: the popup opens below at 218px
@@ -160,6 +161,30 @@ func dropdownLongListScrollsInsidePopup(): Unit {
     @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 84.0)))
     @Expect(selected.value, Int64(5))
     @Expect(!ctx.hasOverlay())
+}
+
+@Test
+func dropdownKeyboardRevealCancelsAnInFlightSmoothWheelTarget(): Unit {
+    let ctx = controlTestContext()
+    ctx.viewportWidth = 300.0
+    ctx.viewportHeight = 300.0
+    let selected = State<Int64>(0)
+    let dropdown = Dropdown(Array<String>(30, {i => "row ${i}"}), selected, key: "keyboard-cancel")
+    dropdown.layout(ctx, Rect(20.0, 40.0, 180.0, 34.0))
+    clickDropdownControl(ctx, dropdown, 30.0, 50.0)
+    dropdown.draw(ctx)
+
+    // Start a retained wheel target without advancing it, then move the highlight to another
+    // already-visible row. Keyboard ownership must cancel the old target even though revealRow
+    // does not need to change the current offset.
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseWheel(0.0, -1.0, 100.0, 150.0)))
+    @Expect(ctx.dispatchOverlay(UiEvent.KeyDown(Key.Down, false)))
+    @Expect(selected.value, Int64(1))
+
+    ctx.frame = FrameInfo(UInt64(220), UInt64(220))
+    dropdown.draw(ctx)
+    @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 100.0, 84.0)))
+    @Expect(selected.value, Int64(0))
 }
 
 // The popup scrollbar rides in the standard right-edge lane: grabbing the thumb neither

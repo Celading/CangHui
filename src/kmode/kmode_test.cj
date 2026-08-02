@@ -124,6 +124,7 @@ func kModeRegistryDescribesInvokesAndRejectsDuplicates(): Unit {
 
 @Test
 func kModeChannelOverrideIsAdminGatedAndKeepsRelayOpaque(): Unit {
+    @Expect(KMODE_CHANNEL_PROTOCOL, "canghui.kmode.channel.v0")
     let module = FakeKModeChannelModule()
     var rejected = false
     try {
