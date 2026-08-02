@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/package-cui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package cui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
-  <img src="https://img.shields.io/badge/license-MIT-d69e2e?style=for-the-badge&labelColor=1f2430" alt="MIT License" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-d69e2e?style=for-the-badge&labelColor=1f2430" alt="Apache License 2.0" />
 </p>
 <div align="center">
 <span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
@@ -25,10 +25,12 @@
 CangHui is a self-rendered, declarative GUI framework written in the
 [Cangjie programming language](https://cangjie-lang.cn/). It evolved from
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) and
-retains its upstream attribution and MIT license. The declarative core (`cui`)
-and the safe SDL3 wrapper (`sdl`) live in this repository, together with the
-integrated `cuic` toolchain, component-package contracts, responsive layout
-primitives, and native host contracts.
+retains its upstream attribution and MIT notice. CangHui and its original
+contributions are distributed under Apache License 2.0; the upstream MIT terms
+remain preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The
+declarative core (`cui`) and the safe SDL3 wrapper (`sdl`) live in this
+repository, together with the integrated `cuic` toolchain, component-package
+contracts, responsive layout primitives, and native host contracts.
 
 The framework is designed to be platform-neutral at the source level: common
 widgets and product components depend only on typed host capabilities and
@@ -203,10 +205,12 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
 
 ## License
 
-This project is released under the [MIT License](LICENSE). The SDL3 and SDL3_ttf
-run-time libraries use the Zlib license; see the respective upstream projects.
-The upstream source attribution remains
-[`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI).
+This project is released under the
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for retained upstream and
+third-party attribution. The SDL3 and SDL3_ttf run-time libraries use the Zlib
+license; see the respective upstream projects. The upstream source attribution
+remains [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI).
 
 > [!IMPORTANT]
 > When distributing desktop software built with CUI, ensure the SDL and SDL_ttf

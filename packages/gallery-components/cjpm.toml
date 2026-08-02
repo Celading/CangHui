@@ -4,6 +4,7 @@ name = "canghui_gallery_components"
 version = "0.1.0"
 output-type = "static"
 description = "Reference platform-neutral component package for CangHui."
+license = "Apache-2.0"
 
 [dependencies]
 cui = { path = "../.." }

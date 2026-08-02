@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/package-cui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 cui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
-  <img src="https://img.shields.io/badge/license-MIT-d69e2e?style=for-the-badge&labelColor=1f2430" alt="MIT 许可证" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-d69e2e?style=for-the-badge&labelColor=1f2430" alt="Apache 2.0 许可证" />
 </p>
 <div align="center">
 <span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
@@ -24,8 +24,10 @@
 
 CangHui 是用[仓颉编程语言](https://cangjie-lang.cn/)实现的自渲染、声明式 GUI 框架。项目从
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) 演进而来，
-持续保留其上游归属与 MIT 许可证。声明式核心 `cui`、安全的 SDL3 封装 `sdl`、
-集成工具链 `cuic`、组件包契约、响应式布局原语与原生宿主契约都维护在本仓库。
+持续保留其上游归属与 MIT 许可告知。CangHui 及其原创贡献以 Apache 2.0
+许可证发布，上游 MIT 条款完整保留在
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。声明式核心 `cui`、安全的
+SDL3 封装 `sdl`、集成工具链 `cuic`、组件包契约、响应式布局原语与原生宿主契约都维护在本仓库。
 
 框架在源码层保持平台中立：公共组件只依赖类型化的宿主能力（`HostCapability`）与
 视口事实（`ViewportSpec`），各平台适配层负责生命周期、原生 surface、IME、无障碍、
@@ -173,8 +175,9 @@ doctor 状态模型与 JSON 契约见
 
 ## 许可证
 
-本项目以 [MIT 许可证](LICENSE) 发布。SDL3 与 SDL3_ttf 运行库使用 Zlib 许可证，
-请参见对应上游项目。上游源码归属保留为
+本项目以 [Apache 2.0 许可证](LICENSE) 发布。保留的上游与第三方归属见
+[NOTICE](NOTICE) 和 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。SDL3 与
+SDL3_ttf 运行库使用 Zlib 许可证，请参见对应上游项目。上游源码归属保留为
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI)。
 
 > [!IMPORTANT]
