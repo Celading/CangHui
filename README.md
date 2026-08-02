@@ -51,7 +51,7 @@ scene rendering or application acceptance.
 | iOS | Native-surface adapter proven | Simulator and physical-device proof covers static-package bootstrap, a UIKit `CAMetalLayer`, lifecycle, safe area, touch, `CADisplayLink`, detach/reattach generation replay and a Metal clear pass. Full CUI scene rendering, IME, accessibility and product application acceptance remain open. |
 | HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
-| Android | Not implemented | No renderer backend, SDL activity bridge, NDK packaging, or APK runner exists yet. |
+| Android | Native-surface bootstrap only | A generation-safe `SurfaceView` to JNI to `ANativeWindow` slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, Activity lifecycle, IME, APK packaging and device runtime proof remain open. |
 
 ## Quick Start
 

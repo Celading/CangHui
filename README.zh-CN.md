@@ -44,7 +44,7 @@ SDL3 封装 `sdl`、集成工具链 `cuic`、组件包契约、响应式布局�
 | iOS | native-surface 适配器已证明 | 模拟器与真机证明覆盖静态包 bootstrap、UIKit `CAMetalLayer`、生命周期、安全区、触摸、`CADisplayLink`、detach/reattach generation 回放与 Metal clear pass。完整 CUI 场景渲染、IME、无障碍和产品应用验收仍未完成。 |
 | HarmonyOS / HarmonyPC | 本仓库未提供应用宿主 | 公共契约覆盖原生 surface 与宿主能力，但本仓库不包含 ArkTS/HAP 应用宿主，也不声明独立的设备运行验收。 |
 | Windows / Linux | 仅有代码路径 | `cuic` 提供 bootstrap、doctor 与构建代码路径；本仓库不声称这两个平台的主机级运行时证明。 |
-| Android | 未实现 | 尚无渲染后端、SDL activity 桥、NDK 打包或 APK runner。 |
+| Android | 仅 native-surface bootstrap | generation-safe 的 `SurfaceView` 到 JNI 再到 `ANativeWindow` 首片已通过 `arm64-v8a` 与 `x86_64` 构建。仓颉 Android SDK、渲染器桥、Activity 生命周期、IME、APK 打包和真机运行证明仍未完成。 |
 
 ## 快速开始
 

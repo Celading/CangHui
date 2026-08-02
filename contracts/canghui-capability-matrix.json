@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260802.11",
+  "matrixVersion": "CangHui.20260802.12",
   "project": "CangHui",
   "version": "0.9.2",
   "surfaceTier": "mother-framework-incubating",
@@ -22,7 +22,8 @@
     "proofs/20260731-canghui-ios-static-package-bootstrap-v1.json",
     "proofs/20260801-canghui-ui-owner-queue-v0.json",
     "proofs/20260801-canghui-frame-pacing-smooth-scroll-v0.json",
-    "proofs/20260802-canghui-ios-native-surface-v0.json"
+    "proofs/20260802-canghui-ios-native-surface-v0.json",
+    "proofs/20260802-canghui-android-native-surface-bootstrap-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -39,7 +40,8 @@
       "deterministic single-owner task commit queue for immutable worker results",
       "device-aware desktop frame pacing and shared retained smooth-scroll policy",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
-      "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter"
+      "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
+      "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
@@ -302,6 +304,19 @@
         "src/host/native_surface_proxy_test.cj",
         "docs/sdl3-apple-host.md"
       ]
+    },
+    {
+      "id": "android-native-surface-bootstrap",
+      "version": "canghui.android-native-surface.v0",
+      "state": "ndk-java-arm64-v8a-x86_64-static-proof; cangjie-android-sdk-renderer-activity-ime-apk-device-runtime-open",
+      "codeRefs": [
+        "platform/android/CMakeLists.txt",
+        "platform/android/src/main/cpp/canghui_android_surface.cpp",
+        "platform/android/src/main/java/dev/canghui/android/CangHuiNativeSurfaceHost.java",
+        "scripts/build-android-native-surface.sh",
+        "scripts/verify-android-toolchain.sh",
+        "platform/android/README.md"
+      ]
     }
   ],
   "platformImplementations": [
@@ -317,7 +332,8 @@
     "Complete IME, accessibility, file-picker, secure-storage and product lifecycle services before claiming a complete iOS application host.",
     "Implement and independently verify an external KModeChannelModule before claiming relay-backed operation.",
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
-    "Do not claim Android runtime support or full iOS product support from desktop layout previews or the native-surface clear-pass probe.",
+    "Do not claim Android runtime support from the NDK-only native-surface bootstrap, or full iOS product support from the native-surface clear-pass probe.",
+    "Install a Cangjie Android cross SDK, freeze the shared Cangjie-to-Android ABI, and add renderer, Activity, IME, APK and device proof before raising Android beyond bootstrap-only.",
     "Bind the declarative CUI scene renderer to the proven UIKit CAMetalLayer adapter before claiming product UI rendering.",
     "Build immutable semantic SceneDiff preparation and native-surface owner integration on top of UiOwnerQueue before claiming incremental scene commit.",
     "Keep UiOwnerQueue receipts separate from rollback-capable transactions: task failure advances the owner epoch but does not restore partially changed live state.",
