@@ -27,6 +27,10 @@
 
 只有全局检查或显式请求的目标包含 `blocked` 或 `unsupported` 时，进程才返回非零状态。未请求平台的限制会继续显示，但不会让本来可用的宿主流程失败。`degraded` 本身不会使命令失败。
 
+对于使用 Git 依赖的应用，缺少 `cjpm.lock` 或其中的 CangHui commit 与 manifest 不一致时，
+全局工程分组会进入 `blocked`。检查 manifest pin 后再显式运行 `cuic dependency update`；doctor
+与构建类命令不会隐式修复 lock。
+
 因此下面的写法适合 CI：
 
 ```bash

@@ -35,6 +35,11 @@ requested target contains `blocked` or `unsupported` checks. A limitation in an
 unrequested platform remains visible but does not fail an otherwise usable
 host workflow. `degraded` never fails the command by itself.
 
+For an application with a Git dependency, the global project group is blocked
+when `cjpm.lock` is missing or its CangHui commit differs from the manifest.
+Run `cuic dependency update` only after reviewing the manifest pin; doctor and
+build-like commands never repair the lock implicitly.
+
 This makes the following pattern suitable for CI:
 
 ```bash

@@ -140,6 +140,22 @@ func inlineDependencyParserSeparatesGitCommitAndPathFields(): Unit {
 }
 
 @Test
+func dependencyLockPolicyRejectsMissingAndMismatchedGitLocks(): Unit {
+    let local = FrameworkDependencySpec("../CangHui", "", "")
+    @Expect(frameworkDependencyLockProblem(local, ""), "")
+
+    let remote = FrameworkDependencySpec("", "https://example/CangHui.git", "abc123")
+    @Expect(frameworkDependencyLockProblem(remote, ""),
+        "The CangHui dependency lock is missing.")
+    @Expect(frameworkDependencyLockProblem(remote, "def456").contains("manifest abc123, lock def456"))
+    @Expect(frameworkDependencyLockProblem(remote, "abc123"), "")
+
+    let unpinned = FrameworkDependencySpec("", "https://example/CangHui.git", "")
+    @Expect(frameworkDependencyLockProblem(unpinned, "abc123"),
+        "The CangHui Git dependency must declare an exact commitId.")
+}
+
+@Test
 func cjpmCachePathsExpandHomeForms(): Unit {
     @Expect(expandHomePath("$" + "{HOME}/cache", "/Users/demo"), "/Users/demo/cache")
     @Expect(expandHomePath("$HOME/cache", "/Users/demo"), "/Users/demo/cache")
@@ -188,6 +204,8 @@ func projectScriptCommandsInjectOwningProject(): Unit {
 
 @Test
 func projectScriptsRejectShellAndReservedCommands(): Unit {
+    @Expect(isReservedCuicCommand("dependency"))
+
     var shellRejected = false
     try {
         let _ = parseProjectScripts("[scripts]\nbad = [\"sh scripts/build.sh\"]\n")

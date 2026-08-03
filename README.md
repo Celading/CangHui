@@ -51,7 +51,7 @@ scene rendering or application acceptance.
 | iOS | Native-surface adapter proven | Simulator and physical-device proof covers static-package bootstrap, a UIKit `CAMetalLayer`, lifecycle, safe area, touch, `CADisplayLink`, detach/reattach generation replay and a Metal clear pass. Full CUI scene rendering, IME, accessibility and product application acceptance remain open. |
 | HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
-| Android | Native-surface bootstrap only | A generation-safe `SurfaceView` to JNI to `ANativeWindow` slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, Activity lifecycle, IME, APK packaging and device runtime proof remain open. |
+| Android | Native-surface bootstrap only | A minimal Activity owns the generation-safe `SurfaceView` to JNI to `ANativeWindow` lifecycle, and the slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, input/IME, APK packaging and device runtime proof remain open. |
 
 ## Quick Start
 
@@ -69,14 +69,17 @@ Create and run a blank project:
 ```bash
 cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
+cuic dependency update
 cuic doctor macos
 cuic build macos
 cuic run macos
 ```
 
 Generated applications depend on the public CangHui Git repository pinned by
-commit, pin a `cjpm.lock`, and resolve through the CJPM cache instead of copying
-the framework into every project.
+commit. `cuic dependency update` is the explicit lock/cache mutation step;
+build-like commands require a matching `cjpm.lock` and never update it
+implicitly. The framework resolves through the CJPM cache instead of being
+copied into every project.
 
 A minimal window in `src/main.cj`:
 

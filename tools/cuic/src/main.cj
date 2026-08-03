@@ -68,6 +68,9 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "scripts") {
         return scriptsCommand(args, 2)
     }
+    if (command == "dependency") {
+        return dependencyCommand(args, 2)
+    }
     if (command == "init") {
         return initProject(args, 2)
     }
@@ -145,6 +148,7 @@ func helpText(): String {
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
     "  cuic scripts init|list [project]\n" +
     "  cuic scripts run <name> [project]\n" +
+    "  cuic dependency update [project]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +
@@ -600,7 +604,8 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         println("CangHui dependency: local ${dependency.path}")
     } else {
         println("CangHui dependency: ${dependency.git}@${shortCommit(dependency.commitId)}")
-        println("next: cd ${directory} && cuic build ${platform}")
+        println("next: cd ${directory} && cuic dependency update")
+        println("then: cuic build ${platform}")
     }
     0
 }

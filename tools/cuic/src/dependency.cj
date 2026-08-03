@@ -96,6 +96,37 @@ func lockedFrameworkCommit(project: String): String {
     ""
 }
 
+func frameworkDependencyLockProblem(spec: FrameworkDependencySpec, locked: String): String {
+    if (spec.isLocal()) { return "" }
+    if (!spec.isGit()) { return "The project does not declare a cui dependency." }
+    if (spec.commitId.isEmpty()) {
+        return "The CangHui Git dependency must declare an exact commitId."
+    }
+    if (locked.isEmpty()) {
+        return "The CangHui dependency lock is missing."
+    }
+    if (locked != spec.commitId) {
+        return "The CangHui dependency lock does not match the manifest commitId " +
+            "(manifest ${spec.commitId}, lock ${locked})."
+    }
+    ""
+}
+
+func requireFrozenFrameworkDependency(project: String): Unit {
+    if (frameworkRootCandidate(project)) { return }
+    let spec = frameworkDependencySpec(project)
+    let integrated = integratedFrameworkRoot()
+    let normalizedProject = trimTrailingSlash(project)
+    if (!spec.isGit() && !integrated.isEmpty() &&
+        (normalizedProject == integrated || startsWithText(normalizedProject, integrated + "/"))) {
+        return
+    }
+    let problem = frameworkDependencyLockProblem(spec, lockedFrameworkCommit(project))
+    if (!problem.isEmpty()) {
+        throw CuicError("${problem} Run 'cuic dependency update ${project}' explicitly before build-like commands.")
+    }
+}
+
 func cjpmCacheRoot(project: String): String {
     let home = readEnv("HOME")
     if (!project.isEmpty()) {
@@ -176,18 +207,45 @@ func cachedFrameworkRoot(project: String): String {
 }
 
 func ensureFrameworkRoot(project: String): String {
+    requireFrozenFrameworkDependency(project)
     try {
         return resolveFrameworkRoot(project)
     } catch (_: CuicError) {
         let spec = frameworkDependencySpec(project)
-        if (!spec.isGit()) {
-            throw CuicError("CangHui dependency is not resolved; configure [dependencies].cui or set CANGHUI_FRAMEWORK_ROOT")
+        if (spec.isGit()) {
+            throw CuicError("The locked CangHui dependency is not available in the CJPM cache. " +
+                "Run 'cuic dependency update ${project}' explicitly.")
         }
-        println("==> resolving CangHui dependency with cjpm update")
-        let code = executeCommand("cjpm", ["update"], project)
-        if (code != 0) { throw CuicError("cjpm update failed while resolving CangHui") }
-        resolveFrameworkRoot(project)
+        throw CuicError("CangHui dependency is not resolved; configure [dependencies].cui or set CANGHUI_FRAMEWORK_ROOT")
     }
+}
+
+func dependencyCommand(args: Array<String>, start: Int64): Int64 {
+    if (start >= args.size || args[start] != "update") {
+        throw CuicError("dependency requires the 'update' action")
+    }
+    if (start + 2 < args.size) { throw CuicError("dependency update accepts at most one project") }
+    let requested = if (start + 1 < args.size) { args[start + 1] } else { "" }
+    let direct = if (requested.isEmpty()) { currentDirectory() } else { requested }
+    if (!exists(joinPath(direct, "cjpm.toml"))) {
+        throw CuicError("no cjpm.toml found in ${direct}")
+    }
+    let project = trimTrailingSlash(direct)
+    let spec = frameworkDependencySpec(project)
+    if (spec.isLocal()) {
+        println("CangHui uses a local path dependency; no lock update is required.")
+        return 0
+    }
+    if (!spec.isGit()) { throw CuicError("The project does not declare a cui Git dependency.") }
+    if (spec.commitId.isEmpty()) {
+        throw CuicError("The CangHui Git dependency must declare an exact commitId before update.")
+    }
+    println("==> explicitly updating the CangHui dependency lock in ${project}")
+    let code = executeCommand("cjpm", ["update"], project)
+    if (code != 0) { return code }
+    requireFrozenFrameworkDependency(project)
+    println("CangHui dependency locked at ${spec.commitId}")
+    0
 }
 
 func tryResolveFrameworkRoot(project: String): String {

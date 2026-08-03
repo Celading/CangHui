@@ -45,6 +45,7 @@ cuic probe describe [project] <probe> [--json]
 cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]
 cuic scripts init|list [project]
 cuic scripts run <name> [project]
+cuic dependency update [project]
 cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
 cuic build [platform] [project]
@@ -99,13 +100,15 @@ application. Outside a Cangjie project, the same command retains the built-in
 
 1. the repository that owns the integrated `tools/cuic` command
 2. `CANGHUI_FRAMEWORK_ROOT`, then the legacy `CANGUI_FRAMEWORK_ROOT`, as explicit development overrides
-3. the target project's local path dependency or Git dependency resolved through `cjpm.lock`
+3. the target project's local path dependency or pinned Git dependency frozen by a matching `cjpm.lock`
 4. the CJPM Git cache, normally `$HOME/.cjpm/git/cui/<commit>`
 5. a sibling `CangHui/`, then the legacy `CangjieGUI/` alias
 
-The application does not contain a framework copy. CJPM downloads the pinned source once into its user cache,
-and `cuic` prepares the target host's SDL runtime in that resolved cache before build, test, run, kMode, probe,
-or snapshot commands.
+The application does not contain a framework copy. `cuic dependency update` is the explicit operation that
+delegates dependency resolution to CJPM and writes the lock/cache state. Build, test, run, kMode/probe execution,
+snapshot and lifecycle-alias commands fail closed when the lock is absent or differs from the manifest pin; they
+do not run an implicit update. `cuic` then prepares the target host's SDL runtime in the resolved cache before
+execution.
 
 ## Initialization
 
@@ -115,11 +118,14 @@ source entrypoint, runtime-rpath configuration, Git ignore file, and target-plat
 ```bash
 cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
+cuic dependency update
 cuic build macos
 cuic run macos
 ```
 
-The first build creates `cjpm.lock`; commit that file with the application to preserve the exact resolved source.
+`cuic dependency update` creates or deliberately refreshes `cjpm.lock`; commit that file with the application
+to preserve the exact resolved source. A missing lock or a manifest/lock commit mismatch blocks all build-like
+commands until the explicit update succeeds.
 Framework development can opt into a local checkout without changing the default consumer model:
 
 ```bash
@@ -176,7 +182,7 @@ child build. Macro-generated symbols and the runtime registry remain fail-closed
 | Linux | yes | Cangjie-managed pkg-config SDL copy | native host | implementation present; Linux host proof pending |
 | iOS | grouped diagnostic | no | static host contracts only | package initialization, signing and renderer return remain blocked |
 | HarmonyOS/OpenHarmony | grouped diagnostic | no | external host required | this repository does not ship an ArkTS/HAP host |
-| Android | grouped diagnostic | no | no | backend, NDK bridge, APK packaging and runner not implemented |
+| Android | grouped diagnostic | no | Activity/native-surface NDK bootstrap | Cangjie renderer, input/IME, APK packaging and runner not implemented |
 
 The CLI intentionally rejects unconfigured cross-host builds and unsupported Android execution.
 `doctor` always displays every platform group, while its exit status considers only global checks and the

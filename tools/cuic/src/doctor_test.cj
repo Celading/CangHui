@@ -82,6 +82,6 @@ func doctorAndroidReportsBootstrapWithoutClaimingRuntimeCompletion(): Unit {
             backendDegraded = true
         }
     }
-    @Expect(readySurfaceAssets, Int64(4))
+    @Expect(readySurfaceAssets, Int64(5))
     @Expect(backendDegraded)
 }

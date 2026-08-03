@@ -150,7 +150,7 @@ func isScriptNameRune(value: Rune): Bool {
 
 func isReservedCuicCommand(name: String): Bool {
     for (command in ["help", "version", "examples", "doctor", "bootstrap", "font", "symbol",
-        "kmode", "probe", "scripts", "init", "build", "test", "run", "prnt", "print",
+        "kmode", "probe", "scripts", "dependency", "init", "build", "test", "run", "prnt", "print",
         "snapshot", "clean"]) {
         if (name == command) { return true }
     }

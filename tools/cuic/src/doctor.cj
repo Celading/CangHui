@@ -242,20 +242,33 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
             doctorReady("project.cache", "Resolved framework", "The local framework root is readable.", framework)
         })
     } else if (spec.isGit()) {
-        checks.add(doctorReady("project.dependency", "CangHui dependency",
-            "The application uses a public Git dependency.", spec.git + "@" + shortCommit(spec.commitId)))
-        let locked = lockedFrameworkCommit(project)
-        checks.add(if (locked.isEmpty()) {
-            doctorDegraded("project.lock", "Dependency lock", "The Git dependency has not been resolved into cjpm.lock.",
-                DoctorActionKind.Automatic, "Run cuic build to resolve and lock the dependency.", joinPath(project, "cjpm.lock"))
+        checks.add(if (spec.commitId.isEmpty()) {
+            doctorBlocked("project.dependency", "CangHui dependency",
+                "The public Git dependency is not pinned to an exact commitId.", DoctorActionKind.Manual,
+                "Pin [dependencies].cui to an exact commitId before updating the lock.", spec.git)
         } else {
-            doctorReady("project.lock", "Dependency lock", "cjpm.lock freezes the resolved CangHui commit.", locked)
+            doctorReady("project.dependency", "CangHui dependency",
+                "The application uses a pinned public Git dependency.", spec.git + "@" + shortCommit(spec.commitId))
         })
-        checks.add(if (framework.isEmpty()) {
-            doctorDegraded("project.cache", "CJPM source cache", "The pinned CangHui source is not present in the CJPM cache.",
-                DoctorActionKind.Automatic, "Run cuic build to populate the CJPM cache.", cjpmCacheRoot(project))
+        let locked = lockedFrameworkCommit(project)
+        let lockProblem = frameworkDependencyLockProblem(spec, locked)
+        checks.add(if (!lockProblem.isEmpty()) {
+            doctorBlocked("project.lock", "Dependency lock", lockProblem, DoctorActionKind.Manual,
+                "Run cuic dependency update explicitly after reviewing the manifest pin.", joinPath(project, "cjpm.lock"))
         } else {
-            doctorReady("project.cache", "CJPM source cache", "The pinned framework is available from the user cache.", framework)
+            doctorReady("project.lock", "Dependency lock",
+                "cjpm.lock matches the manifest CangHui commitId.", locked)
+        })
+        let cached = cachedFrameworkRoot(project)
+        checks.add(if (!lockProblem.isEmpty()) {
+            doctorBlocked("project.cache", "CJPM source cache",
+                "The cached source cannot be accepted until the dependency lock matches the manifest.",
+                DoctorActionKind.Manual, "Repair the lock with cuic dependency update.", cjpmCacheRoot(project))
+        } else if (cached.isEmpty()) {
+            doctorDegraded("project.cache", "CJPM source cache", "The pinned CangHui source is not present in the CJPM cache.",
+                DoctorActionKind.Manual, "Run cuic dependency update to populate the CJPM cache.", cjpmCacheRoot(project))
+        } else {
+            doctorReady("project.cache", "CJPM source cache", "The pinned framework is available from the user cache.", cached)
         })
     } else {
         checks.add(doctorBlocked("project.dependency", "CangHui dependency",
@@ -491,11 +504,15 @@ func doctorAndroidGroup(framework: String): DoctorGroup {
     })
     let javaHost = joinPath(framework,
         "platform/android/src/main/java/dev/canghui/android/CangHuiNativeSurfaceHost.java")
+    let activityHost = joinPath(framework,
+        "platform/android/src/main/java/dev/canghui/android/CangHuiSurfaceActivity.java")
     let nativeHost = joinPath(framework, "platform/android/src/main/cpp/canghui_android_surface.cpp")
     let buildScript = joinPath(framework, "scripts/build-android-native-surface.sh")
     let verifyScript = joinPath(framework, "scripts/verify-android-toolchain.sh")
     checks.add(doctorRequiredFile("android.surface-java", "Android SurfaceView host", javaHost,
         "Use a CangHui revision that includes the Android native-surface bootstrap."))
+    checks.add(doctorRequiredFile("android.surface-activity", "Android Activity lifecycle host", activityHost,
+        "Use a CangHui revision that includes the Android Activity lifecycle bootstrap."))
     checks.add(doctorRequiredFile("android.surface-native", "Android ANativeWindow bridge", nativeHost,
         "Use a CangHui revision that includes the generation-safe JNI/ANativeWindow bridge."))
     checks.add(doctorRequiredFile("android.surface-build", "Android native-surface build", buildScript,
@@ -517,14 +534,15 @@ func doctorAndroidGroup(framework: String): DoctorGroup {
             "Install a Cangjie Android cross SDK before linking the framework bridge.", cangjieRoot)
     })
 
-    let nativeBootstrap = exists(javaHost) && exists(nativeHost) && exists(buildScript) && exists(verifyScript)
+    let nativeBootstrap = exists(javaHost) && exists(activityHost) && exists(nativeHost) &&
+        exists(buildScript) && exists(verifyScript)
     checks.add(if (nativeBootstrap) {
         doctorDegraded("android.backend", "CangHui Android renderer and package runner",
-            "The Java/JNI/NDK native-surface bootstrap is present, but the Cangjie renderer bridge, " +
-                "Activity lifecycle, input, IME, APK packaging and device runtime proof remain open.",
+            "The Java/JNI/NDK native-surface and Activity lifecycle bootstrap is present, but the Cangjie " +
+                "renderer bridge, input, IME, APK packaging and device runtime proof remain open.",
             DoctorActionKind.Manual,
             "Complete the shared Cangjie ABI and device-backed Android application host.",
-            "native-surface bootstrap only")
+            "native-surface and Activity lifecycle bootstrap only")
     } else {
         doctorUnsupported("android.backend", "CangHui Android renderer and package runner",
             "The Android native-surface bootstrap, renderer, package assembly, and runner are not available.",
