@@ -29,13 +29,15 @@ public struct TextureRenderOptions {
 
 public class Texture <: Resource {
     internal let ptr: CPointer<Unit>
+    private let streaming: Bool
     private var closed = false
 
     public let width: Float32
     public let height: Float32
 
-    internal init(ptr: CPointer<Unit>) {
+    internal init(ptr: CPointer<Unit>, streaming!: Bool = false) {
         this.ptr = ptr
+        this.streaming = streaming
         var w: Float32 = 0.0
         var h: Float32 = 0.0
         ensureSdl(unsafe { SDL_GetTextureSize(ptr, inout w, inout h) }, "SDL_GetTextureSize")
@@ -60,6 +62,16 @@ public class Texture <: Resource {
     public func setBlendMode(mode: TextureBlendMode): Unit {
         ensureOpen()
         ensureSdl(unsafe { SDL_SetTextureBlendMode(ptr, blendModeCode(mode)) }, "SDL_SetTextureBlendMode")
+    }
+
+    /** Replaces the pixels of an RGBA32 streaming texture during the renderer-owner frame. */
+    public func updateRgba(pixels: CPointer<UInt8>, pitch: Int32): Unit {
+        ensureOpen()
+        if (!streaming) {
+            throw CuiException("Only a streaming texture can accept pixel updates.")
+        }
+        validateStreamingPixels(pixels, Int32(width), pitch)
+        ensureSdl(unsafe { SDL_UpdateTexture(ptr, CPointer<SdlRect>(), pixels, pitch) }, "SDL_UpdateTexture")
     }
 
     public func isClosed(): Bool {
@@ -89,6 +101,23 @@ public class Texture <: Resource {
 }
 
 extend Renderer {
+    /** Creates an exact-pixel RGBA32 texture for decoded or generated frame delivery. */
+    public func createStreamingRgbaTexture(pixelWidth: Int32, pixelHeight: Int32): Texture {
+        validateStreamingSize(pixelWidth, pixelHeight)
+        if (ptr.isNull()) {
+            throw CuiException("A headless renderer cannot create a streaming texture.")
+        }
+        let raw = unsafe {
+            SDL_CreateTexture(ptr, SDL_PIXELFORMAT_RGBA32, SDL_TEXTUREACCESS_STREAMING, pixelWidth, pixelHeight)
+        }
+        if (raw.isNull()) {
+            throw CuiException("SDL_CreateTexture streaming failed: ${lastSdlError()}")
+        }
+        let _ = unsafe { SDL_SetTextureScaleMode(raw, SDL_SCALEMODE_LINEAR) }
+        let _ = unsafe { SDL_SetTextureBlendMode(raw, SDL_BLENDMODE_NONE) }
+        Texture(raw, streaming: true)
+    }
+
     /** Creates an RGBA render-target texture at the renderer's current logical scale. */
     public func createTargetTexture(logicalWidth: Float32, logicalHeight: Float32): Texture {
         if (logicalWidth <= 0.0 || logicalHeight <= 0.0) {
@@ -233,6 +262,21 @@ extend Renderer {
                 )
             }, "SDL_RenderTextureRotated")
         }
+    }
+}
+
+internal func validateStreamingSize(width: Int32, height: Int32): Unit {
+    if (width <= 0 || height <= 0) {
+        throw CuiException("Streaming texture dimensions must be greater than 0.")
+    }
+}
+
+internal func validateStreamingPixels(pixels: CPointer<UInt8>, width: Int32, pitch: Int32): Unit {
+    if (pixels.isNull()) {
+        throw CuiException("Streaming texture pixels must not be null.")
+    }
+    if (width <= 0 || pitch < width * 4) {
+        throw CuiException("Streaming texture pitch must cover one RGBA32 row.")
     }
 }
 
