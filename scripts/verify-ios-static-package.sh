@@ -212,7 +212,7 @@ verify_device() {
         "${CANGHUI_IOS_BUNDLE_ID}"
     app_dir="${COMPILED_APP_DIR}"
 
-    security cms -D -i "${CANGHUI_IOS_PROVISIONING_PROFILE}" > "${profile_plist}"
+    security cms -D -i "${CANGHUI_IOS_PROVISIONING_PROFILE}" -o "${profile_plist}"
     plutil -extract Entitlements xml1 -o "${entitlements}" "${profile_plist}"
     plutil -remove keychain-access-groups "${entitlements}" >/dev/null 2>&1 || true
     application_identifier="$(plutil -extract Entitlements.application-identifier raw -o - "${profile_plist}")"
