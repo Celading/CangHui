@@ -16,6 +16,30 @@ func textureRenderOptionsKeepExplicitFlip(): Unit {
     @Expect(isHorizontalFlip(options.flip))
 }
 
+@Test
+func streamingTextureValidationRejectsInvalidDimensions(): Unit {
+    try {
+        validateStreamingSize(0, 720)
+        @Expect(false)
+    } catch (e: CuiException) {
+        @Expect(e.message.contains("dimensions"))
+    }
+}
+
+@Test
+func streamingTextureValidationRejectsShortPitch(): Unit {
+    let pixel = unsafe { LibC.malloc<UInt8>() }
+    try (resource = pixel.asResource()) {
+        try {
+            validateStreamingPixels(resource.value, 16, 63)
+            @Expect(false)
+        } catch (e: CuiException) {
+            @Expect(e.message.contains("pitch"))
+        }
+        validateStreamingPixels(resource.value, 16, 64)
+    }
+}
+
 private func isNoSource(source: ?Rect): Bool {
     match (source) {
         case None => true

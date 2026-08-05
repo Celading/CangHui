@@ -77,6 +77,13 @@ foreign {
         h: Int32
     ): CPointer<Unit>
 
+    func SDL_UpdateTexture(
+        texture: CPointer<Unit>,
+        rect: CPointer<SdlRect>,
+        pixels: CPointer<UInt8>,
+        pitch: Int32
+    ): Bool
+
     func SDL_SetRenderTarget(renderer: CPointer<Unit>, texture: CPointer<Unit>): Bool
 
     func SDL_GetRenderTarget(renderer: CPointer<Unit>): CPointer<Unit>
