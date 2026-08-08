@@ -79,6 +79,12 @@ func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
     @Expect(isKModeLauncherNoise(
         "Warning: the functionality of 'CJPM_CONFIG' will be deprecated, please use cangjie-repo.toml"
     ))
+    @Expect(isKModeLauncherNoise(
+        "Warning: field 'profile.build.combined' in '/tmp/project/core/cjpm.toml' is experimental"
+    ))
+    @Expect(isKModeLauncherNoise(
+        "Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows'"
+    ))
     @Expect(!isKModeLauncherNoise("application wrote unexpected stdout"))
 }
 
