@@ -137,7 +137,9 @@ class CuicKModeSession {
 
 func isKModeLauncherNoise(line: String): Bool {
     line.isEmpty() || startsWithText(line, "cjpm ") ||
-        startsWithText(line, "Warning: the functionality of 'CJPM_CONFIG' will be deprecated")
+        startsWithText(line, "Warning: the functionality of 'CJPM_CONFIG' will be deprecated") ||
+        startsWithText(line, "Warning: field 'profile.build.combined' in '") ||
+        startsWithText(line, "Warning: field 'profile.build.combined' only supports")
 }
 
 func kModeCommand(args: Array<String>, start: Int64): Int64 {
