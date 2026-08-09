@@ -136,6 +136,22 @@ The implemented iOS adapter follows an XComponent-like proxy model:
 The host still owns signing and packaging. This proof does not yet connect the
 full declarative CUI scene renderer, IME or accessibility to UIKit.
 
+## Native Scene Static Package
+
+Embedded iOS consumers that need Cangjie-owned product scenes without the
+desktop SDL dependency closure can build the focused `cui.native_scene`
+package:
+
+```bash
+CANGJIE_HOME=/path/to/cangjie-ios-sdk \
+    ./scripts/build-ios-native-scene-staticlibs.sh simulator
+```
+
+The package emits `canghui.native-scene.v0` Draw IR, bounded hit regions and
+press/move/release cancellation without SDL or a C shim. UIKit remains the
+pixel presenter. This is a mobile display-list boundary, not a claim that the
+desktop `Renderer.recordingHeadless()` archive is link-safe on iOS.
+
 ## Host Modes
 
 - `OwnedWindow` follows SDL3's callback application model. SDL owns the iOS
