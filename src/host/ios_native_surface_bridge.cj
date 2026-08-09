@@ -33,6 +33,16 @@ public class IOSNativeSurfaceBridge {
     private var lastTouchXMilli: Int64 = 0
     private var lastTouchYMilli: Int64 = 0
     private var lastTouchTimestampMillis: Int64 = 0
+    private var lastPointerPhase: Int64 = -1
+    private var lastPointerKind: Int64 = -1
+    private var lastPointerId: Int64 = -1
+    private var lastPointerXMilli: Int64 = 0
+    private var lastPointerYMilli: Int64 = 0
+    private var lastPointerTimestampMillis: Int64 = 0
+    private var traitStyle: Int64 = 0
+    private var traitHorizontalSizeClass: Int64 = 0
+    private var traitVerticalSizeClass: Int64 = 0
+    private var traitScaleMilli: Int64 = 1000
     private var lastFrameTimestampNanos: Int64 = 0
     private var lastFrameTargetNanos: Int64 = 0
     private var attachCount: Int64 = 0
@@ -40,6 +50,8 @@ public class IOSNativeSurfaceBridge {
     private var detachCount: Int64 = 0
     private var frameCount: Int64 = 0
     private var touchCount: Int64 = 0
+    private var pointerCount: Int64 = 0
+    private var traitCount: Int64 = 0
 
     public func attach(
         handle: Int64,
@@ -170,6 +182,55 @@ public class IOSNativeSurfaceBridge {
         })
     }
 
+    public func pointer(
+        phase: Int64,
+        id: Int64,
+        xMilli: Int64,
+        yMilli: Int64,
+        timestampMillis: Int64,
+        kind: Int64,
+        generation: Int64
+    ): Int64 {
+        if (phase < 0 || phase > 2 || id < 0 || timestampMillis < 0 || kind < 0 || kind > 1) {
+            return IOS_BRIDGE_INVALID_ARGUMENT
+        }
+        if (!isAttachedGeneration(generation)) {
+            return IOS_BRIDGE_STALE_GENERATION
+        }
+        submit(Some(generation), {=>
+            synchronized(stateMutex) {
+                lastPointerPhase = phase
+                lastPointerKind = kind
+                lastPointerId = id
+                lastPointerXMilli = xMilli
+                lastPointerYMilli = yMilli
+                lastPointerTimestampMillis = timestampMillis
+                pointerCount += 1
+            }
+        })
+    }
+
+    public func updateTraits(
+        style: Int64,
+        horizontalSizeClass: Int64,
+        verticalSizeClass: Int64,
+        scaleMilli: Int64
+    ): Int64 {
+        if (style < 0 || style > 2 || horizontalSizeClass < 0 || horizontalSizeClass > 2 ||
+            verticalSizeClass < 0 || verticalSizeClass > 2 || scaleMilli <= 0) {
+            return IOS_BRIDGE_INVALID_ARGUMENT
+        }
+        submit(None, {=>
+            synchronized(stateMutex) {
+                traitStyle = style
+                traitHorizontalSizeClass = horizontalSizeClass
+                traitVerticalSizeClass = verticalSizeClass
+                traitScaleMilli = scaleMilli
+                traitCount += 1
+            }
+        })
+    }
+
     public func frame(timestampNanos: Int64, targetTimestampNanos: Int64, generation: Int64): Int64 {
         if (timestampNanos < 0 || targetTimestampNanos < timestampNanos) {
             return IOS_BRIDGE_INVALID_ARGUMENT
@@ -204,6 +265,16 @@ public class IOSNativeSurfaceBridge {
     public func currentTouchXMilli(): Int64 { synchronized(stateMutex) { lastTouchXMilli } }
     public func currentTouchYMilli(): Int64 { synchronized(stateMutex) { lastTouchYMilli } }
     public func currentTouchTimestampMillis(): Int64 { synchronized(stateMutex) { lastTouchTimestampMillis } }
+    public func currentPointerPhase(): Int64 { synchronized(stateMutex) { lastPointerPhase } }
+    public func currentPointerKind(): Int64 { synchronized(stateMutex) { lastPointerKind } }
+    public func currentPointerId(): Int64 { synchronized(stateMutex) { lastPointerId } }
+    public func currentPointerXMilli(): Int64 { synchronized(stateMutex) { lastPointerXMilli } }
+    public func currentPointerYMilli(): Int64 { synchronized(stateMutex) { lastPointerYMilli } }
+    public func currentPointerTimestampMillis(): Int64 { synchronized(stateMutex) { lastPointerTimestampMillis } }
+    public func currentTraitStyle(): Int64 { synchronized(stateMutex) { traitStyle } }
+    public func currentTraitHorizontalSizeClass(): Int64 { synchronized(stateMutex) { traitHorizontalSizeClass } }
+    public func currentTraitVerticalSizeClass(): Int64 { synchronized(stateMutex) { traitVerticalSizeClass } }
+    public func currentTraitScaleMilli(): Int64 { synchronized(stateMutex) { traitScaleMilli } }
     public func currentFrameTimestampNanos(): Int64 { synchronized(stateMutex) { lastFrameTimestampNanos } }
     public func currentFrameTargetNanos(): Int64 { synchronized(stateMutex) { lastFrameTargetNanos } }
     public func totalAttachCount(): Int64 { synchronized(stateMutex) { attachCount } }
@@ -211,6 +282,8 @@ public class IOSNativeSurfaceBridge {
     public func totalDetachCount(): Int64 { synchronized(stateMutex) { detachCount } }
     public func totalFrameCount(): Int64 { synchronized(stateMutex) { frameCount } }
     public func totalTouchCount(): Int64 { synchronized(stateMutex) { touchCount } }
+    public func totalPointerCount(): Int64 { synchronized(stateMutex) { pointerCount } }
+    public func totalTraitCount(): Int64 { synchronized(stateMutex) { traitCount } }
 
     /** Primary-blue idle color; touch-down uses a brighter Cangjie-selected state. */
     public func clearColorArgb(): Int64 {
@@ -313,6 +386,29 @@ public func canghui_ios_surface_touch(
 }
 
 @C
+public func canghui_ios_surface_pointer(
+    phase: Int64,
+    id: Int64,
+    xMilli: Int64,
+    yMilli: Int64,
+    timestampMillis: Int64,
+    kind: Int64,
+    generation: Int64
+): Int64 {
+    iosNativeSurfaceBridge.pointer(phase, id, xMilli, yMilli, timestampMillis, kind, generation)
+}
+
+@C
+public func canghui_ios_surface_traits(
+    style: Int64,
+    horizontalSizeClass: Int64,
+    verticalSizeClass: Int64,
+    scaleMilli: Int64
+): Int64 {
+    iosNativeSurfaceBridge.updateTraits(style, horizontalSizeClass, verticalSizeClass, scaleMilli)
+}
+
+@C
 public func canghui_ios_surface_frame(
     timestampNanos: Int64,
     targetTimestampNanos: Int64,
@@ -330,5 +426,19 @@ public func canghui_ios_surface_frame(
 @C public func canghui_ios_surface_frame_count(): Int64 { iosNativeSurfaceBridge.totalFrameCount() }
 @C public func canghui_ios_surface_touch_count(): Int64 { iosNativeSurfaceBridge.totalTouchCount() }
 @C public func canghui_ios_surface_last_touch_phase(): Int64 { iosNativeSurfaceBridge.currentTouchPhase() }
+@C public func canghui_ios_surface_pointer_count(): Int64 { iosNativeSurfaceBridge.totalPointerCount() }
+@C public func canghui_ios_surface_last_pointer_phase(): Int64 { iosNativeSurfaceBridge.currentPointerPhase() }
+@C public func canghui_ios_surface_last_pointer_kind(): Int64 { iosNativeSurfaceBridge.currentPointerKind() }
+@C public func canghui_ios_surface_trait_count(): Int64 { iosNativeSurfaceBridge.totalTraitCount() }
+@C public func canghui_ios_surface_last_trait_style(): Int64 { iosNativeSurfaceBridge.currentTraitStyle() }
+@C public func canghui_ios_surface_last_trait_horizontal_size_class(): Int64 {
+    iosNativeSurfaceBridge.currentTraitHorizontalSizeClass()
+}
+@C public func canghui_ios_surface_last_trait_vertical_size_class(): Int64 {
+    iosNativeSurfaceBridge.currentTraitVerticalSizeClass()
+}
+@C public func canghui_ios_surface_last_trait_scale_milli(): Int64 {
+    iosNativeSurfaceBridge.currentTraitScaleMilli()
+}
 @C public func canghui_ios_surface_last_frame_nanos(): Int64 { iosNativeSurfaceBridge.currentFrameTimestampNanos() }
 @C public func canghui_ios_surface_clear_color_argb(): Int64 { iosNativeSurfaceBridge.clearColorArgb() }

@@ -12,6 +12,7 @@ static const int64_t CangHuiSurfaceTaskTimeoutNanos = 5000000000LL;
 
 @interface CangHuiUIKitHostView : UIView
 - (int64_t)canghuiSurfaceGeneration;
+- (void)canghuiForwardTraits;
 @end
 
 @interface CangHuiDisplayLinkDriver : NSObject
@@ -111,6 +112,7 @@ static void *CangHuiClearColorTask(void *unused) {
     [super didMoveToWindow];
     if (self.window != nil) {
         [self canghuiAttachIfReady];
+        [self canghuiForwardTraits];
         [self.canghuiDisplayLink start];
     } else {
         [self.canghuiDisplayLink stop];
@@ -166,6 +168,12 @@ static void *CangHuiClearColorTask(void *unused) {
         .generation = current.generation,
     };
     (void)canghui_runtime_run_task(CangHuiResizeTask, &arguments, CangHuiSurfaceTaskTimeoutNanos);
+}
+
+- (void)canghuiReplayCurrentResize {
+    if (self.canghuiAttached) {
+        [self canghuiResize];
+    }
 }
 
 - (void)canghuiDetach {

@@ -20,6 +20,8 @@ typedef struct CangHuiSurfaceSnapshot {
     int64_t detaches;
     int64_t frames;
     int64_t touches;
+    int64_t pointers;
+    int64_t traits;
 } CangHuiSurfaceSnapshot;
 
 static void *read_canghui_abi(void *unused) {
@@ -36,6 +38,8 @@ static void *read_canghui_surface(void *rawSnapshot) {
     snapshot->detaches = canghui_ios_surface_detach_count();
     snapshot->frames = canghui_ios_surface_frame_count();
     snapshot->touches = canghui_ios_surface_touch_count();
+    snapshot->pointers = canghui_ios_surface_pointer_count();
+    snapshot->traits = canghui_ios_surface_trait_count();
     return rawSnapshot;
 }
 
@@ -45,8 +49,25 @@ static void *write_canghui_probe_touch(void *rawGeneration) {
         CANGHUI_IOS_TOUCH_BEGAN, 1, 120000, 180000, 1000, generation);
 }
 
+static void *write_canghui_probe_pointer(void *rawGeneration) {
+    int64_t generation = (int64_t)(intptr_t)rawGeneration;
+    return (void *)(intptr_t)canghui_ios_surface_pointer(
+        CANGHUI_IOS_POINTER_BEGAN, 2, 220000, 320000, 1200,
+        CANGHUI_IOS_POINTER_KIND_PENCIL, generation);
+}
+
+static void *write_canghui_probe_traits(void *unused) {
+    (void)unused;
+    return (void *)(intptr_t)canghui_ios_surface_traits(
+        CANGHUI_IOS_TRAIT_STYLE_DARK,
+        CANGHUI_IOS_TRAIT_SIZE_REGULAR,
+        CANGHUI_IOS_TRAIT_SIZE_REGULAR,
+        2000);
+}
+
 @interface CangHuiMetalSurfaceView : UIView
 - (int64_t)canghuiSurfaceGeneration;
+- (void)canghuiReplayCurrentResize;
 @end
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
@@ -116,6 +137,13 @@ static void *write_canghui_probe_touch(void *rawGeneration) {
         [self.surfaceView removeFromSuperview];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 150000000), dispatch_get_main_queue(), ^{
             [self installSurfaceView];
+            [self.surfaceView canghuiReplayCurrentResize];
+            (void)canghui_runtime_run_task(
+                write_canghui_probe_traits, NULL, CangHuiProbeTimeoutNanos);
+            (void)canghui_runtime_run_task(
+                write_canghui_probe_pointer,
+                (void *)(intptr_t)self.surfaceView.canghuiSurfaceGeneration,
+                CangHuiProbeTimeoutNanos);
             [self reportSurfaceWhenReadyWithAttempts:100];
         });
     });
@@ -135,7 +163,7 @@ static void *write_canghui_probe_touch(void *rawGeneration) {
     BOOL passed = readback.status == 0 && metalReady && self.drawableObserved &&
         snapshot.attached == 1 && snapshot.attaches >= 2 && snapshot.detaches >= 1 &&
         snapshot.generation >= 2 && snapshot.resizes >= 1 && snapshot.frames >= 1 &&
-        snapshot.touches >= 1;
+        snapshot.touches >= 1 && snapshot.pointers >= 1 && snapshot.traits >= 1;
     if (!passed && attempts > 0) {
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100000000), dispatch_get_main_queue(), ^{
             [self reportSurfaceWhenReadyWithAttempts:attempts - 1];
@@ -146,7 +174,8 @@ static void *write_canghui_probe_touch(void *rawGeneration) {
     fprintf(stderr,
         "CANGHUI_IOS_SURFACE result passed=%d metal=%s drawable=%s attached=%" PRId64
         " attaches=%" PRId64 " resizes=%" PRId64 " detaches=%" PRId64
-        " generation=%" PRId64 " frames=%" PRId64 " touches=%" PRId64 "\n",
+        " generation=%" PRId64 " frames=%" PRId64 " touches=%" PRId64
+        " pointers=%" PRId64 " traits=%" PRId64 "\n",
         passed ? 1 : 0,
         metalReady ? "ready" : "null",
         self.drawableObserved ? "ready" : "null",
@@ -156,7 +185,9 @@ static void *write_canghui_probe_touch(void *rawGeneration) {
         snapshot.detaches,
         snapshot.generation,
         snapshot.frames,
-        snapshot.touches);
+        snapshot.touches,
+        snapshot.pointers,
+        snapshot.traits);
     fflush(stderr);
 
     self.statusLabel.textColor = passed ? UIColor.whiteColor : UIColor.systemRedColor;

@@ -14,7 +14,7 @@ fi
 
 mkdir -p "$OUTPUT_ROOT"
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
-COMMON_FLAGS="-fobjc-arc -fmodules -fmodules-cache-path=$OUTPUT_ROOT/modules -Werror -Wall -Wextra -mios-simulator-version-min=13.0"
+COMMON_FLAGS="-fobjc-arc -fblocks -fmodules -fmodules-cache-path=$OUTPUT_ROOT/modules -Werror -Wall -Wextra -mios-simulator-version-min=13.0"
 
 xcrun --sdk iphonesimulator clang $COMMON_FLAGS \
     -isysroot "$SDK" \
@@ -39,6 +39,12 @@ do
     fi
 done
 
+xcrun --sdk iphonesimulator clang $COMMON_FLAGS \
+    -isysroot "$SDK" \
+    -I "$PROJECT_ROOT/platform/ios/include" \
+    -c "$PROJECT_ROOT/platform/ios/probe/AppDelegate.m" \
+    -o "$OUTPUT_ROOT/AppDelegate.o"
+
 for symbol in \
     canghui_ios_surface_attach \
     canghui_ios_surface_resize \
@@ -46,6 +52,8 @@ for symbol in \
     canghui_ios_surface_safe_area \
     canghui_ios_surface_lifecycle \
     canghui_ios_surface_touch \
+    canghui_ios_surface_pointer \
+    canghui_ios_surface_traits \
     canghui_ios_surface_frame
 do
     rg -q "int64_t ${symbol}\\(" "$PROJECT_ROOT/platform/ios/include/CangHuiNativeSurface.h"

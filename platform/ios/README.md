@@ -90,7 +90,7 @@ helper and UIKit app, links the final executable, installs it and requires a
 result with `passed=1`:
 
 ```text
-CANGHUI_IOS_SURFACE result passed=1 metal=ready drawable=ready attached=1 attaches=2 resizes=1 detaches=1 generation=2 frames=<positive> touches=1
+CANGHUI_IOS_SURFACE result passed=1 metal=ready drawable=ready attached=1 attaches=2 resizes=1 detaches=1 generation=2 frames=<positive> touches=1 pointers=1 traits=1
 ```
 
 Run the simulator acceptance with no signing configuration:
@@ -124,8 +124,9 @@ against the requested bundle id before signing and installing the app.
 The implemented iOS adapter follows an XComponent-like proxy model:
 
 - UIKit owns a `UIView` backed by `CAMetalLayer` or `MTKView`.
-- UIKit forwards lifecycle, safe-area, touch, surface-generation and
-  `CADisplayLink` events through an integer-only C ABI.
+- UIKit forwards lifecycle, safe-area, touch, Pencil/indirect-pointer hover,
+  trait, surface-generation and `CADisplayLink` events through an integer-only
+  C ABI.
 - `IOSNativeSurfaceBridge` commits the host-owned surface facts through the
   Cangjie UI-owner queue and rejects stale generations.
 - The probe uses the Cangjie-selected clear color for a real Metal clear pass.
