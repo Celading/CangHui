@@ -8,6 +8,11 @@ animation samples, and renderer command shape without creating an SDL window.
 Pixel output remains the appropriate proof for font appearance, clipping,
 platform integration, and final visual review.
 
+For terminal-first layout review, `ComponentProbe` can project its latest Draw
+IR frame into bounded ASCII cells. This preserves logical placement and command
+order, but it is not pixel evidence and does not model rasterization, text
+shaping, antialiasing, video frames, or platform composition.
+
 ## Function Probes
 
 Import the probe macro and annotate a top-level `(String) -> String` function:
@@ -119,8 +124,13 @@ return a nonzero status.
 ./tools/cuic/bin/cuic probe run component-gallery gallery.primary-button \
   --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
   --json
+./tools/cuic/bin/cuic probe ascii component-gallery gallery.primary-button \
+  --columns 96 --rows 32
 ```
 
 Use `--script path/to/events.txt` for a checked-in event script. The stable
 report contract is published as
 [`contracts/cui-probe-v0.schema.json`](../contracts/cui-probe-v0.schema.json).
+`probe ascii` accepts the same optional event script as `probe run` and renders
+the final sampled frame. Use `cuic prnt` or device screenshots when pixels,
+fonts, media content, clipping fidelity, or platform integration are under test.

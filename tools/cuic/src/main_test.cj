@@ -124,6 +124,21 @@ func probeTargetParserPreservesScriptAndJsonMode(): Unit {
 }
 
 @Test
+func probeTargetParserAcceptsBoundedAsciiDimensions(): Unit {
+    let parsed = parseProbeTarget(
+        ["cuic", "probe", "ascii", "component-gallery", "gallery.primary-button",
+            "--columns", "72", "--rows", "24", "--events", "draw"],
+        3,
+        true,
+        allowAscii: true
+    )
+    @Expect(parsed.name, "gallery.primary-button")
+    @Expect(parsed.columns, Int64(72))
+    @Expect(parsed.rows, Int64(24))
+    @Expect(parsed.script, "draw")
+}
+
+@Test
 func remoteDependencyRenderingPinsPublicCommitWithoutLocalPath(): Unit {
     let rendered = renderFrameworkDependency(defaultFrameworkDependencySpec())
     @Expect(rendered.contains("git = \"https://github.com/Celading/CangHui.git\""))

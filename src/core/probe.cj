@@ -2,7 +2,8 @@ package cui.core
 
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
-import sdl.{DrawIrCommand, FrameInfo, Key, MouseButton, Rect, Renderer, Size, UiEvent}
+import sdl.{DrawIrAsciiOptions, DrawIrCommand, FrameInfo, Key, MouseButton, Rect, Renderer, Size, UiEvent,
+    renderDrawIrAscii}
 import cui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
 
 /** A stable public property emitted by a probe-enabled widget. */
@@ -203,6 +204,7 @@ public class ComponentProbe {
     }
 
     public func run(script: String, body: () -> Unit): String {
+        let output = parseProbeOutput(script)
         let renderer = Renderer.recordingHeadless()
         let ctx = UiContext(renderer, theme)
         ctx.viewportWidth = width
@@ -214,7 +216,7 @@ public class ComponentProbe {
         try {
             var elapsed: UInt64 = 0
             var widget = renderProbeFrame(session, renderer, ctx, store, elapsed, UInt64(0), body)
-            for (rawLine in script.split("\n")) {
+            for (rawLine in output.script.split("\n")) {
                 let line = trimProbeText(rawLine)
                 if (line.isEmpty() || line.startsWith("#")) { continue }
                 if (line.startsWith("assert ")) {
@@ -291,10 +293,10 @@ public class ComponentProbe {
                 }
                 widget = renderProbeFrame(session, renderer, ctx, store, elapsed, delta, body)
             }
-            session.reportJson()
+            session.report(output)
         } catch (error: Exception) {
             session.fail("runner-error", error.message)
-            session.reportJson()
+            session.report(output)
         } finally {
             activeComponentProbeSession = previous
         }
@@ -488,6 +490,7 @@ private class ComponentProbeSession {
     private let events = ArrayList<ProbeEventRecord>()
     private let assertions = ArrayList<ProbeAssertionResult>()
     private let failures = ArrayList<String>()
+    private var latestDrawIr = Array<DrawIrCommand>()
     private let frames = ArrayList<String>()
     private var currentEvent: ?ProbeEventRecord = None
     private var logicalTimeMs: UInt64 = 0
@@ -562,6 +565,7 @@ private class ComponentProbeSession {
     }
 
     func captureFrame(commands: Array<DrawIrCommand>): Unit {
+        latestDrawIr = commands
         let out = StringBuilder()
         out.append("{\"index\":")
         out.append(frameIndex)
@@ -748,6 +752,15 @@ private class ComponentProbeSession {
         out.toString()
     }
 
+    func report(output: ProbeOutputRequest): String {
+        if (!output.ascii) { return reportJson() }
+        if (!failures.isEmpty() || !assertionsAllPass()) {
+            return "CUI_PROBE_ASCII_ERROR: component probe failed; rerun with --json for details\n" + reportJson()
+        }
+        renderDrawIrAscii(latestDrawIr, width, height,
+            options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows))
+    }
+
     private func findNode(id: String): ?ProbeNodeSnapshot {
         for (node in nodes) { if (node.id == id) { return Some(node) } }
         None
@@ -796,6 +809,39 @@ private class ComponentProbeSession {
         for (assertion in assertions) { if (!assertion.ok) { return false } }
         true
     }
+}
+
+private class ProbeOutputRequest {
+    let ascii: Bool
+    let columns: Int64
+    let rows: Int64
+    let script: String
+
+    init(ascii: Bool, columns: Int64, rows: Int64, script: String) {
+        this.ascii = ascii
+        this.columns = columns
+        this.rows = rows
+        this.script = script
+    }
+}
+
+private func parseProbeOutput(script: String): ProbeOutputRequest {
+    let lines = script.split("\n")
+    if (lines.isEmpty()) { return ProbeOutputRequest(false, 96, 32, script) }
+    let first = trimProbeText(lines[0])
+    if (!first.startsWith("@cui-ascii ")) { return ProbeOutputRequest(false, 96, 32, script) }
+    let parts = splitProbeWords(first)
+    requireProbeArity(parts, 3, "@cui-ascii")
+    let columns = Int64.parse(parts[1])
+    let rows = Int64.parse(parts[2])
+    let remaining = StringBuilder()
+    var i: Int64 = 1
+    while (i < lines.size) {
+        if (i > 1) { remaining.append("\n") }
+        remaining.append(lines[i])
+        i += 1
+    }
+    ProbeOutputRequest(true, columns, rows, remaining.toString())
 }
 
 private func renderProbeFrame(session: ComponentProbeSession, renderer: Renderer, ctx: UiContext,

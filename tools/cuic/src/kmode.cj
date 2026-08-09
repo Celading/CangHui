@@ -175,7 +175,7 @@ func kModeCommand(args: Array<String>, start: Int64): Int64 {
 
 func probeCommand(args: Array<String>, start: Int64): Int64 {
     if (start >= args.size) {
-        throw CuicError("probe requires diff, list, describe, or run")
+        throw CuicError("probe requires diff, list, describe, run, or ascii")
     }
     let action = args[start]
     if (action == "diff") {
@@ -206,6 +206,13 @@ func probeCommand(args: Array<String>, start: Int64): Int64 {
         return runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + parsed.script,
             parsed.name, parsed.json)
     }
+    if (action == "ascii") {
+        let parsed = parseProbeTarget(args, start + 1, true, allowAscii: true)
+        if (parsed.json) { throw CuicError("probe ascii does not accept --json") }
+        let request = "@cui-ascii ${parsed.columns} ${parsed.rows}\n" + parsed.script
+        return runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
+            parsed.name, false)
+    }
     throw CuicError("unknown probe action '${action}'")
 }
 
@@ -214,23 +221,38 @@ class ProbeTargetSelection {
     let name: String
     let script: String
     let json: Bool
+    let columns: Int64
+    let rows: Int64
 
-    init(project: String, name: String, script: String, json: Bool) {
+    init(project: String, name: String, script: String, json: Bool, columns: Int64, rows: Int64) {
         this.project = project
         this.name = name
         this.script = script
         this.json = json
+        this.columns = columns
+        this.rows = rows
     }
 }
 
-func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool): ProbeTargetSelection {
+func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
+    allowAscii!: Bool = false): ProbeTargetSelection {
     let positional = ArrayList<String>()
     var script = ""
     var json = false
+    var columns: Int64 = 96
+    var rows: Int64 = 32
     var i = start
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--columns" || value == "--rows") {
+            if (!allowAscii) { throw CuicError("${value} is only valid for probe ascii") }
+            if (i + 1 >= args.size) { throw CuicError(value + " requires a value") }
+            if (value == "--columns") { columns = Int64.parse(args[i + 1]) }
+            else { rows = Int64.parse(args[i + 1]) }
+            i += 2
+            continue
+        }
         if (value == "--script" || value == "--events") {
             if (!allowScript) { throw CuicError("probe describe does not accept event scripts") }
             if (i + 1 >= args.size) { throw CuicError(value + " requires a value") }
@@ -255,7 +277,11 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool): Pro
         resolveProject("", "")
     }
     let name = positional[positional.size - 1]
-    ProbeTargetSelection(project, name, script, json)
+    if (allowAscii) {
+        if (columns < 20 || columns > 240) { throw CuicError("probe ascii columns must be between 20 and 240") }
+        if (rows < 8 || rows > 100) { throw CuicError("probe ascii rows must be between 8 and 100") }
+    }
+    ProbeTargetSelection(project, name, script, json, columns, rows)
 }
 
 func runProbeExchange(projectValue: String, endpoint: String, payload: String,
@@ -287,7 +313,8 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
         if (!rendered.isEmpty()) { println(rendered) }
         let exitCode = session.close()
         if (exitCode != 0) { throw CuicError("probe process exited with ${exitCode}") }
-        if (containsText(rendered, "\"ok\":false")) { return 1 }
+        if (containsText(rendered, "\"ok\":false") ||
+            startsWithText(rendered, "CUI_PROBE_ASCII_ERROR:")) { return 1 }
         0
     } catch (error: Exception) {
         session.abort()
