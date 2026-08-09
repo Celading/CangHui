@@ -52,6 +52,41 @@ public final class CangHuiNativeSurfaceHost
         return nativeHeight(nativeHandle);
     }
 
+    public synchronized long render() {
+        ensureOpen();
+        return nativeRender(nativeHandle);
+    }
+
+    public synchronized long pointerEvent(
+            int action, int actionIndex, int[] pointerIds, float[] pointerXs,
+            float[] pointerYs, float[] pressures, long eventTimeNanos) {
+        ensureOpen();
+        return nativePointerEvent(
+                nativeHandle, action, actionIndex, pointerIds, pointerXs,
+                pointerYs, pressures, eventTimeNanos);
+    }
+
+    public synchronized long keyEvent(
+            int action, int keyCode, int unicodeCodePoint, int metaState,
+            int repeatCount, long eventTimeNanos) {
+        ensureOpen();
+        return nativeKeyEvent(
+                nativeHandle, action, keyCode, unicodeCodePoint, metaState,
+                repeatCount, eventTimeNanos);
+    }
+
+    public synchronized long imeEvent(
+            int kind, String text, int selectionStart, int selectionEnd) {
+        ensureOpen();
+        return nativeImeEvent(
+                nativeHandle, kind, text, selectionStart, selectionEnd);
+    }
+
+    public synchronized String receipt() {
+        ensureOpen();
+        return nativeReceipt(nativeHandle);
+    }
+
     @Override
     public synchronized void surfaceCreated(SurfaceHolder callbackHolder) {
         if (callbackHolder == holder && nativeHandle != 0) {
@@ -75,8 +110,10 @@ public final class CangHuiNativeSurfaceHost
     }
 
     @Override
-    public void surfaceRedrawNeeded(SurfaceHolder callbackHolder) {
-        // The renderer owner decides when a newly attached generation is ready.
+    public synchronized void surfaceRedrawNeeded(SurfaceHolder callbackHolder) {
+        if (callbackHolder == holder && nativeHandle != 0) {
+            nativeRender(nativeHandle);
+        }
     }
 
     @Override
@@ -121,4 +158,16 @@ public final class CangHuiNativeSurfaceHost
     private static native long nativeGeneration(long handle);
     private static native int nativeWidth(long handle);
     private static native int nativeHeight(long handle);
+    private static native long nativeRender(long handle);
+    private static native long nativePointerEvent(
+            long handle, int action, int actionIndex, int[] pointerIds,
+            float[] pointerXs, float[] pointerYs, float[] pressures,
+            long eventTimeNanos);
+    private static native long nativeKeyEvent(
+            long handle, int action, int keyCode, int unicodeCodePoint,
+            int metaState, int repeatCount, long eventTimeNanos);
+    private static native long nativeImeEvent(
+            long handle, int kind, String text, int selectionStart,
+            int selectionEnd);
+    private static native String nativeReceipt(long handle);
 }

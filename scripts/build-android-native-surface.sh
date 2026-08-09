@@ -48,6 +48,8 @@ javac -Xlint:-options -source 8 -target 8 \
     -d "${OUTPUT_DIR}/java" \
     -h "${OUTPUT_DIR}/jni" \
     "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiNativeSurfaceHost.java" \
+    "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiAndroidView.java" \
+    "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiSystemBarsMode.java" \
     "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiSurfaceActivity.java"
 
 for abi in arm64-v8a x86_64; do

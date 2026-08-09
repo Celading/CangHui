@@ -13,4 +13,4 @@ target_compile_options(canghui_android_surface PRIVATE
     -Werror
     -fvisibility=hidden
 )
-target_link_libraries(canghui_android_surface PRIVATE android)
+target_link_libraries(canghui_android_surface PRIVATE android log)

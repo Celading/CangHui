@@ -1,51 +1,111 @@
-# Android Native Surface First Slice
+# Android Host Runtime Probe
 
-This directory contains the Android-specific CangHui host bootstrap. It owns a
-minimal Activity lifecycle plus the `SurfaceView` to JNI to `ANativeWindow`
-boundary. It does not contain APK packaging, SDL integration, a renderer, or a
-Cangjie runtime bridge.
+This directory contains the Android-specific CangHui host adapter and its
+device acceptance probe. It owns the Activity and native-surface lifecycle,
+multi-pointer/key/IME ingress, an explicit system-bars policy, a private JNI
+receipt boundary, a minimal NDK renderer, and a standalone probe APK assembled
+without Gradle.
 
-## Contract
+It does not contain a Cangjie Android runtime, a CUI scene renderer,
+accessibility integration, or production application packaging.
+
+## Host Contract
 
 `CangHuiNativeSurfaceHost` registers as a `SurfaceHolder.Callback2` and keeps
-the native window behind an opaque handle. Every successful attach and detach
+the `ANativeWindow` behind an opaque handle. Every successful attach and detach
 advances a monotonic generation. A detach callback must present the generation
 returned by its attach; a stale callback cannot release a newer native window.
 
 The native side owns each `ANativeWindow_fromSurface` reference until it is
-replaced, detached, or destroyed. Width and height queries are synchronized
-with the same owner state.
+replaced, detached, or destroyed. Width, height, event counts, rendered frame
+count and the device-proof receipt are synchronized with the same owner state.
 
-`CangHuiSurfaceActivity` creates the host and `SurfaceView` in `onCreate`, binds
-callbacks in `onStart`, detaches in `onStop`, and closes the native owner in
-`onDestroy`. Applications may subclass it and use the protected accessors, but
-they still own manifest declaration, packaging, theme, input, IME and renderer
-integration.
+`CangHuiSurfaceActivity` creates the host and `CangHuiAndroidView` in
+`onCreate`, binds callbacks in `onStart`, detaches in `onStop`, and closes the
+native owner in `onDestroy`.
+
+## Input, IME And Renderer Probe
+
+`CangHuiAndroidView` is focusable and forwards the complete Android pointer
+snapshot for every `MotionEvent`, including pointer ids, coordinates and
+pressure for multi-touch. It also forwards non-system key events to private JNI
+entrypoints. Its `InputConnection` forwards composing, commit, deletion, finish
+and selection operations while retaining Android's normal editable behavior.
+
+Touch only requests focus. It does not show the soft keyboard. An Activity or
+control that owns a text-editing session must call `showInputMethod()` and may
+later call `hideInputMethod()` explicitly.
+
+`CangHuiSurfaceActivity.setSystemBarsMode(...)` exposes three Android-only
+policies:
+
+- `VISIBLE`: status and navigation bars remain visible and inset content;
+- `EDGE_TO_EDGE`: bars remain visible while content extends behind them;
+- `IMMERSIVE_STICKY`: status and navigation bars are hidden and may be revealed
+  transiently with a system swipe.
+
+The implementation uses `WindowInsetsController` on API 30+ and compatible
+system-UI flags on API 26-29. The probe Activity selects `IMMERSIVE_STICKY`.
+
+The NDK renderer locks the attached `ANativeWindow`, presents an RGBA clear
+whose color changes with pointer/key/IME counters, and draws a white marker at
+the last pointer position. Rendering after attach and each ingress event proves
+that lifecycle, input and frame presentation share one live native owner.
+
+This renderer is deliberately a host proof. It does not consume CangHui Draw IR
+or claim CUI widget rendering.
 
 ## Static Proof
 
-The proof uses an independent output directory and does not start an emulator
-or use a connected device:
+All build output stays outside the repository:
 
 ```bash
-./scripts/build-android-native-surface.sh /private/tmp/canghui-android-surface
-./scripts/verify-android-toolchain.sh
+ANDROID_SDK_ROOT=/path/to/android-sdk \
+  CANGHUI_ANDROID_OUTPUT=/private/tmp/canghui-android-host \
+  ./scripts/verify-android-toolchain.sh
+
+ANDROID_SDK_ROOT=/path/to/android-sdk \
+  CANGHUI_ANDROID_APK_OUTPUT=/private/tmp/canghui-android-apk \
+  ./scripts/verify-android-apk.sh
 ```
 
-`verify-android-toolchain.sh --require-cangjie` additionally requires a
-Cangjie Android cross-compilation SDK. A normal macOS Cangjie SDK is not
-sufficient: the Android SDK must provide
-`modules/linux_android_aarch64_cjnative` and matching Android runtime
-libraries.
+The first verifier compiles Java plus `arm64-v8a` and `x86_64` JNI libraries,
+checks all private JNI exports and inspects lifecycle/input/IME bytecode. The
+second verifier assembles `classes.dex`, both native libraries and the manifest,
+then runs zip alignment and Android APK signature verification.
+
+## Device Proof
+
+The optional device mode installs and launches the probe, injects a synthetic
+two-pointer sequence plus real ADB pointer/keyboard activity, exercises the IME
+bridge explicitly, checks the immersive system-bars mode, resumed Activity and
+installed package, and preserves logcat plus a screen capture in the independent
+output directory:
+
+```bash
+ANDROID_SDK_ROOT=/path/to/android-sdk \
+  CANGHUI_ANDROID_APK_OUTPUT=/private/tmp/canghui-android-device \
+  ./scripts/verify-android-apk.sh --device ADB_SERIAL
+```
+
+The generated signing key is probe-only and is created inside the output
+directory. It is not a release or production signing identity.
+
+## Fail-Closed Cangjie Gate
+
+`verify-android-toolchain.sh --require-cangjie` requires an actual Cangjie
+Android cross SDK. A normal macOS Cangjie SDK is insufficient: the Android SDK
+must provide `modules/linux_android_aarch64_cjnative` and matching Android
+runtime libraries. The verifier exits `2` when either side is missing.
 
 ## Open Work
 
-- Freeze the shared Cangjie-to-Android host ABI in a separate integration change.
-- Cross-compile the CangHui Cangjie package with the Android Cangjie SDK.
-- Bind the generation-safe native surface to SDL or another renderer owner.
-- Add input, IME, accessibility, APK packaging, signing, install, launch, and
-  device proof.
+- Obtain and validate a Cangjie Android cross SDK and runtime.
+- Cross-compile the CangHui Cangjie package without changing the common ABI.
+- Bind the host to the real CUI renderer while preserving generation gates.
+- Add accessibility and production application lifecycle integration.
+- Add release-owned application identity, resources, signing and distribution.
 
-This slice proves only Android NDK and Java compilation plus bytecode-level
-Activity lifecycle ownership of the native-surface boundary. It is not Android
-runtime support.
+The current proof is an Android Java/JNI/NDK host runtime and APK acceptance
+slice. It is not Cangjie Android runtime support, product application
+acceptance, release, production or LTS proof.
