@@ -14,6 +14,8 @@ package cui
 public import sdl.Color
 public import sdl.CuiException
 public import sdl.DrawIrCommand
+public import sdl.DrawIrAsciiAnnotation
+public import sdl.DrawIrAsciiAnnotationKind
 public import sdl.DrawIrAsciiOptions
 public import sdl.FontSizes
 public import sdl.FontStyle
@@ -51,6 +53,7 @@ public import sdl.WindowSpec
 public import sdl.clampF32
 public import sdl.drawIcon
 public import sdl.renderDrawIrAscii
+public import sdl.drawIrAsciiAnnotationKindName
 public import sdl.imageFormatFromPath
 public import sdl.sdlRevision
 public import sdl.sdlVersion
@@ -103,6 +106,8 @@ public import cui.core.Panel
 public import cui.core.ProbeNode
 public import cui.core.ProbeProperty
 public import cui.core.ProbeSemanticProvider
+public import cui.core.ProbeSemanticRegion
+public import cui.core.ProbeSemanticRegionProvider
 public import cui.core.Radii
 public import cui.core.Reveal
 public import cui.core.ScrollBar
@@ -143,6 +148,7 @@ public import cui.core.focusableControlIdentity
 public import cui.core.rememberState
 public import cui.core.probeActivation
 public import cui.core.probedAction
+public import cui.core.probeSemanticRegions
 public import cui.core.easingName
 public import cui.core.motionLevelName
 public import cui.core.uiOwnerTaskStatusName

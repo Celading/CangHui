@@ -98,6 +98,23 @@
       },
       "additionalProperties": false
     },
+    "region": {
+      "type": "object",
+      "required": ["id", "type", "parent", "order", "kind", "rect", "properties"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "parent": { "type": "string" },
+        "order": { "type": "integer", "minimum": 0 },
+        "kind": { "enum": ["interactive", "focus", "visual"] },
+        "rect": { "$ref": "#/$defs/rect" },
+        "properties": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
     "drawCommand": {
       "type": "object",
       "required": ["kind", "scope"],
@@ -114,6 +131,7 @@
         "index": { "type": "integer", "minimum": 0 },
         "logicalTimeMs": { "type": "integer", "minimum": 0 },
         "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+        "regions": { "type": "array", "items": { "$ref": "#/$defs/region" } },
         "animations": { "type": "array", "items": { "$ref": "#/$defs/animation" } },
         "drawIr": { "type": "array", "items": { "$ref": "#/$defs/drawCommand" } }
       },
