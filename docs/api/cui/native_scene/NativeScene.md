@@ -11,7 +11,13 @@ The package currently provides:
 - button and progress helpers;
 - `NativeScenePointer`, including press, move-out cancellation, release and a
   deterministic synthetic tap used by host acceptance tests;
+- `copyNativeSceneUtf8ToCaller`, a two-pass caller-buffer helper that reports
+  the UTF-8 byte length before copying and fails closed on invalid capacity;
 - a stable `canghui.native-scene.v0` JSON report with Draw IR and hit regions.
+
+Rounded stroke commands encode their geometry width as `width` and their
+stroke thickness as `strokeWidth`. Hosts should accept the legacy `width`
+fallback for reports produced before this distinction was introduced.
 
 The package does not own product state, native text shaping, accessibility,
 IME, retained SceneDiff or platform packaging. Consumers import

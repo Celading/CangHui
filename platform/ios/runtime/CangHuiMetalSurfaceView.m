@@ -2,6 +2,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <UIKit/UIKit.h>
 
+#import "CangHuiMetalSurfaceView.h"
 #import "CangHuiNativeSurface.h"
 #import "CangHuiRuntimeBootstrap.h"
 
@@ -9,11 +10,6 @@
 #include <stdint.h>
 
 static const int64_t CangHuiSurfaceTaskTimeoutNanos = 5000000000LL;
-
-@interface CangHuiUIKitHostView : UIView
-- (int64_t)canghuiSurfaceGeneration;
-- (void)canghuiForwardTraits;
-@end
 
 @interface CangHuiDisplayLinkDriver : NSObject
 - (instancetype)initWithGenerationProvider:(int64_t (^)(void))generationProvider
@@ -73,9 +69,9 @@ static void *CangHuiClearColorTask(void *unused) {
     return (void *)(intptr_t)canghui_ios_surface_clear_color_argb();
 }
 
-@interface CangHuiMetalSurfaceView : CangHuiUIKitHostView
-@property(nonatomic, strong) id<MTLDevice> canghuiDevice;
-@property(nonatomic, strong) id<MTLCommandQueue> canghuiCommandQueue;
+@interface CangHuiMetalSurfaceView ()
+@property(nonatomic, strong, readwrite) id<MTLDevice> canghuiDevice;
+@property(nonatomic, strong, readwrite) id<MTLCommandQueue> canghuiCommandQueue;
 @property(nonatomic, strong) CangHuiDisplayLinkDriver *canghuiDisplayLink;
 @property(nonatomic, assign) int64_t canghuiGeneration;
 @property(nonatomic, assign) BOOL canghuiAttached;
@@ -85,6 +81,10 @@ static void *CangHuiClearColorTask(void *unused) {
 
 + (Class)layerClass {
     return CAMetalLayer.class;
+}
+
+- (CAMetalLayer *)canghuiMetalLayer {
+    return (CAMetalLayer *)self.layer;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {

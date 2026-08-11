@@ -152,6 +152,19 @@ press/move/release cancellation without SDL or a C shim. UIKit remains the
 pixel presenter. This is a mobile display-list boundary, not a claim that the
 desktop `Renderer.recordingHeadless()` archive is link-safe on iOS.
 
+Applications can use `CangHuiNativeSceneSurfaceView` instead of copying the
+native presenter. The view accepts one caller-buffer render function and
+reuses the framework-owned UIKit/Metal lifecycle, display link and ordered
+input path. It paints the native-scene Draw IR with CoreGraphics, resolves
+`sf` symbols through SF Symbols and presents the result through the shared
+CAMetalLayer. Product state, labels and acceptance receipts stay in the
+consumer application.
+
+The render callback uses a two-step event contract: the sizing callback applies
+the input event exactly once, while the buffer-copy callback receives the
+`none` event and snapshots the resulting state. Render functions must keep a
+`none` event side-effect free.
+
 ## Host Modes
 
 - `OwnedWindow` follows SDL3's callback application model. SDL owns the iOS

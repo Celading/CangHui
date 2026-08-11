@@ -77,7 +77,8 @@ compile_probe_app() {
     for source in \
         CangHuiUIKitHostView.m \
         CangHuiMetalSurfaceView.m \
-        CangHuiDisplayLinkDriver.m
+        CangHuiDisplayLinkDriver.m \
+        CangHuiNativeSceneSurfaceView.m
     do
         "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
             -fobjc-arc -fblocks -fmodules \
@@ -99,6 +100,7 @@ compile_probe_app() {
         "${build_dir}/CangHuiUIKitHostView.o" \
         "${build_dir}/CangHuiMetalSurfaceView.o" \
         "${build_dir}/CangHuiDisplayLinkDriver.o" \
+        "${build_dir}/CangHuiNativeSceneSurfaceView.o" \
         "$(runtime_archive "${runtime_dir}" section.o)" \
         "$(runtime_archive "${runtime_dir}" cjstart.o)" \
         "${host_archive}" \

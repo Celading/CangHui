@@ -106,7 +106,8 @@ public class NativeScene {
     ): Unit {
         command("paint.stroke-rounded-rect", rect.toJsonFields() +
             ",\"radius\":" + max(0.0, radius).toString() +
-            ",\"width\":" + max(0.0, width).toString() + ",\"color\":" + color.toJson())
+            ",\"strokeWidth\":" + max(0.0, width).toString() +
+            ",\"color\":" + color.toJson())
     }
 
     public func line(
@@ -309,6 +310,24 @@ public class NativeScenePointer {
     private func clear(): Unit {
         pressed = None
         cancelled = false
+    }
+}
+
+/** Copies a UTF-8 string into a caller-owned C buffer using a two-pass size contract. */
+public func copyNativeSceneUtf8ToCaller(
+    value: String,
+    output: CPointer<UInt8>,
+    outputCapacity: Int64,
+    outputLength: CPointer<Int64>
+): Int32 {
+    unsafe {
+        if (outputCapacity < 0 || outputLength.isNull()) { return -1 }
+        let bytes = value.toArray()
+        let required = Int64(bytes.size)
+        outputLength.write(required)
+        if (output.isNull() || outputCapacity < required) { return -2 }
+        for (i in 0..bytes.size) { output.write(i, UInt8(bytes[i])) }
+        0
     }
 }
 

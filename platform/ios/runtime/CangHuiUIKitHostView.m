@@ -3,6 +3,7 @@
 
 #import "CangHuiNativeSurface.h"
 #import "CangHuiRuntimeBootstrap.h"
+#import "CangHuiUIKitHostView.h"
 
 #include <math.h>
 #include <stdint.h>
@@ -83,11 +84,6 @@ static void *CangHuiTraitTask(void *rawArguments) {
         arguments->verticalSizeClass,
         arguments->scale);
 }
-
-@interface CangHuiUIKitHostView : UIView
-- (int64_t)canghuiSurfaceGeneration;
-- (void)canghuiForwardTraits;
-@end
 
 @implementation CangHuiUIKitHostView
 

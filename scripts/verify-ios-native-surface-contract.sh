@@ -27,7 +27,8 @@ xcrun --sdk iphonesimulator clang $COMMON_FLAGS \
 for source in \
     CangHuiUIKitHostView.m \
     CangHuiMetalSurfaceView.m \
-    CangHuiDisplayLinkDriver.m
+    CangHuiDisplayLinkDriver.m \
+    CangHuiNativeSceneSurfaceView.m
 do
     path="$PROJECT_ROOT/platform/ios/runtime/$source"
     if [ -f "$path" ]; then
