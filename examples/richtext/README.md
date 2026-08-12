@@ -61,5 +61,5 @@ cjpm run
 支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot richtext.bmp"
+cuic prnt . --output richtext.bmp
 ```

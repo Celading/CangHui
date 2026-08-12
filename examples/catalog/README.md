@@ -56,5 +56,5 @@ cjpm run
 点底部页码或箭头翻页；切换顶部分类过滤条会回到第一页。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot catalog.bmp"
+cuic prnt . --output catalog.bmp
 ```

@@ -55,5 +55,5 @@ cjpm run
 点顶部状态标签切换该状态是否显示，列表随之过滤。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot tracker.bmp"
+cuic prnt . --output tracker.bmp
 ```

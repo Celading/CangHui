@@ -8,16 +8,13 @@ OUTPUT_DIR="${1:-${TMPDIR:-/tmp}/canghui-component-gallery}"
 
 mkdir -p "${OUTPUT_DIR}"
 
-cd "${GALLERY_ROOT}"
-cjpm build
-sleep 1
-
 for preview in android harmony tablet desktop ios; do
   snapshot="${OUTPUT_DIR}/${preview}.bmp"
   captured=false
   for attempt in 1 2; do
     rm -f "${snapshot}"
-    cjpm run --skip-build -- --preview "${preview}" --snapshot "${snapshot}"
+    "${PROJECT_ROOT}/tools/cuic/bin/cuic" prnt macos "${GALLERY_ROOT}" \
+      --output "${snapshot}" -- --preview "${preview}"
     if [[ -s "${snapshot}" ]]; then
       captured=true
       break

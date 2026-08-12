@@ -64,5 +64,5 @@ cjpm run
 滚轮上翻查看历史消息（只渲染视口附近，几百条也很稳），在底部输入后回车或点“发送”追加消息。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot chat.bmp"
+cuic prnt . --output chat.bmp
 ```

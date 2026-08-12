@@ -58,5 +58,5 @@ cjpm run
 用分段控件切换样张字体、`粗体` 开关叠加加粗。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot fonts.bmp"
+cuic prnt . --output fonts.bmp
 ```

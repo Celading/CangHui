@@ -52,5 +52,5 @@ cjpm run
 点击分区标题展开/收起，调整里面的控件；打开“单开模式”后再展开分区，观察其它分区自动收起。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot settings.bmp"
+cuic prnt . --output settings.bmp
 ```

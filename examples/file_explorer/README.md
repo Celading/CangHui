@@ -60,5 +60,5 @@ cjpm run
 调整左右比例。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot explorer.bmp"
+cuic prnt . --output explorer.bmp
 ```

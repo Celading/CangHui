@@ -51,5 +51,5 @@ cjpm run
 观察骨架行同步呼吸，点「加载完成」换真实内容、再点「重新加载」回到骨架态。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot skeleton.bmp"
+cuic prnt . --output skeleton.bmp
 ```

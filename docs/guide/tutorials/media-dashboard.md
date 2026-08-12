@@ -94,7 +94,7 @@ HStack(spacing: 16.vp) {
 
 ## 确认结果
 
-执行 `cjpm run --run-args="--snapshot media.bmp"`。进程应自动退出并产生非空的 `media.bmp`；快照中能看见标题、蓝黄预览和状态摘要。退出后 `cui-guide-preview.bmp` 应已删除。普通交互运行时关闭窗口，也应走同一清理路径。
+执行 `cuic prnt macos . --output media.bmp`。`cuic` 构建后直接启动应用并通过框架采集接口请求画面；进程应自动退出并产生非空的 `media.bmp`。快照中能看见标题、蓝黄预览和状态摘要。退出后 `cui-guide-preview.bmp` 应已删除。普通交互运行时关闭窗口，也应走同一清理路径。
 
 普通运行时还要拖动窗口边缘，确认图片盒保持 240×150，外层卡片仍有合理间距。快照模式只覆盖初始画面；Cover/Contain 的裁切差异最好人工查看一次，并在后续稳定环境里保存基准图。
 

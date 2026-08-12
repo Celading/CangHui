@@ -217,6 +217,7 @@ public import cui.component.ViewportSpec
 public import cui.component.classifyViewport
 public import cui.component.componentApiVersion
 public import cui.desktop.DesktopApp
+public import cui.desktop.DesktopCaptureRequest
 public import cui.desktop.FramePacing
 public import cui.desktop.framePacingName
 public import cui.desktop.ClientWindowChrome

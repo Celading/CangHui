@@ -58,5 +58,5 @@ cjpm run
 点顶部 Chip 切换粗体/斜体/下划线/删除线，字号阶梯与页脚摘要随之更新。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot typography.bmp"
+cuic prnt . --output typography.bmp
 ```

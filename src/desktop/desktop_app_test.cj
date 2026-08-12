@@ -7,6 +7,32 @@ func tickDeltaGuardsAgainstClockReset(): Unit {
 }
 
 @Test
+func desktopCaptureRequestNormalizesUnsetAndZeroFrameBudgets(): Unit {
+    let defaulted = DesktopCaptureRequest("/tmp/capture.bmp")
+    @Expect(defaulted.path, "/tmp/capture.bmp")
+    @Expect(defaulted.settleFrames, UInt64(48))
+
+    let zero = DesktopCaptureRequest("/tmp/capture.bmp", settleFrames: UInt64(0))
+    @Expect(zero.settleFrames, UInt64(1))
+    @Expect(captureFrameValue(""), UInt64(48))
+    @Expect(captureFrameValue("0"), UInt64(48))
+    @Expect(captureFrameValue("12"), UInt64(12))
+    @Expect(captureFrameValue("invalid"), UInt64(48))
+}
+
+@Test
+func explicitDesktopCaptureRequestWinsHostAndLegacyCompatibilityInputs(): Unit {
+    let explicit = DesktopCaptureRequest("explicit.bmp", settleFrames: UInt64(3))
+    let host = DesktopCaptureRequest("host.bmp", settleFrames: UInt64(4))
+    let legacy = DesktopCaptureRequest("legacy.bmp", settleFrames: UInt64(5))
+    @Expect((resolveDesktopCaptureRequest(Some(explicit), Some(host), Some(legacy)) ?? legacy).path,
+        "explicit.bmp")
+    @Expect((resolveDesktopCaptureRequest(None, Some(host), Some(legacy)) ?? legacy).path, "host.bmp")
+    @Expect((resolveDesktopCaptureRequest(None, None, Some(legacy)) ?? explicit).path, "legacy.bmp")
+    @Expect(resolveDesktopCaptureRequest(None, None, None).isNone())
+}
+
+@Test
 func devicePacingUsesPresentForRenderedFramesAndLightIdlePolling(): Unit {
     let pacing = resolveFramePacing(None, true, UInt32(16), false)
     @Expect(framePacingUsesVSync(pacing))

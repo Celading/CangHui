@@ -63,5 +63,5 @@ cjpm run
 拖动两条分隔条重分配三区，或 `Tab` 聚焦分隔条后用方向键微调。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot workbench.bmp"
+cuic prnt . --output workbench.bmp
 ```

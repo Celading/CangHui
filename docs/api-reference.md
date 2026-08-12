@@ -300,7 +300,7 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 ## 11. `DesktopApp`
 
 ```cangjie
-DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None, fontScale: 1.0, metadata: None, hints: [])
+DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None, capture: None, fontScale: 1.0, metadata: None, hints: [])
 ```
 
 | 方法 | 说明 |
@@ -317,6 +317,9 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None
 | `openFileDialog`、`saveFileDialog`、`openFolderDialog` | 创建异步文件对话框请求 |
 
 `fontScale` 作用于全部 `fp` 尺寸；`WindowSpec.scale` 决定 `px` 与 `vp` 的换算。
+
+`capture` 接受 `DesktopCaptureRequest`，用于由宿主显式请求一次稳定渲染采集。`cuic prnt`
+构建后直接启动应用并注入同一请求，不依赖 CJPM 的应用参数转发。
 
 `framePacing` 显式给出时优先于 `WindowSpec.vsync` 与兼容参数 `frameDelay`：`Device` 由渲染器
 VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩余帧预算等待（1..1000），

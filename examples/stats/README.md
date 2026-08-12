@@ -47,5 +47,5 @@ cjpm run
 切时段观察整组指标切换，留意大号数值与小号单位的行内对齐。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot stats.bmp"
+cuic prnt . --output stats.bmp
 ```

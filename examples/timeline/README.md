@@ -57,5 +57,5 @@ cjpm run
 滚轮左右滚动日期带，点日号选中查看详情，点“回到今天”跳回。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot timeline.bmp"
+cuic prnt . --output timeline.bmp
 ```

@@ -71,5 +71,5 @@ cjpm run
 支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot planner.bmp"
+cuic prnt . --output planner.bmp
 ```

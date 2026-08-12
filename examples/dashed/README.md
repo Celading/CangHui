@@ -43,5 +43,5 @@ cjpm run
 用 Stepper 调实线段/间隔/圆角，观察预览框虚线变化。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot dashed.bmp"
+cuic prnt . --output dashed.bmp
 ```

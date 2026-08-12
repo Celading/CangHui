@@ -47,5 +47,5 @@ cjpm run
 用 Stepper 换预设、Switch 换方向，观察大预览渐变实时变化。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot gradients.bmp"
+cuic prnt . --output gradients.bmp
 ```
