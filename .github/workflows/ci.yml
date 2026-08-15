@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Public audit (fork-safe)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: git diff check
+        run: git diff --check
+      - name: Public surface scan
+        run: |
+          if grep -RInE '/Users/|Cangku/_helper|ISSUE-2026|CK-CANGHUI' \
+              --include='*.md' --include='*.cj' --include='*.toml' . \
+              | grep -v '.git/' | grep -v 'manual/skills/canghui-full-build'; then
+            echo "public scan found internal terms" >&2
+            exit 1
+          fi
+      - name: Active file size guard (<4000 lines)
+        run: |
+          find src sdl/src tools/cuic/src -name '*.cj' -print0 2>/dev/null \
+            | xargs -0 wc -l \
+            | awk '$1 >= 4000 {print; bad=1} END {exit bad}'
+
+  build-test:
+    name: Build & test (trusted lane)
+    runs-on: macos-14
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect Cangjie SDK
+        run: |
+          if [[ -n "${CANGJIE_HOME:-}" ]]; then
+            echo "CANGJIE_HOME=${CANGJIE_HOME}"
+            "${CANGJIE_HOME}/tools/bin/cjpm" --version
+          else
+            echo "CANGJIE_HOME not set on runner"
+          fi
+      - name: Run CangHui CI
+        run: |
+          if [[ -n "${CANGJIE_HOME:-}" ]]; then
+            bash scripts/ci.sh
+          else
+            echo "Cangjie SDK unavailable on runner; full build/test skipped (recorded gap)"
+          fi
