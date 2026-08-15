@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "matrixVersion": "CangHui.20260802.12",
   "project": "CangHui",
-  "version": "0.9.2",
+  "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
@@ -54,9 +54,13 @@
   "features": [
     {
       "id": "cui-core",
-      "version": "0.9.2",
+      "version": "0.10.0",
       "state": "source-test-proven",
-      "codeRefs": ["src", "sdl", "cjpm.toml"]
+      "codeRefs": [
+        "src",
+        "sdl",
+        "cjpm.toml"
+      ]
     },
     {
       "id": "ui-owner-queue",
@@ -134,7 +138,9 @@
       "id": "host-capability-contract",
       "version": "0.1.0",
       "state": "source-test-proven",
-      "codeRefs": ["src/host/host_capabilities.cj"]
+      "codeRefs": [
+        "src/host/host_capabilities.cj"
+      ]
     },
     {
       "id": "component-package-contract",
@@ -149,13 +155,19 @@
       "id": "common-responsive-layout",
       "version": "compact-medium-expanded-v0.1.0",
       "state": "desktop-gallery-visual-proven",
-      "codeRefs": ["src/component/responsive.cj", "src/testkit/preview_matrix.cj"]
+      "codeRefs": [
+        "src/component/responsive.cj",
+        "src/testkit/preview_matrix.cj"
+      ]
     },
     {
       "id": "reference-component-package-and-gallery",
       "version": "0.1.0",
       "state": "build-test-snapshot-proven",
-      "codeRefs": ["packages/gallery-components", "examples/component-gallery"]
+      "codeRefs": [
+        "packages/gallery-components",
+        "examples/component-gallery"
+      ]
     },
     {
       "id": "kmode-headless-control-plane",
