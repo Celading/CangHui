@@ -2,7 +2,7 @@ package cuic
 
 import std.collection.ArrayList
 import std.env.getVariable
-import std.fs.{Directory, File, Path, exists, removeIfExists}
+import std.fs.{Directory, File, FSException, Path, exists, removeIfExists}
 import std.process.executeWithOutput
 
 /**
@@ -44,11 +44,20 @@ public class ExecutionContext {
 
     public func acquireLease(): String {
         let lease = targetDir + ".cuic-lease"
-        if (exists(lease)) {
+        try {
+            Directory.create(lease, recursive: true)
+        } catch (_: FSException) {
             throw CuicError("target directory is leased by another cuic process: ${targetDir}")
+        } catch (_: Exception) {
+            throw CuicError("cannot acquire lease for target directory: ${targetDir}")
         }
-        Directory.create(lease, recursive: true)
-        File.writeTo(joinPath(lease, "owner.txt"), ("pid=" + currentPid()).toArray())
+        try {
+            File.writeTo(joinPath(lease, "owner.txt"), ("pid=" + currentPid()).toArray())
+        } catch (_: Exception) {
+            removeIfExists(joinPath(lease, "owner.txt"))
+            removeIfExists(lease)
+            throw CuicError("cannot write lease owner for target directory: ${targetDir}")
+        }
         lease
     }
 
