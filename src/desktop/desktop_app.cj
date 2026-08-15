@@ -173,6 +173,37 @@ public class DesktopApp {
         queuedEvents.add(UiEvent.MouseUp(MouseButton.Left, x, y))
     }
 
+    /** Queues a synthetic pointer down through the normal CUI hit-test and event route. */
+    public func queuePointerDown(x: Float32, y: Float32): Unit {
+        queuedEvents.add(UiEvent.MouseDown(MouseButton.Left, x, y))
+    }
+
+    /** Queues a synthetic pointer move through the normal CUI hit-test and event route. */
+    public func queuePointerMove(x: Float32, y: Float32): Unit {
+        queuedEvents.add(UiEvent.MouseMove(x, y))
+    }
+
+    /** Queues a synthetic pointer up through the normal CUI hit-test and event route. */
+    public func queuePointerUp(x: Float32, y: Float32): Unit {
+        queuedEvents.add(UiEvent.MouseUp(MouseButton.Left, x, y))
+    }
+
+    /**
+     * Queues a synthetic drag sequence down -> move* -> up with linear interpolation.
+     * `steps` is the number of move events between down and up; it is clamped to at least 1.
+     */
+    public func queuePointerDrag(
+        fromX: Float32,
+        fromY: Float32,
+        toX: Float32,
+        toY: Float32,
+        steps!: Int64 = Int64(8)
+    ): Unit {
+        for (event in buildPointerDragEvents(fromX, fromY, toX, toY, steps)) {
+            queuedEvents.add(event)
+        }
+    }
+
     /** Applies a theme immediately and cancels any active animated transition. */
     public func setTheme(theme: Theme): Unit {
         closeThemeTransition()
@@ -691,6 +722,24 @@ internal func tickDelta(previousTick: UInt64, currentTick: UInt64): UInt64 {
     } else {
         UInt64(0)
     }
+}
+
+internal func buildPointerDragEvents(
+    fromX: Float32,
+    fromY: Float32,
+    toX: Float32,
+    toY: Float32,
+    steps: Int64
+): ArrayList<UiEvent> {
+    let moveSteps = if (steps < 1) { Int64(1) } else { steps }
+    let out = ArrayList<UiEvent>()
+    out.add(UiEvent.MouseDown(MouseButton.Left, fromX, fromY))
+    for (i in 0..moveSteps) {
+        let t = Float32(i + 1) / Float32(moveSteps)
+        out.add(UiEvent.MouseMove(fromX + (toX - fromX) * t, fromY + (toY - fromY) * t))
+    }
+    out.add(UiEvent.MouseUp(MouseButton.Left, toX, toY))
+    out
 }
 
 private func legacySnapshotArgument(): ?String {

@@ -1,5 +1,7 @@
 package cui.desktop
 
+import sdl.{MouseButton, UiEvent}
+
 @Test
 func tickDeltaGuardsAgainstClockReset(): Unit {
     @Expect(tickDelta(UInt64(10), UInt64(25)), UInt64(15))
@@ -79,4 +81,40 @@ func invalidFixedFrameRatesFailClosed(): Unit {
         excessiveRejected = true
     }
     @Expect(excessiveRejected)
+}
+
+@Test
+func pointerDragBuildsDownMoveUpSequence(): Unit {
+    let events = buildPointerDragEvents(10.0, 20.0, 30.0, 40.0, 2)
+    @Expect(events.size, 4)
+    match (events[0]) {
+        case UiEvent.MouseDown(MouseButton.Left, x, y) =>
+            @Expect(x, 10.0)
+            @Expect(y, 20.0)
+        case _ => @Expect(false)
+    }
+    match (events[1]) {
+        case UiEvent.MouseMove(x, y) =>
+            @Expect(x, 20.0)
+            @Expect(y, 30.0)
+        case _ => @Expect(false)
+    }
+    match (events[2]) {
+        case UiEvent.MouseMove(x, y) =>
+            @Expect(x, 30.0)
+            @Expect(y, 40.0)
+        case _ => @Expect(false)
+    }
+    match (events[3]) {
+        case UiEvent.MouseUp(MouseButton.Left, x, y) =>
+            @Expect(x, 30.0)
+            @Expect(y, 40.0)
+        case _ => @Expect(false)
+    }
+}
+
+@Test
+func pointerDragClampsZeroStepsToOne(): Unit {
+    let events = buildPointerDragEvents(0.0, 0.0, 5.0, 5.0, 0)
+    @Expect(events.size, 3)
 }
