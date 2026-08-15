@@ -66,6 +66,9 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "probe") {
         return probeCommand(args, 2)
     }
+    if (command == "device") {
+        return deviceCommand(args, 2)
+    }
     if (command == "scripts") {
         return scriptsCommand(args, 2)
     }
@@ -796,9 +799,44 @@ func generatedMain(packageName: String): String {
     "}\n"
 }
 
+func deviceCommand(args: Array<String>, start: Int64): Int64 {
+    if (args.size <= start) {
+        println("cuic device list [--json]")
+        return 0
+    }
+    let sub = args[start]
+    if (sub != "list") { throw CuicError("unknown device subcommand '${sub}'") }
+    let json = args.size > start + 1 && args[start + 1] == "--json"
+    let targets = listHdcTargets()
+    if (json) {
+        let quoted = ArrayList<String>()
+        for (target in targets) { quoted.add("\"${target}\"") }
+        println("{ \"schema\": \"canghui.device.v0\", \"targets\": [${joinStrings(quoted.toArray(), ", ")}] }")
+    } else {
+        for (target in targets) { println(target) }
+    }
+    0
+}
+
+func joinStrings(values: Array<String>, separator: String): String {
+    let out = StringBuilder()
+    var first = true
+    for (value in values) {
+        if (!first) { out.append(separator) }
+        out.append(value)
+        first = false
+    }
+    out.toString()
+}
+
 func debugCommand(args: Array<String>, start: Int64): Int64 {
     let options = parseDebugOptions(args, start)
     if (options.device.size > 0 || options.app.size > 0) {
+        let targets = listHdcTargets()
+        if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
+            println("cuic debug: device '${options.device}' is not visible")
+            return 3
+        }
         println("cuic debug: device capture channel is not implemented yet (delivery-pending)")
         println("  device: ${options.device}")
         println("  app: ${options.app}")
@@ -817,6 +855,11 @@ func debugCommand(args: Array<String>, start: Int64): Int64 {
 func printWindow(args: Array<String>, start: Int64): Int64 {
     let options = parsePrntOptions(args, start)
     if (options.device.size > 0 || options.app.size > 0) {
+        let targets = listHdcTargets()
+        if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
+            println("cuic prnt: device '${options.device}' is not visible")
+            return 3
+        }
         println("cuic prnt: device capture channel is not implemented yet (delivery-pending)")
         println("  device: ${options.device}")
         println("  app: ${options.app}")

@@ -337,3 +337,26 @@ func harmonyPlatformAliasesNormalize(): Unit {
     @Expect(isPlatform("ohos"))
     @Expect(!isPlatform("tvos"))
 }
+
+@Test
+func hdcTargetsParseFiltersEmptyAndHeaderLines(): Unit {
+    let output = "Empty\n192.168.0.108:5555\n\n127.0.0.1:5555  connected\n"
+    let targets = parseHdcTargets(output)
+    @Expect(targets.size, 2)
+    @Expect(targets[0], "192.168.0.108:5555")
+    @Expect(targets[1], "127.0.0.1:5555")
+}
+
+@Test
+func hasHdcTargetMatchesExactAliasOnly(): Unit {
+    let targets = ["192.168.0.108:5555", "local"]
+    @Expect(hasHdcTarget(targets, "192.168.0.108:5555"))
+    @Expect(hasHdcTarget(targets, "local"))
+    @Expect(!hasHdcTarget(targets, "192.168.0.108"))
+}
+
+@Test
+func joinStringsUsesSeparator(): Unit {
+    @Expect(joinStrings(["a", "b", "c"], ", "), "a, b, c")
+    @Expect(joinStrings([], ", "), "")
+}
