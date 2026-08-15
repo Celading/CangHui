@@ -2,8 +2,8 @@ package cui.core
 
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
-import sdl.{DrawIrAsciiOptions, DrawIrCommand, FrameInfo, Key, MouseButton, Rect, Renderer, Size, UiEvent,
-    renderDrawIrAscii}
+import sdl.{DrawIrAsciiAnnotation, DrawIrAsciiAnnotationKind, DrawIrAsciiOptions, DrawIrCommand, FrameInfo,
+    Key, MouseButton, Rect, Renderer, Size, UiEvent, drawIrAsciiAnnotationKindName, renderDrawIrAscii}
 import cui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
 
 /** A stable public property emitted by a probe-enabled widget. */
@@ -17,6 +17,32 @@ public struct ProbeProperty {
         this.value = value
     }
 }
+
+/** One semantic subregion inside a custom-drawn widget. */
+public struct ProbeSemanticRegion {
+    public let id: String
+    public let kind: DrawIrAsciiAnnotationKind
+    public let rect: Rect
+    public let widgetType: String
+    public let properties: Array<ProbeProperty>
+
+    public init(
+        id: String,
+        kind: DrawIrAsciiAnnotationKind,
+        rect: Rect,
+        widgetType!: String = "Region",
+        properties!: Array<ProbeProperty> = []
+    ) {
+        requireProbeNodeId(id)
+        this.id = id
+        this.kind = kind
+        this.rect = rect
+        this.widgetType = if (widgetType.isEmpty()) {"Region"} else {widgetType}
+        this.properties = properties
+    }
+}
+
+public type ProbeSemanticRegionProvider = () -> Array<ProbeSemanticRegion>
 
 public type ProbeSemanticProvider = () -> Array<ProbeProperty>
 
@@ -173,6 +199,14 @@ public func probedAction(name: String, action: () -> Unit): () -> Unit {
     { =>
         probeActivation(name)
         action()
+    }
+}
+
+/** Records semantic subcontrols only while a component probe is active. */
+public func probeSemanticRegions(provider: ProbeSemanticRegionProvider): Unit {
+    match (activeComponentProbeSession) {
+        case Some(session) => session.recordRegions(provider())
+        case None => ()
     }
 }
 
@@ -375,6 +409,94 @@ private class ProbeNodeSnapshot {
         out.append("}}")
         out.toString()
     }
+
+    func toAsciiAnnotation(): ?DrawIrAsciiAnnotation {
+        match (probeNodeAnnotationKind(widgetType, properties)) {
+            case Some(kind) => Some(DrawIrAsciiAnnotation(
+                id,
+                kind,
+                frame,
+                component: widgetType,
+                role: probePropertyValue(properties, "role"),
+                label: firstProbeProperty(properties, ["label", "title"]),
+                icon: probePropertyValue(properties, "icon"),
+                action: probePropertyValue(properties, "action"),
+                shortcut: probePropertyValue(properties, "shortcut"),
+                value: probePropertyValue(properties, "value"),
+                state: probeStateText(properties, focused, hovered, pressed)
+            ))
+            case None => None
+        }
+    }
+}
+
+private class ProbeSemanticRegionSnapshot {
+    let id: String
+    let parent: String
+    let order: Int64
+    let kind: DrawIrAsciiAnnotationKind
+    let rect: Rect
+    let widgetType: String
+    let properties: Array<ProbeProperty>
+
+    init(region: ProbeSemanticRegion, parent: String, order: Int64) {
+        this.id = region.id
+        this.parent = parent
+        this.order = order
+        this.kind = region.kind
+        this.rect = region.rect
+        this.widgetType = region.widgetType
+        this.properties = sortedProbeProperties(region.properties)
+    }
+
+    func toJson(): String {
+        let out = StringBuilder()
+        out.append("{\"id\":")
+        out.append(probeJsonQuote(id))
+        out.append(",\"type\":")
+        out.append(probeJsonQuote(widgetType))
+        out.append(",\"parent\":")
+        out.append(probeJsonQuote(parent))
+        out.append(",\"order\":")
+        out.append(order)
+        out.append(",\"kind\":")
+        out.append(probeJsonQuote(drawIrAsciiAnnotationKindName(kind)))
+        out.append(",\"rect\":{\"x\":")
+        out.append(rect.x)
+        out.append(",\"y\":")
+        out.append(rect.y)
+        out.append(",\"width\":")
+        out.append(rect.w)
+        out.append(",\"height\":")
+        out.append(rect.h)
+        out.append("},\"properties\":{")
+        var first = true
+        for (property in properties) {
+            if (!first) { out.append(",") }
+            first = false
+            out.append(probeJsonQuote(property.name))
+            out.append(":")
+            out.append(probeJsonQuote(property.value))
+        }
+        out.append("}}")
+        out.toString()
+    }
+
+    func toAsciiAnnotation(): DrawIrAsciiAnnotation {
+        DrawIrAsciiAnnotation(
+            id,
+            kind,
+            rect,
+            component: widgetType,
+            role: probePropertyValue(properties, "role"),
+            label: firstProbeProperty(properties, ["label", "title"]),
+            icon: probePropertyValue(properties, "icon"),
+            action: probePropertyValue(properties, "action"),
+            shortcut: probePropertyValue(properties, "shortcut"),
+            value: probePropertyValue(properties, "value"),
+            state: probeStateText(properties, false, false, false)
+        )
+    }
 }
 
 private class ProbeRouteEntry {
@@ -482,6 +604,7 @@ private class ComponentProbeSession {
     let width: Float32
     let height: Float32
     private let nodes = ArrayList<ProbeNodeSnapshot>()
+    private let regions = ArrayList<ProbeSemanticRegionSnapshot>()
     private let parentStack = ArrayList<String>()
     private let drawNodeStack = ArrayList<String>()
     private let childCounts = HashMap<String, Int64>()
@@ -551,6 +674,17 @@ private class ComponentProbeSession {
         animations.clear()
         animationCounts.clear()
         drawNodeStack.clear()
+        regions.clear()
+    }
+
+    func recordRegions(values: Array<ProbeSemanticRegion>): Unit {
+        let parent = if (drawNodeStack.isEmpty()) {""} else {drawNodeStack[drawNodeStack.size - 1]}
+        for (value in values) {
+            if (findNode(value.id).isSome() || findRegion(value.id).isSome()) {
+                throw IllegalStateException("duplicate component probe semantic region id: " + value.id)
+            }
+            regions.add(ProbeSemanticRegionSnapshot(value, parent, regions.size))
+        }
     }
 
     func recordAnimation(kind: String, level: String, durationMs: UInt64, curve: String,
@@ -577,6 +711,13 @@ private class ComponentProbeSession {
             if (!first) { out.append(",") }
             first = false
             out.append(node.toJson())
+        }
+        out.append("],\"regions\":[")
+        first = true
+        for (region in regions) {
+            if (!first) { out.append(",") }
+            first = false
+            out.append(region.toJson())
         }
         out.append("],\"animations\":[")
         first = true
@@ -758,11 +899,29 @@ private class ComponentProbeSession {
             return "CUI_PROBE_ASCII_ERROR: component probe failed; rerun with --json for details\n" + reportJson()
         }
         renderDrawIrAscii(latestDrawIr, width, height,
-            options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows))
+            options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows),
+            annotations: asciiAnnotations())
+    }
+
+    private func asciiAnnotations(): Array<DrawIrAsciiAnnotation> {
+        let result = ArrayList<DrawIrAsciiAnnotation>()
+        for (region in regions) { result.add(region.toAsciiAnnotation()) }
+        for (node in nodes) {
+            match (node.toAsciiAnnotation()) {
+                case Some(annotation) => result.add(annotation)
+                case None => ()
+            }
+        }
+        result.toArray()
     }
 
     private func findNode(id: String): ?ProbeNodeSnapshot {
         for (node in nodes) { if (node.id == id) { return Some(node) } }
+        None
+    }
+
+    private func findRegion(id: String): ?ProbeSemanticRegionSnapshot {
+        for (region in regions) { if (region.id == id) { return Some(region) } }
         None
     }
 
@@ -916,6 +1075,88 @@ private func requireProbeNodeId(id: String): Unit {
             throw IllegalArgumentException("component probe node id must be one line")
         }
     }
+}
+
+private func probeNodeAnnotationKind(widgetType: String,
+    properties: Array<ProbeProperty>): ?DrawIrAsciiAnnotationKind {
+    let explicit = probePropertyValue(properties, "semanticKind")
+    if (explicit == "interactive" || explicit == "action") {
+        return Some(DrawIrAsciiAnnotationKind.Interactive)
+    }
+    if (explicit == "focus" || explicit == "input") {
+        return Some(DrawIrAsciiAnnotationKind.Focus)
+    }
+    if (explicit == "visual" || explicit == "region") {
+        return Some(DrawIrAsciiAnnotationKind.Visual)
+    }
+    if (explicit == "none" || explicit == "hidden") { return None }
+
+    let role = probePropertyValue(properties, "role")
+    if (focusProbeWidget(widgetType) || role == "textbox" || role == "searchbox") {
+        return Some(DrawIrAsciiAnnotationKind.Focus)
+    }
+    if (!probePropertyValue(properties, "action").isEmpty() ||
+        !probePropertyValue(properties, "shortcut").isEmpty() ||
+        interactiveProbeWidget(widgetType) || interactiveProbeRole(role)) {
+        return Some(DrawIrAsciiAnnotationKind.Interactive)
+    }
+    if (!firstProbeProperty(properties, ["label", "title", "icon", "value", "role"]).isEmpty()) {
+        return Some(DrawIrAsciiAnnotationKind.Visual)
+    }
+    None
+}
+
+private func interactiveProbeWidget(value: String): Bool {
+    value == "Button" || value == "IconButton" || value == "Checkbox" || value == "Switch" ||
+        value == "Slider" || value == "Stepper" || value == "Picker" || value == "Rating" ||
+        value == "Breadcrumb" || value == "Pagination" || value == "Dropdown" || value == "Link" ||
+        value == "MenuItem" || value == "Tab" || value == "TreeItem"
+}
+
+private func focusProbeWidget(value: String): Bool {
+    value == "TextField" || value == "TextArea" || value == "SearchField" || value == "Input" ||
+        value == "Editor"
+}
+
+private func interactiveProbeRole(value: String): Bool {
+    value == "button" || value == "link" || value == "checkbox" || value == "switch" ||
+        value == "slider" || value == "menuitem" || value == "tab" || value == "option"
+}
+
+private func probePropertyValue(properties: Array<ProbeProperty>, name: String): String {
+    for (property in properties) { if (property.name == name) { return property.value } }
+    ""
+}
+
+private func firstProbeProperty(properties: Array<ProbeProperty>, names: Array<String>): String {
+    for (name in names) {
+        let value = probePropertyValue(properties, name)
+        if (!value.isEmpty()) { return value }
+    }
+    ""
+}
+
+private func probeStateText(properties: Array<ProbeProperty>, focused: Bool, hovered: Bool,
+    pressed: Bool): String {
+    let explicit = probePropertyValue(properties, "state")
+    if (!explicit.isEmpty()) { return explicit }
+    let values = ArrayList<String>()
+    if (focused) { values.add("focused") }
+    if (hovered) { values.add("hovered") }
+    if (pressed) { values.add("pressed") }
+    for (name in ["disabled", "enabled", "selected", "checked", "expanded", "playing", "muted", "open", "bound"]) {
+        let value = probePropertyValue(properties, name)
+        if (!value.isEmpty()) { values.add(name + "=" + value) }
+    }
+    if (values.isEmpty()) { return "idle" }
+    let out = StringBuilder()
+    var first = true
+    for (value in values) {
+        if (!first) { out.append(",") }
+        first = false
+        out.append(value)
+    }
+    out.toString()
 }
 
 private func putProbeProperty(target: ArrayList<ProbeProperty>, property: ProbeProperty): Unit {

@@ -132,5 +132,41 @@ Use `--script path/to/events.txt` for a checked-in event script. The stable
 report contract is published as
 [`contracts/cui-probe-v0.schema.json`](../contracts/cui-probe-v0.schema.json).
 `probe ascii` accepts the same optional event script as `probe run` and renders
-the final sampled frame. Use `cuic prnt` or device screenshots when pixels,
-fonts, media content, clipping fidelity, or platform integration are under test.
+the final sampled frame. Probe nodes with conventional `role`, `label`, `icon`,
+`action`, `shortcut`, `value`, `state`, and `disabled` properties are projected
+as an agent-readable semantic map:
+
+```text
+|..[$i1]........<$f1>.............................................................|
+
+$i1 - "IconButton#toolbar.back" | icon="Icons.Back" | action="window.back()" | shortcut="Escape" | rect=(28,31,46,46) | probe="press 51 54; release 51 54"
+$f1 - "TextField#search" | label="Search" | rect=(96,31,240,46) | probe="focus search"
+```
+
+`[$iN]` identifies an action, `<$fN>` identifies focus or text input, and
+`($vN)` identifies a non-interactive visual region. Small or overlapping
+controls may use `[$N]`, `<$N>`, or `($N)` compact markers while retaining the
+full stable token in the legend.
+
+Custom-drawn widgets can expose real subcontrols without adding fake layout
+widgets. The provider is evaluated only while a component probe is active:
+
+```cj
+probeSemanticRegions { => [
+    ProbeSemanticRegion(
+        "player.play",
+        DrawIrAsciiAnnotationKind.Interactive,
+        playRect,
+        widgetType: "IconButton",
+        properties: [
+            ProbeProperty("icon", "Icons.Play"),
+            ProbeProperty("action", "player.togglePlayback()"),
+            ProbeProperty("shortcut", "Space")
+        ]
+    )
+] }
+```
+
+The same subregions appear in JSON frame reports under `regions`. Use
+`cuic prnt` or device screenshots when pixels, fonts, media content, clipping
+fidelity, or platform integration are under test.

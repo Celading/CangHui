@@ -112,4 +112,33 @@ assert draw <kind> <minimum-count>
 ```
 
 需要提交事件脚本时，使用 `--script path/to/events.txt`。稳定报告契约见 [`contracts/cui-probe-v0.schema.json`](../contracts/cui-probe-v0.schema.json)。
-`probe ascii` 支持与 `probe run` 相同的可选事件脚本，并投影最终采样帧。需要验证像素、字体、媒体内容、裁切精度或平台集成时，仍应使用 `cuic prnt` 或设备截图。
+`probe ascii` 支持与 `probe run` 相同的可选事件脚本，并投影最终采样帧。探针节点可通过约定属性 `role`、`label`、`icon`、`action`、`shortcut`、`value`、`state` 与 `disabled` 自动生成面向无视觉模型的语义图：
+
+```text
+|..[$i1]........<$f1>.............................................................|
+
+$i1 - "IconButton#toolbar.back" | icon="Icons.Back" | action="window.back()" | shortcut="Escape" | rect=(28,31,46,46) | probe="press 51 54; release 51 54"
+$f1 - "TextField#search" | label="Search" | rect=(96,31,240,46) | probe="focus search"
+```
+
+`[$iN]` 表示动作区，`<$fN>` 表示焦点或文本输入区，`($vN)` 表示非交互视觉区。区域过小或标记重叠时，画布会使用 `[$N]`、`<$N>` 或 `($N)` 紧凑标记，但下方图例仍保留完整稳定 token。
+
+手绘组件无需为探针伪造布局节点，可直接声明真实子区域。只有组件探针运行时才会执行 provider：
+
+```cj
+probeSemanticRegions { => [
+    ProbeSemanticRegion(
+        "player.play",
+        DrawIrAsciiAnnotationKind.Interactive,
+        playRect,
+        widgetType: "IconButton",
+        properties: [
+            ProbeProperty("icon", "Icons.Play"),
+            ProbeProperty("action", "player.togglePlayback()"),
+            ProbeProperty("shortcut", "Space")
+        ]
+    )
+] }
+```
+
+同一批子区域也会出现在 JSON 帧的 `regions` 字段中。需要验证像素、字体、媒体内容、裁切精度或平台集成时，仍应使用 `cuic prnt` 或设备截图。

@@ -120,6 +120,8 @@ PROBE_ASCII="$("${ROOT_DIR}/bin/cuic" probe ascii component-gallery gallery.prim
     --columns 72 --rows 24)"
 printf '%s' "${PROBE_ASCII}" | grep -q 'CangHui headless Draw IR 320.000000x120.000000 -> 72x24'
 printf '%s' "${PROBE_ASCII}" | grep -q 'Run probe'
+printf '%s' "${PROBE_ASCII}" | grep -Fq 'Semantic map:'
+printf '%s' "${PROBE_ASCII}" | grep -Fq '$i1 - "Button#primary-button"'
 
 SYMBOL_CATALOG_JSON="$("${ROOT_DIR}/bin/cuic" symbol list --json)"
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"schema":"canghui.symbol.catalog.v0"'

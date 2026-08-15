@@ -20,6 +20,63 @@ public struct DrawIrAsciiOptions {
     }
 }
 
+/** Semantic marker families layered over the structural Draw IR projection. */
+public enum DrawIrAsciiAnnotationKind {
+    | Interactive
+    | Focus
+    | Visual
+}
+
+public func drawIrAsciiAnnotationKindName(kind: DrawIrAsciiAnnotationKind): String {
+    match (kind) {
+        case DrawIrAsciiAnnotationKind.Interactive => "interactive"
+        case DrawIrAsciiAnnotationKind.Focus => "focus"
+        case DrawIrAsciiAnnotationKind.Visual => "visual"
+    }
+}
+
+/** One agent-readable component or semantic subregion in logical viewport coordinates. */
+public class DrawIrAsciiAnnotation {
+    public let id: String
+    public let kind: DrawIrAsciiAnnotationKind
+    public let rect: Rect
+    public let component: String
+    public let role: String
+    public let label: String
+    public let icon: String
+    public let action: String
+    public let shortcut: String
+    public let value: String
+    public let state: String
+
+    public init(
+        id: String,
+        kind: DrawIrAsciiAnnotationKind,
+        rect: Rect,
+        component!: String = "",
+        role!: String = "",
+        label!: String = "",
+        icon!: String = "",
+        action!: String = "",
+        shortcut!: String = "",
+        value!: String = "",
+        state!: String = ""
+    ) {
+        if (id.isEmpty()) { throw IllegalArgumentException("Draw IR ASCII annotation id must not be empty") }
+        this.id = id
+        this.kind = kind
+        this.rect = rect
+        this.component = component
+        this.role = role
+        this.label = label
+        this.icon = icon
+        this.action = action
+        this.shortcut = shortcut
+        this.value = value
+        this.state = state
+    }
+}
+
 /**
  * Projects renderer commands into deterministic terminal cells. This is structural
  * evidence only: it does not model rasterization, antialiasing, shaping, or pixels.
@@ -28,14 +85,16 @@ public func renderDrawIrAscii(
     commands: Array<DrawIrCommand>,
     logicalWidth: Float32,
     logicalHeight: Float32,
-    options!: DrawIrAsciiOptions = DrawIrAsciiOptions()
+    options!: DrawIrAsciiOptions = DrawIrAsciiOptions(),
+    annotations!: Array<DrawIrAsciiAnnotation> = []
 ): String {
     if (logicalWidth <= 0.0 || logicalHeight <= 0.0) {
         throw IllegalArgumentException("Draw IR ASCII viewport must be positive")
     }
     let canvas = DrawIrAsciiCanvas(logicalWidth, logicalHeight, options)
     for (command in commands) { canvas.apply(command) }
-    canvas.render(commands.size)
+    let legend = canvas.annotate(annotations)
+    canvas.render(commands.size, legend)
 }
 
 private struct DrawIrAsciiRect {
@@ -71,6 +130,7 @@ private class DrawIrAsciiCanvas {
     let options: DrawIrAsciiOptions
     let cells = ArrayList<Array<Rune>>()
     let clips = ArrayList<DrawIrAsciiRect>()
+    let markerCells = ArrayList<Array<Bool>>()
 
     init(logicalWidth: Float32, logicalHeight: Float32, options: DrawIrAsciiOptions) {
         this.logicalWidth = logicalWidth
@@ -79,6 +139,7 @@ private class DrawIrAsciiCanvas {
         var row: Int64 = 0
         while (row < options.rows) {
             cells.add(Array<Rune>(options.columns, repeat: r' '))
+            markerCells.add(Array<Bool>(options.columns, repeat: false))
             row += 1
         }
     }
@@ -124,7 +185,38 @@ private class DrawIrAsciiCanvas {
         }
     }
 
-    func render(commandCount: Int64): String {
+    func annotate(annotations: Array<DrawIrAsciiAnnotation>): Array<DrawIrAsciiLegendEntry> {
+        let entries = ArrayList<DrawIrAsciiLegendEntry>()
+        var interactive: Int64 = 0
+        var focus: Int64 = 0
+        var visual: Int64 = 0
+        for (annotation in annotations) {
+            var ordinal: Int64 = 0
+            let token = match (annotation.kind) {
+                case DrawIrAsciiAnnotationKind.Interactive =>
+                    interactive += 1
+                    ordinal = interactive
+                    "$i${interactive}"
+                case DrawIrAsciiAnnotationKind.Focus =>
+                    focus += 1
+                    ordinal = focus
+                    "$f${focus}"
+                case DrawIrAsciiAnnotationKind.Visual =>
+                    visual += 1
+                    ordinal = visual
+                    "$v${visual}"
+            }
+            let marker = annotationMarker(annotation.kind, token)
+            let rect = annotationRect(annotation.rect)
+            var placed = placeMarker(rect, marker)
+            if (!placed) { placed = placeMarker(rect, compactAnnotationMarker(annotation.kind, ordinal)) }
+            if (!placed) { placed = placeMarker(rect, token) }
+            entries.add(DrawIrAsciiLegendEntry(annotation, token, placed))
+        }
+        entries.toArray()
+    }
+
+    func render(commandCount: Int64, legend: Array<DrawIrAsciiLegendEntry>): String {
         let out = StringBuilder()
         out.append("CangHui headless Draw IR ")
         out.append(logicalWidth)
@@ -147,7 +239,62 @@ private class DrawIrAsciiCanvas {
         out.append("+")
         appendRepeated(out, r'-', options.columns)
         out.append("+\nLegend: # solid  = bright  : translucent  . faint  o circle  - line  ~ ripple")
+        if (!legend.isEmpty()) {
+            out.append("\nSemantic map: [$iN] action  <$fN> focus/input  ($vN) visual")
+            out.append("\nCompact markers: [$N] action  <$N> focus/input  ($N) visual\n")
+            var first = true
+            for (entry in legend) {
+                if (!first) { out.append("\n") }
+                first = false
+                appendSemanticLegend(out, entry)
+            }
+        }
         out.toString()
+    }
+
+    private func annotationRect(rect: Rect): DrawIrAsciiRect {
+        DrawIrAsciiRect(column(rect.x), row(rect.y), column(rect.right()), row(rect.bottom()))
+    }
+
+    private func placeMarker(rect: DrawIrAsciiRect, marker: String): Bool {
+        let runes = marker.toRuneArray()
+        if (runes.isEmpty()) { return false }
+        let bounded = rect.intersect(DrawIrAsciiRect(0, 0, options.columns - 1, options.rows - 1))
+        if (bounded.right < bounded.left || bounded.bottom < bounded.top ||
+            bounded.right - bounded.left + 1 < runes.size) {
+            return false
+        }
+        let preferredY = (bounded.top + bounded.bottom) / 2
+        if (placeMarkerOnRow(bounded, preferredY, runes)) { return true }
+        var y = bounded.top
+        while (y <= bounded.bottom) {
+            if (y != preferredY && placeMarkerOnRow(bounded, y, runes)) { return true }
+            y += 1
+        }
+        false
+    }
+
+    private func placeMarkerOnRow(rect: DrawIrAsciiRect, y: Int64, runes: Array<Rune>): Bool {
+        var x = rect.left
+        while (x + runes.size - 1 <= rect.right) {
+            var available = true
+            var i: Int64 = 0
+            while (i < runes.size) {
+                if (markerCells[y][x + i]) { available = false; break }
+                i += 1
+            }
+            if (available) {
+                i = 0
+                while (i < runes.size) {
+                    cells[y][x + i] = runes[i]
+                    markerCells[y][x + i] = true
+                    i += 1
+                }
+                return true
+            }
+            x += 1
+        }
+        false
     }
 
     private func activeClip(): ?DrawIrAsciiRect {
@@ -272,6 +419,97 @@ private class DrawIrAsciiCanvas {
     private func rowDistance(value: Float32): Int64 {
         max(Int64(1), Int64(value / logicalHeight * Float32(options.rows)))
     }
+}
+
+private class DrawIrAsciiLegendEntry {
+    let annotation: DrawIrAsciiAnnotation
+    let token: String
+    let placed: Bool
+
+    init(annotation: DrawIrAsciiAnnotation, token: String, placed: Bool) {
+        this.annotation = annotation
+        this.token = token
+        this.placed = placed
+    }
+}
+
+private func annotationMarker(kind: DrawIrAsciiAnnotationKind, token: String): String {
+    match (kind) {
+        case DrawIrAsciiAnnotationKind.Interactive => "[${token}]"
+        case DrawIrAsciiAnnotationKind.Focus => "<${token}>"
+        case DrawIrAsciiAnnotationKind.Visual => "(${token})"
+    }
+}
+
+private func compactAnnotationMarker(kind: DrawIrAsciiAnnotationKind, ordinal: Int64): String {
+    match (kind) {
+        case DrawIrAsciiAnnotationKind.Interactive => "[$${ordinal}]"
+        case DrawIrAsciiAnnotationKind.Focus => "<$${ordinal}>"
+        case DrawIrAsciiAnnotationKind.Visual => "($${ordinal})"
+    }
+}
+
+private func appendSemanticLegend(out: StringBuilder, entry: DrawIrAsciiLegendEntry): Unit {
+    let annotation = entry.annotation
+    out.append(entry.token)
+    out.append(" - ")
+    let identity = if (annotation.component.isEmpty()) {annotation.id}
+        else {annotation.component + "#" + annotation.id}
+    out.append(legendQuote(identity))
+    appendLegendField(out, "role", annotation.role)
+    appendLegendField(out, "icon", annotation.icon)
+    appendLegendField(out, "label", annotation.label)
+    appendLegendField(out, "action", annotation.action)
+    appendLegendField(out, "shortcut", annotation.shortcut)
+    appendLegendField(out, "value", annotation.value)
+    appendLegendField(out, "state", annotation.state)
+    out.append(" | rect=(")
+    out.append(compactNumber(annotation.rect.x))
+    out.append(",")
+    out.append(compactNumber(annotation.rect.y))
+    out.append(",")
+    out.append(compactNumber(annotation.rect.w))
+    out.append(",")
+    out.append(compactNumber(annotation.rect.h))
+    out.append(")")
+    if (!entry.placed) { out.append(" | marker=legend-only") }
+    match (annotation.kind) {
+        case DrawIrAsciiAnnotationKind.Interactive =>
+            let x = Int64(annotation.rect.centerX())
+            let y = Int64(annotation.rect.centerY())
+            appendLegendField(out, "probe", "press ${x} ${y}; release ${x} ${y}")
+        case DrawIrAsciiAnnotationKind.Focus => appendLegendField(out, "probe", "focus " + annotation.id)
+        case DrawIrAsciiAnnotationKind.Visual => ()
+    }
+}
+
+private func appendLegendField(out: StringBuilder, name: String, value: String): Unit {
+    if (value.isEmpty()) { return }
+    out.append(" | ")
+    out.append(name)
+    out.append("=")
+    out.append(legendQuote(value))
+}
+
+private func legendQuote(value: String): String {
+    let out = StringBuilder()
+    out.append("\"")
+    for (r in value.toRuneArray()) {
+        if (r == r'\"') { out.append("\\\"") }
+        else if (r == r'\\') { out.append("\\\\") }
+        else if (r == r'\n') { out.append("\\n") }
+        else if (r == r'\r') { out.append("\\r") }
+        else if (r == r'\t') { out.append("\\t") }
+        else if (UInt32(r) < UInt32(32)) { out.append("?") }
+        else { out.append(r.toString()) }
+    }
+    out.append("\"")
+    out.toString()
+}
+
+private func compactNumber(value: Float32): String {
+    let integer = Int64(value)
+    if (Float32(integer) == value) {integer.toString()} else {value.toString()}
 }
 
 private func boundedCell(value: Float32, extent: Float32, cells: Int64): Int64 {
