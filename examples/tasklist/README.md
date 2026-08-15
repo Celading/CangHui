@@ -49,5 +49,5 @@ cjpm run
 按住每行左侧握点上下拖动改变优先级顺序；点任务标题勾选/取消完成。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot tasklist.bmp"
+cuic prnt . --output tasklist.bmp
 ```

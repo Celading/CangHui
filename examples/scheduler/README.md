@@ -58,5 +58,5 @@ cjpm run
 更新；填好主题点“添加到日程”排入列表。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot scheduler.bmp"
+cuic prnt . --output scheduler.bmp
 ```

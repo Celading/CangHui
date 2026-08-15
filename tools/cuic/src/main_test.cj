@@ -27,6 +27,40 @@ func pathHelpersKeepRootAndBasenameStable(): Unit {
 }
 
 @Test
+func prntResolvesTheBuiltExecutableWithoutCjpmRunArgumentForwarding(): Unit {
+    @Expect(builtExecutablePath("/tmp/demo", "release"), "/tmp/demo/target/release/bin/main")
+    @Expect(builtExecutablePath("/tmp/demo", "debug"), "/tmp/demo/target/debug/bin/main")
+    @Expect(builtExecutableCandidates("C:\\demo", "release")[1],
+        "C:\\demo/target/release/bin/main.exe")
+}
+
+@Test
+func prntCaptureFramesRequireAPositiveInteger(): Unit {
+    @Expect(parseCaptureFrames("12"), UInt64(12))
+    var rejected = false
+    try {
+        let _ = parseCaptureFrames("0")
+    } catch (_: CuicError) {
+        rejected = true
+    }
+    @Expect(rejected)
+}
+
+@Test
+func prntResolvesTheMatchingCangjieRuntimeDirectory(): Unit {
+    @Expect(cangjieRuntimeLibraryCandidate("/opt/cangjie", "macos", "arm64"),
+        "/opt/cangjie/runtime/lib/darwin_aarch64_cjnative")
+    @Expect(cangjieRuntimeLibraryCandidate("C:\\Cangjie", "windows", "AMD64"),
+        "C:\\Cangjie/runtime/lib/windows_x86_64_cjnative")
+    @Expect(cangjieRuntimeLibraryCandidate("/opt/cangjie", "linux", "aarch64"),
+        "/opt/cangjie/runtime/lib/linux_aarch64_cjnative")
+    @Expect(cangjieRuntimeLibraryName("macos"), "libcangjie-runtime.dylib")
+    @Expect(cangjieRuntimeLibraryName("linux"), "libcangjie-runtime.so")
+    @Expect(resolveCangjieHome("/sdk/cangjie/", "/ignored/bin/cjc"), "/sdk/cangjie")
+    @Expect(resolveCangjieHome("", "/opt/cangjie/bin/cjc"), "/opt/cangjie")
+}
+
+@Test
 func packageNamesAreCompilerFriendly(): Unit {
     @Expect(sanitizePackageName("Hello-CangUI"), "hello_cangui")
     @Expect(sanitizePackageName("2026 Demo"), "app_2026_demo")
@@ -83,6 +117,12 @@ func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
     @Expect(isKModeLauncherNoise("cjpm build success"))
     @Expect(isKModeLauncherNoise(
         "Warning: the functionality of 'CJPM_CONFIG' will be deprecated, please use cangjie-repo.toml"
+    ))
+    @Expect(isKModeLauncherNoise(
+        "Warning: field 'profile.build.combined' in '/tmp/project/core/cjpm.toml' is experimental"
+    ))
+    @Expect(isKModeLauncherNoise(
+        "Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows'"
     ))
     @Expect(!isKModeLauncherNoise("application wrote unexpected stdout"))
 }

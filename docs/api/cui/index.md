@@ -155,6 +155,7 @@ import cui.*
 | 符号 | 说明 |
 |---|---|
 | [`DesktopApp`](desktop/DesktopApp.md) | 桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 `run` 的界面构建函数重建组件树、布局、分发输入、绘制。 |
+| [`DesktopCaptureRequest`](desktop/DesktopCaptureRequest.md) | 由宿主或应用显式提交的一次稳定渲染采集请求。 |
 | [`FramePacing`](desktop/FramePacing.md) | 桌面渲染帧的设备同步、固定目标帧率或不封顶策略。 |
 
 ## 再导出（外部模块 sdl）

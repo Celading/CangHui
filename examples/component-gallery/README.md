@@ -9,16 +9,16 @@ Run one interactive matrix:
 cjpm run
 ```
 
-Capture a deterministic target through the framework snapshot argument:
+Capture a deterministic target through the framework capture interface:
 
 ```bash
-cjpm run -- --preview desktop --snapshot /tmp/canghui-desktop.bmp
+cuic prnt macos . --output /tmp/canghui-desktop.bmp -- --preview desktop
 ```
 
 Use `--theme light` or `--theme dark` to capture either stable theme endpoint:
 
 ```bash
-cjpm run -- --preview desktop --theme light --snapshot /tmp/canghui-desktop-light.bmp
+cuic prnt macos . --output /tmp/canghui-desktop-light.bmp -- --preview desktop --theme light
 ```
 
 Select the theme-adjacent automatic motion expression with `--motion basic`,
@@ -45,8 +45,8 @@ theme and an early snapshot frame. This route clicks the real theme IconButton,
 so the image also contains its local InkWell ripple:
 
 ```bash
-cjpm run -- --preview desktop --transition-theme light --snapshot-frame 12 \
-  --snapshot /tmp/canghui-desktop-reveal.bmp
+cuic prnt macos . --output /tmp/canghui-desktop-reveal.bmp --frames 12 -- \
+  --preview desktop --transition-theme light
 ```
 
 The Android, HarmonyOS, and iOS entries are common-layout previews. They do not

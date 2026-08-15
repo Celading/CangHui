@@ -48,5 +48,5 @@ cjpm run
 滚动浏览各令牌尺度。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot styleguide.bmp"
+cuic prnt . --output styleguide.bmp
 ```

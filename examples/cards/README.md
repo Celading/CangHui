@@ -50,5 +50,5 @@ cjpm run
 用 Stepper 调阴影层级与圆角、Switch 切边框，预览卡片实时更新。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot cards.bmp"
+cuic prnt . --output cards.bmp
 ```

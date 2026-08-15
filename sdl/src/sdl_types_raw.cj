@@ -63,6 +63,7 @@ internal let SDL_BUTTON_RIGHT: UInt8 = UInt8(3)
 internal let SDL_BLENDMODE_NONE: UInt32 = UInt32(0)
 internal let SDL_BLENDMODE_BLEND: UInt32 = UInt32(1)
 internal let SDL_TEXTUREACCESS_TARGET: Int32 = 2
+internal let SDL_TEXTUREACCESS_STREAMING: Int32 = 1
 internal let SDL_SCALEMODE_LINEAR: Int32 = 1
 internal let SDL_PIXELFORMAT_RGBA8888: UInt32 = 0x16462004
 internal let SDL_PROGRESS_STATE_INVALID: Int32 = -1

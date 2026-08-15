@@ -54,5 +54,5 @@ cjpm run
 点“播放”并排推进各轨道，再点“复位”缓动回起点。支持视觉回归快照（快照落在动画中途）：
 
 ```powershell
-cjpm run --run-args "--snapshot motion.bmp"
+cuic prnt . --output motion.bmp
 ```

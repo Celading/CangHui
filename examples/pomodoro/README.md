@@ -34,5 +34,5 @@ cjpm run
 点「开始」进入专注段，到点自动休息并弹通知；「跳过阶段」不计数直接切段。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot pomodoro.bmp"
+cuic prnt . --output pomodoro.bmp
 ```

@@ -55,5 +55,5 @@ cjpm run
 搜索框已预填“高亮”，可直接改写或点预设标签（界面 / 动画 / 圆角 / RichText），命中处即时高亮。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot highlight.bmp"
+cuic prnt . --output highlight.bmp
 ```

@@ -51,7 +51,7 @@ cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <
 cuic build [platform] [project]
 cuic test [platform] [project]
 cuic run [platform] [project|example]
-cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [-- <app args...>]
+cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [-- <app args...>]
 cuic clean [project]
 cuic examples
 cuic version
@@ -236,7 +236,9 @@ https://alliance-communityfile-drcn.dbankcdn.com/FileServer/getFile/cmtyManage/0
 
 ## Window Capture
 
-`prnt` exposes CangHui's renderer-level snapshot instrumentation. The application renders 48 frames,
+`prnt` exposes CangHui's renderer-level capture interface. It builds the project, launches the resulting
+application executable directly, and injects a `DesktopCaptureRequest` through the host environment.
+It does not depend on `cjpm run` forwarding application arguments. The application renders 48 frames,
 reads the resolved SDL renderer pixels, writes a BMP, and exits. The CLI can retain BMP or convert it
 to PNG with ImageMagick, macOS `sips`, or Windows System.Drawing.
 
@@ -245,6 +247,8 @@ to PNG with ImageMagick, macOS `sips`, or Windows System.Drawing.
 ./bin/cuic prnt macos ../HelloCangHui -o snapshots/hello.bmp
 ./bin/cuic prnt macos component-gallery --output snapshots/symbols.png \
   -- --preview desktop --section symbols
+./bin/cuic prnt macos component-gallery --output snapshots/reveal.png --frames 12 \
+  -- --preview desktop --transition-theme light
 ```
 
 This captures the application render surface rather than the surrounding desktop and does not require

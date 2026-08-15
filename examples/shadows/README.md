@@ -49,5 +49,5 @@ cjpm run
 调层级 Stepper 对照两卡的深度感差异（层级越高差异越明显）。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot shadows.bmp"
+cuic prnt . --output shadows.bmp
 ```

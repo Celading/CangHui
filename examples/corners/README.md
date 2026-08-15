@@ -75,5 +75,5 @@ cjpm run
 发送，新气泡带着同样的尾角出现。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot corners.bmp"
+cuic prnt . --output corners.bmp
 ```

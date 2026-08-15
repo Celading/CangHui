@@ -62,5 +62,5 @@ cjpm run
 单击文件夹逐层进入、单击文件选中查看详情，“上级”或顶部面包屑任意一段跳回。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot explorer.bmp"
+cuic prnt . --output explorer.bmp
 ```

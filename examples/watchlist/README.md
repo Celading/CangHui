@@ -55,5 +55,5 @@ cjpm run
 点每行的圆点给电影评分，再点当前分可清除；顶部汇总随之更新。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot watchlist.bmp"
+cuic prnt . --output watchlist.bmp
 ```

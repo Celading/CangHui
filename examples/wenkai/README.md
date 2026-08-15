@@ -57,5 +57,5 @@ cjpm run
 切换上方三档字重观察同一段文字的笔画变化。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot wenkai.bmp"
+cuic prnt . --output wenkai.bmp
 ```

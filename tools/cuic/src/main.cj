@@ -1,9 +1,10 @@
 package cuic
 
-import std.collection.ArrayList
-import std.env.{getCommandLine, getVariable}
+import std.collection.{ArrayList, HashMap}
+import std.convert.*
+import std.env.{getCommandLine, getVariable, getVariables}
 import std.fs.{Directory, File, Path, exists, removeIfExists}
-import std.process.executeWithOutput
+import std.process.{ProcessRedirect, executeWithOutput, launch}
 
 let VERSION = "0.4.0"
 
@@ -152,11 +153,12 @@ func helpText(): String {
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +
-    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [-- <app args...>]\n" +
+    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [-- <app args...>]\n" +
     "  cuic clean [project]\n" +
     "  cuic examples\n" +
     "  cuic version\n\n" +
     "Project scripts: declare portable lifecycle pipelines in canghui.toml, then run cuic <name>.\n" +
+    "prnt builds once, launches the executable directly, and uses DesktopCaptureRequest; it does not rely on cjpm run argument forwarding.\n" +
     "Framework: generated projects use a public Git dependency pinned by commit and CJPM cache. " +
     "Use --canghui-path or CANGHUI_FRAMEWORK_ROOT only for local framework development."
 }
@@ -630,6 +632,7 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     var platform = hostPlatform()
     var requested = "notepad"
     var output = ""
+    var captureFrames: UInt64 = UInt64(48)
     var projectSet = false
     let appArgs = ArrayList<String>()
     var i = start
@@ -639,6 +642,12 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
         if (current == "--output" || current == "-o") {
             if (i + 1 >= args.size) { throw CuicError("--output requires a path") }
             output = args[i + 1]
+            i += 2
+            continue
+        }
+        if (current == "--frames") {
+            if (i + 1 >= args.size) { throw CuicError("--frames requires a positive integer") }
+            captureFrames = parseCaptureFrames(args[i + 1])
             i += 2
             continue
         }
@@ -666,11 +675,13 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     if (!lowerBmp && !lowerPng) { throw CuicError("prnt output must end in .bmp or .png") }
     let snapshot = if (lowerBmp) { output } else { output + ".bmp" }
     removeIfExists(snapshot)
-    println("==> capturing ${basename(project)} (${platform})")
-    let runArgs = ArrayList<String>()
-    for (value in ["run", "--", "--snapshot", snapshot]) { runArgs.add(value) }
-    for (value in appArgs) { runArgs.add(value) }
-    let code = executeCjpm(project, runArgs.toArray(), framework)
+    println("==> building ${basename(project)} (${platform})")
+    let buildCode = executeCjpm(project, ["build"], framework)
+    if (buildCode != 0) { return buildCode }
+    let executable = builtExecutable(project)
+    println("==> capturing ${basename(project)} (${platform}) via CangHui capture interface")
+    let code = executeApplication(project, executable, appArgs.toArray(), framework, snapshot,
+        captureFrames)
     if (code != 0) { return code }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
     if (lowerPng) {
@@ -680,6 +691,133 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     }
     println("snapshot: ${output}")
     0
+}
+
+func parseCaptureFrames(value: String): UInt64 {
+    try {
+        let frames = UInt64.parse(value)
+        if (frames > UInt64(0)) { return frames }
+    } catch (_: Exception) {}
+    throw CuicError("--frames requires a positive integer")
+}
+
+func builtExecutable(project: String): String {
+    for (profile in ["release", "debug"]) {
+        for (path in builtExecutableCandidates(project, profile)) {
+            if (exists(path)) { return path }
+        }
+    }
+    throw CuicError("cjpm build completed but no executable was found at target/release/bin/main")
+}
+
+func builtExecutablePath(project: String, profile: String): String {
+    joinPath(project, "target/${profile}/bin/main")
+}
+
+func builtExecutableCandidates(project: String, profile: String): Array<String> {
+    let base = builtExecutablePath(project, profile)
+    [base, base + ".exe"]
+}
+
+func executeApplication(
+    project: String,
+    executable: String,
+    appArgs: Array<String>,
+    framework: String,
+    capturePath: String,
+    captureFrames: UInt64
+): Int64 {
+    let environment = applicationEnvironment(framework, capturePath, captureFrames)
+    try {
+        let process = launch(
+            executable,
+            appArgs,
+            workingDirectory: Path(project),
+            environment: environment,
+            stdIn: ProcessRedirect.Inherit,
+            stdOut: ProcessRedirect.Inherit,
+            stdErr: ProcessRedirect.Inherit
+        )
+        process.wait()
+    } catch (e: Exception) {
+        println("error: failed to execute ${executable}: ${e.message}")
+        127
+    }
+}
+
+func applicationEnvironment(
+    framework: String,
+    capturePath: String,
+    captureFrames: UInt64
+): HashMap<String, String> {
+    let environment = HashMap<String, String>()
+    for ((key, value) in getVariables()) { environment.add(key, value) }
+    let sdl = joinPath(framework, "sdl/.sdl3")
+    let runtime = cangjieRuntimeLibraryDirectory()
+    if (hostPlatform() == "macos") {
+        environment.add("DYLD_LIBRARY_PATH", "${runtime}:${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
+    } else if (hostPlatform() == "windows") {
+        environment.add("PATH", "${runtime};${sdl};${readEnv("PATH")}")
+    } else {
+        environment.add("LD_LIBRARY_PATH", "${runtime}:${sdl}:${readEnv("LD_LIBRARY_PATH")}")
+    }
+    environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
+    environment.add("CANGHUI_CAPTURE_PATH", capturePath)
+    environment.add("CANGHUI_CAPTURE_FRAMES", captureFrames.toString())
+    environment
+}
+
+func cangjieRuntimeLibraryDirectory(): String {
+    let home = resolveCangjieHome(readEnv("CANGJIE_HOME"), installedCompilerPath())
+    if (home.isEmpty()) {
+        throw CuicError("cannot resolve Cangjie home from CANGJIE_HOME or the cjc executable")
+    }
+    let directory = cangjieRuntimeLibraryCandidate(home, hostPlatform(), doctorHostArchitecture())
+    let library = joinPath(directory, cangjieRuntimeLibraryName(hostPlatform()))
+    requireFile(library, "Cangjie runtime library is missing: ${library}")
+    directory
+}
+
+func installedCompilerPath(): String {
+    let command = if (hostPlatform() == "windows") { "where" } else { "which" }
+    try {
+        let (code, out, _) = executeWithOutput(command, ["cjc"])
+        if (code == 0) {
+            let lines = String.fromUtf8(out).split("\n")
+            if (!lines.isEmpty()) { return trimAscii(lines[0]) }
+        }
+    } catch (_: Exception) {}
+    ""
+}
+
+func resolveCangjieHome(configured: String, compilerPath: String): String {
+    if (!configured.isEmpty()) { return trimTrailingSlash(configured) }
+    if (compilerPath.isEmpty()) { return "" }
+    parentPath(parentPath(compilerPath))
+}
+
+func cangjieRuntimeLibraryCandidate(home: String, platform: String, architecture: String): String {
+    let arch = if (architecture == "arm64" || architecture == "aarch64") {
+        "aarch64"
+    } else if (architecture == "x86_64" || architecture == "AMD64") {
+        "x86_64"
+    } else {
+        architecture
+    }
+    let system = if (platform == "macos") {
+        "darwin"
+    } else if (platform == "windows") {
+        "windows"
+    } else {
+        "linux"
+    }
+    joinPath(home, "runtime/lib/${system}_${arch}_cjnative")
+}
+
+func cangjieRuntimeLibraryName(platform: String): String {
+    if (platform == "macos") { return "libcangjie-runtime.dylib" }
+    if (platform == "windows") { return "libcangjie-runtime.dll" }
+    "libcangjie-runtime.so"
 }
 
 func convertPng(source: String, output: String): Int64 {

@@ -69,5 +69,5 @@ cjpm run
 按钮禁用。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot booking.bmp"
+cuic prnt . --output booking.bmp
 ```
