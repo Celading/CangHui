@@ -8,6 +8,8 @@ public struct WindowSpec {
     public let highDpi: Bool
     /** Whether the platform draws its native title bar and window border. */
     public let decorated: Bool
+    /** Convenience alias: `frameless: true` is equivalent to `decorated: false`. */
+    public let frameless: Bool
     public let scale: Float32
     // Whether the renderer waits for the vertical blank on present. On (the default) prevents
     // tearing and is the right choice for real applications. Off lets the frame loop run
@@ -29,7 +31,8 @@ public struct WindowSpec {
         scale!: Float32 = 1.0,
         vsync!: Bool = true,
         supersample!: Int32 = 2,
-        decorated!: Bool = true
+        decorated!: Bool = true,
+        frameless!: Bool = false
     ) {
         this.title = title
         this.width = width
@@ -37,6 +40,7 @@ public struct WindowSpec {
         this.resizable = resizable
         this.highDpi = highDpi
         this.decorated = decorated
+        this.frameless = frameless
         this.scale = normalizedScale(scale)
         this.vsync = vsync
         this.supersample = supersample
@@ -176,7 +180,7 @@ internal func windowCreationFlags(spec: WindowSpec): UInt64 {
     if (spec.highDpi) {
         flags = flags | SDL_WINDOW_HIGH_PIXEL_DENSITY
     }
-    if (!spec.decorated) {
+    if (!spec.decorated || spec.frameless) {
         flags = flags | SDL_WINDOW_BORDERLESS
     }
     flags

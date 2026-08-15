@@ -127,3 +127,16 @@ private func isUnknownProgress(state: ?WindowProgressState): Bool {
         case None => true
     }
 }
+
+@Test
+func windowSpecFramelessAliasAddsBorderlessFlag(): Unit {
+    let framed = windowCreationFlags(WindowSpec("Framed", 100, 100, frameless: false))
+    let frameless = windowCreationFlags(WindowSpec("Frameless", 100, 100, frameless: true))
+    let explicitDecorated = WindowSpec("Both", 100, 100, decorated: true, frameless: true)
+
+    @Expect((framed & SDL_WINDOW_BORDERLESS) == UInt64(0))
+    @Expect((frameless & SDL_WINDOW_BORDERLESS) != UInt64(0))
+    @Expect((windowCreationFlags(explicitDecorated) & SDL_WINDOW_BORDERLESS) != UInt64(0))
+    @Expect(explicitDecorated.frameless)
+    @Expect(explicitDecorated.decorated)
+}
