@@ -83,3 +83,25 @@ func themeCarriesMotionLevelBesideVisualTokens(): Unit {
         case _ => @Fail("withMotionLevel should preserve colors and replace motion")
     }
 }
+
+@Test
+func reducedMotionCollapsesAutomaticDurationsAndPreservesExplicit(): Unit {
+    let automatic = AnimationSpec.automatic(duration: UInt64(200), easing: Easing.Linear)
+    @Expect(automatic.resolvedDuration(MotionLevel.Standard, true), UInt64(1))
+    @Expect(automatic.resolvedDuration(MotionLevel.Full, true), UInt64(1))
+    @Expect(automatic.resolvedDuration(MotionLevel.Standard, false), UInt64(200))
+
+    let explicit = AnimationSpec(duration: UInt64(200), easing: Easing.Linear)
+    @Expect(explicit.resolvedDuration(MotionLevel.Standard, true), UInt64(200))
+}
+
+@Test
+func themeCarriesReduceMotionBesideVisualTokens(): Unit {
+    let normal = Theme.light()
+    @Expect(!normal.reduceMotion)
+    let reduced = Theme.light(reduceMotion: true)
+    @Expect(reduced.reduceMotion)
+    @Expect(reduced.withMotionLevel(MotionLevel.Full).reduceMotion)
+    @Expect(!reduced.withReduceMotion(false).reduceMotion)
+    @Expect(Theme.dark(reduceMotion: true).reduceMotion)
+}

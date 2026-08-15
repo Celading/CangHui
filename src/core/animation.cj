@@ -206,7 +206,7 @@ public class Animator {
 
     /** Animates with a reusable automatic or explicit animation property. */
     public func animate(ctx: UiContext, target!: Float32, spec!: AnimationSpec): Float32 {
-        configure(spec, ctx.theme.motionLevel)
+        configure(spec, ctx.theme.motionLevel, ctx.theme.reduceMotion)
         animate(ctx, target: target)
     }
 
@@ -246,8 +246,8 @@ public class Animator {
         current = from + (to - from) * easing.ease((elapsedMs - delayMs) / durationMs)
     }
 
-    private func configure(spec: AnimationSpec, level: MotionLevel): Unit {
-        durationMs = max(1.0, Float32(Int64(spec.resolvedDuration(level))))
+    private func configure(spec: AnimationSpec, level: MotionLevel, reduceMotion: Bool): Unit {
+        durationMs = max(1.0, Float32(Int64(spec.resolvedDuration(level, reduceMotion))))
         delayMs = max(0.0, Float32(Int64(spec.delay)))
         totalMs = delayMs + durationMs
         easing = spec.easing

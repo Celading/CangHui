@@ -31,6 +31,8 @@ public struct Theme {
     public let controlRadius: Float32
     public let borderWidth: Float32
     public let motionLevel: MotionLevel
+    /** When true, automatic animations collapse to the shortest duration. */
+    public let reduceMotion: Bool
     public let fontFamily: ?String
 
     public init(
@@ -52,6 +54,7 @@ public struct Theme {
         controlRadius!: Float32 = 9.0,
         borderWidth!: Float32 = 1.0,
         motionLevel!: MotionLevel = MotionLevel.Standard,
+        reduceMotion!: Bool = false,
         fontFamily!: ?String = None<String>
     ) {
         this.bg = bg
@@ -72,10 +75,11 @@ public struct Theme {
         this.controlRadius = controlRadius
         this.borderWidth = borderWidth
         this.motionLevel = motionLevel
+        this.reduceMotion = reduceMotion
         this.fontFamily = fontFamily
     }
 
-    public static func light(motionLevel!: MotionLevel = MotionLevel.Standard): Theme {
+    public static func light(motionLevel!: MotionLevel = MotionLevel.Standard, reduceMotion!: Bool = false): Theme {
         Theme(
             bg: Color.rgb(242, 245, 249),
             panel: Color.rgb(255, 255, 255),
@@ -93,7 +97,8 @@ public struct Theme {
             radius: 14.0,
             smallRadius: 8.0,
             controlRadius: 10.0,
-            motionLevel: motionLevel
+            motionLevel: motionLevel,
+            reduceMotion: reduceMotion
         )
     }
 
@@ -118,11 +123,12 @@ public struct Theme {
             controlRadius: controlRadius,
             borderWidth: borderWidth,
             motionLevel: motionLevel,
+            reduceMotion: reduceMotion,
             fontFamily: value
         )
     }
 
-    public static func dark(motionLevel!: MotionLevel = MotionLevel.Standard): Theme {
+    public static func dark(motionLevel!: MotionLevel = MotionLevel.Standard, reduceMotion!: Bool = false): Theme {
         Theme(
             bg: Color.rgb(18, 22, 29),
             panel: Color.rgb(28, 34, 44),
@@ -140,7 +146,8 @@ public struct Theme {
             radius: 14.0,
             smallRadius: 8.0,
             controlRadius: 10.0,
-            motionLevel: motionLevel
+            motionLevel: motionLevel,
+            reduceMotion: reduceMotion
         )
     }
 
@@ -165,6 +172,33 @@ public struct Theme {
             controlRadius: controlRadius,
             borderWidth: borderWidth,
             motionLevel: value,
+            reduceMotion: reduceMotion,
+            fontFamily: fontFamily
+        )
+    }
+
+    /** Returns the same visual palette with reduced-motion enabled or disabled. */
+    public func withReduceMotion(value: Bool): Theme {
+        Theme(
+            bg: bg,
+            panel: panel,
+            panelEdge: panelEdge,
+            text: text,
+            mutedText: mutedText,
+            accent: accent,
+            accentText: accentText,
+            danger: danger,
+            field: field,
+            fieldActive: fieldActive,
+            panelRaised: panelRaised,
+            accentSoft: accentSoft,
+            shadow: shadow,
+            radius: radius,
+            smallRadius: smallRadius,
+            controlRadius: controlRadius,
+            borderWidth: borderWidth,
+            motionLevel: motionLevel,
+            reduceMotion: value,
             fontFamily: fontFamily
         )
     }
@@ -191,6 +225,7 @@ public struct Theme {
             controlRadius: controlRadius + (other.controlRadius - controlRadius) * k,
             borderWidth: borderWidth + (other.borderWidth - borderWidth) * k,
             motionLevel: if (k < 0.5) { motionLevel } else { other.motionLevel },
+            reduceMotion: reduceMotion || other.reduceMotion,
             fontFamily: if (k < 0.5) { fontFamily } else { other.fontFamily }
         )
     }

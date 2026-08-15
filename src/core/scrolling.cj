@@ -126,6 +126,7 @@ protected class ScrollMotion {
         contentExtent: Float32,
         viewportExtent: Float32,
         motionLevel: MotionLevel,
+        reduceMotion: Bool,
         deltaMs: UInt64,
         options: ScrollOptions
     ): Float32 {
@@ -146,7 +147,7 @@ protected class ScrollMotion {
                     cancel(boundedCurrent)
                     return boundedCurrent
                 }
-                let duration = options.animation.resolvedDuration(motionLevel)
+                let duration = options.animation.resolvedDuration(motionLevel, reduceMotion)
                 elapsedMs = min(duration, elapsedMs + deltaMs)
                 let progress = Float32(Int64(elapsedMs)) / Float32(Int64(duration))
                 let next = clampF32(from + (targetOffset - from) * options.animation.easing.ease(progress),
@@ -177,7 +178,7 @@ protected func advanceScrollMotion(
     options: ScrollOptions
 ): Unit {
     let next = motion.advance(offset.value, contentExtent, viewportExtent, ctx.theme.motionLevel,
-        ctx.frame.deltaMs, options)
+        ctx.theme.reduceMotion, ctx.frame.deltaMs, options)
     if (next != offset.value) {
         offset.value = next
     }

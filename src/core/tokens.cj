@@ -112,6 +112,19 @@ public struct AnimationSpec {
             duration
         }
     }
+
+    /**
+     * Resolves duration under a motion-level and optional reduced-motion policy.
+     * Automatic timings collapse to the shortest duration when `reduceMotion` is true;
+     * explicit timings are preserved because the caller chose them exactly.
+     */
+    public func resolvedDuration(level: MotionLevel, reduceMotion: Bool): UInt64 {
+        if (reduceMotion && followsMotionLevel) {
+            UInt64(1)
+        } else {
+            resolvedDuration(level)
+        }
+    }
 }
 
 /**
