@@ -398,3 +398,26 @@ func joinStringsUsesSeparator(): Unit {
     @Expect(joinStrings(["a", "b", "c"], ", "), "a, b, c")
     @Expect(joinStrings([], ", "), "")
 }
+
+@Test
+func helpTextListsPviewAndTutorial(): Unit {
+    let help = helpText()
+    @Expect(help.contains("cuic pview"))
+    @Expect(help.contains("pview prints the current CangHui layout"))
+    @Expect(help.contains("probe ascii"))
+}
+
+@Test
+func pviewUsesSameAsciiTargetParser(): Unit {
+    let parsed = parseProbeTarget(
+        ["cuic", "pview", "component-gallery", "gallery.primary-button",
+            "--columns", "100", "--rows", "30", "--events", "move-in 10 10"],
+        2,
+        true,
+        allowAscii: true
+    )
+    @Expect(parsed.name, "gallery.primary-button")
+    @Expect(parsed.columns, Int64(100))
+    @Expect(parsed.rows, Int64(30))
+    @Expect(parsed.script, "move-in 10 10")
+}

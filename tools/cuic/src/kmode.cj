@@ -207,13 +207,21 @@ func probeCommand(args: Array<String>, start: Int64): Int64 {
             parsed.name, parsed.json)
     }
     if (action == "ascii") {
-        let parsed = parseProbeTarget(args, start + 1, true, allowAscii: true)
-        if (parsed.json) { throw CuicError("probe ascii does not accept --json") }
-        let request = "@cui-ascii ${parsed.columns} ${parsed.rows}\n" + parsed.script
-        return runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
-            parsed.name, false)
+        return runProbeAscii(args, start + 1, "probe ascii")
     }
     throw CuicError("unknown probe action '${action}'")
+}
+
+func pviewCommand(args: Array<String>, start: Int64): Int64 {
+    return runProbeAscii(args, start, "pview")
+}
+
+func runProbeAscii(args: Array<String>, start: Int64, commandName: String): Int64 {
+    let parsed = parseProbeTarget(args, start, true, allowAscii: true)
+    if (parsed.json) { throw CuicError(commandName + " does not accept --json") }
+    let request = "@cui-ascii ${parsed.columns} ${parsed.rows}\n" + parsed.script
+    return runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
+        parsed.name, false)
 }
 
 class ProbeTargetSelection {

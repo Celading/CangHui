@@ -66,6 +66,9 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "probe") {
         return probeCommand(args, 2)
     }
+    if (command == "pview") {
+        return pviewCommand(args, 2)
+    }
     if (command == "device") {
         return deviceCommand(args, 2)
     }
@@ -319,8 +322,8 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
-    "  cuic probe ascii [project] <probe> [--script <file>|--events <script>]\n" +
-    "      [--columns <20..240>] [--rows <8..100>]\n" +
+    "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
+    "  cuic probe ascii [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]  # alias of pview\n" +
     "  cuic scripts init|list [project]\n" +
     "  cuic scripts run <name> [project]\n" +
     "  cuic dependency update [project]\n" +
@@ -335,6 +338,13 @@ func helpText(): String {
     "Project scripts: declare portable lifecycle pipelines in canghui.toml, then run cuic <name>.\n" +
     "prnt builds once, launches the executable directly, and uses DesktopCaptureRequest; it does not rely on cjpm run argument forwarding.\n" +
     "debug is the explicit debug channel; production builds are the default and never embed the capture service.\n" +
+    "pview prints the current CangHui layout as a deterministic ASCII projection from the\n" +
+    "  recording-headless Draw IR, without opening a window. Tutorial:\n" +
+    "  cuic pview <probe>                       # default 96x32 grid\n" +
+    "  cuic pview <probe> --columns 120 --rows 40\n" +
+    "  cuic pview <probe> --events 'press 80 35\\nrelease 80 35'   # drive state before printing\n" +
+    "  cuic pview <project> <probe> --script events.txt\n" +
+    "  Example probe: coreplayer.layout (CorePlayer), gallery.primary-button (Component Gallery).\n" +
     "Framework: generated projects use a public Git dependency pinned by commit and CJPM cache. " +
     "Use --canghui-path or CANGHUI_FRAMEWORK_ROOT only for local framework development."
 }
