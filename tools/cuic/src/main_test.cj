@@ -144,6 +144,7 @@ func kModeDependencyScannerStaysInsideDependencySections(): Unit {
 @Test
 func integratedFrameworkRootWinsBeforeCompatibilityAliases(): Unit {
     let root = integratedFrameworkRoot()
+    @Expect(root.size > 0)
     @Expect(frameworkRootCandidate(root))
 }
 
@@ -300,4 +301,100 @@ func projectScriptsRejectShellAndReservedCommands(): Unit {
         malformedRejected = true
     }
     @Expect(malformedRejected)
+}
+
+@Test
+func buildModeAcceptsReleaseAndDebug(): Unit {
+    @Expect(normalizeBuildMode("release"), "release")
+    @Expect(normalizeBuildMode("debug"), "debug")
+    var rejected = false
+    try {
+        let _ = normalizeBuildMode("prod")
+    } catch (_: CuicError) {
+        rejected = true
+    }
+    @Expect(rejected)
+}
+
+@Test
+func prntOptionsParseDeviceAppAndMode(): Unit {
+    let args = ["cuic", "prnt", "harmony", "demo", "--device", "my-phone", "--app", "com.example.demo", "--mode", "debug", "--output", "/tmp/ui.bmp"]
+    let options = parsePrntOptions(args, 2)
+    @Expect(options.platform, "harmony")
+    @Expect(options.requested, "demo")
+    @Expect(options.device, "my-phone")
+    @Expect(options.app, "com.example.demo")
+    @Expect(options.mode, "debug")
+    @Expect(options.output, "/tmp/ui.bmp")
+}
+
+@Test
+func prntOptionsDefaultToRelease(): Unit {
+    let args = ["cuic", "prnt", "macos", "notepad"]
+    let options = parsePrntOptions(args, 2)
+    @Expect(options.mode, "release")
+    @Expect(options.device, "")
+    @Expect(options.app, "")
+}
+
+@Test
+func prntOptionsRejectMissingDeviceValue(): Unit {
+    var rejected = false
+    try {
+        let _ = parsePrntOptions(["cuic", "prnt", "--device"], 2)
+    } catch (_: CuicError) {
+        rejected = true
+    }
+    @Expect(rejected)
+}
+
+@Test
+func debugOptionsParseDeviceAppMode(): Unit {
+    let args = ["cuic", "debug", "harmony", "demo", "--device", "phone-1", "--app", "com.example.demo", "--mode", "debug"]
+    let options = parseDebugOptions(args, 2)
+    @Expect(options.platform, "harmony")
+    @Expect(options.requested, "demo")
+    @Expect(options.device, "phone-1")
+    @Expect(options.app, "com.example.demo")
+    @Expect(options.mode, "debug")
+}
+
+@Test
+func debugOptionsDefaultToDebugMode(): Unit {
+    let args = ["cuic", "debug", "macos", "notepad"]
+    let options = parseDebugOptions(args, 2)
+    @Expect(options.mode, "debug")
+    @Expect(options.device, "")
+    @Expect(options.app, "")
+}
+
+@Test
+func harmonyPlatformAliasesNormalize(): Unit {
+    @Expect(normalizePlatform("harmony"), "harmony")
+    @Expect(normalizePlatform("ohos"), "harmony")
+    @Expect(isPlatform("ohos"))
+    @Expect(!isPlatform("tvos"))
+}
+
+@Test
+func hdcTargetsParseFiltersEmptyAndHeaderLines(): Unit {
+    let output = "Empty\n192.168.0.108:5555\n\n127.0.0.1:5555  connected\n"
+    let targets = parseHdcTargets(output)
+    @Expect(targets.size, 2)
+    @Expect(targets[0], "192.168.0.108:5555")
+    @Expect(targets[1], "127.0.0.1:5555")
+}
+
+@Test
+func hasHdcTargetMatchesExactAliasOnly(): Unit {
+    let targets = ["192.168.0.108:5555", "local"]
+    @Expect(hasHdcTarget(targets, "192.168.0.108:5555"))
+    @Expect(hasHdcTarget(targets, "local"))
+    @Expect(!hasHdcTarget(targets, "192.168.0.108"))
+}
+
+@Test
+func joinStringsUsesSeparator(): Unit {
+    @Expect(joinStrings(["a", "b", "c"], ", "), "a, b, c")
+    @Expect(joinStrings([], ", "), "")
 }
