@@ -14,6 +14,7 @@ package cui
 public import sdl.Color
 public import sdl.CuiException
 public import sdl.DrawIrCommand
+public import sdl.DrawIrAsciiOptions
 public import sdl.FontSizes
 public import sdl.FontStyle
 public import sdl.Fonts
@@ -49,6 +50,7 @@ public import sdl.WindowProgressState
 public import sdl.WindowSpec
 public import sdl.clampF32
 public import sdl.drawIcon
+public import sdl.renderDrawIrAscii
 public import sdl.imageFormatFromPath
 public import sdl.sdlRevision
 public import sdl.sdlVersion

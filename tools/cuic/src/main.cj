@@ -147,6 +147,8 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
+    "  cuic probe ascii [project] <probe> [--script <file>|--events <script>]\n" +
+    "      [--columns <20..240>] [--rows <8..100>]\n" +
     "  cuic scripts init|list [project]\n" +
     "  cuic scripts run <name> [project]\n" +
     "  cuic dependency update [project]\n" +

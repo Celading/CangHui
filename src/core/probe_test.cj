@@ -57,3 +57,13 @@ func componentProbeRejectsDuplicateNodeIds(): Unit {
     @Expect(report.contains("\"ok\":false"))
     @Expect(report.contains("duplicate component probe node id"))
 }
+
+@Test
+func componentProbeCanRenderTheLatestDrawIrAsAscii(): Unit {
+    let report = ComponentProbe("test.ascii", width: 200.0, height: 80.0).run("@cui-ascii 40 10") {
+        Button("ASCII", { => }).key("ascii-button")
+    }
+    @Expect(report.contains("CangHui headless Draw IR 200.000000x80.000000 -> 40x10"))
+    @Expect(report.contains("ASCII"))
+    @Expect(!report.contains("\"drawIr\""))
+}

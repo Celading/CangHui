@@ -116,6 +116,10 @@ LOCK_AFTER_MISMATCH="$(shasum -a 256 "${REMOTE_FIXTURE_DIR}/cjpm.lock" | awk '{p
 "${ROOT_DIR}/bin/cuic" probe run component-gallery gallery.primary-button \
     --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
     --json | grep -q '"ok":true'
+PROBE_ASCII="$("${ROOT_DIR}/bin/cuic" probe ascii component-gallery gallery.primary-button \
+    --columns 72 --rows 24)"
+printf '%s' "${PROBE_ASCII}" | grep -q 'CangHui headless Draw IR 320.000000x120.000000 -> 72x24'
+printf '%s' "${PROBE_ASCII}" | grep -q 'Run probe'
 
 SYMBOL_CATALOG_JSON="$("${ROOT_DIR}/bin/cuic" symbol list --json)"
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"schema":"canghui.symbol.catalog.v0"'
