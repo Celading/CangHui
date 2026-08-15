@@ -855,17 +855,63 @@ func debugCommand(args: Array<String>, start: Int64): Int64 {
 func printWindow(args: Array<String>, start: Int64): Int64 {
     let options = parsePrntOptions(args, start)
     if (options.device.size > 0 || options.app.size > 0) {
-        let targets = listHdcTargets()
-        if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
-            println("cuic prnt: device '${options.device}' is not visible")
-            return 3
-        }
-        println("cuic prnt: device capture channel is not implemented yet (delivery-pending)")
-        println("  device: ${options.device}")
-        println("  app: ${options.app}")
-        println("  output: ${options.output}")
-        return 2
+        return printDeviceWindow(options)
     }
+    return printDesktopWindow(options)
+}
+
+func printDeviceWindow(options: PrntOptions): Int64 {
+    let targets = listHdcTargets()
+    if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
+        println("cuic prnt: device '${options.device}' is not visible")
+        return 3
+    }
+    if (options.app.size > 0 && !hdcBundleExists(options.device, options.app)) {
+        println("cuic prnt: app '${options.app}' is not installed on device '${options.device}'")
+        return 4
+    }
+    var output = options.output
+    if (output.size == 0) { output = joinPath(currentDirectory(), "cuic-${options.device}.png") }
+    if (!startsWithText(output, "/") && !isWindowsAbsolute(output)) { output = joinPath(currentDirectory(), output) }
+    let parent = parentPath(output)
+    if (parent.size > 0 && !exists(parent)) { Directory.create(parent, recursive: true) }
+    let lowerJpeg = endsWithText(output, ".jpeg") || endsWithText(output, ".jpg") ||
+        endsWithText(output, ".JPG") || endsWithText(output, ".JPEG")
+    let lowerPng = endsWithText(output, ".png") || endsWithText(output, ".PNG")
+    let lowerBmp = endsWithText(output, ".bmp") || endsWithText(output, ".BMP")
+    if (!lowerJpeg && !lowerPng && !lowerBmp) {
+        throw CuicError("prnt output must end in .jpeg, .png or .bmp")
+    }
+    println("==> capturing device ${options.device} (system screenshot fallback; renderer capture channel pending)")
+    let remote = "/data/local/tmp/cuic-snapshot.jpeg"
+    let local = "/tmp/cuic-device-snapshot.jpeg"
+    removeIfExists(local)
+    if (!hdcSnapshotDisplay(options.device, remote)) {
+        println("cuic prnt: device screenshot failed")
+        return 5
+    }
+    if (!hdcRecvFile(options.device, remote, local)) {
+        println("cuic prnt: failed to receive device screenshot")
+        return 5
+    }
+    let _ = hdcRemoveFile(options.device, remote)
+    if (lowerJpeg) {
+        let moved = moveFile(local, output)
+        if (moved != 0) { return moved }
+    } else if (lowerPng) {
+        let converted = convertPng(local, output)
+        if (converted != 0) { removeIfExists(local); return converted }
+        removeIfExists(local)
+    } else {
+        let converted = convertToBmp(local, output)
+        if (converted != 0) { removeIfExists(local); return converted }
+        removeIfExists(local)
+    }
+    println("snapshot (system fallback): ${output}")
+    0
+}
+
+func printDesktopWindow(options: PrntOptions): Int64 {
     let project = resolveProject(options.requested, "")
     let framework = ensureFrameworkRoot(project)
     let boot = bootstrap(options.platform, framework)
@@ -1039,6 +1085,22 @@ func programAvailable(program: String): Bool {
         let (code, _, _) = executeWithOutput(program, ["--version"])
         code == 0
     } catch (_: Exception) { false }
+}
+
+func moveFile(source: String, destination: String): Int64 {
+    try {
+        File.writeTo(destination, File.readFrom(source))
+        removeIfExists(source)
+        0
+    } catch (_: Exception) {
+        executeCommand("mv", [source, destination], currentDirectory())
+    }
+}
+
+func convertToBmp(source: String, output: String): Int64 {
+    if (programAvailable("magick")) { return executeCommand("magick", [source, output], currentDirectory()) }
+    if (programAvailable("convert")) { return executeCommand("convert", [source, output], currentDirectory()) }
+    throw CuicError("BMP output requires magick or convert; request .jpeg or .png instead")
 }
 
 func windowsCjpmCommand(sdl: String, font: String, args: Array<String>): String {

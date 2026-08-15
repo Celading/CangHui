@@ -91,3 +91,23 @@ func hdcBundleExists(alias: String, bundle: String): Bool {
         false
     }
 }
+
+func hdcSnapshotDisplay(alias: String, remotePath: String): Bool {
+    let hdc = hdcExecutable()
+    try {
+        let (code, out, _) = executeWithOutput(hdc, ["-t", alias, "shell", "snapshot_display", "-f", remotePath])
+        code == 0 && String.fromUtf8(out).contains("success")
+    } catch (_: Exception) {
+        false
+    }
+}
+
+func hdcRemoveFile(alias: String, remotePath: String): Bool {
+    let hdc = hdcExecutable()
+    try {
+        let (code, _, _) = executeWithOutput(hdc, ["-t", alias, "shell", "rm", "-f", remotePath])
+        code == 0
+    } catch (_: Exception) {
+        false
+    }
+}
