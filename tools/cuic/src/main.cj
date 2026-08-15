@@ -1,9 +1,10 @@
 package cuic
 
-import std.collection.ArrayList
-import std.env.{getCommandLine, getVariable}
+import std.collection.{ArrayList, HashMap}
+import std.convert.*
+import std.env.{getCommandLine, getVariable, getVariables}
 import std.fs.{Directory, File, Path, exists, removeIfExists}
-import std.process.executeWithOutput
+import std.process.{ProcessRedirect, executeWithOutput, launch}
 
 let VERSION = "0.4.0"
 
@@ -40,7 +41,7 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
         return 0
     }
     if (command == "version" || command == "--version" || command == "-V") {
-        println("cuic ${VERSION}")
+        println(renderCuicVersion())
         return 0
     }
     if (command == "examples") {
@@ -65,8 +66,17 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "probe") {
         return probeCommand(args, 2)
     }
+    if (command == "pview") {
+        return pviewCommand(args, 2)
+    }
+    if (command == "device") {
+        return deviceCommand(args, 2)
+    }
     if (command == "scripts") {
         return scriptsCommand(args, 2)
+    }
+    if (command == "dependency") {
+        return dependencyCommand(args, 2)
     }
     if (command == "init") {
         return initProject(args, 2)
@@ -81,6 +91,9 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     }
     if (command == "prnt" || command == "print" || command == "snapshot") {
         return printWindow(args, 2)
+    }
+    if (command == "debug") {
+        return debugCommand(args, 2)
     }
     if (command == "clean") {
         let requested = if (args.size > 2) { args[2] } else { "" }
@@ -104,6 +117,172 @@ class ProjectSelection {
         this.platform = platform
         this.project = project
     }
+}
+
+class PrntOptions {
+    let platform: String
+    let requested: String
+    let output: String
+    let frames: UInt64
+    let device: String
+    let app: String
+    let mode: String
+    let appArgs: ArrayList<String>
+
+    init(
+        platform: String,
+        requested: String,
+        output: String,
+        frames: UInt64,
+        device: String,
+        app: String,
+        mode: String,
+        appArgs: ArrayList<String>
+    ) {
+        this.platform = platform
+        this.requested = requested
+        this.output = output
+        this.frames = frames
+        this.device = device
+        this.app = app
+        this.mode = mode
+        this.appArgs = appArgs
+    }
+}
+
+class DebugOptions {
+    let platform: String
+    let requested: String
+    let device: String
+    let app: String
+    let mode: String
+    let appArgs: ArrayList<String>
+
+    init(
+        platform: String,
+        requested: String,
+        device: String,
+        app: String,
+        mode: String,
+        appArgs: ArrayList<String>
+    ) {
+        this.platform = platform
+        this.requested = requested
+        this.device = device
+        this.app = app
+        this.mode = mode
+        this.appArgs = appArgs
+    }
+}
+
+func normalizeBuildMode(value: String): String {
+    if (value == "release" || value == "debug") { return value }
+    throw CuicError("--mode must be release or debug")
+}
+
+func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
+    var platform = hostPlatform()
+    var requested = "notepad"
+    var output = ""
+    var frames = UInt64(48)
+    var device = ""
+    var app = ""
+    var mode = "release"
+    let appArgs = ArrayList<String>()
+    var projectSet = false
+    var i = start
+    if (i < args.size && isPlatform(args[i])) { platform = normalizePlatform(args[i]); i += 1 }
+    while (i < args.size) {
+        let current = args[i]
+        if (current == "--output" || current == "-o") {
+            if (i + 1 >= args.size) { throw CuicError("--output requires a path") }
+            output = args[i + 1]
+            i += 2
+            continue
+        }
+        if (current == "--frames") {
+            if (i + 1 >= args.size) { throw CuicError("--frames requires a positive integer") }
+            frames = parseCaptureFrames(args[i + 1])
+            i += 2
+            continue
+        }
+        if (current == "--device") {
+            if (i + 1 >= args.size) { throw CuicError("--device requires an alias") }
+            device = args[i + 1]
+            i += 2
+            continue
+        }
+        if (current == "--app") {
+            if (i + 1 >= args.size) { throw CuicError("--app requires a bundle name") }
+            app = args[i + 1]
+            i += 2
+            continue
+        }
+        if (current == "--mode") {
+            if (i + 1 >= args.size) { throw CuicError("--mode requires release or debug") }
+            mode = normalizeBuildMode(args[i + 1])
+            i += 2
+            continue
+        }
+        if (current == "--") {
+            i += 1
+            while (i < args.size) { appArgs.add(args[i]); i += 1 }
+            break
+        }
+        if (startsWithText(current, "-")) { throw CuicError("unknown prnt option '${current}'") }
+        if (projectSet) { throw CuicError("prnt accepts one project or example") }
+        requested = current
+        projectSet = true
+        i += 1
+    }
+    PrntOptions(platform, requested, output, frames, device, app, mode, appArgs)
+}
+
+func parseDebugOptions(args: Array<String>, start: Int64): DebugOptions {
+    var platform = hostPlatform()
+    var requested = ""
+    var device = ""
+    var app = ""
+    var mode = "debug"
+    let appArgs = ArrayList<String>()
+    var projectSet = false
+    var i = start
+    if (i < args.size && isPlatform(args[i])) { platform = normalizePlatform(args[i]); i += 1 }
+    while (i < args.size) {
+        let current = args[i]
+        if (current == "--device") {
+            if (i + 1 >= args.size) { throw CuicError("--device requires an alias") }
+            device = args[i + 1]
+            i += 2
+            continue
+        }
+        if (current == "--app") {
+            if (i + 1 >= args.size) { throw CuicError("--app requires a bundle name") }
+            app = args[i + 1]
+            i += 2
+            continue
+        }
+        if (current == "--mode") {
+            if (i + 1 >= args.size) { throw CuicError("--mode requires release or debug") }
+            mode = normalizeBuildMode(args[i + 1])
+            i += 2
+            continue
+        }
+        if (current == "--") {
+            i += 1
+            while (i < args.size) { appArgs.add(args[i]); i += 1 }
+            break
+        }
+        if (startsWithText(current, "-")) { throw CuicError("unknown debug option '${current}'") }
+        if (projectSet) { throw CuicError("debug accepts one project or example") }
+        requested = current
+        projectSet = true
+        i += 1
+    }
+    if (requested.size == 0) {
+        requested = implicitProjectRequest("notepad", exists(joinPath(currentDirectory(), "cjpm.toml")))
+    }
+    DebugOptions(platform, requested, device, app, mode, appArgs)
 }
 
 func parsePlatformAndProject(args: Array<String>, start: Int64, defaultExample: String): ProjectSelection {
@@ -143,16 +322,29 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
+    "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
+    "  cuic probe ascii [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]  # alias of pview\n" +
     "  cuic scripts init|list [project]\n" +
     "  cuic scripts run <name> [project]\n" +
+    "  cuic dependency update [project]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +
-    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [-- <app args...>]\n" +
+    "  cuic debug [platform] [project|example] [--device <alias>] [--app <bundle>] [--mode <debug|release>] [-- <app args...>]\n" +
+    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
     "  cuic clean [project]\n" +
     "  cuic examples\n" +
     "  cuic version\n\n" +
     "Project scripts: declare portable lifecycle pipelines in canghui.toml, then run cuic <name>.\n" +
+    "prnt builds once, launches the executable directly, and uses DesktopCaptureRequest; it does not rely on cjpm run argument forwarding.\n" +
+    "debug is the explicit debug channel; production builds are the default and never embed the capture service.\n" +
+    "pview prints the current CangHui layout as a deterministic ASCII projection from the\n" +
+    "  recording-headless Draw IR, without opening a window. Tutorial:\n" +
+    "  cuic pview <probe>                       # default 96x32 grid\n" +
+    "  cuic pview <probe> --columns 120 --rows 40\n" +
+    "  cuic pview <probe> --events 'press 80 35\\nrelease 80 35'   # drive state before printing\n" +
+    "  cuic pview <project> <probe> --script events.txt\n" +
+    "  Example probe: coreplayer.layout (CorePlayer), gallery.primary-button (Component Gallery).\n" +
     "Framework: generated projects use a public Git dependency pinned by commit and CJPM cache. " +
     "Use --canghui-path or CANGHUI_FRAMEWORK_ROOT only for local framework development."
 }
@@ -171,13 +363,15 @@ func hostPlatform(): String {
 
 func isPlatform(value: String): Bool {
     value == "mac" || value == "macos" || value == "darwin" || value == "win" ||
-    value == "windows" || value == "linux" || value == "android"
+    value == "windows" || value == "linux" || value == "android" ||
+    value == "harmony" || value == "ohos"
 }
 
 func normalizePlatform(value: String): String {
     if (value == "mac" || value == "macos" || value == "darwin") { return "macos" }
     if (value == "win" || value == "windows") { return "windows" }
     if (value == "linux" || value == "android") { return value }
+    if (value == "harmony" || value == "ohos") { return "harmony" }
     throw CuicError("unknown platform '${value}'")
 }
 
@@ -600,7 +794,8 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         println("CangHui dependency: local ${dependency.path}")
     } else {
         println("CangHui dependency: ${dependency.git}@${shortCommit(dependency.commitId)}")
-        println("next: cd ${directory} && cuic build ${platform}")
+        println("next: cd ${directory} && cuic dependency update")
+        println("then: cuic build ${platform}")
     }
     0
 }
@@ -621,37 +816,124 @@ func generatedMain(packageName: String): String {
     "}\n"
 }
 
-func printWindow(args: Array<String>, start: Int64): Int64 {
-    var platform = hostPlatform()
-    var requested = "notepad"
-    var output = ""
-    var projectSet = false
-    let appArgs = ArrayList<String>()
-    var i = start
-    if (i < args.size && isPlatform(args[i])) { platform = normalizePlatform(args[i]); i += 1 }
-    while (i < args.size) {
-        let current = args[i]
-        if (current == "--output" || current == "-o") {
-            if (i + 1 >= args.size) { throw CuicError("--output requires a path") }
-            output = args[i + 1]
-            i += 2
-            continue
-        }
-        if (current == "--") {
-            i += 1
-            while (i < args.size) { appArgs.add(args[i]); i += 1 }
-            break
-        }
-        if (startsWithText(current, "-")) { throw CuicError("unknown prnt option '${current}'") }
-        if (projectSet) { throw CuicError("prnt accepts one project or example") }
-        requested = current
-        projectSet = true
-        i += 1
+func deviceCommand(args: Array<String>, start: Int64): Int64 {
+    if (args.size <= start) {
+        println("cuic device list [--json]")
+        return 0
     }
-    let project = resolveProject(requested, "")
+    let sub = args[start]
+    if (sub != "list") { throw CuicError("unknown device subcommand '${sub}'") }
+    let json = args.size > start + 1 && args[start + 1] == "--json"
+    let targets = listHdcTargets()
+    if (json) {
+        let quoted = ArrayList<String>()
+        for (target in targets) { quoted.add("\"${target}\"") }
+        println("{ \"schema\": \"canghui.device.v0\", \"targets\": [${joinStrings(quoted.toArray(), ", ")}] }")
+    } else {
+        for (target in targets) { println(target) }
+    }
+    0
+}
+
+func joinStrings(values: Array<String>, separator: String): String {
+    let out = StringBuilder()
+    var first = true
+    for (value in values) {
+        if (!first) { out.append(separator) }
+        out.append(value)
+        first = false
+    }
+    out.toString()
+}
+
+func debugCommand(args: Array<String>, start: Int64): Int64 {
+    let options = parseDebugOptions(args, start)
+    if (options.device.size > 0 || options.app.size > 0) {
+        let targets = listHdcTargets()
+        if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
+            println("cuic debug: device '${options.device}' is not visible")
+            return 3
+        }
+        println("cuic debug: device capture channel is not implemented yet (delivery-pending)")
+        println("  device: ${options.device}")
+        println("  app: ${options.app}")
+        println("  target: ${options.platform}")
+        println("  project: ${options.requested}")
+        return 2
+    }
+    let project = resolveProject(options.requested, "")
+    println("cuic debug: debug mode build/run is not implemented yet (delivery-pending)")
+    println("  project: ${project}")
+    println("  platform: ${options.platform}")
+    println("  mode: ${options.mode}")
+    2
+}
+
+func printWindow(args: Array<String>, start: Int64): Int64 {
+    let options = parsePrntOptions(args, start)
+    if (options.device.size > 0 || options.app.size > 0) {
+        return printDeviceWindow(options)
+    }
+    return printDesktopWindow(options)
+}
+
+func printDeviceWindow(options: PrntOptions): Int64 {
+    let targets = listHdcTargets()
+    if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
+        println("cuic prnt: device '${options.device}' is not visible")
+        return 3
+    }
+    if (options.app.size > 0 && !hdcBundleExists(options.device, options.app)) {
+        println("cuic prnt: app '${options.app}' is not installed on device '${options.device}'")
+        return 4
+    }
+    var output = options.output
+    if (output.size == 0) { output = joinPath(currentDirectory(), "cuic-${options.device}.png") }
+    if (!startsWithText(output, "/") && !isWindowsAbsolute(output)) { output = joinPath(currentDirectory(), output) }
+    let parent = parentPath(output)
+    if (parent.size > 0 && !exists(parent)) { Directory.create(parent, recursive: true) }
+    let lowerJpeg = endsWithText(output, ".jpeg") || endsWithText(output, ".jpg") ||
+        endsWithText(output, ".JPG") || endsWithText(output, ".JPEG")
+    let lowerPng = endsWithText(output, ".png") || endsWithText(output, ".PNG")
+    let lowerBmp = endsWithText(output, ".bmp") || endsWithText(output, ".BMP")
+    if (!lowerJpeg && !lowerPng && !lowerBmp) {
+        throw CuicError("prnt output must end in .jpeg, .png or .bmp")
+    }
+    println("==> capturing device ${options.device} (system screenshot fallback; renderer capture channel pending)")
+    let remote = "/data/local/tmp/cuic-snapshot.jpeg"
+    let local = "/tmp/cuic-device-snapshot.jpeg"
+    removeIfExists(local)
+    if (!hdcSnapshotDisplay(options.device, remote)) {
+        println("cuic prnt: device screenshot failed")
+        return 5
+    }
+    if (!hdcRecvFile(options.device, remote, local)) {
+        println("cuic prnt: failed to receive device screenshot")
+        return 5
+    }
+    let _ = hdcRemoveFile(options.device, remote)
+    if (lowerJpeg) {
+        let moved = moveFile(local, output)
+        if (moved != 0) { return moved }
+    } else if (lowerPng) {
+        let converted = convertPng(local, output)
+        if (converted != 0) { removeIfExists(local); return converted }
+        removeIfExists(local)
+    } else {
+        let converted = convertToBmp(local, output)
+        if (converted != 0) { removeIfExists(local); return converted }
+        removeIfExists(local)
+    }
+    println("snapshot (system fallback): ${output}")
+    0
+}
+
+func printDesktopWindow(options: PrntOptions): Int64 {
+    let project = resolveProject(options.requested, "")
     let framework = ensureFrameworkRoot(project)
-    let boot = bootstrap(platform, framework)
+    let boot = bootstrap(options.platform, framework)
     if (boot != 0) { return boot }
+    var output = options.output
     if (output.size == 0) { output = joinPath(currentDirectory(), "cuic-${basename(project)}.png") }
     if (!startsWithText(output, "/") && !isWindowsAbsolute(output)) { output = joinPath(currentDirectory(), output) }
     let parent = parentPath(output)
@@ -661,11 +943,13 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     if (!lowerBmp && !lowerPng) { throw CuicError("prnt output must end in .bmp or .png") }
     let snapshot = if (lowerBmp) { output } else { output + ".bmp" }
     removeIfExists(snapshot)
-    println("==> capturing ${basename(project)} (${platform})")
-    let runArgs = ArrayList<String>()
-    for (value in ["run", "--", "--snapshot", snapshot]) { runArgs.add(value) }
-    for (value in appArgs) { runArgs.add(value) }
-    let code = executeCjpm(project, runArgs.toArray(), framework)
+    println("==> building ${basename(project)} (${options.platform})")
+    let buildCode = executeCjpm(project, ["build"], framework)
+    if (buildCode != 0) { return buildCode }
+    let executable = builtExecutable(project)
+    println("==> capturing ${basename(project)} (${options.platform}) via CangHui capture interface")
+    let code = executeApplication(project, executable, options.appArgs.toArray(), framework, snapshot,
+        options.frames)
     if (code != 0) { return code }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
     if (lowerPng) {
@@ -675,6 +959,133 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     }
     println("snapshot: ${output}")
     0
+}
+
+func parseCaptureFrames(value: String): UInt64 {
+    try {
+        let frames = UInt64.parse(value)
+        if (frames > UInt64(0)) { return frames }
+    } catch (_: Exception) {}
+    throw CuicError("--frames requires a positive integer")
+}
+
+func builtExecutable(project: String): String {
+    for (profile in ["release", "debug"]) {
+        for (path in builtExecutableCandidates(project, profile)) {
+            if (exists(path)) { return path }
+        }
+    }
+    throw CuicError("cjpm build completed but no executable was found at target/release/bin/main")
+}
+
+func builtExecutablePath(project: String, profile: String): String {
+    joinPath(project, "target/${profile}/bin/main")
+}
+
+func builtExecutableCandidates(project: String, profile: String): Array<String> {
+    let base = builtExecutablePath(project, profile)
+    [base, base + ".exe"]
+}
+
+func executeApplication(
+    project: String,
+    executable: String,
+    appArgs: Array<String>,
+    framework: String,
+    capturePath: String,
+    captureFrames: UInt64
+): Int64 {
+    let environment = applicationEnvironment(framework, capturePath, captureFrames)
+    try {
+        let process = launch(
+            executable,
+            appArgs,
+            workingDirectory: Path(project),
+            environment: environment,
+            stdIn: ProcessRedirect.Inherit,
+            stdOut: ProcessRedirect.Inherit,
+            stdErr: ProcessRedirect.Inherit
+        )
+        process.wait()
+    } catch (e: Exception) {
+        println("error: failed to execute ${executable}: ${e.message}")
+        127
+    }
+}
+
+func applicationEnvironment(
+    framework: String,
+    capturePath: String,
+    captureFrames: UInt64
+): HashMap<String, String> {
+    let environment = HashMap<String, String>()
+    for ((key, value) in getVariables()) { environment.add(key, value) }
+    let sdl = joinPath(framework, "sdl/.sdl3")
+    let runtime = cangjieRuntimeLibraryDirectory()
+    if (hostPlatform() == "macos") {
+        environment.add("DYLD_LIBRARY_PATH", "${runtime}:${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
+    } else if (hostPlatform() == "windows") {
+        environment.add("PATH", "${runtime};${sdl};${readEnv("PATH")}")
+    } else {
+        environment.add("LD_LIBRARY_PATH", "${runtime}:${sdl}:${readEnv("LD_LIBRARY_PATH")}")
+    }
+    environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
+    environment.add("CANGHUI_CAPTURE_PATH", capturePath)
+    environment.add("CANGHUI_CAPTURE_FRAMES", captureFrames.toString())
+    environment
+}
+
+func cangjieRuntimeLibraryDirectory(): String {
+    let home = resolveCangjieHome(readEnv("CANGJIE_HOME"), installedCompilerPath())
+    if (home.isEmpty()) {
+        throw CuicError("cannot resolve Cangjie home from CANGJIE_HOME or the cjc executable")
+    }
+    let directory = cangjieRuntimeLibraryCandidate(home, hostPlatform(), doctorHostArchitecture())
+    let library = joinPath(directory, cangjieRuntimeLibraryName(hostPlatform()))
+    requireFile(library, "Cangjie runtime library is missing: ${library}")
+    directory
+}
+
+func installedCompilerPath(): String {
+    let command = if (hostPlatform() == "windows") { "where" } else { "which" }
+    try {
+        let (code, out, _) = executeWithOutput(command, ["cjc"])
+        if (code == 0) {
+            let lines = String.fromUtf8(out).split("\n")
+            if (!lines.isEmpty()) { return trimAscii(lines[0]) }
+        }
+    } catch (_: Exception) {}
+    ""
+}
+
+func resolveCangjieHome(configured: String, compilerPath: String): String {
+    if (!configured.isEmpty()) { return trimTrailingSlash(configured) }
+    if (compilerPath.isEmpty()) { return "" }
+    parentPath(parentPath(compilerPath))
+}
+
+func cangjieRuntimeLibraryCandidate(home: String, platform: String, architecture: String): String {
+    let arch = if (architecture == "arm64" || architecture == "aarch64") {
+        "aarch64"
+    } else if (architecture == "x86_64" || architecture == "AMD64") {
+        "x86_64"
+    } else {
+        architecture
+    }
+    let system = if (platform == "macos") {
+        "darwin"
+    } else if (platform == "windows") {
+        "windows"
+    } else {
+        "linux"
+    }
+    joinPath(home, "runtime/lib/${system}_${arch}_cjnative")
+}
+
+func cangjieRuntimeLibraryName(platform: String): String {
+    if (platform == "macos") { return "libcangjie-runtime.dylib" }
+    if (platform == "windows") { return "libcangjie-runtime.dll" }
+    "libcangjie-runtime.so"
 }
 
 func convertPng(source: String, output: String): Int64 {
@@ -691,6 +1102,22 @@ func programAvailable(program: String): Bool {
         let (code, _, _) = executeWithOutput(program, ["--version"])
         code == 0
     } catch (_: Exception) { false }
+}
+
+func moveFile(source: String, destination: String): Int64 {
+    try {
+        File.writeTo(destination, File.readFrom(source))
+        removeIfExists(source)
+        0
+    } catch (_: Exception) {
+        executeCommand("mv", [source, destination], currentDirectory())
+    }
+}
+
+func convertToBmp(source: String, output: String): Int64 {
+    if (programAvailable("magick")) { return executeCommand("magick", [source, output], currentDirectory()) }
+    if (programAvailable("convert")) { return executeCommand("convert", [source, output], currentDirectory()) }
+    throw CuicError("BMP output requires magick or convert; request .jpeg or .png instead")
 }
 
 func windowsCjpmCommand(sdl: String, font: String, args: Array<String>): String {

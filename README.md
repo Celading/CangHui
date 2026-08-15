@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/package-cui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package cui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
-  <img src="https://img.shields.io/badge/license-MIT-d69e2e?style=for-the-badge&labelColor=1f2430" alt="MIT License" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-d69e2e?style=for-the-badge&labelColor=1f2430" alt="Apache License 2.0" />
 </p>
 <div align="center">
 <span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
@@ -25,10 +25,12 @@
 CangHui is a self-rendered, declarative GUI framework written in the
 [Cangjie programming language](https://cangjie-lang.cn/). It evolved from
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) and
-retains its upstream attribution and MIT license. The declarative core (`cui`)
-and the safe SDL3 wrapper (`sdl`) live in this repository, together with the
-integrated `cuic` toolchain, component-package contracts, responsive layout
-primitives, and native host contracts.
+retains its upstream attribution and MIT notice. CangHui and its original
+contributions are distributed under Apache License 2.0; the upstream MIT terms
+remain preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The
+declarative core (`cui`) and the safe SDL3 wrapper (`sdl`) live in this
+repository, together with the integrated `cuic` toolchain, component-package
+contracts, responsive layout primitives, and native host contracts.
 
 The framework is designed to be platform-neutral at the source level: common
 widgets and product components depend only on typed host capabilities and
@@ -40,15 +42,16 @@ state.
 ## Platform Status
 
 Platform claims below are intentionally conservative. Desktop layout previews
-do not prove a mobile runtime, and a bootstrap proof is not a renderer.
+do not prove a mobile runtime, and a native-surface probe is not product-level
+scene rendering or application acceptance.
 
 | Platform | Status | Notes |
 | --- | --- | --- |
 | macOS desktop | Available | Build, the full framework/SDL/CLI test suites, the interactive gallery, and deterministic snapshots pass on this host. |
-| iOS | Bootstrap proven, renderer open | Device/simulator static-package bootstrap and ABI return are proven; the UIKit native-surface renderer, lifecycle, IME and accessibility adapters are not implemented yet. |
+| iOS | Native-surface adapter proven | Simulator and physical-device proof covers static-package bootstrap, a UIKit `CAMetalLayer`, lifecycle, safe area, touch, `CADisplayLink`, detach/reattach generation replay and a Metal clear pass. Full CUI scene rendering, IME, accessibility and product application acceptance remain open. |
 | HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
-| Android | Not implemented | No renderer backend, SDL activity bridge, NDK packaging, or APK runner exists yet. |
+| Android | Native-surface bootstrap only | A minimal Activity owns the generation-safe `SurfaceView` to JNI to `ANativeWindow` lifecycle, and the slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, input/IME, APK packaging and device runtime proof remain open. |
 
 ## Quick Start
 
@@ -66,14 +69,17 @@ Create and run a blank project:
 ```bash
 cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
+cuic dependency update
 cuic doctor macos
 cuic build macos
 cuic run macos
 ```
 
 Generated applications depend on the public CangHui Git repository pinned by
-commit, pin a `cjpm.lock`, and resolve through the CJPM cache instead of copying
-the framework into every project.
+commit. `cuic dependency update` is the explicit lock/cache mutation step;
+build-like commands require a matching `cjpm.lock` and never update it
+implicitly. The framework resolves through the CJPM cache instead of being
+copied into every project.
 
 A minimal window in `src/main.cj`:
 
@@ -203,10 +209,12 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
 
 ## License
 
-This project is released under the [MIT License](LICENSE). The SDL3 and SDL3_ttf
-run-time libraries use the Zlib license; see the respective upstream projects.
-The upstream source attribution remains
-[`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI).
+This project is released under the
+[Apache License 2.0](LICENSE). See [NOTICE](NOTICE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for retained upstream and
+third-party attribution. The SDL3 and SDL3_ttf run-time libraries use the Zlib
+license; see the respective upstream projects. The upstream source attribution
+remains [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI).
 
 > [!IMPORTANT]
 > When distributing desktop software built with CUI, ensure the SDL and SDL_ttf

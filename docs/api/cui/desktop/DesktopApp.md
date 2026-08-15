@@ -14,7 +14,7 @@ public class DesktopApp
 
 ## 说明
 
-帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，`finally` 也会关闭 owner queue、完成待处理 ticket 并执行这套清理。内置命令行开关：`--snapshot <path.bmp>` 在界面稳定后截图并退出，供视觉测试和文档配图使用；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
+帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，`finally` 也会关闭 owner queue、完成待处理 ticket 并执行这套清理。`cuic prnt` 会构建后直接启动应用可执行文件，并通过 [`DesktopCaptureRequest`](DesktopCaptureRequest.md) 的宿主请求采集稳定画面，不依赖 `cjpm run` 转发参数。旧应用仍兼容 `--snapshot <path.bmp>` 与 `--snapshot-frame`；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
 
 ## 示例
 
@@ -75,6 +75,7 @@ public init(
     theme!: Theme = Theme.light(),
     frameDelay!: UInt32 = UInt32(16),
     framePacing!: ?FramePacing = None,
+    capture!: ?DesktopCaptureRequest = None,
     fontScale!: Float32 = 1.0,
     metadata!: ?AppMetadata = None,
     hints!: Array<SdlHintSetting> = []
@@ -87,6 +88,7 @@ public init(
 - `theme!`: [`Theme`](../core/Theme.md) — 语义调色板；默认值为 `Theme.light()`。
 - `frameDelay!`: `UInt32` — 兼容旧 `vsync: false` 调用的固定等待；显式 `framePacing` 或 VSync 设备模式不叠加此等待。默认 `16`。
 - `framePacing!`: `?`[`FramePacing`](FramePacing.md) — 显式帧节奏；默认 `None`，普通 VSync 窗口跟随设备，kMode 对实际渲染帧不封顶。
+- `capture!`: `?`[`DesktopCaptureRequest`](DesktopCaptureRequest.md) — 显式渲染采集请求；优先于宿主环境注入和旧命令行兼容输入，默认 `None`。
 - `fontScale!`: `Float32` — 应用到 `fp` 长度的用户字体缩放；下限 0.1。默认 `1.0`。
 - `metadata!`: `?AppMetadata` — 应用名/版本等元数据（sdl.system）。默认 `None`。
 - `hints!`: `Array<SdlHintSetting>` — 建窗前应用的 SDL hint。默认空。

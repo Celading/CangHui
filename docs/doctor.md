@@ -35,6 +35,11 @@ requested target contains `blocked` or `unsupported` checks. A limitation in an
 unrequested platform remains visible but does not fail an otherwise usable
 host workflow. `degraded` never fails the command by itself.
 
+For an application with a Git dependency, the global project group is blocked
+when `cjpm.lock` is missing or its CangHui commit differs from the manifest.
+Run `cuic dependency update` only after reviewing the manifest pin; doctor and
+build-like commands never repair the lock implicitly.
+
 This makes the following pattern suitable for CI:
 
 ```bash
@@ -46,6 +51,13 @@ The JSON document follows
 `--verbose`, every `evidence` field is an empty string. Verbose mode may include
 tool versions and filesystem locations, but signing identities and connected
 device identities are summarized rather than emitted.
+
+New reports include `cliProvenance` beside the stable `cliVersion`. Its
+`channel` is `development`, `local-source`, or `release`; `revision` is an exact
+Git commit for installed artifacts, carries `+dirty` for a local-source build
+with uncommitted input, or is the honest `unembedded` marker for a direct
+repository build. The field is optional in the v0 schema so previously stored
+reports remain valid.
 
 ## Check Groups
 
@@ -63,11 +75,12 @@ Signing and connected-device commands run only when `ios` or `harmonyos` is
 explicitly requested. This keeps the default desktop diagnosis bounded and
 predictable.
 
-The iOS group deliberately separates the proven static-package bootstrap from
-the open GUI backend. The build script, Objective-C bootstrap helper, replay
-script and dual-target proof receipt report independently; the
-`CAMetalLayer/MTKView` native-surface renderer remains a blocking check for an
-iOS application target until its own device acceptance lands.
+The iOS group reports the static-package bootstrap and native-surface adapter
+separately. The current adapter includes the integer-only C ABI, UIKit
+`CAMetalLayer`, lifecycle and safe-area ingress, touch forwarding,
+`CADisplayLink`, generation-gated detach/reattach replay, and a simulator/device
+verifier. Full CUI scene rendering, IME, accessibility, application
+packaging and product acceptance remain separate platform work.
 
 Set `CANGHUI_IOS_HOME` or `CANGJIE_IOS_HOME` when the iOS SDK is installed outside
 the default `/Library/Frameworks/Cangjie/1.3.0-alpha-ios` location.

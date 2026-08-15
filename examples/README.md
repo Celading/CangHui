@@ -376,7 +376,7 @@ cjpm run
 所有示例均支持框架提供的快照参数：
 
 ```powershell
-cjpm run --run-args "--snapshot calendar.bmp"
+cuic prnt . --output calendar.bmp
 ```
 
 程序会等待界面完成若干帧布局和绘制后保存 BMP 快照并退出，适合视觉回归检查。

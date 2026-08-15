@@ -45,5 +45,5 @@ cjpm run
 支持视觉回归快照（本仓库画廊封面即由此生成）：
 
 ```powershell
-cjpm run --run-args "--snapshot cangcui.bmp"
+cuic prnt . --output cangcui.bmp
 ```

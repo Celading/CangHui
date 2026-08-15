@@ -31,6 +31,7 @@ curl -fsSL https://raw.githubusercontent.com/Celading/CangHui/main/scripts/insta
 ```bash
 cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
+cuic dependency update
 cuic doctor macos
 cuic build macos
 cuic run macos
@@ -56,10 +57,11 @@ The generated dependency is shaped as follows:
 cui = { git = "https://github.com/Celading/CangHui.git", commitId = "<reviewed-commit>" }
 ```
 
-The first build asks CJPM to resolve the dependency if necessary. CJPM stores Git source under its configured
-user cache, normally `$HOME/.cjpm/git`, and writes the resolved commit to `cjpm.lock`. Later builds reuse that
-cache. Commit `cjpm.lock` with the application; use `cjpm update` only when intentionally changing dependency
-resolution.
+`cuic dependency update` is the explicit dependency mutation step. It asks CJPM to resolve the reviewed
+manifest pin, stores Git source under the configured user cache (normally `$HOME/.cjpm/git`), and writes the
+resolved commit to `cjpm.lock`. Later build-like commands reuse that cache and fail closed if the lock is absent
+or its CangHui commit differs from the manifest; they never run `cjpm update` implicitly. Commit `cjpm.lock`
+with the application and rerun the explicit command only when intentionally refreshing dependency resolution.
 
 On macOS, `cuic` copies the installed Homebrew SDL3 and SDL3_ttf libraries into the resolved CangHui cache before
 compilation and supplies the matching runtime path and bundled HarmonyOS Sans path while the application runs.

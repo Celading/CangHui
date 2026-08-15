@@ -18,7 +18,7 @@
 
 ### 1. 让初始画面确定
 
-固定窗口尺寸、内置文本和本地资源；不要把当前时间、随机数或网络结果放进基准图。下面程序可普通交互运行，也可用 `--snapshot` 自动退出。
+固定窗口尺寸、内置文本和本地资源；不要把当前时间、随机数或网络结果放进基准图。下面程序可普通交互运行，也可由 `cuic prnt` 通过框架采集接口自动退出。
 
 ```cangjie verify role=complete profile=gui-visual
 package docexample
@@ -44,13 +44,13 @@ main(): Unit {
 
 ### 2. 运行快照模式
 
-构建完成后执行：
+执行：
 
 ```text
-cjpm run --run-args="--snapshot artifacts/release-check.bmp"
+cuic prnt macos . --output artifacts/release-check.bmp
 ```
 
-进程应自动退出。检查文件存在、长度非零、BMP 头有效，并人工查看标题、进度条、徽章和按钮没有裁切。不要把“能构建”写成“已运行”；二者是不同证据。
+`cuic` 会先构建项目，再直接启动生成的可执行文件，并通过 `DesktopCaptureRequest` 宿主协议请求采集；不依赖 `cjpm run --arg` 或 `--run-args`。进程应自动退出。检查文件存在、长度非零、BMP 头有效，并人工查看标题、进度条、徽章和按钮没有裁切。不要把“能构建”写成“已运行”；二者是不同证据。
 
 ### 3. 为交互另写测试
 

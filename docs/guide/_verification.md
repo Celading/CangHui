@@ -34,7 +34,7 @@
 
 ## 仍需按平台验证
 
-- iOS 的 UIKit native-surface 渲染、生命周期、触摸、IME、无障碍与应用打包；
+- iOS 的完整 CUI 场景渲染、IME、无障碍、产品应用与正式打包；
 - HarmonyOS/OpenHarmony 的应用宿主、生命周期、打包与设备运行；
 - Windows 与 Linux 的当前宿主运行、动态库布置和发布包；
 - Android 的渲染后端、Activity/NDK 桥和 APK 流程。

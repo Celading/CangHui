@@ -83,5 +83,5 @@ cjpm run
 点击行选中，通过工具栏或右键编辑与删除，新增打开空表单；在搜索框键入关键字过滤。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot contacts.bmp"
+cuic prnt . --output contacts.bmp
 ```

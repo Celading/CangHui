@@ -59,5 +59,5 @@ cjpm run
 填写邮箱后“下一步”变为可用，逐步前进；点顶部已完成的步骤圆点可跳回。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot wizard.bmp"
+cuic prnt . --output wizard.bmp
 ```

@@ -83,6 +83,21 @@ func paginationEllipsisIsNotClickable(): Unit {
 }
 
 @Test
+func paginationRefreshesItsWindowAfterExternalPageChange(): Unit {
+    let ctx = paginationTestContext()
+    let page = State<Int64>(0)
+    let pag = Pagination(20, page, window: 1, key: "dynamic-window")
+    pag.layout(ctx, Rect(0.0, 0.0, 400.0, 34.0))
+
+    // Moving to page 11 (zero-based 10) must rebuild the visible window to
+    // [0, -1, 9, 10, 11, -1, 19]. Page 12 then occupies x 190..224.
+    page.value = 10
+    @Expect(pag.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 207.0, PAGE_CY)))
+    @Expect(pag.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 207.0, PAGE_CY)))
+    @Expect(page.value, 11)
+}
+
+@Test
 func paginationKeepsStableWidthAcrossWindowChanges(): Unit {
     let ctx = paginationTestContext()
     let first = Pagination(20, State<Int64>(0), window: 1, key: "first")

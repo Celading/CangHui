@@ -10,6 +10,8 @@ private let DROPDOWN_DEFAULT_W: Float32 = 190.0
 private let DROPDOWN_POPUP_PAD: Float32 = 5.0
 private let DROPDOWN_GAP: Float32 = 4.0
 private let DROPDOWN_MARGIN: Float32 = 4.0
+private let DROPDOWN_NO_PRESSED_ROW: Int64 = -1
+private let DROPDOWN_CANCELLED_PRESSED_ROW: Int64 = -2
 
 /*
  * A dropdown select: a closed box showing the current item, and, when opened, a popup list
@@ -36,6 +38,8 @@ public class Dropdown <: Widget {
     private let popupScrollMotion: ScrollMotion
     private var scrollPolicy = ScrollOptions.web()
     private let popupAnimator: Animator
+    // Retained across rebuilt frames so a popup-row press can be cancelled permanently on move-out.
+    private let popupPressedRow: State<Int64>
     private var frame = Rect.zero()
 
     public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = None) {
@@ -51,6 +55,9 @@ public class Dropdown <: Widget {
             ScrollMotion(0.0)
         }.value
         this.popupAnimator = localState<Animator>("Dropdown:${ident}:popup-motion") {Animator(0.0)}.value
+        this.popupPressedRow = localState<Int64>("Dropdown:${ident}:popup-pressed-row") {
+            DROPDOWN_NO_PRESSED_ROW
+        }
         registerFocusable(ident)
         emit(this)
     }
@@ -129,6 +136,7 @@ public class Dropdown <: Widget {
     // Opens the popup with the selected row scrolled into view (centred when the list is
     // long), so reopening never lands far from the current value.
     private func openPopup(ctx: UiContext): Unit {
+        resetPopupPress(ctx)
         open.value = true
         let listH = listHeight(popupRect(ctx))
         let target = Float32(selected.value) * CUI_SMALL_H - (listH - CUI_SMALL_H) / 2.0
@@ -154,6 +162,7 @@ public class Dropdown <: Widget {
     private func handleOverlay(ctx: UiContext, event: UiEvent, popup: Rect): Bool {
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
+                resetPopupPress(ctx)
                 if (popup.contains(x, y)) {
                     if (popupBar.press(ctx, listRect(popup), popupScroll, contentHeight(), listHeight(popup), x, y)) {
                         cancelScrollMotion(popupScrollMotion, popupScroll)
@@ -161,10 +170,18 @@ public class Dropdown <: Widget {
                     }
                     let index = itemIndexAt(popup, y)
                     if (index >= 0 && index < items.size) {
-                        selected.value = index
+                        let row = itemRectAt(popup, index)
+                        if (row.contains(x, y)) {
+                            popupPressedRow.value = index
+                            let pressId = popupRowPressId(index)
+                            ctx.press(pressId)
+                            ctx.startInkRipple(pressId, row, x, y, color: Some(ctx.theme.inkColor()),
+                                cornerRadius: ctx.theme.smallRadius)
+                            return true
+                        }
                     }
                 }
-                close(ctx) // select-and-close, or dismiss on an outside click
+                close(ctx) // dismiss on an outside click or a popup padding press
                 true
             case UiEvent.MouseMove(x, y) =>
                 // While the thumb is grabbed the move scrolls the list; hover falls through, though the
@@ -175,8 +192,39 @@ public class Dropdown <: Widget {
                 let dragged = popupBar.drag(ctx, listRect(popup), popupScroll, contentHeight(), listHeight(popup), y)
                 if (dragged) {
                     cancelScrollMotion(popupScrollMotion, popupScroll)
+                    return true
                 }
-                dragged
+                let pressed = popupPressedRow.value
+                if (pressed >= 0) {
+                    let pressId = popupRowPressId(pressed)
+                    if (ctx.isPressed(pressId) && !itemRectAt(popup, pressed).contains(x, y)) {
+                        ctx.cancelPress(pressId)
+                        ctx.cancelInkRipple(pressId)
+                        popupPressedRow.value = DROPDOWN_CANCELLED_PRESSED_ROW
+                    }
+                    return true
+                }
+                false
+            case UiEvent.MouseUp(MouseButton.Left, x, y) =>
+                let pressed = popupPressedRow.value
+                if (pressed >= 0) {
+                    let pressId = popupRowPressId(pressed)
+                    let shouldSelect = ctx.isPressed(pressId) && itemRectAt(popup, pressed).contains(x, y)
+                    ctx.cancelPress(pressId)
+                    popupPressedRow.value = DROPDOWN_NO_PRESSED_ROW
+                    if (shouldSelect) {
+                        selected.value = pressed
+                        close(ctx)
+                    } else {
+                        ctx.cancelInkRipple(pressId)
+                    }
+                    return true
+                }
+                if (pressed == DROPDOWN_CANCELLED_PRESSED_ROW) {
+                    popupPressedRow.value = DROPDOWN_NO_PRESSED_ROW
+                    return true
+                }
+                false
             case UiEvent.MouseWheel(_, wheelY, x, y) =>
                 if (popup.contains(x, y)) {
                     applyWheelScroll(ctx, popupScrollMotion, popupScroll, wheelY, contentHeight(), listHeight(popup),
@@ -207,8 +255,25 @@ public class Dropdown <: Widget {
     }
 
     private func close(ctx: UiContext): Unit {
+        resetPopupPress(ctx)
         open.value = false
         ctx.removeOverlay(overlayOwner)
+    }
+
+    private func resetPopupPress(ctx: UiContext): Unit {
+        let pressed = popupPressedRow.value
+        if (pressed >= 0) {
+            let pressId = popupRowPressId(pressed)
+            ctx.cancelPress(pressId)
+            ctx.cancelInkRipple(pressId)
+        }
+        if (pressed != DROPDOWN_NO_PRESSED_ROW) {
+            popupPressedRow.value = DROPDOWN_NO_PRESSED_ROW
+        }
+    }
+
+    private func popupRowPressId(index: Int64): String {
+        "${overlayOwner}:row:${index}"
     }
 
     private func moveHighlight(delta: Int64, popup: Rect): Unit {
@@ -251,6 +316,18 @@ public class Dropdown <: Widget {
         Int64((y - popup.y - DROPDOWN_POPUP_PAD + popupScroll.value) / CUI_SMALL_H)
     }
 
+    private func itemRectAt(popup: Rect, index: Int64): Rect {
+        let listH = listHeight(popup)
+        let gutter: Float32 = if (contentHeight() > listH) {
+            scrollBarGutter()
+        } else {
+            0.0
+        }
+        Rect(popup.x + 4.0,
+            popup.y + DROPDOWN_POPUP_PAD + Float32(index) * CUI_SMALL_H - popupScroll.value,
+            max(0.0, popup.w - 8.0 - gutter), CUI_SMALL_H)
+    }
+
     /*
      * Anchors the popup below the control, flipping above when only the space above fits the
      * whole list. When neither side fits, it opens on the roomier side at that side's height
@@ -288,18 +365,12 @@ public class Dropdown <: Widget {
             popupScroll.value = offset
             cancelScrollMotion(popupScrollMotion, popupScroll)
         }
-        let gutter: Float32 = if (contentH > listH) {
-            scrollBarGutter()
-        } else {
-            0.0
-        }
-        let rowW = max(0.0, popup.w - 8.0 - gutter)
         ctx.renderer.pushClip(visible)
         ctx.renderer.pushClip(list)
         var i = Int64(offset / CUI_SMALL_H)
         var y = list.y - (offset - Float32(i) * CUI_SMALL_H)
         while (i < items.size && y < list.bottom()) {
-            let row = Rect(popup.x + 4.0, y, rowW, CUI_SMALL_H)
+            let row = itemRectAt(popup, i)
             if (i == selected.value) {
                 ctx.renderer.fillRoundedRect(row, ctx.theme.smallRadius, ctx.theme.accent)
                 drawRowLabel(ctx, items[i], row, ctx.theme.accentText)

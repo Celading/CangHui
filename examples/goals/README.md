@@ -49,5 +49,5 @@ cjpm run
 点各卡片的 +/- 调整当前值，对应环与顶部总完成度环随之更新。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot goals.bmp"
+cuic prnt . --output goals.bmp
 ```

@@ -37,15 +37,17 @@ For the selected device or simulator target:
 1. Add the generated CangHui archive.
 2. Add `section.o`, then `cjstart.o`, from the matching Cangjie runtime target.
 3. Link the Cangjie runtime and required standard-library archives. The
-   repository probe uses `std-collection`, `std-math`, `std-core`, `runtime`,
+   repository probe uses `std-collection`, `std-math`, `std-sync`, `std-time`,
+   `std-binary`, `std-convert`, `std-io`, `std-core`, `runtime`,
    `boundscheck-static` and `cangjie-thread`; adding every `.a` from the matching
    runtime directory follows the broader toolchain guidance.
-4. Link UIKit, Foundation and `libc++`.
+4. Link UIKit, Foundation, QuartzCore, Metal and `libc++`.
 5. Set Dead Code Stripping to `No`.
 6. With Xcode 15 or later, add `-Wl,-no_compact_unwind` when required by the
    linker.
-7. Add `platform/ios/bootstrap/CangHuiRuntimeBootstrap.m` to the native target
-   and expose `platform/ios/include` as a header search path.
+7. Add `platform/ios/bootstrap/CangHuiRuntimeBootstrap.m` and the Objective-C
+   sources under `platform/ios/runtime` to the native target, then expose
+   `platform/ios/include` as a header search path.
 
 The target runtime must match the application destination:
 
@@ -84,11 +86,11 @@ result. Application code should initialize it once before renderer startup.
 ## Replayable Probe
 
 The repository probe recompiles the Cangjie static library, compiles the native
-helper and UIKit app, links the final executable, installs it and requires this
-exact result:
+helper and UIKit app, links the final executable, installs it and requires a
+result with `passed=1`:
 
 ```text
-CANGHUI_IOS_PROBE result runtime=0 scheduler=ready library=0 task=0 abi=1
+CANGHUI_IOS_SURFACE result passed=1 metal=ready drawable=ready attached=1 attaches=2 resizes=1 detaches=1 generation=2 frames=<positive> touches=1
 ```
 
 Run the simulator acceptance with no signing configuration:
@@ -119,18 +121,19 @@ against the requested bundle id before signing and installing the app.
 
 ## Surface Proxy
 
-The iOS backend follows an XComponent-like proxy model:
+The implemented iOS adapter follows an XComponent-like proxy model:
 
 - UIKit owns a `UIView` backed by `CAMetalLayer` or `MTKView`.
-- UIKit forwards lifecycle, safe-area, touch, IME, accessibility,
-  surface-generation and `CADisplayLink` events.
-- `HostNativeSurfaceService` publishes the host-owned surface descriptor.
-- `NativeSurfaceRenderer` keeps layout, state and drawing on the Cangjie side.
+- UIKit forwards lifecycle, safe-area, touch, surface-generation and
+  `CADisplayLink` events through an integer-only C ABI.
+- `IOSNativeSurfaceBridge` commits the host-owned surface facts through the
+  Cangjie UI-owner queue and rejects stale generations.
+- The probe uses the Cangjie-selected clear color for a real Metal clear pass.
 - Native callbacks are marshalled through the runtime task gate onto the fixed
   Cangjie scheduler thread.
 
-The host still owns signing and packaging. Successful bootstrap and ABI return
-do not implement this renderer adapter by themselves.
+The host still owns signing and packaging. This proof does not yet connect the
+full declarative CUI scene renderer, IME or accessibility to UIKit.
 
 ## Host Modes
 
@@ -143,6 +146,7 @@ do not implement this renderer adapter by themselves.
 Both modes require a launch screen, high-pixel-density configuration, bundled
 resources and correctly embedded or statically linked dependencies. Current
 device and simulator proof covers runtime, scheduler, static-package
-initialization, N2C task entry and ABI return only. Lifecycle adapters, native
-surface rendering, input, IME, accessibility and product acceptance remain
-separate platform work.
+initialization, N2C task entry, ABI return, UIKit lifecycle and safe area,
+touch, frame clock, generation replay, drawable acquisition and a Metal clear
+pass. Full CUI scene rendering, IME, accessibility and product acceptance
+remain separate platform work.

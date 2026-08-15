@@ -49,5 +49,5 @@ cjpm run
 把鼠标移到彩色链接上（变手型）点击，或用 `Tab` 聚焦链接后按 `Enter`/空格激活，底部详情条随之显示被点击或激活的链接。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot links.bmp"
+cuic prnt . --output links.bmp
 ```

@@ -37,8 +37,7 @@ public class DesktopApp {
     private let queuedEvents = ArrayList<UiEvent>()
     private let stateStore = StateStore()
     private let uiOwnerQueue = UiOwnerQueue()
-    private let snapshotPath: ?String
-    private let snapshotFrame: UInt64
+    private let captureRequest: ?DesktopCaptureRequest
     // Per-phase frame timing, enabled with `--profile`; None (and zero cost) in a normal run.
     private let profiler: ?FrameProfiler
     private var frames: UInt64 = 0
@@ -57,6 +56,7 @@ public class DesktopApp {
         theme!: Theme = Theme.light(),
         frameDelay!: UInt32 = UInt32(16),
         framePacing!: ?FramePacing = None,
+        capture!: ?DesktopCaptureRequest = None,
         fontScale!: Float32 = 1.0,
         metadata!: ?AppMetadata = None,
         hints!: Array<SdlHintSetting> = []
@@ -70,8 +70,11 @@ public class DesktopApp {
         if (wantsVsync != spec.vsync) {
             window.renderer.setVSync(if (wantsVsync) { Int32(1) } else { Int32(0) })
         }
-        this.snapshotPath = snapshotArgument()
-        this.snapshotFrame = snapshotFrameArgument()
+        this.captureRequest = resolveDesktopCaptureRequest(
+            capture,
+            DesktopCaptureRequest.fromEnvironment(),
+            legacySnapshotRequest()
+        )
         this.profiler = if (profileEnabled()) {
             Some(FrameProfiler(60))
         } else {
@@ -254,7 +257,7 @@ public class DesktopApp {
                 let ownerWorkPending = uiOwnerQueue.hasPending()
                 let mustRender = continuousRequested || ownerWorkPending || !events.isEmpty() ||
                     observedStateGen != lastRenderedGen ||
-                    viewportW != renderedWidth || viewportH != renderedHeight || snapshotPath.isSome() ||
+                    viewportW != renderedWidth || viewportH != renderedHeight || captureRequest.isSome() ||
                     profiler.isSome() || themeTransition.isSome()
 
                 if (mustRender) {
@@ -406,7 +409,7 @@ public class DesktopApp {
         let t2 = FrameProfiler.now()
         ctx.renderer.endScene()
         let t3 = FrameProfiler.now()
-        maybeSnapshot()
+        maybeCapture()
         ctx.renderer.present()
         let t4 = FrameProfiler.now()
         (t1 - t0, t2 - t1, t3 - t2, t4 - t3)
@@ -491,12 +494,13 @@ public class DesktopApp {
         }
     }
 
-    // Snapshot mode: `main.exe --snapshot <path.bmp>` renders a few frames so the UI
-    // settles, writes the frame to a BMP, then quits. Handy for visual tests and docs.
-    private func maybeSnapshot(): Unit {
-        match (snapshotPath) {
-            case Some(path) where frames >= snapshotFrame =>
-                ctx.renderer.captureBmp(path)
+    // Capture is a renderer-owned request. The CLI starts the built executable
+    // directly and supplies this request through DesktopCaptureRequest's host
+    // protocol; the argv parser below remains only for older consumers.
+    private func maybeCapture(): Unit {
+        match (captureRequest) {
+            case Some(request) where frames >= request.settleFrames =>
+                ctx.renderer.captureBmp(request.path)
                 ctx.requestClose()
             case _ => ()
         }
@@ -634,7 +638,28 @@ public class DesktopApp {
     }
 }
 
-private func snapshotFrameArgument(): UInt64 {
+internal func resolveDesktopCaptureRequest(
+    explicit: ?DesktopCaptureRequest,
+    host: ?DesktopCaptureRequest,
+    legacy: ?DesktopCaptureRequest
+): ?DesktopCaptureRequest {
+    match (explicit) {
+        case Some(request) => Some(request)
+        case None => match (host) {
+            case Some(request) => Some(request)
+            case None => legacy
+        }
+    }
+}
+
+private func legacySnapshotRequest(): ?DesktopCaptureRequest {
+    match (legacySnapshotArgument()) {
+        case Some(path) => Some(DesktopCaptureRequest(path, settleFrames: legacySnapshotFrameArgument()))
+        case None => None
+    }
+}
+
+private func legacySnapshotFrameArgument(): UInt64 {
     let args = getCommandLine()
     var i = 0
     while (i < args.size - 1) {
@@ -668,7 +693,7 @@ internal func tickDelta(previousTick: UInt64, currentTick: UInt64): UInt64 {
     }
 }
 
-private func snapshotArgument(): ?String {
+private func legacySnapshotArgument(): ?String {
     let args = getCommandLine()
     var i = 0
     while (i < args.size - 1) {

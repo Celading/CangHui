@@ -78,5 +78,5 @@ cjpm run
 点击任意列头排序（再次点击反向），点击行或 `Tab` 聚焦后用方向键选择。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot data_table.bmp"
+cuic prnt . --output data_table.bmp
 ```

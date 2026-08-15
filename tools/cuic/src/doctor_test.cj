@@ -35,26 +35,53 @@ func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     let result = DoctorResult("macos", "arm64", "macos", [group])
     let json = renderDoctorJson(result, false)
     @Expect(json.contains("\"schema\":\"canghui.doctor.v0\""))
+    @Expect(json.contains("\"cliVersion\":\"0.4.0\""))
+    @Expect(json.contains("\"cliProvenance\":{\"channel\":\"development\",\"revision\":\"unembedded\"}"))
     @Expect(json.contains("\"status\":\"degraded\""))
     @Expect(json.contains("\"kind\":\"manual\""))
     @Expect(json.contains("\"evidence\":\"\""))
 }
 
 @Test
-func doctorIosSeparatesProvenBootstrapFromOpenRenderer(): Unit {
+func doctorIosReportsBootstrapAndNativeSurfaceAdapter(): Unit {
     let framework = tryResolveFrameworkRoot(currentDirectory())
     let checks = doctorIosFrameworkChecks(framework)
     var readyBootstrapAssets: Int64 = 0
-    var rendererBlocked = false
+    var readySurfaceAssets: Int64 = 0
+    var rendererReady = false
     for (check in checks) {
         if (startsWithText(check.id, "ios.bootstrap-") &&
             doctorStatusName(check.status) == "ready") {
             readyBootstrapAssets += 1
         }
-        if (check.id == "ios.renderer" && doctorStatusName(check.status) == "blocked") {
-            rendererBlocked = true
+        if (startsWithText(check.id, "ios.surface-") &&
+            doctorStatusName(check.status) == "ready") {
+            readySurfaceAssets += 1
+        }
+        if (check.id == "ios.renderer" && doctorStatusName(check.status) == "ready") {
+            rendererReady = true
         }
     }
     @Expect(readyBootstrapAssets, Int64(3))
-    @Expect(rendererBlocked)
+    @Expect(readySurfaceAssets, Int64(3))
+    @Expect(rendererReady)
+}
+
+@Test
+func doctorAndroidReportsBootstrapWithoutClaimingRuntimeCompletion(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let checks = doctorAndroidGroup(framework).checks
+    var readySurfaceAssets: Int64 = 0
+    var backendDegraded = false
+    for (check in checks) {
+        if (startsWithText(check.id, "android.surface-") &&
+            doctorStatusName(check.status) == "ready") {
+            readySurfaceAssets += 1
+        }
+        if (check.id == "android.backend" && doctorStatusName(check.status) == "degraded") {
+            backendDegraded = true
+        }
+    }
+    @Expect(readySurfaceAssets, Int64(5))
+    @Expect(backendDegraded)
 }

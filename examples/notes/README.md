@@ -68,5 +68,5 @@ cjpm run
 右键新建、复制、删除。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot notes.bmp"
+cuic prnt . --output notes.bmp
 ```

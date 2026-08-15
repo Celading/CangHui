@@ -57,5 +57,5 @@ cjpm run
 点击顶部菜单标题展开，选择项执行；清空文档后再看文件菜单，“保存/清空”会置灰。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot editor.bmp"
+cuic prnt . --output editor.bmp
 ```

@@ -8,6 +8,11 @@ animation samples, and renderer command shape without creating an SDL window.
 Pixel output remains the appropriate proof for font appearance, clipping,
 platform integration, and final visual review.
 
+For terminal-first layout review, `ComponentProbe` can project its latest Draw
+IR frame into bounded ASCII cells. This preserves logical placement and command
+order, but it is not pixel evidence and does not model rasterization, text
+shaping, antialiasing, video frames, or platform composition.
+
 ## Function Probes
 
 Import the probe macro and annotate a top-level `(String) -> String` function:
@@ -119,8 +124,49 @@ return a nonzero status.
 ./tools/cuic/bin/cuic probe run component-gallery gallery.primary-button \
   --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
   --json
+./tools/cuic/bin/cuic probe ascii component-gallery gallery.primary-button \
+  --columns 96 --rows 32
 ```
 
 Use `--script path/to/events.txt` for a checked-in event script. The stable
 report contract is published as
 [`contracts/cui-probe-v0.schema.json`](../contracts/cui-probe-v0.schema.json).
+`probe ascii` accepts the same optional event script as `probe run` and renders
+the final sampled frame. Probe nodes with conventional `role`, `label`, `icon`,
+`action`, `shortcut`, `value`, `state`, and `disabled` properties are projected
+as an agent-readable semantic map:
+
+```text
+|..[$i1]........<$f1>.............................................................|
+
+$i1 - "IconButton#toolbar.back" | icon="Icons.Back" | action="window.back()" | shortcut="Escape" | rect=(28,31,46,46) | probe="press 51 54; release 51 54"
+$f1 - "TextField#search" | label="Search" | rect=(96,31,240,46) | probe="focus search"
+```
+
+`[$iN]` identifies an action, `<$fN>` identifies focus or text input, and
+`($vN)` identifies a non-interactive visual region. Small or overlapping
+controls may use `[$N]`, `<$N>`, or `($N)` compact markers while retaining the
+full stable token in the legend.
+
+Custom-drawn widgets can expose real subcontrols without adding fake layout
+widgets. The provider is evaluated only while a component probe is active:
+
+```cj
+probeSemanticRegions { => [
+    ProbeSemanticRegion(
+        "player.play",
+        DrawIrAsciiAnnotationKind.Interactive,
+        playRect,
+        widgetType: "IconButton",
+        properties: [
+            ProbeProperty("icon", "Icons.Play"),
+            ProbeProperty("action", "player.togglePlayback()"),
+            ProbeProperty("shortcut", "Space")
+        ]
+    )
+] }
+```
+
+The same subregions appear in JSON frame reports under `regions`. Use
+`cuic prnt` or device screenshots when pixels, fonts, media content, clipping
+fidelity, or platform integration are under test.

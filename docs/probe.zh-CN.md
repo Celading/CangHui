@@ -4,6 +4,8 @@
 
 `cui.probe.v0` 是 CangHui 的确定性、无设备插桩协议。它不创建 SDL 窗口，即可验证函数调用、组件结构、事件路由、动画采样和渲染命令形态。字体外观、裁切、平台集成与最终视觉检查仍应使用像素输出。
 
+终端优先的布局检查可以把 `ComponentProbe` 最后一帧 Draw IR 投影为有界 ASCII 网格。它保留逻辑位置与命令顺序，但不等同于像素证据，也不模拟栅格化、文字塑形、抗锯齿、视频帧或平台合成。
+
 ## 函数 Probe
 
 导入 probe 宏，并标注一个顶层 `(String) -> String` 函数：
@@ -105,6 +107,38 @@ assert draw <kind> <minimum-count>
 ./tools/cuic/bin/cuic probe run component-gallery gallery.primary-button \
   --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
   --json
+./tools/cuic/bin/cuic probe ascii component-gallery gallery.primary-button \
+  --columns 96 --rows 32
 ```
 
 需要提交事件脚本时，使用 `--script path/to/events.txt`。稳定报告契约见 [`contracts/cui-probe-v0.schema.json`](../contracts/cui-probe-v0.schema.json)。
+`probe ascii` 支持与 `probe run` 相同的可选事件脚本，并投影最终采样帧。探针节点可通过约定属性 `role`、`label`、`icon`、`action`、`shortcut`、`value`、`state` 与 `disabled` 自动生成面向无视觉模型的语义图：
+
+```text
+|..[$i1]........<$f1>.............................................................|
+
+$i1 - "IconButton#toolbar.back" | icon="Icons.Back" | action="window.back()" | shortcut="Escape" | rect=(28,31,46,46) | probe="press 51 54; release 51 54"
+$f1 - "TextField#search" | label="Search" | rect=(96,31,240,46) | probe="focus search"
+```
+
+`[$iN]` 表示动作区，`<$fN>` 表示焦点或文本输入区，`($vN)` 表示非交互视觉区。区域过小或标记重叠时，画布会使用 `[$N]`、`<$N>` 或 `($N)` 紧凑标记，但下方图例仍保留完整稳定 token。
+
+手绘组件无需为探针伪造布局节点，可直接声明真实子区域。只有组件探针运行时才会执行 provider：
+
+```cj
+probeSemanticRegions { => [
+    ProbeSemanticRegion(
+        "player.play",
+        DrawIrAsciiAnnotationKind.Interactive,
+        playRect,
+        widgetType: "IconButton",
+        properties: [
+            ProbeProperty("icon", "Icons.Play"),
+            ProbeProperty("action", "player.togglePlayback()"),
+            ProbeProperty("shortcut", "Space")
+        ]
+    )
+] }
+```
+
+同一批子区域也会出现在 JSON 帧的 `regions` 字段中。需要验证像素、字体、媒体内容、裁切精度或平台集成时，仍应使用 `cuic prnt` 或设备截图。

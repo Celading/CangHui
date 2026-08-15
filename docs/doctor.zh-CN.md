@@ -27,6 +27,10 @@
 
 只有全局检查或显式请求的目标包含 `blocked` 或 `unsupported` 时，进程才返回非零状态。未请求平台的限制会继续显示，但不会让本来可用的宿主流程失败。`degraded` 本身不会使命令失败。
 
+对于使用 Git 依赖的应用，缺少 `cjpm.lock` 或其中的 CangHui commit 与 manifest 不一致时，
+全局工程分组会进入 `blocked`。检查 manifest pin 后再显式运行 `cuic dependency update`；doctor
+与构建类命令不会隐式修复 lock。
+
 因此下面的写法适合 CI：
 
 ```bash
@@ -34,6 +38,16 @@
 ```
 
 JSON 文档遵循 [`canghui.doctor.v0`](../contracts/canghui-doctor-v0.schema.json)。未使用 `--verbose` 时，每个 `evidence` 字段都是空字符串。详细模式可能包含工具版本和文件系统位置，但签名身份与已连接设备只会输出摘要，不会直接暴露完整身份。
+
+新报告会在稳定的 `cliVersion` 旁增加 `cliProvenance`。其中 `channel` 为
+`development`、`local-source` 或 `release`；安装产物的 `revision` 是精确 Git
+提交，本地源码含未提交输入时带 `+dirty`，直接在仓库内构建且未嵌入来源时则诚实标记为
+`unembedded`。该字段在 v0 schema 中保持可选，使已经保存的旧报告仍可通过校验。
+
+iOS 分组会分别报告静态包 bootstrap 与 native-surface 适配器。当前适配器包含整数 C ABI、
+UIKit `CAMetalLayer`、生命周期与安全区入口、触摸转发、`CADisplayLink`、generation 门控的
+detach/reattach 重放，以及模拟器/真机验证器。完整 CUI 场景渲染、IME、无障碍、应用打包
+与产品验收仍属于后续平台工作。
 
 ## 检查分组
 

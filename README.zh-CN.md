@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/package-cui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 cui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
-  <img src="https://img.shields.io/badge/license-MIT-d69e2e?style=for-the-badge&labelColor=1f2430" alt="MIT 许可证" />
+  <img src="https://img.shields.io/badge/license-Apache--2.0-d69e2e?style=for-the-badge&labelColor=1f2430" alt="Apache 2.0 许可证" />
 </p>
 <div align="center">
 <span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
@@ -24,8 +24,10 @@
 
 CangHui 是用[仓颉编程语言](https://cangjie-lang.cn/)实现的自渲染、声明式 GUI 框架。项目从
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) 演进而来，
-持续保留其上游归属与 MIT 许可证。声明式核心 `cui`、安全的 SDL3 封装 `sdl`、
-集成工具链 `cuic`、组件包契约、响应式布局原语与原生宿主契约都维护在本仓库。
+持续保留其上游归属与 MIT 许可告知。CangHui 及其原创贡献以 Apache 2.0
+许可证发布，上游 MIT 条款完整保留在
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。声明式核心 `cui`、安全的
+SDL3 封装 `sdl`、集成工具链 `cuic`、组件包契约、响应式布局原语与原生宿主契约都维护在本仓库。
 
 框架在源码层保持平台中立：公共组件只依赖类型化的宿主能力（`HostCapability`）与
 视口事实（`ViewportSpec`），各平台适配层负责生命周期、原生 surface、IME、无障碍、
@@ -33,15 +35,16 @@ CangHui 是用[仓颉编程语言](https://cangjie-lang.cn/)实现的自渲染�
 
 ## 平台状态
 
-以下平台声明刻意保守：桌面布局预览不代表移动端运行时，bootstrap 证明也不等于渲染器完成。
+以下平台声明刻意保守：桌面布局预览不代表移动端运行时，native-surface 探针也不等于
+产品级场景渲染或应用验收。
 
 | 平台 | 状态 | 说明 |
 | --- | --- | --- |
 | macOS 桌面 | 可用 | 本机通过构建、框架/SDL/CLI 全量测试套件、交互式 Gallery 与确定性截图。 |
-| iOS | bootstrap 已证明，渲染器未完成 | 设备/模拟器静态包 bootstrap 与 ABI 返回已证明；UIKit native-surface 渲染器、生命周期、IME 与无障碍适配尚未实现。 |
+| iOS | native-surface 适配器已证明 | 模拟器与真机证明覆盖静态包 bootstrap、UIKit `CAMetalLayer`、生命周期、安全区、触摸、`CADisplayLink`、detach/reattach generation 回放与 Metal clear pass。完整 CUI 场景渲染、IME、无障碍和产品应用验收仍未完成。 |
 | HarmonyOS / HarmonyPC | 本仓库未提供应用宿主 | 公共契约覆盖原生 surface 与宿主能力，但本仓库不包含 ArkTS/HAP 应用宿主，也不声明独立的设备运行验收。 |
 | Windows / Linux | 仅有代码路径 | `cuic` 提供 bootstrap、doctor 与构建代码路径；本仓库不声称这两个平台的主机级运行时证明。 |
-| Android | 未实现 | 尚无渲染后端、SDL activity 桥、NDK 打包或 APK runner。 |
+| Android | 仅 native-surface bootstrap | 最小 Activity 已经管理 generation-safe 的 `SurfaceView` 到 JNI 再到 `ANativeWindow` 生命周期，并通过 `arm64-v8a` 与 `x86_64` 构建。仓颉 Android SDK、渲染器桥、输入/IME、APK 打包和真机运行证明仍未完成。 |
 
 ## 快速开始
 
@@ -58,13 +61,15 @@ cuic version
 ```bash
 cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
+cuic dependency update
 cuic doctor macos
 cuic build macos
 cuic run macos
 ```
 
-生成工程通过公开 CangHui Git 依赖按 commit 固定版本，提交 `cjpm.lock`，并经由 CJPM 缓存解析，
-不会把框架复制进每个应用。
+生成工程通过公开 CangHui Git 依赖按 commit 固定版本。`cuic dependency update` 是唯一显式修改
+lock/缓存的步骤；构建类命令要求 `cjpm.lock` 与 manifest 一致，且不会隐式更新。框架经由 CJPM
+缓存解析，不会被复制进每个应用。
 
 `src/main.cj` 中的最小窗口：
 
@@ -173,8 +178,9 @@ doctor 状态模型与 JSON 契约见
 
 ## 许可证
 
-本项目以 [MIT 许可证](LICENSE) 发布。SDL3 与 SDL3_ttf 运行库使用 Zlib 许可证，
-请参见对应上游项目。上游源码归属保留为
+本项目以 [Apache 2.0 许可证](LICENSE) 发布。保留的上游与第三方归属见
+[NOTICE](NOTICE) 和 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。SDL3 与
+SDL3_ttf 运行库使用 Zlib 许可证，请参见对应上游项目。上游源码归属保留为
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI)。
 
 > [!IMPORTANT]

@@ -206,7 +206,7 @@ func collectDoctorResult(requestedTarget: String, framework: String, project!: S
     groups.add(doctorLinuxGroup(host))
     groups.add(doctorIosGroup(host, framework, requestedTarget == "ios"))
     groups.add(doctorHarmonyGroup(framework, requestedTarget == "harmonyos"))
-    groups.add(doctorAndroidGroup())
+    groups.add(doctorAndroidGroup(framework))
     groups.add(doctorFontGroup(framework))
     groups.add(doctorSymbolGroup(framework))
     groups.add(doctorProbeGroup(framework))
@@ -242,20 +242,33 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
             doctorReady("project.cache", "Resolved framework", "The local framework root is readable.", framework)
         })
     } else if (spec.isGit()) {
-        checks.add(doctorReady("project.dependency", "CangHui dependency",
-            "The application uses a public Git dependency.", spec.git + "@" + shortCommit(spec.commitId)))
-        let locked = lockedFrameworkCommit(project)
-        checks.add(if (locked.isEmpty()) {
-            doctorDegraded("project.lock", "Dependency lock", "The Git dependency has not been resolved into cjpm.lock.",
-                DoctorActionKind.Automatic, "Run cuic build to resolve and lock the dependency.", joinPath(project, "cjpm.lock"))
+        checks.add(if (spec.commitId.isEmpty()) {
+            doctorBlocked("project.dependency", "CangHui dependency",
+                "The public Git dependency is not pinned to an exact commitId.", DoctorActionKind.Manual,
+                "Pin [dependencies].cui to an exact commitId before updating the lock.", spec.git)
         } else {
-            doctorReady("project.lock", "Dependency lock", "cjpm.lock freezes the resolved CangHui commit.", locked)
+            doctorReady("project.dependency", "CangHui dependency",
+                "The application uses a pinned public Git dependency.", spec.git + "@" + shortCommit(spec.commitId))
         })
-        checks.add(if (framework.isEmpty()) {
-            doctorDegraded("project.cache", "CJPM source cache", "The pinned CangHui source is not present in the CJPM cache.",
-                DoctorActionKind.Automatic, "Run cuic build to populate the CJPM cache.", cjpmCacheRoot(project))
+        let locked = lockedFrameworkCommit(project)
+        let lockProblem = frameworkDependencyLockProblem(spec, locked)
+        checks.add(if (!lockProblem.isEmpty()) {
+            doctorBlocked("project.lock", "Dependency lock", lockProblem, DoctorActionKind.Manual,
+                "Run cuic dependency update explicitly after reviewing the manifest pin.", joinPath(project, "cjpm.lock"))
         } else {
-            doctorReady("project.cache", "CJPM source cache", "The pinned framework is available from the user cache.", framework)
+            doctorReady("project.lock", "Dependency lock",
+                "cjpm.lock matches the manifest CangHui commitId.", locked)
+        })
+        let cached = cachedFrameworkRoot(project)
+        checks.add(if (!lockProblem.isEmpty()) {
+            doctorBlocked("project.cache", "CJPM source cache",
+                "The cached source cannot be accepted until the dependency lock matches the manifest.",
+                DoctorActionKind.Manual, "Repair the lock with cuic dependency update.", cjpmCacheRoot(project))
+        } else if (cached.isEmpty()) {
+            doctorDegraded("project.cache", "CJPM source cache", "The pinned CangHui source is not present in the CJPM cache.",
+                DoctorActionKind.Manual, "Run cuic dependency update to populate the CJPM cache.", cjpmCacheRoot(project))
+        } else {
+            doctorReady("project.cache", "CJPM source cache", "The pinned framework is available from the user cache.", cached)
         })
     } else {
         checks.add(doctorBlocked("project.dependency", "CangHui dependency",
@@ -432,10 +445,18 @@ func doctorIosFrameworkChecks(framework: String): Array<DoctorCheck> {
     checks.add(doctorRequiredFile("ios.bootstrap-proof", "CangHui iOS bootstrap proof receipt",
         joinPath(framework, "proofs/20260731-canghui-ios-static-package-bootstrap-v1.json"),
         "Re-run the iOS static-package verifier and retain its public proof receipt."))
-    checks.add(doctorBlocked("ios.renderer", "CangHui iOS native-surface renderer",
-        "Runtime, scheduler, static-package initialization and ABI return are proven, but the UIKit native-surface renderer is not implemented.",
-        DoctorActionKind.Manual, "Implement and device-verify the CAMetalLayer or MTKView surface proxy before application release testing.",
-        "platform/ios bootstrap proof does not include renderer acceptance"))
+    checks.add(doctorRequiredFile("ios.surface-header", "CangHui iOS native-surface ABI",
+        joinPath(framework, "platform/ios/include/CangHuiNativeSurface.h"),
+        "Use a CangHui revision that includes the integer-only native-surface ABI."))
+    checks.add(doctorRequiredFile("ios.surface-view", "CangHui iOS Metal surface view",
+        joinPath(framework, "platform/ios/runtime/CangHuiMetalSurfaceView.m"),
+        "Use a CangHui revision that includes the UIKit CAMetalLayer adapter."))
+    checks.add(doctorRequiredFile("ios.surface-clock", "CangHui iOS display-link driver",
+        joinPath(framework, "platform/ios/runtime/CangHuiDisplayLinkDriver.m"),
+        "Use a CangHui revision that includes the CADisplayLink frame clock."))
+    checks.add(doctorReady("ios.renderer", "CangHui iOS native-surface adapter",
+        "The UIKit CAMetalLayer adapter, lifecycle, safe-area, touch, frame-clock and surface-generation replay are present.",
+        "platform/ios runtime and native-surface proof"))
     checks.toArray()
 }
 
@@ -465,7 +486,7 @@ func doctorHarmonyGroup(framework: String, liveChecks: Bool): DoctorGroup {
         "harmonyos", checks.toArray())
 }
 
-func doctorAndroidGroup(): DoctorGroup {
+func doctorAndroidGroup(framework: String): DoctorGroup {
     let checks = ArrayList<DoctorCheck>()
     let sdkRoot = doctorAndroidSdkRoot()
     checks.add(if (sdkRoot.isEmpty()) {
@@ -481,10 +502,55 @@ func doctorAndroidGroup(): DoctorGroup {
     } else {
         doctorReady("android.ndk", "Android NDK", "An Android NDK root is configured.", ndkRoot)
     })
-    checks.add(doctorUnsupported("android.backend", "CangHui Android backend and package runner",
-        "The Android renderer backend, native bridge, package assembly, and runner are not implemented.",
-        "No automatic repair is available in this version.", "unsupported by current CangHui version"))
-    DoctorGroup("platform.android", "Android SDK, NDK, backend, and package readiness", "android", checks.toArray())
+    let javaHost = joinPath(framework,
+        "platform/android/src/main/java/dev/canghui/android/CangHuiNativeSurfaceHost.java")
+    let activityHost = joinPath(framework,
+        "platform/android/src/main/java/dev/canghui/android/CangHuiSurfaceActivity.java")
+    let nativeHost = joinPath(framework, "platform/android/src/main/cpp/canghui_android_surface.cpp")
+    let buildScript = joinPath(framework, "scripts/build-android-native-surface.sh")
+    let verifyScript = joinPath(framework, "scripts/verify-android-toolchain.sh")
+    checks.add(doctorRequiredFile("android.surface-java", "Android SurfaceView host", javaHost,
+        "Use a CangHui revision that includes the Android native-surface bootstrap."))
+    checks.add(doctorRequiredFile("android.surface-activity", "Android Activity lifecycle host", activityHost,
+        "Use a CangHui revision that includes the Android Activity lifecycle bootstrap."))
+    checks.add(doctorRequiredFile("android.surface-native", "Android ANativeWindow bridge", nativeHost,
+        "Use a CangHui revision that includes the generation-safe JNI/ANativeWindow bridge."))
+    checks.add(doctorRequiredFile("android.surface-build", "Android native-surface build", buildScript,
+        "Restore the Android native-surface build verifier."))
+    checks.add(doctorRequiredFile("android.surface-verify", "Android native-surface verification", verifyScript,
+        "Restore the Android ABI and JNI export verifier."))
+
+    let cangjieRoot = doctorAndroidCangjieRoot()
+    let cangjieModules = doctorAndroidCrossDirectory(joinPath(cangjieRoot, "modules"))
+    let cangjieRuntime = doctorAndroidCrossDirectory(joinPath(joinPath(cangjieRoot, "runtime"), "lib"))
+    checks.add(if (!cangjieModules.isEmpty() && !cangjieRuntime.isEmpty()) {
+        doctorReady("android.cangjie", "Cangjie Android cross SDK",
+            "Android modules and runtime are available for the arm64 Cangjie target.",
+            cangjieModules + " | " + cangjieRuntime)
+    } else {
+        doctorBlocked("android.cangjie", "Cangjie Android cross SDK",
+            "The selected Cangjie SDK does not provide Android arm64 modules and runtime.",
+            DoctorActionKind.Manual,
+            "Install a Cangjie Android cross SDK before linking the framework bridge.", cangjieRoot)
+    })
+
+    let nativeBootstrap = exists(javaHost) && exists(activityHost) && exists(nativeHost) &&
+        exists(buildScript) && exists(verifyScript)
+    checks.add(if (nativeBootstrap) {
+        doctorDegraded("android.backend", "CangHui Android renderer and package runner",
+            "The Java/JNI/NDK native-surface and Activity lifecycle bootstrap is present, but the Cangjie " +
+                "renderer bridge, input, IME, APK packaging and device runtime proof remain open.",
+            DoctorActionKind.Manual,
+            "Complete the shared Cangjie ABI and device-backed Android application host.",
+            "native-surface and Activity lifecycle bootstrap only")
+    } else {
+        doctorUnsupported("android.backend", "CangHui Android renderer and package runner",
+            "The Android native-surface bootstrap, renderer, package assembly, and runner are not available.",
+            "Use a CangHui revision with the Android bootstrap before implementing the renderer.",
+            "unsupported by current CangHui revision")
+    })
+    DoctorGroup("platform.android", "Android SDK, NDK, native surface, Cangjie, and package readiness",
+        "android", checks.toArray())
 }
 
 func doctorFontGroup(framework: String): DoctorGroup {
@@ -762,6 +828,27 @@ func doctorAndroidNdkRoot(sdkRoot: String): String {
     ""
 }
 
+func doctorAndroidCangjieRoot(): String {
+    match (getVariable("CANGJIE_HOME")) {
+        case Some(value) => trimTrailingSlash(trimAscii(value))
+        case None => ""
+    }
+}
+
+func doctorAndroidCrossDirectory(parent: String): String {
+    if (parent.isEmpty() || !exists(parent)) { return "" }
+    try {
+        for (entry in Directory.readFrom(parent)) {
+            let name = basename(entry.path.toString())
+            if (entry.isDirectory() && startsWithText(name, "linux_android") &&
+                endsWithText(name, "_aarch64_cjnative")) {
+                return entry.path.toString()
+            }
+        }
+    } catch (_: Exception) {}
+    ""
+}
+
 func doctorReady(id: String, label: String, reason: String, evidence: String): DoctorCheck {
     DoctorCheck(id, label, DoctorStatus.Ready, reason, DoctorActionKind.NoAction, "", evidence)
 }
@@ -817,6 +904,7 @@ func doctorStatusBlocks(status: DoctorStatus): Bool {
 
 func renderDoctorHuman(result: DoctorResult, verbose: Bool): Unit {
     println("CangHui doctor (${CANGHUI_DOCTOR_SCHEMA})")
+    println("CLI: ${renderCuicVersion()}")
     println("Host: ${result.host} ${result.architecture}")
     println("Requested target: ${result.requestedTarget}")
     for (group in result.groups) {
@@ -843,6 +931,11 @@ func renderDoctorJson(result: DoctorResult, verbose: Bool): String {
     out.append(cuicJsonQuote(CANGHUI_DOCTOR_SCHEMA))
     out.append(",\"cliVersion\":")
     out.append(cuicJsonQuote(VERSION))
+    out.append(",\"cliProvenance\":{\"channel\":")
+    out.append(cuicJsonQuote(CUIC_BUILD_CHANNEL))
+    out.append(",\"revision\":")
+    out.append(cuicJsonQuote(CUIC_BUILD_REVISION))
+    out.append("}")
     out.append(",\"host\":{\"platform\":")
     out.append(cuicJsonQuote(result.host))
     out.append(",\"architecture\":")

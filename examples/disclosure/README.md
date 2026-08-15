@@ -63,5 +63,5 @@ cjpm run
 点问题行或 Tab + Enter 展开收起，观察高度缓动与其下卡片的平滑让位。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot disclosure.bmp"
+cuic prnt . --output disclosure.bmp
 ```

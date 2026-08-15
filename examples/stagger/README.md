@@ -64,7 +64,7 @@ cjpm run
 按「收起 / 入场」反复切换观察瀑布，用左侧三档（无 / 轻 / 明显）对比交错步进的手感差异。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot stagger.bmp"
+cuic prnt . --output stagger.bmp
 ```
 
 首帧即静止（默认已入场），故快照稳定；要拍到瀑布中段，可临时把初始 `shown` 设为 false、用 `FrameHandler`

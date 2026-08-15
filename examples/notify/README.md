@@ -62,5 +62,5 @@ cjpm run
 点四个按钮弹出不同类型的通知，观察它们在右下角堆叠、滑入、几秒后淡出。支持视觉回归快照：
 
 ```powershell
-cjpm run --run-args "--snapshot notify.bmp"
+cuic prnt . --output notify.bmp
 ```
