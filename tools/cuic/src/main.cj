@@ -481,7 +481,7 @@ func resolveProject(requested: String, frameworkHint: String): String {
     throw CuicError("no cjpm.toml found in ${direct}")
 }
 
-func bootstrap(platform: String, framework: String): Int64 {
+func bootstrap(platform: String, framework: String, stagingRoot!: String = ""): Int64 {
     if (platform == "android") {
         throw CuicError("Android backend is not implemented: no cjpm target, SDL activity bridge, NDK packaging, or APK runner")
     }
@@ -489,13 +489,14 @@ func bootstrap(platform: String, framework: String): Int64 {
     if (platform != host) {
         throw CuicError("target '${platform}' requires a ${platform} host; current host is '${host}'")
     }
+    let effectiveStaging = if (stagingRoot.size > 0) { stagingRoot } else { framework }
     if (platform == "windows") {
-        requireFile(joinPath(framework, "sdl/.sdl3/SDL3.dll"), "SDL3.dll is missing")
-        requireFile(joinPath(framework, "sdl/.sdl3/SDL3_ttf.dll"), "SDL3_ttf.dll is missing")
-        println("Windows SDL libraries are ready in ${joinPath(framework, "sdl/.sdl3")}")
+        requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3.dll"), "SDL3.dll is missing")
+        requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3_ttf.dll"), "SDL3_ttf.dll is missing")
+        println("Windows SDL libraries are ready in ${joinPath(effectiveStaging, "sdl/.sdl3")}")
         return 0
     }
-    let sdlDirectory = joinPath(framework, "sdl/.sdl3")
+    let sdlDirectory = joinPath(effectiveStaging, "sdl/.sdl3")
     if (!exists(sdlDirectory)) { Directory.create(sdlDirectory, recursive: true) }
     if (platform == "macos") {
         let sdl3 = homebrewLibrary("sdl3", "libSDL3.dylib")
@@ -539,22 +540,40 @@ func copyNativeLibrary(source: String, destination: String): Unit {
 
 func runCjpm(action: String, platform: String, project: String): Int64 {
     let framework = ensureFrameworkRoot(project)
+    let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let boot = bootstrap(platform, framework)
+    let boot = bootstrap(platform, framework, stagingRoot: context.stagingRoot)
     if (boot != 0) { return boot }
-    println("==> cjpm ${action} (${platform}) in ${project}")
-    executeCjpm(project, [action], framework)
+    let lease = context.acquireLease()
+    try {
+        println("==> cjpm ${action} (${platform}) in ${project}")
+        executeCjpm(context, [action])
+    } finally {
+        context.releaseLease(lease)
+    }
 }
 
-func executeCjpm(project: String, cjpmArgs: Array<String>, framework: String): Int64 {
-    let sdl = joinPath(framework, "sdl/.sdl3")
-    let font = runtimeHarmonyFont(framework)
+func cjpmArgsWithTarget(args: Array<String>, targetDir: String): Array<String> {
+    for (arg in args) {
+        if (arg == "--target-dir") { return args }
+    }
+    let out = ArrayList<String>()
+    for (arg in args) { out.add(arg) }
+    out.add("--target-dir")
+    out.add(targetDir)
+    out.toArray()
+}
+
+func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
+    let sdl = context.sdlDirectory()
+    let font = runtimeHarmonyFont(context.framework)
+    let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, font, cjpmArgs)
-        return executeCommand("cmd", ["/D", "/C", command], project)
+        let command = windowsCjpmCommand(sdl, font, targetArgs)
+        return executeCommand("cmd", ["/D", "/C", command], context.project)
     }
     let args = ArrayList<String>()
     if (hostPlatform() == "macos") {
@@ -564,16 +583,17 @@ func executeCjpm(project: String, cjpmArgs: Array<String>, framework: String): I
     }
     args.add("CANGHUI_HARMONYOS_SANS=${font}")
     args.add("cjpm")
-    for (arg in cjpmArgs) { args.add(arg) }
-    executeCommand("/usr/bin/env", args.toArray(), project)
+    for (arg in targetArgs) { args.add(arg) }
+    executeCommand("/usr/bin/env", args.toArray(), context.project)
 }
 
-func executeCjpmQuiet(project: String, cjpmArgs: Array<String>, framework: String): Int64 {
-    let sdl = joinPath(framework, "sdl/.sdl3")
-    let font = runtimeHarmonyFont(framework)
+func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
+    let sdl = context.sdlDirectory()
+    let font = runtimeHarmonyFont(context.framework)
+    let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, font, cjpmArgs)
-        return executeCommandQuiet("cmd", ["/D", "/C", command], project)
+        let command = windowsCjpmCommand(sdl, font, targetArgs)
+        return executeCommandQuiet("cmd", ["/D", "/C", command], context.project)
     }
     let args = ArrayList<String>()
     if (hostPlatform() == "macos") {
@@ -583,8 +603,8 @@ func executeCjpmQuiet(project: String, cjpmArgs: Array<String>, framework: Strin
     }
     args.add("CANGHUI_HARMONYOS_SANS=${font}")
     args.add("cjpm")
-    for (arg in cjpmArgs) { args.add(arg) }
-    executeCommandQuiet("/usr/bin/env", args.toArray(), project)
+    for (arg in targetArgs) { args.add(arg) }
+    executeCommandQuiet("/usr/bin/env", args.toArray(), context.project)
 }
 
 func executeCommand(program: String, args: Array<String>, workingDirectory: String): Int64 {
@@ -931,7 +951,8 @@ func printDeviceWindow(options: PrntOptions): Int64 {
 func printDesktopWindow(options: PrntOptions): Int64 {
     let project = resolveProject(options.requested, "")
     let framework = ensureFrameworkRoot(project)
-    let boot = bootstrap(options.platform, framework)
+    let context = ExecutionContext(project, framework)
+    let boot = bootstrap(options.platform, framework, stagingRoot: context.stagingRoot)
     if (boot != 0) { return boot }
     var output = options.output
     if (output.size == 0) { output = joinPath(currentDirectory(), "cuic-${basename(project)}.png") }
@@ -943,14 +964,19 @@ func printDesktopWindow(options: PrntOptions): Int64 {
     if (!lowerBmp && !lowerPng) { throw CuicError("prnt output must end in .bmp or .png") }
     let snapshot = if (lowerBmp) { output } else { output + ".bmp" }
     removeIfExists(snapshot)
-    println("==> building ${basename(project)} (${options.platform})")
-    let buildCode = executeCjpm(project, ["build"], framework)
-    if (buildCode != 0) { return buildCode }
-    let executable = builtExecutable(project)
-    println("==> capturing ${basename(project)} (${options.platform}) via CangHui capture interface")
-    let code = executeApplication(project, executable, options.appArgs.toArray(), framework, snapshot,
-        options.frames)
-    if (code != 0) { return code }
+    let lease = context.acquireLease()
+    try {
+        println("==> building ${basename(project)} (${options.platform})")
+        let buildCode = executeCjpm(context, ["build"])
+        if (buildCode != 0) { return buildCode }
+        let executable = builtExecutable(context.targetDir)
+        println("==> capturing ${basename(project)} (${options.platform}) via CangHui capture interface")
+        let code = executeApplication(project, executable, options.appArgs.toArray(), framework, snapshot,
+            options.frames)
+        if (code != 0) { return code }
+    } finally {
+        context.releaseLease(lease)
+    }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
     if (lowerPng) {
         let converted = convertPng(snapshot, output)
@@ -969,21 +995,21 @@ func parseCaptureFrames(value: String): UInt64 {
     throw CuicError("--frames requires a positive integer")
 }
 
-func builtExecutable(project: String): String {
+func builtExecutable(targetDir: String): String {
     for (profile in ["release", "debug"]) {
-        for (path in builtExecutableCandidates(project, profile)) {
+        for (path in builtExecutableCandidates(targetDir, profile)) {
             if (exists(path)) { return path }
         }
     }
     throw CuicError("cjpm build completed but no executable was found at target/release/bin/main")
 }
 
-func builtExecutablePath(project: String, profile: String): String {
-    joinPath(project, "target/${profile}/bin/main")
+func builtExecutablePath(targetDir: String, profile: String): String {
+    joinPath(targetDir, "${profile}/bin/main")
 }
 
-func builtExecutableCandidates(project: String, profile: String): Array<String> {
-    let base = builtExecutablePath(project, profile)
+func builtExecutableCandidates(targetDir: String, profile: String): Array<String> {
+    let base = builtExecutablePath(targetDir, profile)
     [base, base + ".exe"]
 }
 

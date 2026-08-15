@@ -28,9 +28,9 @@ func pathHelpersKeepRootAndBasenameStable(): Unit {
 
 @Test
 func prntResolvesTheBuiltExecutableWithoutCjpmRunArgumentForwarding(): Unit {
-    @Expect(builtExecutablePath("/tmp/demo", "release"), "/tmp/demo/target/release/bin/main")
-    @Expect(builtExecutablePath("/tmp/demo", "debug"), "/tmp/demo/target/debug/bin/main")
-    @Expect(builtExecutableCandidates("C:\\demo", "release")[1],
+    @Expect(builtExecutablePath("/tmp/demo/target", "release"), "/tmp/demo/target/release/bin/main")
+    @Expect(builtExecutablePath("/tmp/demo/target", "debug"), "/tmp/demo/target/debug/bin/main")
+    @Expect(builtExecutableCandidates("C:\\demo/target", "release")[1],
         "C:\\demo/target/release/bin/main.exe")
 }
 
@@ -420,4 +420,33 @@ func pviewUsesSameAsciiTargetParser(): Unit {
     @Expect(parsed.columns, Int64(100))
     @Expect(parsed.rows, Int64(30))
     @Expect(parsed.script, "move-in 10 10")
+}
+
+@Test
+func executionContextUsesExplicitTargetAndStagingRoots(): Unit {
+    let context = ExecutionContext("/tmp/proj", "/tmp/fw", targetDir: "/tmp/out", stagingRoot: "/tmp/stage")
+    @Expect(context.project, "/tmp/proj")
+    @Expect(context.framework, "/tmp/fw")
+    @Expect(context.targetDir, "/tmp/out")
+    @Expect(context.stagingRoot, "/tmp/stage")
+    @Expect(context.sdlDirectory(), "/tmp/stage/sdl/.sdl3")
+}
+
+@Test
+func executionContextSanitizesPathKeys(): Unit {
+    @Expect(sanitizePathKey("/a/b"), "_a_b")
+    @Expect(sanitizePathKey("C:\\x:y"), "C__x_y")
+}
+
+@Test
+func cjpmArgsWithTargetAppendsOnceAndPreservesExisting(): Unit {
+    let appended = cjpmArgsWithTarget(["build"], "/tmp/out")
+    @Expect(appended.size, 3)
+    @Expect(appended[0], "build")
+    @Expect(appended[1], "--target-dir")
+    @Expect(appended[2], "/tmp/out")
+    let existing = cjpmArgsWithTarget(["build", "--target-dir", "/keep"], "/tmp/out")
+    @Expect(existing.size, 3)
+    @Expect(existing[0], "build")
+    @Expect(existing[2], "/keep")
 }

@@ -296,14 +296,21 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
     probeName: String, json: Bool): Int64 {
     let project = normalizeKModePath(projectValue)
     let framework = ensureFrameworkRoot(project)
+    let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let buildCode = if (json) {
-        executeCjpmQuiet(project, ["build"], framework)
-    } else {
-        executeCjpm(project, ["build"], framework)
+    let lease = context.acquireLease()
+    var buildCode = 0
+    try {
+        buildCode = if (json) {
+            executeCjpmQuiet(context, ["build"])
+        } else {
+            executeCjpm(context, ["build"])
+        }
+    } finally {
+        context.releaseLease(lease)
     }
     if (buildCode != 0) { return buildCode }
     let session = CuicKModeSession(project, framework)
@@ -375,9 +382,16 @@ func kModeProjectCandidate(value: String): Bool {
 func runKModeExchange(projectValue: String, operation: String, endpoint: String, payload: String): Int64 {
     let project = normalizeKModePath(projectValue)
     let framework = ensureFrameworkRoot(project)
+    let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
-    let buildCode = executeCjpm(project, ["build"], framework)
+    let lease = context.acquireLease()
+    var buildCode = 0
+    try {
+        buildCode = executeCjpm(context, ["build"])
+    } finally {
+        context.releaseLease(lease)
+    }
     if (buildCode != 0) { return buildCode }
     let session = CuicKModeSession(project, framework)
     try {
