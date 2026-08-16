@@ -50,6 +50,11 @@ EXPECTED_SYMBOLS=(
     Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativeGeneration
     Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativeWidth
     Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativeHeight
+    Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativeRender
+    Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativePointerEvent
+    Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativeKeyEvent
+    Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativeImeEvent
+    Java_dev_canghui_android_CangHuiNativeSurfaceHost_nativeReceipt
 )
 
 for abi in arm64-v8a x86_64; do
@@ -83,13 +88,17 @@ CLASS_FILE="${OUTPUT_DIR}/java/dev/canghui/android/CangHuiNativeSurfaceHost.clas
 [[ -f "${CLASS_FILE}" ]] || { echo "error: Java host class was not compiled" >&2; exit 1; }
 ACTIVITY_CLASS_FILE="${OUTPUT_DIR}/java/dev/canghui/android/CangHuiSurfaceActivity.class"
 [[ -f "${ACTIVITY_CLASS_FILE}" ]] || { echo "error: Java Activity host class was not compiled" >&2; exit 1; }
+VIEW_CLASS_FILE="${OUTPUT_DIR}/java/dev/canghui/android/CangHuiAndroidView.class"
+[[ -f "${VIEW_CLASS_FILE}" ]] || { echo "error: Java input/IME view class was not compiled" >&2; exit 1; }
+SYSTEM_BARS_CLASS_FILE="${OUTPUT_DIR}/java/dev/canghui/android/CangHuiSystemBarsMode.class"
+[[ -f "${SYSTEM_BARS_CLASS_FILE}" ]] || { echo "error: Java system-bars API class was not compiled" >&2; exit 1; }
 JNI_HEADER="${OUTPUT_DIR}/jni/dev_canghui_android_CangHuiNativeSurfaceHost.h"
 [[ -f "${JNI_HEADER}" ]] || { echo "error: javac did not generate the JNI contract header" >&2; exit 1; }
 echo "android.java_surface_host=ready class=${CLASS_FILE}"
 
 ACTIVITY_BYTECODE="$(javap -classpath "${OUTPUT_DIR}/java" -c -p \
     dev.canghui.android.CangHuiSurfaceActivity)"
-for lifecycle_method in onCreate onStart onStop onDestroy; do
+for lifecycle_method in onCreate onStart onStop onDestroy setSystemBarsMode showInputMethod hideInputMethod; do
     if [[ "${ACTIVITY_BYTECODE}" != *"${lifecycle_method}"* ]]; then
         echo "error: Activity host bytecode is missing ${lifecycle_method}" >&2
         exit 1
@@ -105,6 +114,25 @@ for lifecycle_call in \
     fi
 done
 echo "android.activity_surface_lifecycle=ready class=${ACTIVITY_CLASS_FILE}"
+
+VIEW_BYTECODE="$(javap -classpath "${OUTPUT_DIR}/java" -c -p \
+    dev.canghui.android.CangHuiAndroidView)"
+for input_method in onTouchEvent onKeyDown onKeyUp onCreateInputConnection showInputMethod hideInputMethod; do
+    if [[ "${VIEW_BYTECODE}" != *"${input_method}"* ]]; then
+        echo "error: Android input view bytecode is missing ${input_method}" >&2
+        exit 1
+    fi
+done
+IME_BYTECODE="$(javap -classpath "${OUTPUT_DIR}/java" -c -p \
+    'dev.canghui.android.CangHuiAndroidView$CangHuiInputConnection')"
+for ime_method in setComposingText commitText deleteSurroundingText finishComposingText setSelection; do
+    if [[ "${IME_BYTECODE}" != *"${ime_method}"* ]]; then
+        echo "error: Android IME bridge bytecode is missing ${ime_method}" >&2
+        exit 1
+    fi
+done
+echo "android.input_ime_bridge=ready class=${VIEW_CLASS_FILE}"
+echo "android.system_bars_api=ready class=${SYSTEM_BARS_CLASS_FILE}"
 if [[ -n "${JAVA_HOME:-}" && ! -d "${JAVA_HOME}" ]]; then
     echo "android.gradle_environment=degraded reason=JAVA_HOME-not-directory value=${JAVA_HOME}"
 else
