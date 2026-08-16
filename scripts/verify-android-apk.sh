@@ -107,7 +107,7 @@ if [[ -z "${APP_PID}" ]]; then
     exit 1
 fi
 
-sleep 1
+sleep 2
 adb -s "${DEVICE_SERIAL}" shell input tap 540 500
 adb -s "${DEVICE_SERIAL}" shell input swipe 260 620 820 620 250
 adb -s "${DEVICE_SERIAL}" shell input text Android42
@@ -151,7 +151,7 @@ done
 
 PACKAGE_PATH="$(adb -s "${DEVICE_SERIAL}" shell pm path "${PACKAGE}" | tr -d '\r')"
 RESUMED="$(adb -s "${DEVICE_SERIAL}" shell dumpsys activity activities \
-    | grep -m 1 'mResumedActivity')"
+    | grep -m 1 -E 'mResumedActivity|topResumedActivity|ResumedActivity:')"
 if [[ "${PACKAGE_PATH}" != package:* || "${RESUMED}" != *"${PACKAGE}"* ]]; then
     echo "error: installed package is not the resumed Activity" >&2
     exit 1
