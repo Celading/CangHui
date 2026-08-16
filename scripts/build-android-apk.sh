@@ -67,7 +67,9 @@ javac -Xlint:-options -source 8 -target 8 \
     "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiAndroidView.java" \
     "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiSystemBarsMode.java" \
     "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiSurfaceActivity.java" \
-    "${ROOT_DIR}/platform/android/src/probe/java/dev/canghui/android/CangHuiProbeActivity.java"
+    "${ROOT_DIR}/platform/android/src/main/java/dev/canghui/android/CangHuiDrawIrView.java" \
+    "${ROOT_DIR}/platform/android/src/probe/java/dev/canghui/android/CangHuiProbeActivity.java" \
+    "${ROOT_DIR}/platform/android/src/probe/java/dev/canghui/android/CangHuiDrawIrDemoActivity.java"
 
 jar cf "${OUTPUT_DIR}/classes.jar" -C "${CLASSES_DIR}" .
 "${BUILD_TOOLS_ROOT}/d8" \
