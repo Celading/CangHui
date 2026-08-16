@@ -37,6 +37,27 @@ func iosNativeSurfaceBridgeCapturesHostFactsThroughOwnerQueue(): Unit {
 }
 
 @Test
+func iosNativeSurfaceBridgeCapturesPointerAndTraitIngress(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.attach(31, 1194000, 834000, 2388, 1668, 2000, 1), 0)
+    @Expect(bridge.pointer(0, 9, 400000, 280000, 2000, 1, 1), 0)
+    @Expect(bridge.pointer(1, 9, 410000, 290000, 2016, 1, 1), 0)
+    @Expect(bridge.updateTraits(2, 2, 2, 2000), 0)
+    @Expect(bridge.currentPointerPhase(), 1)
+    @Expect(bridge.currentPointerKind(), 1)
+    @Expect(bridge.currentPointerId(), 9)
+    @Expect(bridge.currentPointerXMilli(), 410000)
+    @Expect(bridge.currentPointerYMilli(), 290000)
+    @Expect(bridge.currentPointerTimestampMillis(), 2016)
+    @Expect(bridge.currentTraitStyle(), 2)
+    @Expect(bridge.currentTraitHorizontalSizeClass(), 2)
+    @Expect(bridge.currentTraitVerticalSizeClass(), 2)
+    @Expect(bridge.currentTraitScaleMilli(), 2000)
+    @Expect(bridge.totalPointerCount(), 2)
+    @Expect(bridge.totalTraitCount(), 1)
+}
+
+@Test
 func iosNativeSurfaceBridgeValidatesIntegerAbiInputs(): Unit {
     let bridge = IOSNativeSurfaceBridge()
     @Expect(bridge.attach(0, 320000, 480000, 640, 960, 2000, 1), -1)
@@ -44,4 +65,8 @@ func iosNativeSurfaceBridgeValidatesIntegerAbiInputs(): Unit {
     @Expect(bridge.updateSafeArea(-1, 0, 0, 0), -1)
     @Expect(bridge.updateLifecycle(6), -1)
     @Expect(bridge.touch(4, 0, 0, 0, 0, 1), -1)
+    @Expect(bridge.pointer(3, 0, 0, 0, 0, 0, 1), -1)
+    @Expect(bridge.pointer(0, 0, 0, 0, 0, 2, 1), -1)
+    @Expect(bridge.updateTraits(3, 0, 0, 1000), -1)
+    @Expect(bridge.updateTraits(0, 0, 0, 0), -1)
 }

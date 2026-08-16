@@ -90,7 +90,7 @@ helper and UIKit app, links the final executable, installs it and requires a
 result with `passed=1`:
 
 ```text
-CANGHUI_IOS_SURFACE result passed=1 metal=ready drawable=ready attached=1 attaches=2 resizes=1 detaches=1 generation=2 frames=<positive> touches=1
+CANGHUI_IOS_SURFACE result passed=1 metal=ready drawable=ready attached=1 attaches=2 resizes=1 detaches=1 generation=2 frames=<positive> touches=1 pointers=1 traits=1
 ```
 
 Run the simulator acceptance with no signing configuration:
@@ -124,8 +124,9 @@ against the requested bundle id before signing and installing the app.
 The implemented iOS adapter follows an XComponent-like proxy model:
 
 - UIKit owns a `UIView` backed by `CAMetalLayer` or `MTKView`.
-- UIKit forwards lifecycle, safe-area, touch, surface-generation and
-  `CADisplayLink` events through an integer-only C ABI.
+- UIKit forwards lifecycle, safe-area, touch, Pencil/indirect-pointer hover,
+  trait, surface-generation and `CADisplayLink` events through an integer-only
+  C ABI.
 - `IOSNativeSurfaceBridge` commits the host-owned surface facts through the
   Cangjie UI-owner queue and rejects stale generations.
 - The probe uses the Cangjie-selected clear color for a real Metal clear pass.
@@ -134,6 +135,35 @@ The implemented iOS adapter follows an XComponent-like proxy model:
 
 The host still owns signing and packaging. This proof does not yet connect the
 full declarative CUI scene renderer, IME or accessibility to UIKit.
+
+## Native Scene Static Package
+
+Embedded iOS consumers that need Cangjie-owned product scenes without the
+desktop SDL dependency closure can build the focused `cui.native_scene`
+package:
+
+```bash
+CANGJIE_HOME=/path/to/cangjie-ios-sdk \
+    ./scripts/build-ios-native-scene-staticlibs.sh simulator
+```
+
+The package emits `canghui.native-scene.v0` Draw IR, bounded hit regions and
+press/move/release cancellation without SDL or a C shim. UIKit remains the
+pixel presenter. This is a mobile display-list boundary, not a claim that the
+desktop `Renderer.recordingHeadless()` archive is link-safe on iOS.
+
+Applications can use `CangHuiNativeSceneSurfaceView` instead of copying the
+native presenter. The view accepts one caller-buffer render function and
+reuses the framework-owned UIKit/Metal lifecycle, display link and ordered
+input path. It paints the native-scene Draw IR with CoreGraphics, resolves
+`sf` symbols through SF Symbols and presents the result through the shared
+CAMetalLayer. Product state, labels and acceptance receipts stay in the
+consumer application.
+
+The render callback uses a two-step event contract: the sizing callback applies
+the input event exactly once, while the buffer-copy callback receives the
+`none` event and snapshots the resulting state. Render functions must keep a
+`none` event side-effect free.
 
 ## Host Modes
 

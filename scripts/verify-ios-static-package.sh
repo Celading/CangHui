@@ -77,7 +77,8 @@ compile_probe_app() {
     for source in \
         CangHuiUIKitHostView.m \
         CangHuiMetalSurfaceView.m \
-        CangHuiDisplayLinkDriver.m
+        CangHuiDisplayLinkDriver.m \
+        CangHuiNativeSceneSurfaceView.m
     do
         "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
             -fobjc-arc -fblocks -fmodules \
@@ -99,6 +100,7 @@ compile_probe_app() {
         "${build_dir}/CangHuiUIKitHostView.o" \
         "${build_dir}/CangHuiMetalSurfaceView.o" \
         "${build_dir}/CangHuiDisplayLinkDriver.o" \
+        "${build_dir}/CangHuiNativeSceneSurfaceView.o" \
         "$(runtime_archive "${runtime_dir}" section.o)" \
         "$(runtime_archive "${runtime_dir}" cjstart.o)" \
         "${host_archive}" \
@@ -212,7 +214,7 @@ verify_device() {
         "${CANGHUI_IOS_BUNDLE_ID}"
     app_dir="${COMPILED_APP_DIR}"
 
-    security cms -D -i "${CANGHUI_IOS_PROVISIONING_PROFILE}" > "${profile_plist}"
+    security cms -D -i "${CANGHUI_IOS_PROVISIONING_PROFILE}" -o "${profile_plist}"
     plutil -extract Entitlements xml1 -o "${entitlements}" "${profile_plist}"
     plutil -remove keychain-access-groups "${entitlements}" >/dev/null 2>&1 || true
     application_identifier="$(plutil -extract Entitlements.application-identifier raw -o - "${profile_plist}")"
