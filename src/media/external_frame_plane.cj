@@ -47,13 +47,13 @@ public struct ExternalFrameSnapshot {
  */
 public interface ExternalFramePlane {
     /** Renders the current external frame into `frame`; returns true on success. */
-    public func render(target: Renderer, frame: Rect): Bool
+    func render(target: Renderer, frame: Rect): Bool
 
     /** Returns the latest external frame snapshot, or None when unavailable. */
-    public func snapshot(): ?ExternalFrameSnapshot
+    func snapshot(): ?ExternalFrameSnapshot
 
-    public func play(): Bool
-    public func pause(): Bool
-    public func seek(positionMs: Int64): Bool
-    public func close(): Unit
+    func play(): Bool
+    func pause(): Bool
+    func seek(positionMs: Int64): Bool
+    func close(): Unit
 }
