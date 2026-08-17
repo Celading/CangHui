@@ -236,6 +236,60 @@ CangHui 使用分级词汇表达能力边界：
 可以把 CangHui 理解为一座**语义桥**：它负责让仓颉语义跨越宿主，
 而宿主仍须对生命周期、表面、输入、文字系统、无障碍与打包事实负责。
 
+### SDL 的生产谱系
+
+SDL3 是这条运行时谱系的当前代际；在它之前，SDL 已经进入游戏、模拟器、
+媒体软件与 Valve 产品目录。下面的图片墙用于展示更广泛的 SDL 生产生态。
+它们**不是 CangHui 应用**，每个产品实际使用的 SDL 代际与图形后端也可能不同。
+
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/265630/">
+        <img src="https://www.libsdl.org/steam_images/265630.jpg" width="100%" alt="Fistful of Frags" /><br/>
+        <sub>Fistful of Frags · SDL 官方展示</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/355180/">
+        <img src="https://www.libsdl.org/steam_images/355180.jpg" width="100%" alt="Codename CURE" /><br/>
+        <sub>Codename CURE · SDL 官方展示</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/570/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/570/header.jpg" width="100%" alt="Dota 2" /><br/>
+        <sub>Dota 2 · Valve 产品目录</sub>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/730/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/730/header.jpg" width="100%" alt="Counter-Strike 2" /><br/>
+        <sub>Counter-Strike 2 · Valve 产品目录</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/620/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/620/header.jpg" width="100%" alt="Portal 2" /><br/>
+        <sub>Portal 2 · Valve 产品目录</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/550/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/550/header.jpg" width="100%" alt="Left 4 Dead 2" /><br/>
+        <sub>Left 4 Dead 2 · Valve 产品目录</sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+SDL 官网将 Valve 的获奖产品目录和大量 Humble Bundle 游戏列为生产用户。
+产品名称与美术资产归各自权利人所有；上述远程图片链接回来源页面，并未随
+CangHui 仓库分发。它们展示的是上游底座的覆盖范围，不构成兼容性、背书或
+CangHui 运行时能力声明。
+
 ## 下一段路
 
 下一阶段的重点不是继续堆更长的组件目录，而是让同一个应用可以被三种

@@ -275,6 +275,63 @@ The useful mental model is a **semantic bridge**: CangHui carries Cangjie
 meaning across hosts, while each host remains accountable for its lifecycle,
 surface, input, text system, accessibility and packaging truth.
 
+### SDL in Production
+
+SDL3 is the current generation of a runtime lineage that has shipped beneath
+games, emulators, media software and Valve's catalog. The gallery below is a
+visual reference to that wider SDL production ecosystem. These are **not
+CangHui applications**, and the exact SDL generation and backend used by each
+title may vary.
+
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/265630/">
+        <img src="https://www.libsdl.org/steam_images/265630.jpg" width="100%" alt="Fistful of Frags" /><br/>
+        <sub>Fistful of Frags · SDL official showcase</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/355180/">
+        <img src="https://www.libsdl.org/steam_images/355180.jpg" width="100%" alt="Codename CURE" /><br/>
+        <sub>Codename CURE · SDL official showcase</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/570/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/570/header.jpg" width="100%" alt="Dota 2" /><br/>
+        <sub>Dota 2 · Valve catalog</sub>
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/730/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/730/header.jpg" width="100%" alt="Counter-Strike 2" /><br/>
+        <sub>Counter-Strike 2 · Valve catalog</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/620/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/620/header.jpg" width="100%" alt="Portal 2" /><br/>
+        <sub>Portal 2 · Valve catalog</sub>
+      </a>
+    </td>
+    <td width="33%" align="center">
+      <a href="https://store.steampowered.com/app/550/">
+        <img src="https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/550/header.jpg" width="100%" alt="Left 4 Dead 2" /><br/>
+        <sub>Left 4 Dead 2 · Valve catalog</sub>
+      </a>
+    </td>
+  </tr>
+</table>
+
+SDL's own site cites Valve's award-winning catalog and many Humble Bundle games
+as production users. Product names and artwork belong to their respective
+owners; the remote images above link to their source pages and are not bundled
+with CangHui. Their presence illustrates the reach of the upstream substrate,
+not compatibility, endorsement or a CangHui runtime claim.
+
 ## Where This Is Going
 
 The next architectural frontier is not adding a longer widget catalogue. It is
