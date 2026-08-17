@@ -10,8 +10,8 @@
 <span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
 <span style="font-weight:100;font-size:24px">Cangjie Multiplatform Declarative GUI Framework</span>
 <p align="center">
-  <strong>Self-rendered, declarative, and platform-contract driven UI for Cangjie applications</strong><br/>
-  <sub>Widgets · State · Layout · Text · Media · Animation · Tooling · Native host contracts</sub>
+  <strong>A GUI runtime for turning Cangjie intent into native pixels</strong><br/>
+  <sub>Declarative semantics · deterministic probes · self-rendered surfaces · native host contracts</sub>
 </p>
 </div>
 
@@ -39,6 +39,37 @@ IME, accessibility, packaging, and signing. Platform-specific hosts can be
 implemented independently without changing common widgets or application
 state.
 
+> CangHui is not a screenshot layer and not a bag of widgets. It is a small
+> language-facing runtime: application intent enters as Cangjie composition,
+> passes through layout, state, motion, symbols and host capabilities, and
+> leaves as a frame that can be rendered, inspected or replayed.
+
+## The CangHui Stack
+
+```text
+Application code
+        |
+        v
+cuic project lifecycle  ----  kMode / probe / Draw IR / prnt
+        |
+        v
+CUI declarative core  ----  state, identity, layout, controls, overlays
+        |                    theme, motion, typography, Symbol providers
+        v
+Host capability contracts  --  window, input, IME, files, clipboard, time
+        |
+        v
+Native surface adapters  ----  SDL3 desktop | UIKit/Metal slice | mobile bootstrap
+        |
+        v
+Platform runtime and GPU backend
+```
+
+The stack is deliberately layered. A component should be able to describe its
+behavior without importing a platform host; a host should be able to expose a
+surface without knowing the application's business state; and `cuic` should be
+able to exercise the same public functions without opening a window.
+
 ## Platform Status
 
 Platform claims below are intentionally conservative. Desktop layout previews
@@ -52,6 +83,17 @@ scene rendering or application acceptance.
 | HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
 | Android | Native-surface bootstrap only | A minimal Activity owns the generation-safe `SurfaceView` to JNI to `ANativeWindow` lifecycle, and the slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, input/IME, APK packaging and device runtime proof remain open. |
+
+## Capability Map
+
+| Layer | In the public tree | Boundary |
+| --- | --- | --- |
+| CUI core | Declarative composition, identity, state, layout, controls, overlays and text editing | Platform-neutral source API |
+| Rendering | SDL3-backed desktop renderer, geometry, text, symbols, shadows and gradients | The renderer is a dependency-backed implementation, not a claim about every GPU backend |
+| Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
+| Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
+| Packaging | `cuic init`, dependency cache/lock discipline, doctor and platform preparation | Signing, application identity and store packaging are outside the framework |
+| Mobile bridge | iOS native-surface lifecycle slice and Android surface bootstrap | Full product rendering and consumer acceptance are still platform-specific work |
 
 ## Quick Start
 
@@ -105,6 +147,10 @@ main() {
 
 See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
 override rules.
+
+The intended consumer shape is small: depend on `cui`, install `cuic`, and let
+the tool create the project skeleton. A framework checkout is useful for
+framework development, but it is not the normal application layout.
 
 ## Core Capabilities
 
@@ -192,6 +238,57 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
 - Component-package schema: `contracts/canghui-component-package-v0.schema.json`
 - Symbol providers: `packages/symbol-material`, `packages/symbol-ant`,
   `packages/symbol-arco`
+
+## A Public Contract, Not a Platform Costume
+
+CangHui uses a strict vocabulary for capability claims:
+
+- **Implemented** means the source, tests and the named host proof agree.
+- **Experimental** means the adapter or protocol is usable for bounded work,
+  while broader runtime or consumer proof is still open.
+- **Contract** means CangHui defines the interface and invariants, but a host
+  project still owns the platform implementation.
+- **Planned** means the direction is documented, not shipped.
+
+This distinction is part of the product. It keeps a desktop snapshot from being
+mistaken for an iPad runtime, and keeps a native-surface bootstrap from being
+mistaken for a complete application host.
+
+## Technical Lineage and Ecosystem
+
+The following map is intentionally layered. It shows what CangHui uses, what it
+exposes, and what it studies; it does not fold upstream project capabilities
+into the CangHui implementation claim.
+
+| Role | Project or surface | Relationship to CangHui |
+| --- | --- | --- |
+| Language | [Cangjie](https://cangjie-lang.cn/) | Primary implementation and application language |
+| Declarative runtime | CUI (`cui`) | Framework-owned composition, state, layout and component surface |
+| Desktop substrate | [SDL3](https://www.libsdl.org/) / SDL3_ttf | Upstream runtime dependency wrapped by the public `sdl` package |
+| Native surface | UIKit, Metal, Android `SurfaceView` and `ANativeWindow` | Adapter targets and bounded bootstrap surfaces; platform proof is explicit in the matrix |
+| Design language | HarmonyOS Sans, Theme, Motion and Symbol contracts | Bundled fallback plus provider-neutral public APIs |
+| Tooling | `cuic`, kMode, probe, Draw IR, doctor and `prnt` | Framework-owned project, inspection and verification entry points |
+| Component references | ArkUI-oriented component matrix and mature GUI conventions | Compatibility and design references, not bundled platform implementations |
+| Graphics references | SDL, GPU geometry and native-surface literature | Engineering inputs for the renderer boundary, not a claim of owning every backend |
+
+The useful mental model is a **semantic bridge**: CangHui carries Cangjie
+meaning across hosts, while each host remains accountable for its lifecycle,
+surface, input, text system, accessibility and packaging truth.
+
+## Where This Is Going
+
+The next architectural frontier is not adding a longer widget catalogue. It is
+making the same application inspectable at three resolutions:
+
+1. **Semantic**: invoke a public function or event through kMode.
+2. **Geometric**: inspect layout bounds, hit regions and Draw IR without a
+   window.
+3. **Visual**: render the settled frame and capture it when pixels are the
+   question.
+
+That gives automated tools, CI and developers a shared vocabulary for debugging UI without
+forcing every question through a screenshot. Screenshots remain valuable for
+visual acceptance; they simply stop carrying the entire testing burden.
 
 ## Documentation
 
