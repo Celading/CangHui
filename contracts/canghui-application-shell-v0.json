@@ -4,7 +4,7 @@
   "title": "CangHui application shell manifest contract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["protocol", "identity", "assetRoles", "surfaces", "resultStatuses"],
+  "required": ["protocol", "identity", "assetRoles", "surfaces", "resultStatuses", "actionProjection"],
   "properties": {
     "protocol": { "const": "canghui.application-shell.v0" },
     "identity": { "type": "object", "required": ["name", "identifier", "version"] },
@@ -22,6 +22,20 @@
       "type": "array",
       "uniqueItems": true,
       "items": { "enum": ["applied", "queued", "permission-required", "unsupported", "failed"] }
+    },
+    "actionProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["joinKey", "surfaces", "duplicatePolicy"],
+      "properties": {
+        "joinKey": { "const": "stable-action-id" },
+        "surfaces": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["application-menu", "status-item", "notification", "command-palette", "kmode"] }
+        },
+        "duplicatePolicy": { "const": "reject" }
+      }
     }
   }
 }

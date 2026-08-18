@@ -304,6 +304,7 @@ public struct ApplicationManifest {
     public let assets: Array<AppAsset>
     public let actions: Array<AppAction>
     public let settings: Array<AppSetting>
+    public let applicationMenu: ?AppMenuBar
     public let statusItem: ?AppStatusItem
 
     public init(
@@ -311,12 +312,14 @@ public struct ApplicationManifest {
         assets!: Array<AppAsset> = [],
         actions!: Array<AppAction> = [],
         settings!: Array<AppSetting> = [],
+        applicationMenu!: ?AppMenuBar = None,
         statusItem!: ?AppStatusItem = None
     ) {
         this.identity = identity
         this.assets = assets
         this.actions = actions
         this.settings = settings
+        this.applicationMenu = applicationMenu
         this.statusItem = statusItem
     }
 }
@@ -324,6 +327,7 @@ public struct ApplicationManifest {
 public interface SystemShellProvider {
     func state(surface: SystemSurface): SystemSurfaceState
     func registerAction(action: AppAction): SystemShellResult
+    func setApplicationMenu(menu: AppMenuBar): SystemShellResult
     func setStatusItem(item: AppStatusItem): SystemShellResult
     func notify(notification: SystemNotification): SystemShellResult
     func readSetting(key: String): ?AppSettingValue
@@ -336,6 +340,7 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
     private let notifications = ArrayList<SystemNotification>()
     private let settingKeys = ArrayList<String>()
     private let settingValues = ArrayList<AppSettingValue>()
+    private var applicationMenu: ?AppMenuBar = None
 
     public func state(surface: SystemSurface): SystemSurfaceState {
         match (surface) {
@@ -357,6 +362,11 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
 
     public func setStatusItem(_: AppStatusItem): SystemShellResult {
         SystemShellResult(SystemShellResultStatus.Queued, message: "status item captured by headless provider")
+    }
+
+    public func setApplicationMenu(menu: AppMenuBar): SystemShellResult {
+        applicationMenu = Some(menu)
+        SystemShellResult(SystemShellResultStatus.Queued, message: "application menu captured by headless provider")
     }
 
     public func notify(notification: SystemNotification): SystemShellResult {
@@ -388,6 +398,12 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
 
     public func actionCount(): Int64 { registeredActions.size }
     public func notificationCount(): Int64 { notifications.size }
+    public func applicationMenuCount(): Int64 {
+        match (applicationMenu) {
+            case Some(menu) => menu.menus.size
+            case None => 0
+        }
+    }
 }
 
 public class ApplicationShell {
@@ -422,8 +438,40 @@ public class ApplicationShell {
         actionRegistry.invoke(id)
     }
 
+    public func setApplicationMenu(menu: AppMenuBar): SystemShellResult {
+        let errors = ArrayList<String>()
+        for (entry in menu.menus) {
+            validateRuntimeActionReferences(entry.actionIds, "menu " + entry.id, errors)
+        }
+        if (!errors.isEmpty()) {
+            return SystemShellResult(SystemShellResultStatus.Failed,
+                message: renderApplicationManifestErrors(errors.toArray()))
+        }
+        provider.setApplicationMenu(menu)
+    }
+
     public func setStatusItem(item: AppStatusItem): SystemShellResult {
+        let errors = ArrayList<String>()
+        validateRuntimeActionReferences(item.actionIds, "status item", errors)
+        if (!errors.isEmpty()) {
+            return SystemShellResult(SystemShellResultStatus.Failed,
+                message: renderApplicationManifestErrors(errors.toArray()))
+        }
         provider.setStatusItem(item)
+    }
+
+    public func projectSystemSurfaces(): AppSurfaceProjectionResult {
+        let menuResult = match (manifest.applicationMenu) {
+            case Some(menu) => setApplicationMenu(menu)
+            case None => SystemShellResult(SystemShellResultStatus.Applied,
+                message: "application menu was not declared")
+        }
+        let statusResult = match (manifest.statusItem) {
+            case Some(item) => setStatusItem(item)
+            case None => SystemShellResult(SystemShellResultStatus.Applied,
+                message: "status item was not declared")
+        }
+        AppSurfaceProjectionResult(menuResult, statusResult)
     }
 
     public func notify(notification: SystemNotification): SystemShellResult {
@@ -447,6 +495,21 @@ public class ApplicationShell {
         }
         provider.writeSetting(key, value)
     }
+
+    private func validateRuntimeActionReferences(actionIds: Array<String>, surface: String,
+        errors: ArrayList<String>): Unit {
+        for (i in 0..actionIds.size) {
+            let id = actionIds[i]
+            if (!containsAction(manifest.actions, id) && !actionRegistry.contains(id)) {
+                errors.add(surface + " references unknown action: " + id)
+            }
+            for (j in (i + 1)..actionIds.size) {
+                if (id == actionIds[j]) {
+                    errors.add(surface + " references duplicate action: " + id)
+                }
+            }
+        }
+    }
 }
 
 public func validateApplicationManifest(manifest: ApplicationManifest): Array<String> {
@@ -454,13 +517,13 @@ public func validateApplicationManifest(manifest: ApplicationManifest): Array<St
     validateUniqueActions(manifest.actions, errors)
     validateUniqueSettings(manifest.settings, errors)
     validateAssetRoles(manifest.assets, errors)
+    match (manifest.applicationMenu) {
+        case Some(menu) => validateMenuActionReferences(menu, manifest.actions, errors)
+        case None => ()
+    }
     match (manifest.statusItem) {
         case Some(item) =>
-            for (actionId in item.actionIds) {
-                if (!containsAction(manifest.actions, actionId)) {
-                    errors.add("status item references unknown action: " + actionId)
-                }
-            }
+            validateStatusActionReferences(item, manifest.actions, errors)
         case None => ()
     }
     errors.toArray()

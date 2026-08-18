@@ -284,6 +284,9 @@ public import cui.system.AppActionRegistry
 public import cui.system.AppAsset
 public import cui.system.AppAssetRole
 public import cui.system.AppIdentity
+public import cui.system.AppMenu
+public import cui.system.AppMenuBar
+public import cui.system.AppSurfaceProjectionResult
 public import cui.system.AppIdentityProvider
 public import cui.system.AppSetting
 public import cui.system.AppSettingValue

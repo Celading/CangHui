@@ -9,9 +9,13 @@ native, a framework fallback, permission-gated or unsupported.
 let manifest = ApplicationManifest(
     AppIdentity("Demo", "dev.example.demo", "1.0.0"),
     assets: [AppAsset(AppAssetRole.ApplicationIcon, "assets/demo.icns")],
-    actions: [AppAction("file.open", "Open")]
+    actions: [AppAction("file.open", "Open")],
+    applicationMenu: Some(AppMenuBar(menus: [
+        AppMenu("file", "File", actionIds: ["file.open"])
+    ]))
 )
 let shell = ApplicationShell(manifest)
+let surfaces = shell.projectSystemSurfaces()
 let result = shell.notify(SystemNotification("ready", "Ready"))
 ```
 
@@ -25,6 +29,12 @@ Actions use dotted IDs such as `file.open`, `app.settings` and `app.quit`.
 The same ID is the join key for native menus, status-item menus, keyboard
 shortcuts, in-window command palettes and kMode. Providers must reject duplicate
 IDs rather than silently replacing a callback.
+
+`AppMenuBar` and `AppStatusItem` contain only stable action IDs. Calling
+`projectSystemSurfaces()` sends both declared surfaces through the same provider
+boundary and returns an `AppSurfaceProjectionResult`. Headless hosts record the
+projection as `queued`; a real native menu or status item is only claimed by a
+platform provider with a host replay.
 
 Runtime handlers remain Cangjie functions:
 

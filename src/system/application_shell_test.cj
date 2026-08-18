@@ -11,6 +11,9 @@ func applicationManifestValidatesActionsSettingsAssetsAndStatusReferences(): Uni
         assets: [AppAsset(AppAssetRole.ApplicationIcon, "assets/demo.icns")],
         actions: [AppAction("file.open", "Open")],
         settings: [AppSetting("appearance.dark", AppSettingValue.Boolean(false))],
+        applicationMenu: Some(AppMenuBar(menus: [
+            AppMenu("file", "File", actionIds: ["file.open"])
+        ])),
         statusItem: Some(AppStatusItem("Demo", actionIds: ["file.open"]))
     )
     @Expect(validateApplicationManifest(manifest).isEmpty())
@@ -29,10 +32,13 @@ func applicationManifestRejectsDuplicateAndUnknownDeclarations(): Unit {
             AppSetting("appearance.dark", AppSettingValue.Boolean(false)),
             AppSetting("appearance.dark", AppSettingValue.Boolean(true))
         ],
+        applicationMenu: Some(AppMenuBar(menus: [
+            AppMenu("file", "File", actionIds: ["missing.menu.action"])
+        ])),
         statusItem: Some(AppStatusItem("Demo", actionIds: ["missing.action"]))
     )
     let errors = validateApplicationManifest(manifest)
-    @Expect(errors.size, 4)
+    @Expect(errors.size, 5)
 }
 
 @Test
@@ -40,7 +46,12 @@ func headlessSystemShellKeepsActionNotificationAndSettingsSemantics(): Unit {
     let provider = HeadlessSystemShellProvider()
     let shell = ApplicationShell(ApplicationManifest(
         AppIdentity("Demo", "dev.example.demo", "1.0.0"),
-        settings: [AppSetting("appearance.dark", AppSettingValue.Boolean(false))]
+        actions: [AppAction("app.open", "Open")],
+        settings: [AppSetting("appearance.dark", AppSettingValue.Boolean(false))],
+        applicationMenu: Some(AppMenuBar(menus: [
+            AppMenu("app", "Application", actionIds: ["app.open"])
+        ])),
+        statusItem: Some(AppStatusItem("Demo", actionIds: ["app.open"]))
     ),
         provider: provider)
     @Expect(shell.capability(SystemSurface.StatusItem), SystemSurfaceState.Fallback)
@@ -56,6 +67,35 @@ func headlessSystemShellKeepsActionNotificationAndSettingsSemantics(): Unit {
     }
     @Expect(provider.actionCount(), 1)
     @Expect(provider.notificationCount(), 1)
+    let projection = shell.projectSystemSurfaces()
+    @Expect(projection.ok())
+    @Expect(provider.applicationMenuCount(), 1)
+}
+
+@Test
+func applicationShellProjectionRejectsDuplicateOrUnknownSurfaceActions(): Unit {
+    let duplicate = AppMenuBar(menus: [
+        AppMenu("file", "File", actionIds: ["file.open", "file.open"])
+    ])
+    let shell = ApplicationShell(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0"),
+        actions: [AppAction("file.open", "Open")]
+    ))
+    @Expect(shell.setApplicationMenu(duplicate).status, SystemShellResultStatus.Failed)
+    @Expect(shell.setStatusItem(AppStatusItem("Demo", actionIds: ["missing.action"])).status,
+        SystemShellResultStatus.Failed)
+}
+
+@Test
+func applicationShellProjectionAcceptsRuntimeRegisteredActions(): Unit {
+    let shell = ApplicationShell(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0")
+    ))
+    @Expect(shell.registerAction(AppAction("app.quit", "Quit"), { => () }).ok())
+    @Expect(shell.setApplicationMenu(AppMenuBar(menus: [
+        AppMenu("app", "Application", actionIds: ["app.quit"])
+    ])).ok())
+    @Expect(shell.setStatusItem(AppStatusItem("Demo", actionIds: ["app.quit"])).ok())
 }
 
 @Test

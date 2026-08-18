@@ -40,6 +40,7 @@
       "deterministic single-owner task commit queue for immutable worker results",
       "device-aware desktop frame pacing and shared retained smooth-scroll policy",
       "typed application identity, ordinary and secure settings provider boundaries, and explicit schema migrations",
+      "declarative application menu and status-item projection through stable action IDs with headless replay",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
