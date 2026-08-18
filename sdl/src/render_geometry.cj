@@ -62,6 +62,26 @@ internal class GeometryBatch {
     // cost that dominates a content page) into a cheap vertex copy.
     private let meshCache = MeshCache(MESH_CACHE_CAP) {mesh => mesh.free()}
 
+    /** Fills a convex polygon supplied in draw order. Callers use this for small
+     * provider-neutral scene faces; complex meshes belong to Scene3D providers. */
+    func fillPolygon(renderer: CPointer<Unit>, points: Array<Point>, color: Color): Unit {
+        if (renderer.isNull() || points.size < 3) {
+            return
+        }
+        begin(renderer, color, points.size, 3 * (points.size - 2))
+        var i: Int64 = 0
+        while (i < points.size) {
+            pushVertex(points[i].x, points[i].y, 1.0)
+            i += 1
+        }
+        i = 1
+        while (i < points.size - 1) {
+            pushTriangle(0, i, i + 1)
+            i += 1
+        }
+        flush()
+    }
+
     func fillRoundedRect(renderer: CPointer<Unit>, rect: Rect, radius: Float32, color: Color): Unit {
         fillRoundedRectSoft(renderer, rect, radius, color, AA_FEATHER)
     }

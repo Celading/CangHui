@@ -641,6 +641,13 @@ public class Renderer {
         let _ = unsafe { SDL_RenderFillRect(ptr, inout raw) }
     }
 
+    /** Fills a convex polygon. This is a small 2D scene primitive, not a 3D engine API. */
+    public func fillPolygon(points: Array<Point>, color: Color): Unit {
+        recordDrawIr("paint.fill-polygon", "\"count\":" + points.size.toString() + "," + drawIrColor(color))
+        if (ptr.isNull() || points.size < 3) { return }
+        geometry.fillPolygon(ptr, points, color)
+    }
+
     /**
      * A thick, round-capped line drawn as one anti-aliased stadium mesh, so strokes stay
      * smooth at any angle and consecutive polyline segments join without notches.
