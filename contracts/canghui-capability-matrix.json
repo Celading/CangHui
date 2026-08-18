@@ -39,6 +39,7 @@
       "provider-neutral Symbol core, optional provider packages, and declared-subset generation",
       "deterministic single-owner task commit queue for immutable worker results",
       "device-aware desktop frame pacing and shared retained smooth-scroll policy",
+      "typed application identity, ordinary and secure settings provider boundaries, and explicit schema migrations",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
@@ -48,7 +49,7 @@
       "ArkTS or Android application host",
       "non-iOS platform lifecycle, IME or accessibility implementation",
       "rollback-capable UI transactions or a complete immutable SceneDiff engine",
-      "application identity, signing or package assembly"
+      "signing or package assembly"
     ]
   },
   "features": [
