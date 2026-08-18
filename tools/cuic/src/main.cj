@@ -331,6 +331,7 @@ func helpText(): String {
     "  cuic scripts run <name> [project]\n" +
     "  cuic dependency update [project]\n" +
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
+    "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +

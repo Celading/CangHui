@@ -1,4 +1,4 @@
-# 应用打包规划
+# 应用打包
 
 [English](application-packaging.md) | **中文**
 
@@ -27,7 +27,8 @@ settings = true
 
 资源路径必须相对于工程目录。绝对路径、`~`、包含 `..` 的路径以及不存在的
 已声明资源都会被拒绝。图标按逻辑角色分别声明，`cuic` 不会擅自把应用图标
-猜成状态栏或通知图标。
+猜成状态栏或通知图标。应用名还必须是跨平台安全的产物名；Windows 保留字符、
+设备保留名以及首尾空格或句点都会被拒绝。
 
 ## 确定性规划
 
@@ -41,10 +42,39 @@ cuic package plan linux . --json
 签名门。它只生成规划，不会构建 `.app`、生成 Windows 资源、签名或发布产物。
 相同 manifest、工程与目标平台会得到字段顺序稳定的同形结果。
 
+## 无签名产物生成
+
+```text
+cuic package build macos .
+cuic package build windows . --output dist/windows-input --json
+cuic package build linux . --output dist/linux-input --json
+```
+
+`package build` 会生成边界明确的无签名产物，并写入采用
+`canghui.packaging-artifact.v0` 结构的 `canghui-packaging-receipt.json`。
+macOS 默认输出到 `dist/<Name>.app`，Windows 与 Linux 默认输出到
+`dist/<Name>`。`--output` 只接受工程内相对目录；绝对路径、越界路径和非空目录
+都会被拒绝，命令不会隐式覆盖既有产物。输出目录也不能位于已声明资源目录内部，
+从而避免生成中的产物递归复制到自身资源树。
+
+在 macOS 宿主上，macOS 路由会先执行正常的锁定依赖 `cuic build`，再把真实
+可执行文件复制到 `Contents/MacOS`，同时生成 `Info.plist`、`PkgInfo`、资源树和
+逻辑图标角色文件。receipt 会明确记录原生运行时依赖仍由宿主管理，且该无签名
+bundle 尚未完成启动验收。
+
+Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪装成已经跨平台编译：
+
+- Windows 生成 executable manifest、版本资源源码、AppUserModelID、资源与图标输入。
+- Linux 生成 desktop entry、`share/applications`、图标树和应用资源树。
+
+图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
+文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
+
 ## 平台边界
 
-- macOS 规划 `Info.plist`、`.icns` 位置和资源树，签名与公证仍是后续门。
-- Windows 规划版本资源、`.ico`、manifest 和 AppUserModelID，签名与 MSIX 发布仍是后续门。
-- Linux 规划 desktop entry、图标安装树和共享资源；托盘与通知取决于宿主 provider。
+- macOS 可生成本地无签名 `.app`；签名、公证、自包含运行时闭合和启动验收仍是独立门。
+- Windows 生成资源编译输入；PE 可执行文件、资源编译、签名和 MSIX 发布仍未完成。
+- Linux 生成桌面打包输入树；真实宿主可执行回放、系统安装、托盘和通知仍未完成。
 
-`cuic doctor` 会报告声明与所引用资源是否就绪，但就绪状态不等于运行时或发布证明。
+`cuic doctor` 会报告声明、引用资源和两份打包 schema 是否就绪，但就绪状态不等于
+运行时或发布证明。

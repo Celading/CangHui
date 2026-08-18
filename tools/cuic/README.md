@@ -47,6 +47,7 @@ cuic scripts init|list [project]
 cuic scripts run <name> [project]
 cuic dependency update [project]
 cuic package plan [macos|windows|linux] [project] [--json]
+cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]
 cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
 cuic build [platform] [project]
@@ -101,6 +102,13 @@ steps are `doctor`, `build`, `test`, `run`, `prnt`, and `clean`.
 `cuic package plan` validates identity and project-relative assets, then emits
 the stable `canghui.packaging-plan.v0` shape for macOS, Windows or Linux. It is
 read-only and does not create bundles, resources, signatures or publications.
+
+`cuic package build` creates an unsigned local artifact in a new project-relative
+directory. macOS performs the normal locked build and writes a `.app` bundle;
+Windows writes manifest/version-resource inputs; Linux writes desktop-entry and
+resource inputs. Every result carries a `canghui.packaging-artifact.v0` receipt.
+Existing non-empty output directories, absolute output paths and traversal are
+rejected. Signing, native runtime closure and publication remain separate gates.
 
 Existing projects can add the default manifest once with `cuic scripts init`. Runtime application state is a
 separate concern: `State`, `rememberState`, and `StateStore` are reactive/in-memory facilities, while

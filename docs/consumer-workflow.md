@@ -34,13 +34,15 @@ cd HelloCangHui
 cuic dependency update
 cuic doctor macos
 cuic package plan macos .
+cuic package build macos .
 cuic build macos
 cuic run macos
 ```
 
 `cuic init` also creates `canghui.toml`. Its `[application]`, `[assets]` and `[system]` tables provide the
-validated application identity and logical resource graph used by `cuic package plan`. The command emits a
-deterministic plan and does not generate or sign a native artifact. The `[scripts]` table is automatically discovered, allowing a project
+validated application identity and logical resource graph used by `cuic package plan` and `cuic package build`.
+The plan command is read-only. The build command creates a bounded unsigned artifact and receipt while keeping
+signing, notarization, native runtime closure and publication behind platform gates. The `[scripts]` table is automatically discovered, allowing a project
 to replace host-specific wrapper files with named, shell-free lifecycle pipelines:
 
 ```bash

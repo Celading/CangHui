@@ -84,6 +84,7 @@ actions fail closed.
 The public contract is recorded in
 [`canghui-application-shell-v0.json`](../contracts/canghui-application-shell-v0.json).
 Project-side identity and logical assets are declared in `canghui.toml`; see
-the [application packaging plan](application-packaging.md) for validation and
-the plan-only macOS, Windows and Linux projection. Typed storage and schema
+the [application packaging guide](application-packaging.md) for validation,
+deterministic planning and unsigned macOS, Windows and Linux artifact inputs.
+Typed storage and schema
 migration are described in [application settings](application-settings.md).

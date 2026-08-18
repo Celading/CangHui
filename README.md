@@ -92,7 +92,7 @@ scene rendering or application acceptance.
 | Rendering | SDL3-backed desktop renderer, geometry, text, symbols, shadows and gradients | The renderer is a dependency-backed implementation, not a claim about every GPU backend |
 | Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
 | Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
-| Packaging | `cuic init`, application manifest validation, deterministic macOS/Windows/Linux packaging plans, dependency cache/lock discipline and doctor | Artifact generation, signing, notarization and store publication remain later platform gates |
+| Packaging | `cuic init`, manifest validation, deterministic plans, unsigned macOS `.app` generation, Windows resource inputs, Linux desktop inputs, dependency cache/lock discipline and doctor | Self-contained native runtime closure, signing, notarization, MSIX/store publication and non-macOS host launch remain platform gates |
 | Mobile bridge | iOS native-surface lifecycle slice and Android surface bootstrap | Full product rendering and consumer acceptance are still platform-specific work |
 
 ## Quick Start

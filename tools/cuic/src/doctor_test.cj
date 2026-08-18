@@ -93,6 +93,7 @@ func doctorReportsApplicationShellContractAndSchema(): Unit {
     var contractReady = false
     var schemaReady = false
     var planSchemaReady = false
+    var artifactSchemaReady = false
     for (check in checks) {
         if (check.id == "application-shell.contract" && doctorStatusName(check.status) == "ready") {
             contractReady = true
@@ -103,8 +104,12 @@ func doctorReportsApplicationShellContractAndSchema(): Unit {
         if (check.id == "application-shell.plan-schema" && doctorStatusName(check.status) == "ready") {
             planSchemaReady = true
         }
+        if (check.id == "application-shell.artifact-schema" && doctorStatusName(check.status) == "ready") {
+            artifactSchemaReady = true
+        }
     }
     @Expect(contractReady)
     @Expect(schemaReady)
     @Expect(planSchemaReady)
+    @Expect(artifactSchemaReady)
 }

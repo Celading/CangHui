@@ -32,11 +32,12 @@ cd HelloCangHui
 cuic dependency update
 cuic doctor macos
 cuic package plan macos .
+cuic package build macos .
 cuic build macos
 cuic run macos
 ```
 
-`cuic init` 还会创建 `canghui.toml`。其中的 `[application]`、`[assets]` 与 `[system]` 表用于声明经过校验的应用身份和逻辑资源图，`cuic package plan` 会据此生成确定性的规划，但不会创建或签名原生产物。`[scripts]` 表会被自动发现，工程可以用有名称、无 shell 的生命周期流水线替代各平台单独维护的包装脚本：
+`cuic init` 还会创建 `canghui.toml`。其中的 `[application]`、`[assets]` 与 `[system]` 表用于声明经过校验的应用身份和逻辑资源图。`cuic package plan` 只生成确定性规划；`cuic package build` 会生成边界明确的无签名产物与 receipt，但签名、公证、自包含运行时闭合和发布仍是独立平台门禁。`[scripts]` 表会被自动发现，工程可以用有名称、无 shell 的生命周期流水线替代各平台单独维护的包装脚本：
 
 ```bash
 cuic check

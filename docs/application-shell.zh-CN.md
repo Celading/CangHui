@@ -65,5 +65,6 @@ shell.handleDeepLink("demo://app/settings")
 
 公开契约见
 [`canghui-application-shell-v0.json`](../contracts/canghui-application-shell-v0.json)。
-工程身份和逻辑资源声明见[应用打包规划](application-packaging.zh-CN.md)，类型化
+工程身份、逻辑资源、确定性规划与无签名产物见
+[应用打包](application-packaging.zh-CN.md)，类型化
 设置与迁移见[应用设置](application-settings.zh-CN.md)。

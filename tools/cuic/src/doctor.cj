@@ -618,6 +618,9 @@ func doctorApplicationShellGroup(framework: String, project!: String = ""): Doct
     checks.add(doctorRequiredFile("application-shell.plan-schema", "Packaging plan schema",
         joinPath(framework, "contracts/canghui-packaging-plan-v0.schema.json"),
         "Restore the public packaging-plan schema."))
+    checks.add(doctorRequiredFile("application-shell.artifact-schema", "Packaging artifact schema",
+        joinPath(framework, "contracts/canghui-packaging-artifact-v0.schema.json"),
+        "Restore the public packaging-artifact schema."))
     checks.add(if (exists(joinPath(framework, "docs/application-shell.md"))) {
         doctorReady("application-shell.docs", "Application shell guide",
             "The public application-shell contract guide is available.", joinPath(framework, "docs/application-shell.md"))

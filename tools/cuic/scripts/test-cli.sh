@@ -16,22 +16,61 @@ rm -f "${FAKE_LOCK_FILE}"
 
 "${ROOT_DIR}/bin/cuic" version | grep -Fq 'cuic 0.4.0 (development@unembedded)'
 "${ROOT_DIR}/bin/cuic" examples | grep -q '^notepad$'
-"${ROOT_DIR}/bin/cuic" doctor macos
-MACOS_DOCTOR_JSON="$("${ROOT_DIR}/bin/cuic" doctor macos --json)"
-printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"schema":"canghui.doctor.v0"'
-printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"requestedTarget":"macos"'
-printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"exitCode":0'
 "${ROOT_DIR}/bin/cuic" init "${FIXTURE_DIR}" --name canghui_cli_smoke --platform macos \
     --canghui-path "${FRAMEWORK_ROOT}"
 test -f "${FIXTURE_DIR}/assets/fonts/HarmonyOS_Sans_SC.ttf"
 test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_LICENSE.txt"
 test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_SOURCE.txt"
 test -f "${FIXTURE_DIR}/canghui.toml"
+MACOS_DOCTOR_JSON="$("${ROOT_DIR}/bin/cuic" doctor macos --project "${FIXTURE_DIR}" --json)"
+printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"schema":"canghui.doctor.v0"'
+printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"requestedTarget":"macos"'
+printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"exitCode":0'
 "${ROOT_DIR}/bin/cuic" scripts list "${FIXTURE_DIR}" | grep -q '^  check:'
 (
     cd "${FIXTURE_DIR}"
     "${ROOT_DIR}/bin/cuic" check
 )
+MAC_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" package build macos "${FIXTURE_DIR}" --json)"
+printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"schema":"canghui.packaging-artifact.v0"'
+printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"executableIncluded":true'
+test -x "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/MacOS/canghui_cli_smoke"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"
+plutil -lint "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist" >/dev/null
+if grep -q '/Users/' "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"; then
+    echo "error: macOS packaging receipt leaked an absolute project path" >&2
+    exit 1
+fi
+
+WINDOWS_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" package build windows "${FIXTURE_DIR}" --json)"
+printf '%s' "${WINDOWS_PACKAGE_JSON}" | grep -q '"artifactKind":"windows-unsigned-resource-input-tree"'
+printf '%s' "${WINDOWS_PACKAGE_JSON}" | grep -q '"executableIncluded":false'
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke/canghui_cli_smoke.exe.manifest"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke/canghui_cli_smoke.version.rc"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke/AppUserModelID.txt"
+
+LINUX_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" package build linux "${FIXTURE_DIR}" \
+    --output dist/linux-input --json)"
+printf '%s' "${LINUX_PACKAGE_JSON}" | grep -q '"artifactKind":"linux-unsigned-desktop-input-tree"'
+test -f "${FIXTURE_DIR}/dist/linux-input/canghui_cli_smoke.desktop"
+test -f "${FIXTURE_DIR}/dist/linux-input/share/applications/dev.canghui.canghui_cli_smoke.desktop"
+
+if "${ROOT_DIR}/bin/cuic" package build windows "${FIXTURE_DIR}" >/dev/null 2>&1; then
+    echo "error: package build unexpectedly replaced a non-empty output directory" >&2
+    exit 1
+fi
+if "${ROOT_DIR}/bin/cuic" package build linux "${FIXTURE_DIR}" --output ../escape >/dev/null 2>&1; then
+    echo "error: package build unexpectedly accepted an escaping output directory" >&2
+    exit 1
+fi
+mkdir -p "${FIXTURE_DIR}/recursive-resource"
+sed -i.bak 's/resources = \[\]/resources = ["recursive-resource"]/' "${FIXTURE_DIR}/canghui.toml"
+if "${ROOT_DIR}/bin/cuic" package build linux "${FIXTURE_DIR}" \
+    --output recursive-resource/package-output >/dev/null 2>&1; then
+    echo "error: package build unexpectedly nested its output inside a declared resource" >&2
+    exit 1
+fi
 "${ROOT_DIR}/bin/cuic" init "${REMOTE_FIXTURE_DIR}" --name canghui_cli_remote_smoke --platform macos
 grep -q 'git = "https://github.com/Celading/CangHui.git"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
 grep -q 'commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"

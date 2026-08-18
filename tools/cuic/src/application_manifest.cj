@@ -69,9 +69,9 @@ class ApplicationPackagingPlan {
 }
 
 func applicationPackagingCommand(args: Array<String>, start: Int64): Int64 {
-    if (start >= args.size || args[start] != "plan") {
-        throw CuicError("package supports only 'plan'")
-    }
+    if (start >= args.size) { throw CuicError("package requires 'plan' or 'build'") }
+    if (args[start] == "build") { return applicationPackagingBuildCommand(args, start + 1) }
+    if (args[start] != "plan") { throw CuicError("package supports only 'plan' or 'build'") }
     var platform = hostPlatform()
     var requested = ""
     var json = false
@@ -102,6 +102,42 @@ func applicationPackagingCommand(args: Array<String>, start: Int64): Int64 {
         renderApplicationPackagingPlan(plan)
     }
     0
+}
+
+func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 {
+    var platform = hostPlatform()
+    var requested = ""
+    var output = ""
+    var json = false
+    var platformSet = false
+    var i = start
+    while (i < args.size) {
+        let value = args[i]
+        if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--output") {
+            if (i + 1 >= args.size || startsWithText(args[i + 1], "-")) {
+                throw CuicError("--output requires a project-relative directory")
+            }
+            output = args[i + 1]
+            i += 2
+            continue
+        }
+        if (startsWithText(value, "-")) { throw CuicError("unknown package build option '${value}'") }
+        if (!platformSet && isPlatform(value)) {
+            platform = normalizePlatform(value)
+            platformSet = true
+            i += 1
+            continue
+        }
+        if (!requested.isEmpty()) { throw CuicError("package build accepts one project") }
+        requested = value
+        i += 1
+    }
+    if (platform != "macos" && platform != "windows" && platform != "linux") {
+        throw CuicError("package build currently supports macos, windows and linux")
+    }
+    let project = resolveProject(requested, "")
+    buildApplicationArtifact(project, platform, output, json)
 }
 
 func loadApplicationManifest(project: String): ApplicationManifest {
@@ -261,10 +297,24 @@ func isApplicationIdentifier(value: String): Bool {
 
 func isApplicationNameSafe(value: String): Bool {
     if (value == "." || value == "..") { return false }
+    let runes = value.toRuneArray()
+    if (runes.isEmpty() || runes[0] == r' ' || runes[0] == r'.' ||
+        runes[runes.size - 1] == r' ' || runes[runes.size - 1] == r'.') { return false }
     for (r in value.toRuneArray()) {
-        if (r == r'/' || r == r'\\' || r == r'\n' || r == r'\r' || r == r'\t') { return false }
+        if (r < r' ' || r == r'<' || r == r'>' || r == r':' || r == r'"' ||
+            r == r'/' || r == r'\\' || r == r'|' || r == r'?' || r == r'*') { return false }
     }
-    true
+    !isWindowsReservedArtifactName(value)
+}
+
+func isWindowsReservedArtifactName(value: String): Bool {
+    let stem = asciiLowerText(value).split(".")[0]
+    for (reserved in ["con", "prn", "aux", "nul",
+        "com1", "com2", "com3", "com4", "com5", "com6", "com7", "com8", "com9",
+        "lpt1", "lpt2", "lpt3", "lpt4", "lpt5", "lpt6", "lpt7", "lpt8", "lpt9"]) {
+        if (stem == reserved) { return true }
+    }
+    false
 }
 
 func isApplicationVersion(value: String): Bool {
@@ -333,19 +383,33 @@ func applicationPackagingPlanForManifest(project: String, platform: String,
     if (manifest.notifications && manifest.notificationIcon.isEmpty()) { unsupported.add("notification-icon-not-declared") }
     if (platform == "macos") {
         generated.add("dist/${manifest.name}.app/Contents/Info.plist")
+        generated.add("dist/${manifest.name}.app/Contents/PkgInfo")
+        generated.add("dist/${manifest.name}.app/Contents/MacOS/${manifest.name}")
         if (!manifest.applicationIcon.isEmpty()) {
-            generated.add("dist/${manifest.name}.app/Contents/Resources/application.icns")
+            let extension = packagingExtension(manifest.applicationIcon)
+            let icon = if (extension == "icns") { "application.icns" } else {
+                packagingNameWithExtension("application-icon", extension)
+            }
+            generated.add("dist/${manifest.name}.app/Contents/Resources/${icon}")
         }
         generated.add("dist/${manifest.name}.app/Contents/Resources/assets")
+        generated.add("dist/${manifest.name}.app/canghui-packaging-receipt.json")
         providers.add("application-menu=native-provider-pending")
         providers.add("status-item=${if (manifest.statusItem) { "native-provider-pending" } else { "disabled-by-manifest" }}")
         providers.add("notifications=${if (manifest.notifications) { "native-provider-pending" } else { "disabled-by-manifest" }}")
         unsupported.add("code-signing-and-notarization")
     } else if (platform == "windows") {
         generated.add("dist/${manifest.name}/${manifest.name}.exe.manifest")
-        if (!manifest.applicationIcon.isEmpty()) { generated.add("dist/${manifest.name}/${manifest.name}.ico") }
+        if (!manifest.applicationIcon.isEmpty()) {
+            let extension = packagingExtension(manifest.applicationIcon)
+            let icon = if (extension == "ico") { "${manifest.name}.ico" } else {
+                packagingNameWithExtension("${manifest.name}.icon", extension)
+            }
+            generated.add("dist/${manifest.name}/${icon}")
+        }
         generated.add("dist/${manifest.name}/${manifest.name}.version.rc")
         generated.add("dist/${manifest.name}/AppUserModelID.txt")
+        generated.add("dist/${manifest.name}/canghui-packaging-receipt.json")
         providers.add("taskbar=provider-pending")
         providers.add("notifications=${if (manifest.notifications) { "provider-pending" } else { "disabled-by-manifest" }}")
         unsupported.add("code-signing-and-msix-publication")
@@ -353,6 +417,7 @@ func applicationPackagingPlanForManifest(project: String, platform: String,
         generated.add("dist/${manifest.name}/${manifest.name}.desktop")
         generated.add("dist/${manifest.name}/icons/hicolor")
         generated.add("dist/${manifest.name}/share")
+        generated.add("dist/${manifest.name}/canghui-packaging-receipt.json")
         providers.add("desktop-entry=plan-ready")
         providers.add("tray=provider-dependent")
         providers.add("notifications=provider-dependent")

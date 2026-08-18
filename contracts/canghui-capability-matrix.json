@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260802.12",
+  "matrixVersion": "CangHui.20260818.13",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -42,6 +42,7 @@
       "typed application identity, ordinary and secure settings provider boundaries, and explicit schema migrations",
       "declarative application menu and status-item projection through stable action IDs with headless replay",
       "typed notification permission and delivery outcomes plus exact deep-link to action routing",
+      "deterministic unsigned macOS app-bundle, Windows resource-input and Linux desktop-input artifact generation",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
@@ -51,7 +52,7 @@
       "ArkTS or Android application host",
       "non-iOS platform lifecycle, IME or accessibility implementation",
       "rollback-capable UI transactions or a complete immutable SceneDiff engine",
-      "signing or package assembly"
+      "code signing, notarization, MSIX/store publication or self-contained native runtime bundling"
     ]
   },
   "features": [
@@ -263,6 +264,21 @@
       ]
     },
     {
+      "id": "application-shell-and-unsigned-packaging",
+      "version": "canghui.packaging-artifact.v0",
+      "state": "source-test-cli-macos-unsigned-bundle-windows-linux-input-tree-proven; signing-notarization-msix-native-host-runtime-open",
+      "codeRefs": [
+        "src/system/application_shell.cj",
+        "src/system/application_settings.cj",
+        "src/system/application_notification.cj",
+        "tools/cuic/src/application_manifest.cj",
+        "tools/cuic/src/application_packaging.cj",
+        "contracts/canghui-packaging-plan-v0.schema.json",
+        "contracts/canghui-packaging-artifact-v0.schema.json",
+        "docs/application-packaging.md"
+      ]
+    },
+    {
       "id": "mobile-host-contracts",
       "version": "0.1.0",
       "state": "source-test-proven; ios-runtime-static-package-n2c-abi-and-native-surface-adapter-proven-on-simulator-and-device; full-scene-renderer-open",
@@ -358,6 +374,7 @@
     "Treat Material, Ant Design and Arco provider catalogs as the currently audited subsets; expand each inventory only with frozen upstream source and renderer proof.",
     "Add a separate reduced-motion/accessibility policy before claiming accessibility-complete motion behavior.",
     "Keep Web, Video, Map and XComponent-class host rendering platform-bound; desktop common-layout previews do not prove those adapters.",
-    "Keep runtime application-global persistence separate from cuic project script discovery; State, rememberState, StateStore and HostApplicationStorage do not currently constitute AppStorage.init()."
+    "Keep runtime application-global persistence separate from cuic project script discovery; State, rememberState, StateStore and HostApplicationStorage do not currently constitute AppStorage.init().",
+    "Treat unsigned packaging artifacts as local build inputs only until platform signing, native runtime closure and real-host launch replay pass independently."
   ]
 }

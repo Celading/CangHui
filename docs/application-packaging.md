@@ -1,4 +1,4 @@
-# Application Packaging Plan
+# Application Packaging
 
 **English** | [中文](application-packaging.zh-CN.md)
 
@@ -29,6 +29,8 @@ settings = true
 Asset paths are project-relative. Absolute paths, `~`, `..` traversal and
 missing declared files are rejected. Logical asset roles are declared once;
 `cuic` does not guess a status or notification icon from the application icon.
+The application name must also be a portable artifact name: Windows-reserved
+characters, device names and leading or trailing spaces/dots are rejected.
 
 ## Deterministic plan
 
@@ -50,14 +52,51 @@ The same manifest and target produce the same plan fields. `project` is included
 in JSON as evidence of the resolved input project; consumers should treat paths
 inside the plan as project-relative unless a tool explicitly documents otherwise.
 
+## Unsigned artifact generation
+
+```text
+cuic package build macos .
+cuic package build windows . --output dist/windows-input --json
+cuic package build linux . --output dist/linux-input --json
+```
+
+`package build` writes a bounded unsigned artifact and a
+`canghui-packaging-receipt.json` using the
+`canghui.packaging-artifact.v0` schema. The default destination is
+`dist/<Name>.app` on macOS and `dist/<Name>` on Windows or Linux. `--output`
+accepts one project-relative directory. Traversal, absolute destinations and
+non-empty output directories are rejected, so the command never replaces an
+existing artifact implicitly. The output may not be nested inside a declared
+resource directory, which prevents a generated artifact from recursively
+copying itself into its own resource tree.
+
+On a macOS host, the macOS route first runs the normal locked `cuic build`
+pipeline and copies the resulting executable into `Contents/MacOS`. The bundle
+also contains `Info.plist`, `PkgInfo`, declared resources and logical icon-role
+assets. The receipt deliberately records that native runtime dependencies are
+still host-managed and that the unsigned bundle has not been launched.
+
+Windows and Linux routes are cross-host-safe input generators. They do not
+pretend to cross-compile an executable:
+
+- Windows receives an executable manifest, version-resource source,
+  AppUserModelID, declared assets and resources.
+- Linux receives a desktop entry, `share/applications`, an icon tree and
+  application resource tree.
+
+Icon bytes are never relabelled as another format. A real `.icns` or `.ico`
+uses the native destination name; PNG, SVG and other inputs keep their original
+extension and remain visible as a conversion or provider gate.
+
 ## Platform boundary
 
-- macOS plans `Info.plist`, an `.icns` resource location and the application
-  resource tree. Signing and notarization remain gated.
-- Windows plans version-resource, `.ico`, manifest and AppUserModelID inputs.
-  Signing and MSIX publication remain gated.
-- Linux plans a desktop entry, icon installation tree and shared resources.
-  Tray and notification behavior depends on an installed host provider.
+- macOS can generate an unsigned local `.app`; signing, notarization,
+  self-contained runtime closure and launch acceptance remain gated.
+- Windows generates resource/compiler inputs; a PE executable, compiled
+  resources, signing and MSIX publication remain gated.
+- Linux generates a desktop/package input tree; native-host executable replay,
+  system installation, tray and notification behavior remain gated.
 
 `cuic doctor` reports whether the declaration and all referenced assets are
-ready, but readiness is not runtime or release proof.
+ready and whether both packaging schemas are present, but readiness is not
+runtime or release proof.
