@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canghui.dev/contracts/canghui-application-shell-v0.json",
+  "title": "CangHui application shell manifest contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "identity", "assetRoles", "surfaces", "resultStatuses"],
+  "properties": {
+    "protocol": { "const": "canghui.application-shell.v0" },
+    "identity": { "type": "object", "required": ["name", "identifier", "version"] },
+    "assetRoles": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["application-icon", "status-item-icon", "notification-icon", "document-icon", "monochrome-icon", "resource"] }
+    },
+    "surfaces": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["application-menu", "status-item", "notification", "settings", "secure-settings", "app-icon", "taskbar", "badge", "deep-link"] }
+    },
+    "resultStatuses": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["applied", "queued", "permission-required", "unsupported", "failed"] }
+    }
+  }
+}

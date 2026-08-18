@@ -209,6 +209,7 @@ func collectDoctorResult(requestedTarget: String, framework: String, project!: S
     groups.add(doctorAndroidGroup(framework))
     groups.add(doctorFontGroup(framework))
     groups.add(doctorSymbolGroup(framework))
+    groups.add(doctorApplicationShellGroup(framework))
     groups.add(doctorProbeGroup(framework))
     DoctorResult(host, architecture, requestedTarget, groups.toArray())
 }
@@ -603,6 +604,25 @@ func doctorSymbolGroup(framework: String): DoctorGroup {
             DoctorActionKind.Manual, "Use a CangHui build that includes cuic symbol generation.", generator)
     })
     DoctorGroup("symbol", "Configured Symbol providers and generated assets", "all", checks.toArray())
+}
+
+func doctorApplicationShellGroup(framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorRequiredFile("application-shell.contract", "CangHui application shell contract",
+        joinPath(framework, "src/system/application_shell.cj"),
+        "Restore the CangHui system application-shell contract."))
+    checks.add(doctorRequiredFile("application-shell.schema", "Application shell manifest schema",
+        joinPath(framework, "contracts/canghui-application-shell-v0.json"),
+        "Restore the public application-shell contract schema."))
+    checks.add(if (exists(joinPath(framework, "docs/application-shell.md"))) {
+        doctorReady("application-shell.docs", "Application shell guide",
+            "The public application-shell contract guide is available.", joinPath(framework, "docs/application-shell.md"))
+    } else {
+        doctorDegraded("application-shell.docs", "Application shell guide",
+            "The application-shell contract exists but its public guide is missing.",
+            DoctorActionKind.Manual, "Restore docs/application-shell.md.", joinPath(framework, "docs/application-shell.md"))
+    })
+    DoctorGroup("application-shell", "Cangjie application identity, assets, settings and system surfaces", "all", checks.toArray())
 }
 
 func doctorProbeGroup(framework: String): DoctorGroup {

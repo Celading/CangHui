@@ -85,3 +85,21 @@ func doctorAndroidReportsBootstrapWithoutClaimingRuntimeCompletion(): Unit {
     @Expect(readySurfaceAssets, Int64(5))
     @Expect(backendDegraded)
 }
+
+@Test
+func doctorReportsApplicationShellContractAndSchema(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let checks = doctorApplicationShellGroup(framework).checks
+    var contractReady = false
+    var schemaReady = false
+    for (check in checks) {
+        if (check.id == "application-shell.contract" && doctorStatusName(check.status) == "ready") {
+            contractReady = true
+        }
+        if (check.id == "application-shell.schema" && doctorStatusName(check.status) == "ready") {
+            schemaReady = true
+        }
+    }
+    @Expect(contractReady)
+    @Expect(schemaReady)
+}
