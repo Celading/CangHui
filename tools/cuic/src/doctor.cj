@@ -209,7 +209,7 @@ func collectDoctorResult(requestedTarget: String, framework: String, project!: S
     groups.add(doctorAndroidGroup(framework))
     groups.add(doctorFontGroup(framework))
     groups.add(doctorSymbolGroup(framework))
-    groups.add(doctorApplicationShellGroup(framework))
+    groups.add(doctorApplicationShellGroup(framework, project: project))
     groups.add(doctorProbeGroup(framework))
     DoctorResult(host, architecture, requestedTarget, groups.toArray())
 }
@@ -606,14 +606,18 @@ func doctorSymbolGroup(framework: String): DoctorGroup {
     DoctorGroup("symbol", "Configured Symbol providers and generated assets", "all", checks.toArray())
 }
 
-func doctorApplicationShellGroup(framework: String): DoctorGroup {
+func doctorApplicationShellGroup(framework: String, project!: String = ""): DoctorGroup {
     let checks = ArrayList<DoctorCheck>()
+    for (check in applicationManifestDoctorChecks(project)) { checks.add(check) }
     checks.add(doctorRequiredFile("application-shell.contract", "CangHui application shell contract",
         joinPath(framework, "src/system/application_shell.cj"),
         "Restore the CangHui system application-shell contract."))
     checks.add(doctorRequiredFile("application-shell.schema", "Application shell manifest schema",
         joinPath(framework, "contracts/canghui-application-shell-v0.json"),
         "Restore the public application-shell contract schema."))
+    checks.add(doctorRequiredFile("application-shell.plan-schema", "Packaging plan schema",
+        joinPath(framework, "contracts/canghui-packaging-plan-v0.schema.json"),
+        "Restore the public packaging-plan schema."))
     checks.add(if (exists(joinPath(framework, "docs/application-shell.md"))) {
         doctorReady("application-shell.docs", "Application shell guide",
             "The public application-shell contract guide is available.", joinPath(framework, "docs/application-shell.md"))

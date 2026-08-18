@@ -78,6 +78,9 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "dependency") {
         return dependencyCommand(args, 2)
     }
+    if (command == "package") {
+        return applicationPackagingCommand(args, 2)
+    }
     if (command == "init") {
         return initProject(args, 2)
     }
@@ -327,6 +330,7 @@ func helpText(): String {
     "  cuic scripts init|list [project]\n" +
     "  cuic scripts run <name> [project]\n" +
     "  cuic dependency update [project]\n" +
+    "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +
@@ -804,7 +808,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         "[dependencies]\n" +
         renderFrameworkDependency(dependency) + "\n"
     File.writeTo(joinPath(directory, "cjpm.toml"), manifest.toArray())
-    File.writeTo(joinPath(directory, PROJECT_MANIFEST), defaultProjectManifest().toArray())
+    File.writeTo(joinPath(directory, PROJECT_MANIFEST), defaultProjectManifest(packageName: packageName).toArray())
     File.writeTo(joinPath(directory, ".gitignore"), "target/\ndist/\n".toArray())
     File.writeTo(joinPath(directory, "src/main.cj"), generatedMain(packageName).toArray())
     println("created CangHui project: ${directory}")

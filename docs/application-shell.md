@@ -16,8 +16,8 @@ let result = shell.notify(SystemNotification("ready", "Ready"))
 ```
 
 The default `HeadlessSystemShellProvider` is deterministic and is intended for
-kMode, CI and unsupported-host probes. Native providers will be added by
-platform packets; a fallback result is not a native runtime claim.
+kMode, CI and unsupported-host probes. Native providers are implemented by
+platform adapters; a fallback result is not a native runtime claim.
 
 ## Stable Action Identity
 
@@ -47,3 +47,6 @@ a provider that reports native `secure-settings` support.
 
 The public contract is recorded in
 [`canghui-application-shell-v0.json`](../contracts/canghui-application-shell-v0.json).
+Project-side identity and logical assets are declared in `canghui.toml`; see
+the [application packaging plan](application-packaging.md) for validation and
+the plan-only macOS, Windows and Linux projection.

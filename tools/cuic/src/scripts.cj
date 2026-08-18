@@ -150,7 +150,7 @@ func isScriptNameRune(value: Rune): Bool {
 
 func isReservedCuicCommand(name: String): Bool {
     for (command in ["help", "version", "examples", "doctor", "bootstrap", "font", "symbol",
-        "kmode", "probe", "scripts", "dependency", "init", "build", "test", "run", "prnt", "print",
+        "kmode", "probe", "scripts", "dependency", "package", "init", "build", "test", "run", "prnt", "print",
         "snapshot", "clean"]) {
         if (name == command) { return true }
     }
@@ -326,8 +326,20 @@ func joinScriptSteps(steps: Array<String>): String {
     out.toString()
 }
 
-func defaultProjectManifest(): String {
+func defaultProjectManifest(packageName!: String = "demo"): String {
     "# CangHui project lifecycle aliases. Commands are interpreted by cuic, not a shell.\n" +
+    "[application]\n" +
+    "name = \"${packageName}\"\n" +
+    "identifier = \"dev.canghui.${packageName}\"\n" +
+    "version = \"0.1.0\"\n" +
+    "publisher = \"\"\n\n" +
+    "[assets]\n" +
+    "resources = []\n\n" +
+    "[system]\n" +
+    "single-instance = true\n" +
+    "status-item = false\n" +
+    "notifications = true\n" +
+    "settings = true\n\n" +
     "[scripts]\n" +
     "check = [\"doctor\", \"test\", \"build\"]\n" +
     "dev = [\"run\"]\n" +

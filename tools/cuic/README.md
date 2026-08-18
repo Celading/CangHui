@@ -46,6 +46,7 @@ cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]
 cuic scripts init|list [project]
 cuic scripts run <name> [project]
 cuic dependency update [project]
+cuic package plan [macos|windows|linux] [project] [--json]
 cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
 cuic build [platform] [project]
@@ -63,6 +64,21 @@ cuic version
 `cuic init` writes a portable starting set:
 
 ```toml
+[application]
+name = "demo"
+identifier = "dev.canghui.demo"
+version = "0.1.0"
+publisher = ""
+
+[assets]
+resources = []
+
+[system]
+single-instance = true
+status-item = false
+notifications = true
+settings = true
+
 [scripts]
 check = ["doctor", "test", "build"]
 dev = ["run"]
@@ -81,6 +97,10 @@ Each array item is parsed as an existing `cuic` lifecycle action. The runner inj
 uses the host platform when a platform is omitted. It does not invoke a shell, so the same manifest works on
 macOS, Linux, and Windows and cannot silently become an arbitrary command-execution surface. Current portable
 steps are `doctor`, `build`, `test`, `run`, `prnt`, and `clean`.
+
+`cuic package plan` validates identity and project-relative assets, then emits
+the stable `canghui.packaging-plan.v0` shape for macOS, Windows or Linux. It is
+read-only and does not create bundles, resources, signatures or publications.
 
 Existing projects can add the default manifest once with `cuic scripts init`. Runtime application state is a
 separate concern: `State`, `rememberState`, and `StateStore` are reactive/in-memory facilities, while
