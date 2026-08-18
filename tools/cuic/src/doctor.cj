@@ -210,6 +210,7 @@ func collectDoctorResult(requestedTarget: String, framework: String, project!: S
     groups.add(doctorFontGroup(framework))
     groups.add(doctorSymbolGroup(framework))
     groups.add(doctorApplicationShellGroup(framework, project: project))
+    groups.add(doctorMobileApplicationHostGroup(framework))
     groups.add(doctorProbeGroup(framework))
     DoctorResult(host, architecture, requestedTarget, groups.toArray())
 }
@@ -630,6 +631,49 @@ func doctorApplicationShellGroup(framework: String, project!: String = ""): Doct
             DoctorActionKind.Manual, "Restore docs/application-shell.md.", joinPath(framework, "docs/application-shell.md"))
     })
     DoctorGroup("application-shell", "Cangjie application identity, assets, settings and system surfaces", "all", checks.toArray())
+}
+
+func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorRequiredFile("mobile-host.contract", "Mobile application host contract",
+        joinPath(framework, "src/host/mobile_application_host.cj"),
+        "Restore the provider-neutral iOS, Android and HarmonyOS host contract."))
+    checks.add(doctorRequiredFile("mobile-host.schema", "Mobile host package receipt schema",
+        joinPath(framework, "contracts/canghui-mobile-host-package-v0.schema.json"),
+        "Restore the public mobile host package receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.docs", "Mobile application host guide",
+        joinPath(framework, "docs/mobile-application-host.md"),
+        "Restore the public mobile application host guide."))
+
+    let iosAdapter = joinPath(framework, "platform/ios/runtime/CangHuiMetalSurfaceView.m")
+    checks.add(if (exists(iosAdapter)) {
+        doctorReady("mobile-host.ios-provider", "iOS host provider boundary",
+            "The common provider contract and UIKit native-surface adapter are present; signed product packaging remains a separate gate.",
+            iosAdapter)
+    } else {
+        doctorDegraded("mobile-host.ios-provider", "iOS host provider boundary",
+            "The common contract is present but the UIKit native-surface adapter is missing.",
+            DoctorActionKind.Manual, "Restore the iOS native-surface adapter before product-host integration.", iosAdapter)
+    })
+
+    let androidAdapter = joinPath(framework,
+        "platform/android/src/main/java/dev/canghui/android/CangHuiNativeSurfaceHost.java")
+    checks.add(if (exists(androidAdapter)) {
+        doctorDegraded("mobile-host.android-provider", "Android host provider boundary",
+            "The common contract and Java/JNI native-surface bootstrap are present; Cangjie runtime linkage, product APK and device proof remain open.",
+            DoctorActionKind.Manual, "Complete the Android Cangjie host and advance receipts one evidence stage at a time.", androidAdapter)
+    } else {
+        doctorUnsupported("mobile-host.android-provider", "Android host provider boundary",
+            "The common contract exists without an Android native-surface bootstrap.",
+            "Add a bounded Android provider that consumes the public contract.", androidAdapter)
+    })
+
+    checks.add(doctorDegraded("mobile-host.harmony-provider", "HarmonyOS host provider boundary",
+        "The common contract defines OHNativeWindow/XComponent-style lifecycle, permission and package receipts, but this repository does not ship an ArkTS/HAP host.",
+        DoctorActionKind.Manual, "Implement or integrate a HarmonyOS provider without copying product policy into the framework.",
+        "framework contract only"))
+    DoctorGroup("mobile-application-host", "Mobile provider, lifecycle, signing and package proof boundaries", "all",
+        checks.toArray())
 }
 
 func doctorProbeGroup(framework: String): DoctorGroup {

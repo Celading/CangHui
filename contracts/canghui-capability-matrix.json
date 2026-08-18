@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260818.13",
+  "matrixVersion": "CangHui.20260818.14",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -43,13 +43,14 @@
       "declarative application menu and status-item projection through stable action IDs with headless replay",
       "typed notification permission and delivery outcomes plus exact deep-link to action routing",
       "deterministic unsigned macOS app-bundle, Windows resource-input and Linux desktop-input artifact generation",
+      "provider-neutral iOS, Android and HarmonyOS application-host package receipts with lifecycle epoch and native-surface generation guards",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
-      "ArkTS or Android application host",
+      "ArkTS, Android or iOS product application host and store package",
       "non-iOS platform lifecycle, IME or accessibility implementation",
       "rollback-capable UI transactions or a complete immutable SceneDiff engine",
       "code signing, notarization, MSIX/store publication or self-contained native runtime bundling"
@@ -280,11 +281,16 @@
     },
     {
       "id": "mobile-host-contracts",
-      "version": "0.1.0",
-      "state": "source-test-proven; ios-runtime-static-package-n2c-abi-and-native-surface-adapter-proven-on-simulator-and-device; full-scene-renderer-open",
+      "version": "canghui.mobile-application-host.v0",
+      "state": "source-test-schema-doctor-proven; ios-runtime-static-package-n2c-abi-and-native-surface-adapter-historically-proven-on-simulator-and-device; signed-product-package-and-current-device-replay-open; android-product-apk-and-harmonyos-hap-open",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
-        "src/host/mobile_host_contracts_test.cj"
+        "src/host/mobile_host_contracts_test.cj",
+        "src/host/mobile_application_host.cj",
+        "src/host/mobile_application_host_test.cj",
+        "contracts/canghui-mobile-host-package-v0.schema.json",
+        "docs/mobile-application-host.md",
+        "tools/cuic/src/doctor.cj"
       ]
     },
     {

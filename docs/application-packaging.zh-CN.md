@@ -78,3 +78,7 @@ Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪�
 
 `cuic doctor` 会报告声明、引用资源和两份打包 schema 是否就绪，但就绪状态不等于
 运行时或发布证明。
+
+移动宿主使用独立的分阶段 receipt，因为平台输入树、已签名安装包和真机回放是
+三类不同事实。参见[移动应用宿主](mobile-application-host.zh-CN.md)与
+`canghui-mobile-host-package-v0.schema.json`。

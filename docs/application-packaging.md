@@ -100,3 +100,8 @@ extension and remain visible as a conversion or provider gate.
 `cuic doctor` reports whether the declaration and all referenced assets are
 ready and whether both packaging schemas are present, but readiness is not
 runtime or release proof.
+
+Mobile hosts use a separate staged receipt because a platform input tree,
+signed package and device replay are different facts. See
+[Mobile Application Host](mobile-application-host.md) and
+`canghui-mobile-host-package-v0.schema.json`.

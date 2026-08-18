@@ -113,3 +113,41 @@ func doctorReportsApplicationShellContractAndSchema(): Unit {
     @Expect(planSchemaReady)
     @Expect(artifactSchemaReady)
 }
+
+@Test
+func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let checks = doctorMobileApplicationHostGroup(framework).checks
+    var contractReady = false
+    var schemaReady = false
+    var docsReady = false
+    var iosReady = false
+    var androidDegraded = false
+    var harmonyDegraded = false
+    for (check in checks) {
+        if (check.id == "mobile-host.contract" && doctorStatusName(check.status) == "ready") {
+            contractReady = true
+        }
+        if (check.id == "mobile-host.schema" && doctorStatusName(check.status) == "ready") {
+            schemaReady = true
+        }
+        if (check.id == "mobile-host.docs" && doctorStatusName(check.status) == "ready") {
+            docsReady = true
+        }
+        if (check.id == "mobile-host.ios-provider" && doctorStatusName(check.status) == "ready") {
+            iosReady = true
+        }
+        if (check.id == "mobile-host.android-provider" && doctorStatusName(check.status) == "degraded") {
+            androidDegraded = true
+        }
+        if (check.id == "mobile-host.harmony-provider" && doctorStatusName(check.status) == "degraded") {
+            harmonyDegraded = true
+        }
+    }
+    @Expect(contractReady)
+    @Expect(schemaReady)
+    @Expect(docsReady)
+    @Expect(iosReady)
+    @Expect(androidDegraded)
+    @Expect(harmonyDegraded)
+}
