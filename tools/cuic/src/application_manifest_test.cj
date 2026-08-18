@@ -1,6 +1,6 @@
 package cuic
 
-import std.fs.{Directory, File, exists, removeIfExists}
+import std.fs.{Directory, File, SymbolicLink, exists, removeIfExists}
 
 @Test
 func applicationManifestParsesIdentityAssetsSystemsAndScripts(): Unit {
@@ -251,4 +251,42 @@ func packagingOutputRejectsTraversalAndNonEmptyOverwrite(): Unit {
         overlapRejected = true
     }
     @Expect(overlapRejected)
+}
+
+@Test
+func packagingRejectsSymlinkEscapeForOutputAndAssets(): Unit {
+    let fixture = joinPath(currentDirectory(), "target/application-packaging-symlink-fixture")
+    _ = removeIfExists(fixture, recursive: true)
+    let outside = joinPath(currentDirectory(), "target/application-packaging-symlink-outside")
+    _ = removeIfExists(outside, recursive: true)
+    Directory.create(fixture, recursive: true)
+    Directory.create(outside, recursive: true)
+
+    let outputLink = joinPath(fixture, "linked-output")
+    SymbolicLink.create(outputLink, to: outside)
+    let manifest = parseApplicationManifest(
+        "[application]\nname = \"Demo\"\nidentifier = \"dev.example.demo\"\nversion = \"1.0.0\"\n"
+    )
+    var outputRejected = false
+    try {
+        let _ = resolvePackagingOutputRoot(fixture, "linux", manifest, "linked-output/result")
+    } catch (_: CuicError) {
+        outputRejected = true
+    }
+    @Expect(outputRejected)
+
+    let assetLink = joinPath(fixture, "linked-asset.txt")
+    File.writeTo(joinPath(outside, "secret.txt"), "outside".toArray())
+    SymbolicLink.create(assetLink, to: joinPath(outside, "secret.txt"))
+    let assetManifest = parseApplicationManifest(
+        "[application]\nname = \"Demo\"\nidentifier = \"dev.example.demo\"\nversion = \"1.0.0\"\n" +
+        "[assets]\nresources = [\"linked-asset.txt\"]\n"
+    )
+    var assetRejected = false
+    try {
+        validateApplicationManifest(assetManifest, fixture)
+    } catch (_: CuicError) {
+        assetRejected = true
+    }
+    @Expect(assetRejected)
 }

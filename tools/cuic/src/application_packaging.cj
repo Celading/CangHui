@@ -1,7 +1,7 @@
 package cuic
 
 import std.collection.ArrayList
-import std.fs.{Directory, File, OpenMode, Path, exists, removeIfExists}
+import std.fs.{Directory, File, FileInfo, OpenMode, Path, canonicalize, exists, removeIfExists}
 
 let PACKAGING_ARTIFACT_SCHEMA = "canghui.packaging-artifact.v0"
 
@@ -111,11 +111,21 @@ func resolvePackagingOutputRoot(project: String, platform: String, manifest: App
     if (output == projectRoot || !startsWithText(output, projectRoot + "/")) {
         throw CuicError("package output must remain inside the project: ${relative}")
     }
+    ensurePackagingPathStaysInsideProject(projectRoot, output, "package output")
     output
 }
 
 func ensurePackagingDestinationAvailable(output: String): Unit {
     if (!exists(output)) { return }
+    try {
+        if (FileInfo(output).isSymbolicLink()) {
+            throw CuicError("package output must not be a symbolic link: ${output}")
+        }
+    } catch (e: CuicError) {
+        throw e
+    } catch (_: Exception) {
+        throw CuicError("package output is not a readable directory: ${output}")
+    }
     try {
         for (_ in Directory.readFrom(output)) {
             throw CuicError("package output is not empty: ${output}")
@@ -129,13 +139,46 @@ func ensurePackagingDestinationAvailable(output: String): Unit {
 
 func ensurePackagingOutputDoesNotOverlapInputs(project: String, output: String,
     manifest: ApplicationManifest): Unit {
-    let normalizedOutput = Path(output).normalize().toString()
+    let projectRoot = canonicalPackagingPath(project, "project")
+    ensurePackagingPathStaysInsideProject(projectRoot, output, "package output")
+    let normalizedOutput = canonicalPackagingPathIfExists(output, "package output")
     for (resource in manifest.resources) {
         let source = Path(joinPath(project, resource)).normalize().toString()
+        let canonicalSource = canonicalPackagingPath(source, "declared resource")
         if (packagingDirectoryExists(source) &&
-            (normalizedOutput == source || startsWithText(normalizedOutput, source + "/"))) {
+            (normalizedOutput == canonicalSource || startsWithText(normalizedOutput, canonicalSource + "/"))) {
             throw CuicError("package output must not be nested inside declared resource: ${resource}")
         }
+    }
+}
+
+func canonicalPackagingPath(path: String, role: String): String {
+    try {
+        canonicalize(path).toString()
+    } catch (_: Exception) {
+        throw CuicError("${role} path cannot be resolved: ${path}")
+    }
+}
+
+func canonicalPackagingPathIfExists(path: String, role: String): String {
+    if (exists(path)) { return canonicalPackagingPath(path, role) }
+    var current = path
+    while (!exists(current)) {
+        let parent = parentPath(current)
+        if (parent.isEmpty() || parent == current) {
+            throw CuicError("${role} parent path cannot be resolved: ${path}")
+        }
+        current = parent
+    }
+    canonicalPackagingPath(current, role)
+}
+
+func ensurePackagingPathStaysInsideProject(projectRoot: String, path: String, role: String): Unit {
+    let canonicalProject = canonicalPackagingPath(projectRoot, "project")
+    let canonicalCandidate = canonicalPackagingPathIfExists(path, role)
+    if (canonicalCandidate != canonicalProject &&
+        !startsWithText(canonicalCandidate, canonicalProject + "/")) {
+        throw CuicError("${role} must remain inside the project: ${path}")
     }
 }
 

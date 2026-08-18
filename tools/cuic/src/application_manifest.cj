@@ -245,8 +245,13 @@ func validateApplicationManifest(manifest: ApplicationManifest, project: String)
         paths.add(resource)
     }
     for (path in paths) {
-        if (!project.isEmpty() && !exists(joinPath(project, path))) {
-            throw CuicError("declared application asset is missing: ${path}")
+        if (!project.isEmpty()) {
+            let asset = joinPath(project, path)
+            if (!exists(asset)) {
+                throw CuicError("declared application asset is missing: ${path}")
+            }
+            let projectRoot = canonicalPackagingPath(project, "project")
+            ensurePackagingPathStaysInsideProject(projectRoot, asset, "declared application asset")
         }
     }
 }
