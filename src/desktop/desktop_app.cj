@@ -11,6 +11,7 @@ import sdl.dialogs.FileDialogs
 import sdl.system.AppMetadata
 import sdl.system.ApplicationMetadata
 import sdl.system.SdlHintSetting
+import sdl.system.SdlHint
 import sdl.system.SdlHints
 import cui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot,
     UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip}
@@ -769,6 +770,12 @@ private func configuredWindow(spec: WindowSpec, metadata: ?AppMetadata, hints: A
         case Some(value) => ApplicationMetadata.apply(value)
         case None => ()
     }
+    SdlHints.apply(defaultDesktopHints())
+    // Application hints are applied last so a host can explicitly restore the platform default.
     SdlHints.apply(hints)
     SdlWindow(spec)
+}
+
+internal func defaultDesktopHints(): Array<SdlHintSetting> {
+    [SdlHintSetting(SdlHint.MouseFocusClickthrough, "1")]
 }

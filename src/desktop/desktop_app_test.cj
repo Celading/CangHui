@@ -1,6 +1,7 @@
 package cui.desktop
 
 import sdl.{MouseButton, UiEvent}
+import sdl.system.SdlHint
 
 @Test
 func tickDeltaGuardsAgainstClockReset(): Unit {
@@ -117,4 +118,15 @@ func pointerDragBuildsDownMoveUpSequence(): Unit {
 func pointerDragClampsZeroStepsToOne(): Unit {
     let events = buildPointerDragEvents(0.0, 0.0, 5.0, 5.0, 0)
     @Expect(events.size, 3)
+}
+
+@Test
+func desktopDefaultsFirstFocusClickToReachControls(): Unit {
+    let hints = defaultDesktopHints()
+    @Expect(hints.size, 1)
+    match (hints[0].hint) {
+        case SdlHint.MouseFocusClickthrough => @Expect(true)
+        case _ => @Expect(false)
+    }
+    @Expect(hints[0].value, "1")
 }
