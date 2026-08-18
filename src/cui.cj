@@ -284,6 +284,7 @@ public import cui.system.AppActionRegistry
 public import cui.system.AppAsset
 public import cui.system.AppAssetRole
 public import cui.system.AppIdentity
+public import cui.system.AppDeepLinkRoute
 public import cui.system.AppMenu
 public import cui.system.AppMenuBar
 public import cui.system.AppSurfaceProjectionResult
@@ -303,6 +304,7 @@ public import cui.system.ApplicationShell
 public import cui.system.HeadlessSystemShellProvider
 public import cui.system.HeadlessApplicationIdentityProvider
 public import cui.system.HeadlessSettingsProvider
+public import cui.system.NotificationPermissionState
 public import cui.system.SystemNotification
 public import cui.system.SystemShellProvider
 public import cui.system.SystemShellResult
@@ -313,8 +315,10 @@ public import cui.system.appAssetRoleName
 public import cui.system.systemShellResultStatusName
 public import cui.system.systemSurfaceName
 public import cui.system.systemSurfaceStateName
+public import cui.system.notificationPermissionStateName
 public import cui.system.validateApplicationManifest
 public import cui.system.validateAppActionId
+public import cui.system.validateAppDeepLinkUri
 public import cui.system.validateAppSettingKey
 public import cui.kmode.KMODE_PROTOCOL
 public import cui.kmode.KMODE_SCHEMA_REF

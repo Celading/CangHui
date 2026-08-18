@@ -192,6 +192,10 @@ public struct SystemNotification {
         for (actionId in actionIds) {
             validateAppActionId(actionId)
         }
+        match (deepLink) {
+            case Some(uri) => validateAppDeepLinkUri(uri)
+            case None => ()
+        }
         this.id = id
         this.title = title
         this.body = body
@@ -263,6 +267,7 @@ public enum SystemShellResultStatus <: Equatable<SystemShellResultStatus> {
     | Applied
     | Queued
     | PermissionRequired
+    | Denied
     | Unsupported
     | Failed
 
@@ -280,6 +285,7 @@ public func systemShellResultStatusName(status: SystemShellResultStatus): String
         case SystemShellResultStatus.Applied => "applied"
         case SystemShellResultStatus.Queued => "queued"
         case SystemShellResultStatus.PermissionRequired => "permission-required"
+        case SystemShellResultStatus.Denied => "denied"
         case SystemShellResultStatus.Unsupported => "unsupported"
         case SystemShellResultStatus.Failed => "failed"
     }
@@ -306,6 +312,7 @@ public struct ApplicationManifest {
     public let settings: Array<AppSetting>
     public let applicationMenu: ?AppMenuBar
     public let statusItem: ?AppStatusItem
+    public let deepLinks: Array<AppDeepLinkRoute>
 
     public init(
         identity: AppIdentity,
@@ -313,7 +320,8 @@ public struct ApplicationManifest {
         actions!: Array<AppAction> = [],
         settings!: Array<AppSetting> = [],
         applicationMenu!: ?AppMenuBar = None,
-        statusItem!: ?AppStatusItem = None
+        statusItem!: ?AppStatusItem = None,
+        deepLinks!: Array<AppDeepLinkRoute> = []
     ) {
         this.identity = identity
         this.assets = assets
@@ -321,6 +329,7 @@ public struct ApplicationManifest {
         this.settings = settings
         this.applicationMenu = applicationMenu
         this.statusItem = statusItem
+        this.deepLinks = deepLinks
     }
 }
 
@@ -329,7 +338,10 @@ public interface SystemShellProvider {
     func registerAction(action: AppAction): SystemShellResult
     func setApplicationMenu(menu: AppMenuBar): SystemShellResult
     func setStatusItem(item: AppStatusItem): SystemShellResult
+    func notificationPermission(): NotificationPermissionState
+    func requestNotificationPermission(): SystemShellResult
     func notify(notification: SystemNotification): SystemShellResult
+    func registerDeepLink(route: AppDeepLinkRoute): SystemShellResult
     func readSetting(key: String): ?AppSettingValue
     func writeSetting(key: String, value: AppSettingValue): SystemShellResult
 }
@@ -340,7 +352,13 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
     private let notifications = ArrayList<SystemNotification>()
     private let settingKeys = ArrayList<String>()
     private let settingValues = ArrayList<AppSettingValue>()
+    private let deepLinks = ArrayList<AppDeepLinkRoute>()
     private var applicationMenu: ?AppMenuBar = None
+    private let notificationPermissionState: NotificationPermissionState
+
+    public init(notificationPermission!: NotificationPermissionState = NotificationPermissionState.NotRequired) {
+        this.notificationPermissionState = notificationPermission
+    }
 
     public func state(surface: SystemSurface): SystemSurfaceState {
         match (surface) {
@@ -369,9 +387,46 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
         SystemShellResult(SystemShellResultStatus.Queued, message: "application menu captured by headless provider")
     }
 
+    public func notificationPermission(): NotificationPermissionState {
+        notificationPermissionState
+    }
+
+    public func requestNotificationPermission(): SystemShellResult {
+        match (notificationPermissionState) {
+            case NotificationPermissionState.NotDetermined =>
+                SystemShellResult(SystemShellResultStatus.Queued,
+                    message: "notification permission request captured by headless provider")
+            case NotificationPermissionState.Granted | NotificationPermissionState.NotRequired =>
+                SystemShellResult(SystemShellResultStatus.Applied,
+                    message: "notification permission is already available")
+            case NotificationPermissionState.Denied =>
+                SystemShellResult(SystemShellResultStatus.Denied,
+                    message: "notification permission is denied")
+            case NotificationPermissionState.Unsupported =>
+                SystemShellResult(SystemShellResultStatus.Unsupported,
+                    message: "notifications are unsupported")
+        }
+    }
+
     public func notify(notification: SystemNotification): SystemShellResult {
         notifications.add(notification)
         SystemShellResult(SystemShellResultStatus.Queued, message: "notification captured by headless provider")
+    }
+
+    public func registerDeepLink(route: AppDeepLinkRoute): SystemShellResult {
+        for (existing in deepLinks) {
+            if (existing.uri == route.uri) {
+                if (existing.actionId == route.actionId) {
+                    return SystemShellResult(SystemShellResultStatus.Applied,
+                        message: "application deep link was already captured")
+                }
+                return SystemShellResult(SystemShellResultStatus.Failed,
+                    message: "conflicting application deep link: " + route.uri)
+            }
+        }
+        deepLinks.add(route)
+        SystemShellResult(SystemShellResultStatus.Queued,
+            message: "deep link captured by headless provider")
     }
 
     public func readSetting(key: String): ?AppSettingValue {
@@ -398,6 +453,7 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
 
     public func actionCount(): Int64 { registeredActions.size }
     public func notificationCount(): Int64 { notifications.size }
+    public func deepLinkCount(): Int64 { deepLinks.size }
     public func applicationMenuCount(): Int64 {
         match (applicationMenu) {
             case Some(menu) => menu.menus.size
@@ -410,6 +466,7 @@ public class ApplicationShell {
     public let manifest: ApplicationManifest
     private let provider: SystemShellProvider
     private let actionRegistry = AppActionRegistry()
+    private let registeredDeepLinks = ArrayList<AppDeepLinkRoute>()
 
     public init(manifest: ApplicationManifest, provider!: SystemShellProvider = HeadlessSystemShellProvider()) {
         let errors = validateApplicationManifest(manifest)
@@ -475,7 +532,98 @@ public class ApplicationShell {
     }
 
     public func notify(notification: SystemNotification): SystemShellResult {
+        let errors = ArrayList<String>()
+        validateRuntimeActionReferences(notification.actionIds, "notification " + notification.id, errors)
+        if (!errors.isEmpty()) {
+            return SystemShellResult(SystemShellResultStatus.Failed,
+                message: renderApplicationManifestErrors(errors.toArray()))
+        }
+        match (notification.deepLink) {
+            case Some(uri) =>
+                if (!containsDeepLink(uri)) {
+                    return SystemShellResult(SystemShellResultStatus.Failed,
+                        message: "notification references unknown deep link: " + uri)
+                }
+            case None => ()
+        }
+        match (provider.notificationPermission()) {
+            case NotificationPermissionState.NotDetermined =>
+                return SystemShellResult(SystemShellResultStatus.PermissionRequired,
+                    message: "notification permission has not been determined")
+            case NotificationPermissionState.Denied =>
+                return SystemShellResult(SystemShellResultStatus.Denied,
+                    message: "notification permission is denied")
+            case NotificationPermissionState.Unsupported =>
+                return SystemShellResult(SystemShellResultStatus.Unsupported,
+                    message: "notifications are unsupported")
+            case NotificationPermissionState.Granted | NotificationPermissionState.NotRequired => ()
+        }
         provider.notify(notification)
+    }
+
+    public func notificationPermission(): NotificationPermissionState {
+        provider.notificationPermission()
+    }
+
+    public func requestNotificationPermission(): SystemShellResult {
+        provider.requestNotificationPermission()
+    }
+
+    public func registerDeepLink(route: AppDeepLinkRoute): SystemShellResult {
+        let errors = ArrayList<String>()
+        validateRuntimeActionReferences([route.actionId], "deep link " + route.uri, errors)
+        if (!errors.isEmpty()) {
+            return SystemShellResult(SystemShellResultStatus.Failed,
+                message: renderApplicationManifestErrors(errors.toArray()))
+        }
+        for (existing in registeredDeepLinks) {
+            if (existing.uri == route.uri) {
+                if (existing.actionId == route.actionId) {
+                    return SystemShellResult(SystemShellResultStatus.Applied,
+                        message: "application deep link was already registered")
+                }
+                return SystemShellResult(SystemShellResultStatus.Failed,
+                    message: "conflicting application deep link: " + route.uri)
+            }
+        }
+        let providerResult = provider.registerDeepLink(route)
+        if (!providerResult.ok()) { return providerResult }
+        registeredDeepLinks.add(route)
+        providerResult
+    }
+
+    public func projectDeepLinks(): SystemShellResult {
+        var status = SystemShellResultStatus.Applied
+        for (route in manifest.deepLinks) {
+            let result = registerDeepLink(route)
+            if (!result.ok()) { return result }
+            if (result.status == SystemShellResultStatus.Queued) {
+                status = SystemShellResultStatus.Queued
+            }
+        }
+        SystemShellResult(status, message: "application deep links projected")
+    }
+
+    public func handleDeepLink(uri: String): SystemShellResult {
+        validateAppDeepLinkUri(uri)
+        for (route in registeredDeepLinks) {
+            if (route.uri == uri) { return invokeAction(route.actionId) }
+        }
+        for (route in manifest.deepLinks) {
+            if (route.uri == uri) { return invokeAction(route.actionId) }
+        }
+        SystemShellResult(SystemShellResultStatus.Failed,
+            message: "unknown application deep link: " + uri)
+    }
+
+    private func containsDeepLink(uri: String): Bool {
+        for (route in registeredDeepLinks) {
+            if (route.uri == uri) { return true }
+        }
+        for (route in manifest.deepLinks) {
+            if (route.uri == uri) { return true }
+        }
+        false
     }
 
     public func readSetting(key: String): ?AppSettingValue {
@@ -517,6 +665,7 @@ public func validateApplicationManifest(manifest: ApplicationManifest): Array<St
     validateUniqueActions(manifest.actions, errors)
     validateUniqueSettings(manifest.settings, errors)
     validateAssetRoles(manifest.assets, errors)
+    validateDeepLinkRoutes(manifest.deepLinks, manifest.actions, errors)
     match (manifest.applicationMenu) {
         case Some(menu) => validateMenuActionReferences(menu, manifest.actions, errors)
         case None => ()

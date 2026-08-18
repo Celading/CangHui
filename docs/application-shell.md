@@ -1,5 +1,7 @@
 # Application Shell
 
+**English** | [中文](application-shell.zh-CN.md)
+
 `cui.system` is the CangHui contract for system-level application behavior.
 It keeps application identity, assets, actions, settings and notifications in
 one Cangjie model while platform providers decide whether a system surface is
@@ -16,6 +18,7 @@ let manifest = ApplicationManifest(
 )
 let shell = ApplicationShell(manifest)
 let surfaces = shell.projectSystemSurfaces()
+let permission = shell.notificationPermission()
 let result = shell.notify(SystemNotification("ready", "Ready"))
 ```
 
@@ -45,6 +48,29 @@ shell.invokeAction("app.settings")
 
 Sensitive settings are never downgraded into the headless fallback. They require
 a provider that reports native `secure-settings` support.
+
+## Notifications and Deep Links
+
+Notification permission is explicit: `not-determined`, `granted`, `denied`,
+`not-required` or `unsupported`. `notify()` returns a typed result and refuses
+delivery before permission is granted. Headless replay uses `not-required` and
+queues the notification without claiming an OS delivery.
+
+Use `requestNotificationPermission()` when the state is `not-determined`; the
+returned result records whether the request was applied, queued, denied or
+unsupported.
+
+Deep links use exact routes rather than wildcard or prefix matching:
+
+```cangjie
+let route = AppDeepLinkRoute("demo://app/settings", "app.settings")
+shell.registerDeepLink(route)
+shell.handleDeepLink("demo://app/settings")
+```
+
+The target action must be declared or registered, and a runtime handler must be
+present before the link can invoke application code. Duplicate URIs and unknown
+actions fail closed.
 
 ## Capability States
 

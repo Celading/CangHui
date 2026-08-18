@@ -4,7 +4,7 @@
   "title": "CangHui application shell manifest contract",
   "type": "object",
   "additionalProperties": false,
-  "required": ["protocol", "identity", "assetRoles", "surfaces", "resultStatuses", "actionProjection"],
+  "required": ["protocol", "identity", "assetRoles", "surfaces", "resultStatuses", "actionProjection", "notificationPermissionStates", "deepLinkMatch"],
   "properties": {
     "protocol": { "const": "canghui.application-shell.v0" },
     "identity": { "type": "object", "required": ["name", "identifier", "version"] },
@@ -21,7 +21,7 @@
     "resultStatuses": {
       "type": "array",
       "uniqueItems": true,
-      "items": { "enum": ["applied", "queued", "permission-required", "unsupported", "failed"] }
+      "items": { "enum": ["applied", "queued", "permission-required", "denied", "unsupported", "failed"] }
     },
     "actionProjection": {
       "type": "object",
@@ -32,10 +32,16 @@
         "surfaces": {
           "type": "array",
           "uniqueItems": true,
-          "items": { "enum": ["application-menu", "status-item", "notification", "command-palette", "kmode"] }
+          "items": { "enum": ["application-menu", "status-item", "notification", "deep-link", "command-palette", "kmode"] }
         },
         "duplicatePolicy": { "const": "reject" }
       }
-    }
+    },
+    "notificationPermissionStates": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["not-determined", "granted", "denied", "not-required", "unsupported"] }
+    },
+    "deepLinkMatch": { "const": "exact-uri" }
   }
 }

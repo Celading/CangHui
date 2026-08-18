@@ -55,6 +55,7 @@ func headlessSystemShellKeepsActionNotificationAndSettingsSemantics(): Unit {
     ),
         provider: provider)
     @Expect(shell.capability(SystemSurface.StatusItem), SystemSurfaceState.Fallback)
+    @Expect(shell.notificationPermission(), NotificationPermissionState.NotRequired)
     let invoked = ApplicationShellTestCounter()
     @Expect(shell.registerAction(AppAction("app.open", "Open"), { => invoked.value += 1 }).ok())
     @Expect(shell.invokeAction("app.open").ok())
@@ -70,6 +71,83 @@ func headlessSystemShellKeepsActionNotificationAndSettingsSemantics(): Unit {
     let projection = shell.projectSystemSurfaces()
     @Expect(projection.ok())
     @Expect(provider.applicationMenuCount(), 1)
+}
+
+@Test
+func applicationShellNotificationPermissionGatesDelivery(): Unit {
+    let pendingProvider = HeadlessSystemShellProvider(
+        notificationPermission: NotificationPermissionState.NotDetermined
+    )
+    let pending = ApplicationShell(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0")
+    ), provider: pendingProvider)
+    @Expect(pending.notify(SystemNotification("pending", "Pending")).status,
+        SystemShellResultStatus.PermissionRequired)
+    @Expect(pending.requestNotificationPermission().status, SystemShellResultStatus.Queued)
+    @Expect(pendingProvider.notificationCount(), 0)
+
+    let denied = ApplicationShell(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0")
+    ), provider: HeadlessSystemShellProvider(
+        notificationPermission: NotificationPermissionState.Denied
+    ))
+    @Expect(denied.notify(SystemNotification("denied", "Denied")).status,
+        SystemShellResultStatus.Denied)
+
+    let unsupported = ApplicationShell(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0")
+    ), provider: HeadlessSystemShellProvider(
+        notificationPermission: NotificationPermissionState.Unsupported
+    ))
+    @Expect(unsupported.notify(SystemNotification("unsupported", "Unsupported")).status,
+        SystemShellResultStatus.Unsupported)
+}
+
+@Test
+func applicationShellRoutesExactDeepLinksToStableActions(): Unit {
+    let invoked = ApplicationShellTestCounter()
+    let provider = HeadlessSystemShellProvider()
+    let shell = ApplicationShell(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0"),
+        actions: [AppAction("app.settings", "Settings")],
+        deepLinks: [AppDeepLinkRoute("demo://app/settings", "app.settings")]
+    ), provider: provider)
+    @Expect(shell.registerAction(AppAction("app.settings", "Settings"), { => invoked.value += 1 }).ok())
+    @Expect(shell.projectDeepLinks().ok())
+    @Expect(shell.projectDeepLinks().ok())
+    @Expect(provider.deepLinkCount(), 1)
+    @Expect(shell.notify(SystemNotification("settings", "Settings available",
+        deepLink: Some("demo://app/settings"))).status, SystemShellResultStatus.Queued)
+    @Expect(shell.notify(SystemNotification("unknown-link", "Unknown link",
+        deepLink: Some("demo://app/unknown"))).status, SystemShellResultStatus.Failed)
+    @Expect(shell.handleDeepLink("demo://app/settings").ok())
+    @Expect(invoked.value, 1)
+    @Expect(shell.handleDeepLink("demo://app/unknown").status, SystemShellResultStatus.Failed)
+}
+
+@Test
+func applicationManifestRejectsDuplicateOrUnknownDeepLinkRoutes(): Unit {
+    let errors = validateApplicationManifest(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0"),
+        actions: [AppAction("app.open", "Open")],
+        deepLinks: [
+            AppDeepLinkRoute("demo://app/open", "app.open"),
+            AppDeepLinkRoute("demo://app/open", "app.missing")
+        ]
+    ))
+    @Expect(errors.size, 2)
+}
+
+@Test
+func applicationShellNotificationActionsMustBeRegisteredOrDeclared(): Unit {
+    let shell = ApplicationShell(ApplicationManifest(
+        AppIdentity("Demo", "dev.example.demo", "1.0.0")
+    ))
+    @Expect(shell.notify(SystemNotification("unknown", "Unknown",
+        actionIds: ["app.open"])).status, SystemShellResultStatus.Failed)
+    @Expect(shell.registerAction(AppAction("app.open", "Open"), { => () }).ok())
+    @Expect(shell.notify(SystemNotification("known", "Known",
+        actionIds: ["app.open"])).status, SystemShellResultStatus.Queued)
 }
 
 @Test
@@ -116,4 +194,6 @@ func applicationShellNamesStayStableForDoctorAndPackaging(): Unit {
     @Expect(systemSurfaceName(SystemSurface.Notification), "notification")
     @Expect(systemSurfaceStateName(SystemSurfaceState.PermissionRequired), "permission-required")
     @Expect(systemShellResultStatusName(SystemShellResultStatus.Applied), "applied")
+    @Expect(systemShellResultStatusName(SystemShellResultStatus.Denied), "denied")
+    @Expect(notificationPermissionStateName(NotificationPermissionState.NotDetermined), "not-determined")
 }
