@@ -45,9 +45,11 @@ permission checks remain runtime validation.
   simulator/device bootstrap proof. `IOSMobileApplicationHostProvider` now binds
   the existing iOS input tree to the receipt and rejects lifecycle/surface-stale
   receipt replay. A fresh time-valid development profile has also passed a
-  physical-device `devicectl` installation. The current launch replay remains
-  blocked by the device developer-trust gate, so launch, rendering and semantic
-  device proof stay false. The verification script accepts both the macOS
+  physical-device `devicectl` installation. After device trust was enabled, the
+  same probe launched and reported a ready Metal drawable, 31 clear frames,
+  detach/reattach generation replay and synthetic touch, pointer and trait
+  ingress. Those facts prove the static-package probe only; the full declarative
+  CUI scene and product acceptance remain open. The verification script accepts both the macOS
   `security cms` decoder and an `openssl smime` compatibility fallback without
   copying profile contents into project evidence.
 - Android has a Java/JNI/NDK `SurfaceView` bootstrap. Cangjie Android runtime

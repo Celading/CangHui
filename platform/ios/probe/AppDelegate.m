@@ -73,6 +73,7 @@ static void *write_canghui_probe_traits(void *unused) {
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 @property(nonatomic, strong) UIWindow *window;
 @property(nonatomic, strong) UIViewController *rootController;
+@property(nonatomic, strong) UIView *statusPanel;
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, strong) CangHuiMetalSurfaceView *surfaceView;
 @property(nonatomic, assign) BOOL drawableObserved;
@@ -104,7 +105,9 @@ static void *write_canghui_probe_traits(void *unused) {
     dispatch_async(dispatch_get_main_queue(), ^{
         if (!passed) {
             self.statusLabel.textColor = UIColor.systemRedColor;
-            self.statusLabel.text = @"CangHui iOS runtime bootstrap failed";
+            self.statusLabel.text = @"CangHui iOS native surface\n"
+                "Runtime bootstrap failed\n"
+                "Probe only - CUI scene not mounted";
             return;
         }
         [self installSurfaceView];
@@ -192,8 +195,14 @@ static void *write_canghui_probe_traits(void *unused) {
 
     self.statusLabel.textColor = passed ? UIColor.whiteColor : UIColor.systemRedColor;
     self.statusLabel.text = passed
-        ? @"CangHui iOS native surface\nMetal + lifecycle + frame + touch"
-        : @"CangHui iOS native surface probe failed";
+        ? [NSString stringWithFormat:
+            @"CangHui iOS native surface\n"
+             "PASS - Metal + lifecycle + frames (%lld)\n"
+             "Probe only - CUI scene not mounted",
+            (long long)snapshot.frames]
+        : @"CangHui iOS native surface\n"
+           "Probe failed\n"
+           "CUI scene not mounted";
 }
 
 - (BOOL)application:(UIApplication *)application
@@ -204,22 +213,38 @@ static void *write_canghui_probe_traits(void *unused) {
     self.rootController = [UIViewController new];
     self.rootController.view.backgroundColor = UIColor.systemBackgroundColor;
 
+    UIView *panel = [UIView new];
+    panel.translatesAutoresizingMaskIntoConstraints = NO;
+    panel.backgroundColor = [UIColor colorWithWhite:0.06 alpha:0.90];
+    panel.layer.cornerRadius = 12.0;
+    panel.layer.borderWidth = 1.0;
+    panel.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.18].CGColor;
+    self.statusPanel = panel;
+    [self.rootController.view addSubview:panel];
+
     UILabel *label = [UILabel new];
     label.translatesAutoresizingMaskIntoConstraints = NO;
     label.numberOfLines = 0;
     label.textAlignment = NSTextAlignmentCenter;
-    label.font = [UIFont monospacedSystemFontOfSize:18 weight:UIFontWeightSemibold];
-    label.textColor = UIColor.labelColor;
-    label.text = @"CangHui iOS native surface\nstarting";
+    label.font = [UIFont monospacedSystemFontOfSize:16 weight:UIFontWeightSemibold];
+    label.textColor = UIColor.whiteColor;
+    label.text = @"CangHui iOS native surface\n"
+        "Starting runtime...\n"
+        "Probe only - CUI scene not mounted";
+    label.accessibilityLabel = @"CangHui iOS native surface diagnostic probe";
     self.statusLabel = label;
-    [self.rootController.view addSubview:label];
+    [panel addSubview:label];
     [NSLayoutConstraint activateConstraints:@[
-        [label.centerXAnchor constraintEqualToAnchor:self.rootController.view.centerXAnchor],
-        [label.centerYAnchor constraintEqualToAnchor:self.rootController.view.centerYAnchor],
-        [label.leadingAnchor constraintGreaterThanOrEqualToAnchor:
-            self.rootController.view.leadingAnchor constant:24],
-        [label.trailingAnchor constraintLessThanOrEqualToAnchor:
-            self.rootController.view.trailingAnchor constant:-24]
+        [panel.centerXAnchor constraintEqualToAnchor:self.rootController.view.centerXAnchor],
+        [panel.centerYAnchor constraintEqualToAnchor:self.rootController.view.centerYAnchor],
+        [panel.leadingAnchor constraintGreaterThanOrEqualToAnchor:
+            self.rootController.view.safeAreaLayoutGuide.leadingAnchor constant:24],
+        [panel.trailingAnchor constraintLessThanOrEqualToAnchor:
+            self.rootController.view.safeAreaLayoutGuide.trailingAnchor constant:-24],
+        [label.topAnchor constraintEqualToAnchor:panel.topAnchor constant:18],
+        [label.bottomAnchor constraintEqualToAnchor:panel.bottomAnchor constant:-18],
+        [label.leadingAnchor constraintEqualToAnchor:panel.leadingAnchor constant:22],
+        [label.trailingAnchor constraintEqualToAnchor:panel.trailingAnchor constant:-22]
     ]];
 
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];

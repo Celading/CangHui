@@ -119,6 +119,11 @@ CANGHUI_IOS_PROVISIONING_PROFILE=/path/to/profile.mobileprovision \
 The device must be unlocked. The script validates the provisioning profile
 against the requested bundle id before signing and installing the app.
 
+The probe intentionally renders only a Cangjie-selected Metal clear color. Its
+high-contrast diagnostic panel remains above the surface and explicitly says
+that the CUI scene is not mounted, so a successful native-surface probe cannot
+be mistaken for a product application screen.
+
 ## Surface Proxy
 
 The implemented iOS adapter follows an XComponent-like proxy model:
