@@ -16,13 +16,21 @@ public class Bgfx4cjDriver <: Scene3DDriver {
     private var resourceId = ""
     private var sceneId = ""
     private var lastFrameId: Int64 = -1
+    private var pixelWidth: Int64 = 0
+    private var pixelHeight: Int64 = 0
+    private let clearColor: UInt32
 
-    public init(nativeWindow: CPointer<Unit>, nativeWindowIdentity: UInt64) {
+    public init(
+        nativeWindow: CPointer<Unit>,
+        nativeWindowIdentity: UInt64,
+        clearColor!: UInt32 = 0x20242AFF
+    ) {
         if (nativeWindow.isNull() || nativeWindowIdentity == UInt64(0)) {
             throw IllegalArgumentException("bgfx4cj native window pointer and identity must be present")
         }
         this.nativeWindow = nativeWindow
         this.nativeWindowIdentity = nativeWindowIdentity
+        this.clearColor = clearColor
     }
 
     public func driverName(): String { "bgfx4cj" }
@@ -51,6 +59,9 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         params.resolution.debugTextScale = 1
         unsafe { initPtr.write(params) }
 
+        if (surface.backend == Scene3DBackend.Metal) {
+            let _ = bgfx_render_frame_cj(0)
+        }
         let ok = bgfx_init_cj(initPtr)
         unsafe { LibC.free(initPtr) }
         if (!ok) {
@@ -59,10 +70,13 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         initialized = true
         surfaceId = surface.id
         generation = surface.generation
+        pixelWidth = surface.pixelWidth
+        pixelHeight = surface.pixelHeight
         resourceId = ""
         sceneId = ""
         lastFrameId = clock.frameId
-        bgfx_set_view_clear_cj(0, CLEAR_COLOR, 0x20242AFF, 1.0, 0)
+        bgfx_set_view_clear_cj(0, CLEAR_COLOR, clearColor, 1.0, 0)
+        setViewRect()
         Scene3DDriverResult.accepted(detail: "bgfx initialized")
     }
 
@@ -71,6 +85,9 @@ public class Bgfx4cjDriver <: Scene3DDriver {
             return Scene3DDriverResult.rejected("stale-generation", "bgfx resize generation mismatch")
         }
         bgfx_reset_cj(UInt32(surface.pixelWidth), UInt32(surface.pixelHeight), RESET_VSYNC, 0)
+        pixelWidth = surface.pixelWidth
+        pixelHeight = surface.pixelHeight
+        setViewRect()
         Scene3DDriverResult.accepted(detail: "bgfx backbuffer reset")
     }
 
@@ -90,6 +107,7 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         }
         sceneId = snapshot.sceneId
         lastFrameId = clock.frameId
+        setViewRect()
         bgfx_touch_cj(0)
         Scene3DDriverResult(
             true, "clear-frame-only", "bgfx clear-frame commands submitted; geometry upload is not implemented"
@@ -109,6 +127,21 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         Scene3DDriverResult.accepted(detail: "bgfx frame advanced")
     }
 
+    /** Requests the current backbuffer. bgfx writes a TGA beside the requested path. */
+    public func requestBackbufferCapture(path: String): Scene3DDriverResult {
+        if (!initialized) {
+            return Scene3DDriverResult.rejected("not-attached", "bgfx is not initialized")
+        }
+        if (path.isEmpty()) {
+            return Scene3DDriverResult.rejected("capture-path-missing", "capture path must not be empty")
+        }
+        let cPath = unsafe { LibC.mallocCString(path) }
+        try (pathResource = cPath.asResource()) {
+            bgfx_request_screen_shot_cj(FrameBufferHandle(), pathResource.value)
+        }
+        Scene3DDriverResult.accepted(detail: "bgfx backbuffer capture requested")
+    }
+
     public func detach(surfaceId: String, generation: Int64): Scene3DDriverResult {
         if (surfaceId != this.surfaceId || !matches(generation)) {
             return Scene3DDriverResult.rejected("stale-generation", "bgfx detach generation mismatch")
@@ -120,6 +153,8 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         resourceId = ""
         sceneId = ""
         lastFrameId = -1
+        pixelWidth = 0
+        pixelHeight = 0
         Scene3DDriverResult.accepted(detail: "bgfx shut down")
     }
 
@@ -139,10 +174,16 @@ public class Bgfx4cjDriver <: Scene3DDriver {
             case Scene3DBackend.Software => RendererType.Noop
         }
     }
+
+    private func setViewRect(): Unit {
+        bgfx_set_view_rect_cj(0, 0, 0, UInt16(pixelWidth), UInt16(pixelHeight))
+    }
 }
 
 public func createBgfxScene3DProvider(
-    nativeWindow: CPointer<Unit>, nativeWindowIdentity: UInt64
+    nativeWindow: CPointer<Unit>,
+    nativeWindowIdentity: UInt64,
+    clearColor!: UInt32 = 0x20242AFF
 ): DriverScene3DProvider {
-    DriverScene3DProvider(Bgfx4cjDriver(nativeWindow, nativeWindowIdentity))
+    DriverScene3DProvider(Bgfx4cjDriver(nativeWindow, nativeWindowIdentity, clearColor: clearColor))
 }

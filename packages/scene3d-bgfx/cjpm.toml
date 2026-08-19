@@ -8,4 +8,5 @@ license = "Apache-2.0"
 
 [dependencies]
 cui = { path = "../.." }
+sdl = { path = "../../sdl" }
 bgfx4cj = { git = "https://gitcode.com/Cangjie-TPC/bgfx4cj.git", commitId = "149e9d856de361c7c2afb813a68783f7d85fa5c9" }
