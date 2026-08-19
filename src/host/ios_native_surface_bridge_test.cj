@@ -70,3 +70,56 @@ func iosNativeSurfaceBridgeValidatesIntegerAbiInputs(): Unit {
     @Expect(bridge.updateTraits(3, 0, 0, 1000), -1)
     @Expect(bridge.updateTraits(0, 0, 0, 0), -1)
 }
+
+@Test
+func iosMobileApplicationProviderBindsReceiptToLifecycleAndSurface(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    let provider = IOSMobileApplicationHostProvider(
+        "dev.canghui.ios.provider",
+        bridge: bridge
+    )
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 4))
+    @Expect(provider.attachSurface(41, 1194000, 834000, 2388, 1668, 2000, 9), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let receipt = provider.packageReceipt()
+    @Expect(provider.platform(), MobileApplicationPlatform.IOS)
+    @Expect(provider.packageKind(), MobilePackageKind.IOSApplicationBundle)
+    @Expect(provider.packageStage(), MobilePackageStage.InputTree)
+    @Expect(receipt.signing, MobileSigningState.Unsigned)
+    @Expect(!receipt.installable())
+    @Expect(!receipt.deviceProven())
+    @Expect(receipt.lifecycleEpoch, 4)
+    @Expect(receipt.surfaceGeneration, 9)
+    @Expect(receipt.inputFiles.size, 14)
+    @Expect(provider.permissionState(HostCapability.NativeSurface), MobilePermissionState.Granted)
+}
+
+@Test
+func iosMobileApplicationProviderRejectsStaleReceiptRollback(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    let provider = IOSMobileApplicationHostProvider(
+        "dev.canghui.ios.rollback",
+        bridge: bridge
+    )
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 1))
+    @Expect(provider.attachSurface(43, 1194000, 834000, 2388, 1668, 2000, 1), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let stale = provider.packageReceipt()
+    @Expect(provider.applyLifecycle(AppLifecycleState.Background, 2))
+    @Expect(provider.detachSurface(1), 0)
+    @Expect(provider.attachSurface(47, 1194000, 834000, 2388, 1668, 2000, 2), 0)
+    @Expect(!provider.applyPackageReceipt(stale))
+    @Expect(provider.packageStage(), MobilePackageStage.InputTree)
+    @Expect(provider.lifecycleEpoch(), 2)
+    @Expect(provider.surfaceGeneration(), 2)
+}
+
+@Test
+func iosMobileApplicationProviderRejectsNonMonotonicLifecycle(): Unit {
+    let provider = IOSMobileApplicationHostProvider("dev.canghui.ios.lifecycle")
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 3))
+    @Expect(!provider.applyLifecycle(AppLifecycleState.Inactive, 2))
+    @Expect(!provider.applyLifecycle(AppLifecycleState.Inactive, 3))
+    @Expect(provider.lifecycleState(), AppLifecycleState.Active)
+    @Expect(provider.lifecycleEpoch(), 3)
+}

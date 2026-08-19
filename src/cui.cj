@@ -260,6 +260,7 @@ public import cui.host.CANGHUI_MOBILE_APPLICATION_HOST_PROTOCOL
 public import cui.host.CANGHUI_MOBILE_HOST_REPLAY_PROTOCOL
 public import cui.host.MobileApplicationHostProvider
 public import cui.host.MobileApplicationPlatform
+public import cui.host.IOSMobileApplicationHostProvider
 public import cui.host.MobileDeviceProofState
 public import cui.host.MobileHostCallbackDecision
 public import cui.host.MobileHostCallbackContext
@@ -288,6 +289,7 @@ public import cui.host.hostLoopResultName
 public import cui.host.hostPresentationModeName
 public import cui.host.iosHostAbiVersion
 public import cui.host.mobileApplicationPlatformName
+public import cui.host.iosMobileApplicationInputTreeFiles
 public import cui.host.mobileDeviceProofStateName
 public import cui.host.mobileHostCallbackDecisionName
 public import cui.host.mobilePackageKindName

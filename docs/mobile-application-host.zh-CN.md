@@ -38,7 +38,9 @@ generation 同时匹配当前 receipt，回调才可进入 Cangjie UI owner queu
 ## 当前平台状态
 
 - iOS/iPadOS 已有 UIKit `CAMetalLayer` 原生 Surface 适配器，以及历史模拟器、
-  真机 bootstrap 证明；产品应用包、当前签名 receipt 和产品场景真机回放仍是独立工作。
+  真机 bootstrap 证明。`IOSMobileApplicationHostProvider` 现在把现有 iOS 输入树
+  绑定到 receipt，并拒绝生命周期或 Surface 代际过期的 receipt 回放；产品应用包、
+  当前签名 receipt 和产品场景真机回放仍是独立工作。
 - Android 已有 Java/JNI/NDK `SurfaceView` bootstrap；Cangjie Android runtime
   链接、产品 APK 和真机回放仍未完成。
 - HarmonyOS 通过独立实现的 Ability/XComponent 或 OHNativeWindow Provider 消费
@@ -59,4 +61,7 @@ receipt 中真实的未签名、签名与真机证明状态。
 所有，`cuic kmode diff` 也能在依赖图中提前拒绝重名。
 `examples/mobile-host-replay` 展示了这一模式，并携带 iOS、Android、HarmonyOS
 三份未签名 input-tree fixture。它不会生成 IPA、APK 或 HAP，无头回放也不等于
-真机证明。
+真机证明。示例另有 `mobile.demo.ios.provider.replay` endpoint，通过
+`IOSMobileApplicationHostProvider` 展示仓内 UIKit probe、bootstrap、runtime 和
+include 输入树，以及 current/stale 回调判断；它不运行 UIKit/Metal，不做 Xcode
+签名，也不代表 iPad 真机证明。

@@ -658,14 +658,53 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
         "Restore the public mobile application host guide."))
 
     let iosAdapter = joinPath(framework, "platform/ios/runtime/CangHuiMetalSurfaceView.m")
-    checks.add(if (exists(iosAdapter)) {
+    let iosProvider = joinPath(framework, "src/host/ios_mobile_application_host.cj")
+    checks.add(if (exists(iosAdapter) && exists(iosProvider)) {
         doctorReady("mobile-host.ios-provider", "iOS host provider boundary",
-            "The common provider contract and UIKit native-surface adapter are present; signed product packaging remains a separate gate.",
-            iosAdapter)
+            "The provider-owned iOS input-tree binding and UIKit native-surface adapter are present; signed product packaging remains a separate gate.",
+            iosProvider + " + " + iosAdapter)
     } else {
         doctorDegraded("mobile-host.ios-provider", "iOS host provider boundary",
-            "The common contract is present but the UIKit native-surface adapter is missing.",
-            DoctorActionKind.Manual, "Restore the iOS native-surface adapter before product-host integration.", iosAdapter)
+            "The common contract is present but the provider-owned iOS input-tree binding or UIKit native-surface adapter is missing.",
+            DoctorActionKind.Manual, "Restore the iOS provider and native-surface adapter before product-host integration.",
+            iosProvider + " + " + iosAdapter)
+    })
+
+    let iosInputTree = [
+        "platform/ios/probe/Info.plist",
+        "platform/ios/probe/AppDelegate.m",
+        "platform/ios/bootstrap/CangHuiRuntimeBootstrap.m",
+        "platform/ios/runtime/CangHuiUIKitHostView.m",
+        "platform/ios/runtime/CangHuiMetalSurfaceView.m",
+        "platform/ios/runtime/CangHuiDisplayLinkDriver.m",
+        "platform/ios/runtime/CangHuiNativeSceneSurfaceView.m",
+        "platform/ios/include/CangHuiHost.h",
+        "platform/ios/include/CangHuiNativeSurface.h",
+        "platform/ios/include/CangHuiRuntimeBootstrap.h",
+        "platform/ios/include/CangHuiUIKitHostView.h",
+        "platform/ios/include/CangHuiMetalSurfaceView.h",
+        "platform/ios/include/CangHuiNativeSceneSurfaceView.h",
+        "platform/ios/include/CangjieGUIHost.h"
+    ]
+    var missingIOSInputFiles = 0
+    if (!framework.isEmpty()) {
+        for (relativePath in iosInputTree) {
+            if (!exists(joinPath(framework, relativePath))) { missingIOSInputFiles += 1 }
+        }
+    }
+    checks.add(if (framework.isEmpty()) {
+        doctorDegraded("mobile-host.ios-input-tree", "iOS unsigned input tree",
+            "The CangHui dependency is not resolved, so the provider input tree cannot be inspected.",
+            DoctorActionKind.Automatic, "Run cuic build before inspecting the iOS provider input tree.", "")
+    } else if (missingIOSInputFiles == 0) {
+        doctorReady("mobile-host.ios-input-tree", "iOS unsigned input tree",
+            "The provider-owned iOS UIKit input tree is complete for unsigned headless replay.",
+            "14 checked-in iOS source and resource files")
+    } else {
+        doctorBlocked("mobile-host.ios-input-tree", "iOS unsigned input tree",
+            "The provider input tree is missing " + missingIOSInputFiles.toString() + " checked-in file(s).",
+            DoctorActionKind.Manual, "Restore the iOS probe, bootstrap, runtime and include files before replay.",
+            framework)
     })
 
     let androidAdapter = joinPath(framework,

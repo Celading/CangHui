@@ -126,6 +126,7 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     var consumerFixtureReady = false
     var docsReady = false
     var iosReady = false
+    var iosInputTreeReady = false
     var androidDegraded = false
     var harmonyDegraded = false
     for (check in checks) {
@@ -153,6 +154,9 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
         if (check.id == "mobile-host.ios-provider" && doctorStatusName(check.status) == "ready") {
             iosReady = true
         }
+        if (check.id == "mobile-host.ios-input-tree" && doctorStatusName(check.status) == "ready") {
+            iosInputTreeReady = true
+        }
         if (check.id == "mobile-host.android-provider" && doctorStatusName(check.status) == "degraded") {
             androidDegraded = true
         }
@@ -168,6 +172,7 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     @Expect(consumerFixtureReady)
     @Expect(docsReady)
     @Expect(iosReady)
+    @Expect(iosInputTreeReady)
     @Expect(androidDegraded)
     @Expect(harmonyDegraded)
 }

@@ -182,8 +182,10 @@ The CLI sets `CANGHUI_KMODE=1` and `CANGHUI_KMODE_TRANSPORT=stdio` only for the 
 It does not provide arbitrary shell execution. Optional relay persistence belongs in an external
 `KModeChannelModule` implementation; URLs, credentials and sessions are not CLI configuration.
 The `mobile-host-replay` consumer demonstrates staged iOS, Android and HarmonyOS
-package receipts plus lifecycle/surface-generation callback rejection. It opens
-no window and does not generate or prove an IPA, APK or HAP.
+package receipts plus lifecycle/surface-generation callback rejection. Its
+`mobile.demo.ios.provider.replay` endpoint binds the checked-in iOS UIKit input
+tree through `IOSMobileApplicationHostProvider`. It opens no window and does
+not generate or prove an IPA, APK or HAP.
 
 ## No-Image Probes
 

@@ -42,8 +42,10 @@ permission checks remain runtime validation.
 ## Current platform state
 
 - iOS/iPadOS has a UIKit `CAMetalLayer` native-surface adapter and historical
-  simulator/device bootstrap proof. A product application package, current
-  signing receipt and product-scene device replay remain separate work.
+  simulator/device bootstrap proof. `IOSMobileApplicationHostProvider` now binds
+  the existing iOS input tree to the receipt and rejects lifecycle/surface-stale
+  receipt replay. A product application package, current signing receipt and
+  product-scene device replay remain separate work.
 - Android has a Java/JNI/NDK `SurfaceView` bootstrap. Cangjie Android runtime
   linkage, a product APK and device replay remain open.
 - HarmonyOS consumes the same contract through an independently implemented
@@ -68,3 +70,9 @@ duplicate names across the dependency graph. The
 `examples/mobile-host-replay` project demonstrates the pattern and carries
 unsigned iOS, Android and HarmonyOS input-tree fixtures. It does not generate
 an IPA, APK or HAP and does not turn headless replay into device proof.
+
+The example also exposes `mobile.demo.ios.provider.replay`. It stages the
+checked-in UIKit probe, bootstrap, runtime and include files through
+`IOSMobileApplicationHostProvider`, then reports the same current/stale callback
+decisions. The endpoint is a semantic input-tree proof only; it does not run
+UIKit, Metal, Xcode signing or an iPad.

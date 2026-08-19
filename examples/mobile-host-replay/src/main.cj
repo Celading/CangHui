@@ -22,9 +22,35 @@ private let mobileReceipt = MobileHostPackageReceipt(
 
 private let replayHandler = mobileHostReplayHandler(mobileReceipt)
 
+private let iosProvider = IOSMobileApplicationHostProvider("dev.canghui.mobile.ios.provider")
+private var iosProviderReady = false
+
+private func ensureIOSProvider(): Unit {
+    if (iosProviderReady) { return }
+    if (!iosProvider.applyLifecycle(AppLifecycleState.Active, 4)) {
+        throw IllegalStateException("iOS provider lifecycle setup was rejected")
+    }
+    if (iosProvider.attachSurface(53, 1194000, 834000, 2388, 1668, 2000, 9) != 0) {
+        throw IllegalStateException("iOS provider surface setup was rejected")
+    }
+    if (!iosProvider.stageUnsignedInputTree()) {
+        throw IllegalStateException("iOS provider input tree staging was rejected")
+    }
+    iosProviderReady = true
+}
+
 @KModeLink["mobile.demo.host.replay"]
 func replayMobileHost(payload: String): String {
     replayHandler(payload)
+}
+
+@KModeLink["mobile.demo.ios.provider.replay"]
+func replayIOSMobileHost(payload: String): String {
+    ensureIOSProvider()
+    renderMobileHostSemanticReplay(
+        iosProvider.packageReceipt(),
+        contexts: parseMobileHostReplayPayload(payload)
+    )
 }
 
 main(): Int64 {
