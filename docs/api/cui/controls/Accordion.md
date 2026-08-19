@@ -4,7 +4,7 @@
 
 `cui.controls` 包中的 public class
 
-可折叠分区的竖向堆叠：每个分区一条可点击的标题与一个展开时才构建的正文。适合设置分组、FAQ 与属性检查器；分区由 [`AccordionSection`](AccordionSection.md) 描述，`single` 开启后展开一个分区会收起其余分区（严格手风琴）。
+可折叠分区的竖向堆叠：每个分区一条文本或装饰性 slot header 与一个展开时才构建的正文。
 
 ## 声明
 
@@ -56,7 +56,8 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
-| [`measure(ctx: UiContext, available: Size)`](#measure) | 高度为各标题条（每条 42 逻辑像素）加所有展开正文的测量高度之和，宽度取满可用宽。 |
+| [`measure(ctx: UiContext, available: Size)`](#measure) | 高度为各 header（默认至少 42，slot 可增高）加展开正文的可见高度，宽度取满可用宽。 |
+| `controlStyle(value: ComponentControlStyle)` | 覆盖所有 header 的选择/展开、hover、press 与 focus 样式。 |
 | [`layout(ctx: UiContext, rect: Rect)`](#layout) | 自上而下排布标题条与展开的正文。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制每条标题（底色、展开箭头、焦点环）与展开的正文。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 点击标题切换其分区；聚焦标题上 Enter/Space 同效；其余事件转发给展开的正文。 |
@@ -90,7 +91,7 @@ public init(
 
 ### measure
 
-高度为各标题条（每条 42 逻辑像素）加所有展开正文的测量高度之和，宽度取满可用宽。
+高度为各 header（默认最小 42，slot 可按内容增高）加所有展开正文的测量高度之和，宽度取满可用宽。
 
 ```cangjie
 public func measure(ctx: UiContext, available: Size): Size
@@ -118,7 +119,7 @@ public func layout(ctx: UiContext, rect: Rect): Unit
 
 ### draw
 
-绘制每条标题（底色、展开箭头、焦点环）与展开的正文。展开或悬停的标题使用主题的活跃字段底色。
+绘制每条 header 的状态化底面、disclosure、文本/slot、焦点环与展开正文。展开连续进度会传给 `ComponentControlStyle`，产品可保持收放过程中的样式连续性。
 
 ```cangjie
 public func draw(ctx: UiContext): Unit

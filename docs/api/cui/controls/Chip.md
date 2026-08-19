@@ -4,7 +4,7 @@
 
 `cui.controls` 包中的 public class
 
-可选中的过滤标签：绑定 `Bindable<Bool>` 的圆角胶囊，点击（或聚焦后 Space/Enter）即切换选中。选中时填充主题强调色，未选中时是描边的空心字段；一排 Chip 即一组开关式过滤器。
+可选中的过滤标签：绑定 `Bindable<Bool>` 的圆角胶囊，可显示文本或任意装饰性 slot。点击释放在控件内（或聚焦后 Space/Enter）切换选中；按下后移出会永久取消本次动作。
 
 ## 声明
 
@@ -18,7 +18,7 @@ public class Chip <: Widget
 
 ## 说明
 
-与 [`Checkbox`](Checkbox.md) 的“按下并抬起”不同，Chip 在按下瞬间就翻转绑定值——过滤标签期望即点即生效。绑定接受 [`Bindable`](../core/Bindable.md)，可以传入 [`State`](../core/State.md)`<Bool>`，也可以传入指向模型字段的绑定。
+Chip 与 [`Checkbox`](Checkbox.md) 共用 release-inside 约定。slot 可组合图标、标题、数量或状态点，但属于装饰子树：外层 Chip 仍是唯一焦点和激活所有者。
 
 ## 示例
 
@@ -44,12 +44,15 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`init(text: String, selected: Bindable<Bool>, key!: ?String)`](#init) | 由文本与布尔绑定构造过滤标签。 |
+| `init(selected: Bindable<Bool>, key!: ?String, body!: () -> Unit)` | 由装饰 slot 与布尔绑定构造过滤标签。 |
 
 **方法**
 
 | 成员 | 说明 |
 |---|---|
-| [`measure(ctx: UiContext, _: Size)`](#measure) | 文本宽度加左右各 12 逻辑像素内边距，高度固定 28。 |
+| [`measure(ctx: UiContext, available: Size)`](#measure) | 按文本/slot、组件 compact padding 与最小高度测量。 |
+| `controlStyle(value: ComponentControlStyle)` | 覆盖本 Chip 的共享组件状态样式。 |
+| `animation(value: AnimationSpec)` | 覆盖 hover/press 动画属性。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配到的框架。 |
 | [`isFlexible()`](#isflexible) | 恒返回 `false`——标签贴合内容，不参与栈的剩余空间分配。 |
 | [`focusableId()`](#focusableid) | 返回本控件的焦点 id。 |
@@ -76,10 +79,10 @@ public init(text: String, selected: Bindable<Bool>, key!: ?String = None)
 
 ### measure
 
-文本宽度加左右各 12 逻辑像素内边距，高度固定 28。忽略可用尺寸（见 [`Widget`](../core/Widget.md)）。
+按文本或 slot 内容加 [`ComponentTheme`](../core/ComponentTheme.md) 的 compact padding 测量；默认最小高度 28。
 
 ```cangjie
-public func measure(ctx: UiContext, _: Size): Size
+public func measure(ctx: UiContext, available: Size): Size
 ```
 
 **参数**
@@ -134,7 +137,7 @@ public func draw(ctx: UiContext): Unit
 
 ### handle
 
-胶囊内按下即翻转绑定值；聚焦时 Space/Enter 同效。按下同时取得键盘焦点。
+胶囊内按下并在内部释放才翻转绑定值；聚焦时 Space/Enter 同效。按下后移出会取消，移回再释放也不会恢复本次动作。
 
 ```cangjie
 public func handle(ctx: UiContext, event: UiEvent): Bool

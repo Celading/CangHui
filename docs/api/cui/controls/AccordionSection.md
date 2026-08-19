@@ -4,7 +4,7 @@
 
 `cui.controls` 包中的 public struct
 
-`Accordion` 折叠面板的一个分区描述：标题文本加正文的界面构建函数。它被 [`Accordion`](Accordion.md) 消费；正文只在分区展开时构建——折叠时不构建正文，其正文内的局部状态在收起后丢弃、重新展开时复位。
+`Accordion` 折叠面板的一个分区描述：可使用标题文本或装饰性 header slot，并提供正文构建函数。正文只在分区展开时构建。
 
 ## 声明
 
@@ -36,6 +36,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`init(title: String, body: () -> Unit)`](#init) | 由标题与正文构建器构造一个分区描述。 |
+| `init(header!: () -> Unit, body!: () -> Unit)` | 由装饰 header slot 与正文构建器构造分区。 |
 
 ## 构造函数
 
@@ -51,6 +52,8 @@ public init(title: String, body: () -> Unit)
 
 - `title`: `String` — 标题条上显示的文本。
 - `body`: `() -> Unit` — 分区正文的界面构建函数；其中声明的组件构成展开后显示的内容。
+
+header slot 可组合图标、标题、副标题或计数。Disclosure、焦点、点击和键盘切换仍由 Accordion 外层 header 拥有；slot 后代不会形成第二个焦点路径。
 
 ## 另请参阅
 

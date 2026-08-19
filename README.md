@@ -165,6 +165,12 @@ owner. `ButtonStyle` and `ComponentTheme` customize state-aware button chrome
 and default Panel surfaces across an application; slot children keep explicit
 ownership of their own text and icon colors.
 
+The same decorative-slot contract is available for `Chip`, `Checkbox`, the
+closed face of `Dropdown`, and `AccordionSection` headers. Their shared
+`ComponentControlStyle` receives selection/expansion, hover, press and focus
+state, while `ComponentTypography`, `ComponentSpacing`, and `ComponentShape`
+provide one product-wide control rhythm without replacing each widget.
+
 See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
 override rules.
 

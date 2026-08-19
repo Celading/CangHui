@@ -170,12 +170,12 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 
 - `Theme.light(motionLevel:)`、`Theme.dark(motionLevel:)`；默认 `MotionLevel.Standard`。
 - `withMotionLevel(value)`：保留颜色和几何令牌，仅替换动效力度。
-- `withComponents(value)`：覆盖组件级 Button 样式/布局与 Panel 表面，不要求每个调用点重复传样式。
+- `withComponents(value)`：覆盖 Button、选择/披露控件样式、组件排版/间距/形状与 Panel 表面。
 - `panelSurface()`、`raisedSurface()`。
 - `fieldSurface(active)`、`buttonSurface(role)`、`selectedSurface()`。
 
 `ButtonStyle` 按 `ButtonVisualState(hover, press, focused)` 返回表面、前景色、InkWell 色与焦点圆角；
-`ComponentTheme` 将该样式、Button 默认内边距/最小尺寸和 Panel 默认表面装入 `Theme`。主题切换和插值会
+`ComponentTheme` 将该样式、Button 默认布局、`ComponentControlStyle`、组件排版/间距/形状和 Panel 默认表面装入 `Theme`。主题切换和插值会
 保留或选择完整的组件覆盖层，而不会退回脚手架默认外观。
 
 ## 6. 布局与容器
@@ -188,10 +188,10 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 | `Grid` | `columns`、`body` | `spacing(all)`、`spacing(horizontal, vertical)`；列数小于 1 抛异常 |
 | `FlowRow` | `body` | `spacing`；空间不足自动换行 |
 | `ScrollView` | `id`、`body` | 垂直滚动；`scrollState` 接管偏移；`scrollOptions` 选择默认 Web 式缓动、即时模式或自定义步长/时长/曲线；溢出时为滚动条预留轨道，不遮挡内容；滑块可拖动、轨道可翻页 |
-| `Accordion` | `sections`；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header hover/press、chevron 与高度 reveal 动画；`.animation(AnimationSpec)`；按下后移出取消，release-inside 才切换 |
+| `Accordion` | `sections`（文本或 slot header）；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header `controlStyle`、hover/press、chevron 与高度 reveal 动画；按下后移出取消，release-inside 才切换 |
 | `Panel` | `body`（可选 `padding: LengthInsets`） | `contentPadding`、`style`、`flexible`、`hug` |
 | `Tooltip` | `text`、`body` | 悬停约 500ms 后在树上层绘制提示气泡；透明包裹，不改变布局/事件 |
-| `Dropdown` | `id`、`items`、`selected` | 下拉选择：点击/Enter 打开，弹出列表浮于树上（下方放不下翻到上方）；选中/外点/Esc 关闭，上下键移动高亮。长列表在弹层内部按 `scrollOptions` 滚动：滚轮、可拖动滑块、方向键揭示高亮，打开时选中行滚入视野 |
+| `Dropdown` | `items`、`selected`；可选闭合面 `selectedContent(index, text)` slot | `controlStyle`；点击/Enter 打开字符串弹出列表；选中/外点/Esc 关闭，上下键移动高亮；长列表支持滚轮、滑块与键盘揭示 |
 | `ContextMenu` | `items`、`body` | 为子控件附加右键菜单：指针处弹出，选中运行动作并关闭、外点/Esc 取消、方向键与悬停移动高亮；透明包裹，仅拦截子区域内右键 |
 | `Modal` | `presented`、`body`（可选 `onDismiss`） | 模态对话框：`presented` 为真时暗化背景+居中面板，承载真实控件子树；拦截全部输入，`Tab` 在对话框内循环（焦点陷阱），每帧 Frame 转发进子树（`autofocus` 可用）；外点/Esc 关闭；对话框内可再开 `Dropdown`/`ComboBox`/`ContextMenu`（弹层经浮层栈压在面板之上，逐层关闭）；零尺寸、仅呈现时构建 `body`，置于根部 `ZStack` |
 | `Flexible` | `body` | 兼容的权重包装容器，新代码可用 `.flex` |
@@ -234,7 +234,8 @@ InkWell 与焦点几何。
 
 | 类型 | 构造函数 | 补充 API/行为 |
 |---|---|---|
-| `Checkbox` | `Checkbox(label, Bindable<Bool>)` | `id`；鼠标释放或 Enter/Space 切换 |
+| `Checkbox` | `Checkbox(label, state)` 或 `Checkbox(state) { slot }` | `key`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
+| `Chip` | `Chip(text, state)` 或 `Chip(state) { slot }` | `controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
 | `Switch` | `Switch(label, Bindable<Bool>)` | `id`；二态开关 |
 | `RadioButton` | `RadioButton(label, selected, value)` | `id`；多个实例共享同一 `Bindable<Int64>` |
 | `Picker` | `Picker(id, items, selected)` | 点击前后区域或 Left/Right 循环选择；宽度按最长选项自适应（切换选项不抖动） |

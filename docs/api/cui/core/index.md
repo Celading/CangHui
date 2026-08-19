@@ -18,6 +18,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Binding`](Binding.md) | 指向另一个可绑定值中某个字段的双向绑定，用 Bindable.project 创建。 |
 | [`Button`](Button.md) | 带主题表面的按压按钮，既可使用居中标题，也可承载任意装饰性内容 slot。 |
 | [`ButtonStyle`](ButtonStyle.md) | 按 hover、press、focus 与语义角色解析 Button/IconButton 外观的状态样式。 |
+| [`ComponentControlStyle`](ComponentControlStyle.md) | 按选择/展开、hover、press 与 focus 解析 Chip、Checkbox、Dropdown 和 Accordion header 外观。 |
 | [`DerivedState`](DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
 | [`Divider`](Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
 | [`EventHandler`](EventHandler.md) | 在子树收到事件之前先把每个事件交给回调的透明包装组件，回调返回 `true` 即消费该事件。 |
@@ -64,7 +65,12 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ButtonAppearance`](ButtonStyle.md#buttonappearance) | ButtonStyle 返回的表面、前景、InkWell 与焦点圆角。 |
 | [`ButtonLayoutStyle`](ComponentTheme.md#buttonlayoutstyle) | 标题/slot Button 的默认内容内边距与最小尺寸。 |
 | [`ButtonVisualState`](ButtonStyle.md#buttonvisualstate) | 连续 hover/press 进度与焦点状态。 |
-| [`ComponentTheme`](ComponentTheme.md) | Theme 中的组件级 Button 与 Panel 覆盖层。 |
+| [`ComponentTheme`](ComponentTheme.md) | Theme 中的 Button、选择/披露控件、Panel 与组件令牌覆盖层。 |
+| [`ComponentControlAppearance`](ComponentControlStyle.md#componentcontrolappearance) | 非 Button 交互控件的表面、前景、indicator、InkWell 与焦点圆角。 |
+| [`ComponentControlState`](ComponentControlStyle.md#componentcontrolstate) | 选择/展开、hover、press 与 focus 状态。 |
+| [`ComponentShape`](ComponentTheme.md) | 可继承 Theme 的 small/control/pill 组件圆角。 |
+| [`ComponentSpacing`](ComponentTheme.md) | compact/control/selection 内边距、间距、最小高度与 indicator 尺寸。 |
+| [`ComponentTypography`](ComponentTheme.md) | Chip、Checkbox、Dropdown 与 Accordion header 的 control 语义字号。 |
 | [`Gradient`](Gradient.md) | 圆角背景用的双色线性渐变填充，默认自上而下、`vertical` 为 false 时自左向右。 |
 | [`Length`](Length.md) | 带显式单位的一维尺寸，写作 `100.px`、`24.vp` 或 `15.fp`。 |
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |

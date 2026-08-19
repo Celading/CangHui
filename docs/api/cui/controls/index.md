@@ -14,15 +14,15 @@ import cui.controls.*
 
 | 类型 | 说明 |
 |---|---|
-| [`Accordion`](Accordion.md) | 可折叠分区的竖向堆叠：每个分区一条可点击的标题与一个展开时才构建的正文。 |
+| [`Accordion`](Accordion.md) | 可折叠分区的竖向堆叠：每个分区可使用文本或装饰 slot header，并保留一个外层交互所有者。 |
 | [`Badge`](Badge.md) | 紧凑的状态标签：圆角胶囊底上画同色系文本，纯展示、不响应交互。 |
 | [`Breadcrumb`](Breadcrumb.md) | 面包屑路径：以箭头分隔的一行层级段（如 首页 › 文档 › 项目），末段为当前位置、前段可点击返回上级路径。 |
-| [`Checkbox`](Checkbox.md) | 带文本标签的勾选框，双向绑定一个 `Bindable<Bool>`。 |
-| [`Chip`](Chip.md) | 可选中的过滤标签：绑定 `Bindable<Bool>` 的圆角胶囊，点击（或聚焦后 Space/Enter）即切换选中。 |
+| [`Checkbox`](Checkbox.md) | 带文本或装饰 slot 的勾选框，双向绑定一个 `Bindable<Bool>`。 |
+| [`Chip`](Chip.md) | 可选中的文本/slot 过滤胶囊，release-inside 或聚焦后 Space/Enter 切换选中。 |
 | [`ContextMenu`](ContextMenu.md) | 给任意子内容包上右键上下文菜单的透明包装组件。 |
 | [`DataColumn`](DataColumn.md) | Table.of 的类型化列定义：表头、列宽、数值标记与从行数据 T 抽取单元格文本的 value 抽取器。 |
 | [`DatePicker`](DatePicker.md) | 日期字段：点击弹出月历浮层，双向绑定一个 `Bindable<CalendarDate>`。 |
-| [`Dropdown`](Dropdown.md) | 下拉选择框：闭合时显示当前项，展开时把选项列表浮到组件树之上，双向绑定选中下标 `Bindable<Int64>`。 |
+| [`Dropdown`](Dropdown.md) | 下拉选择框：闭合面可显示当前文本或装饰 slot，展开行保持字符串选择列表。 |
 | [`ListView`](ListView.md) | 单选字符串列表：可滚动的行列表，点击或键盘移动选择，双向绑定选中下标 `Bindable<Int64>`。 |
 | [`MenuBar`](MenuBar.md) | 应用菜单栏：一行水平排列的菜单标题，点击标题即在其正下方弹出下拉菜单，菜单打开时指针掠过其他标题即切换过去。 |
 | [`Modal`](Modal.md) | 模态对话框：`presented` 为真时把 `body` 子树布局在一块对视口居中的面板里，经浮层浮于整棵界面树之上并压暗背景，事件一律不再落到背景树。 |
@@ -53,7 +53,7 @@ import cui.controls.*
 
 | 类型 | 说明 |
 |---|---|
-| [`AccordionSection`](AccordionSection.md) | `Accordion` 折叠面板的一个分区描述：标题文本加正文的界面构建函数。 |
+| [`AccordionSection`](AccordionSection.md) | `Accordion` 分区描述：标题文本或装饰 header slot，加正文构建函数。 |
 | [`CalendarDate`](CalendarDate.md) | 一个日历日——年、月（1–12）、日（1–31），不含时刻与时区。 |
 | [`Menu`](Menu.md) | `MenuBar` 菜单栏的一个顶级菜单描述：标题加其下拉包含的菜单项。 |
 | [`MenuItem`](MenuItem.md) | 菜单中的一个条目：标签、选中时执行的动作、可选的右对齐快捷键提示与可用标记。 |

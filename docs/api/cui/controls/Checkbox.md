@@ -4,7 +4,7 @@
 
 `cui.controls` 包中的 public class
 
-带文本标签的勾选框，双向绑定一个 `Bindable<Bool>`。框内按下并抬起（或聚焦后 Enter/Space）翻转绑定值；勾选填充块以弹簧动画从中心放大。
+带文本或装饰性 slot 的勾选框，双向绑定一个 `Bindable<Bool>`。控件内按下并抬起（或聚焦后 Enter/Space）翻转绑定值；勾选填充块以弹簧动画从中心放大。
 
 ## 声明
 
@@ -44,15 +44,18 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`init(label: String, checked: Bindable<Bool>)`](#init) | 由标签与布尔绑定构造勾选框。 |
+| `init(checked: Bindable<Bool>, body!: () -> Unit)` | 保留框形 indicator，以装饰 slot 构造右侧内容。 |
 
 **方法**
 
 | 成员 | 说明 |
 |---|---|
 | [`key(value: String)`](#key) | 设置显式的焦点与按下状态标识并返回自身，便于链式声明。 |
-| [`measure(ctx: UiContext, available: Size)`](#measure) | 宽为标签文本宽加 34 逻辑像素（勾选框与间距），高固定 38，宽不超过可用宽。 |
-| [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配到的框架。 |
-| [`draw(ctx: UiContext)`](#draw) | 画勾选框、按弹簧动画缩放的强调色填充与标签文本；键盘聚焦时画焦点环。 |
+| `controlStyle(value: ComponentControlStyle)` | 覆盖 Checkbox indicator/前景/InkWell 状态样式。 |
+| `animation(value: AnimationSpec)` | 覆盖 hover/press 动画属性。 |
+| [`measure(ctx: UiContext, available: Size)`](#measure) | 按 indicator、slot/文本、组件间距与最小高度测量，并受可用尺寸约束。 |
+| [`layout(ctx: UiContext, rect: Rect)`](#layout) | 记录框架并布局右侧 slot。 |
+| [`draw(ctx: UiContext)`](#draw) | 绘制状态化 indicator、弹簧选中块与文本/slot；键盘聚焦时绘制焦点环。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 框内按下并抬起翻转绑定值；聚焦时 Enter/Space 同效。 |
 | [`focusableId()`](#focusableid) | 返回本控件的焦点 id。 |
 
@@ -70,6 +73,8 @@ public init(label: String, checked: Bindable<Bool>)
 
 - `label`: `String` — 勾选框右侧的说明文本，同时是默认控件标识的来源。
 - `checked`: `Bindable<Bool>` — 双向绑定的勾选状态；控件翻转它，外部赋值即刻反映到界面。
+
+slot 构造器保持左侧 indicator 由框架绘制，右侧可放置图标、主副标题或状态说明。slot 是装饰子树，外层 Checkbox 独占焦点与激活。
 
 ## 方法
 
@@ -93,7 +98,7 @@ public func key(value: String): Checkbox
 
 ### measure
 
-宽为标签文本宽加 34 逻辑像素（勾选框与间距），高固定 38，宽不超过可用宽。
+按 indicator 尺寸、inline gap、selection padding 与文本/slot 内容测量；默认最小高度 38，结果不超过可用尺寸。
 
 ```cangjie
 public func measure(ctx: UiContext, available: Size): Size
@@ -108,10 +113,10 @@ public func measure(ctx: UiContext, available: Size): Size
 
 ### layout
 
-记录分配到的框架。
+记录分配到的框架，并把右侧 slot 布局在 framework-owned indicator 之后。
 
 ```cangjie
-public func layout(_: UiContext, rect: Rect): Unit
+public func layout(ctx: UiContext, rect: Rect): Unit
 ```
 
 **参数**
@@ -120,7 +125,7 @@ public func layout(_: UiContext, rect: Rect): Unit
 
 ### draw
 
-画勾选框、按弹簧动画缩放的强调色填充与标签文本；键盘聚焦时画焦点环。填充随勾选状态从中心放大或收缩，边框颜色同步向强调色过渡。
+绘制状态样式解析得到的 indicator 表面、按弹簧动画缩放的选中块与文本/slot；键盘聚焦时在 indicator 外绘制焦点环。hover/press 反馈只作用于 indicator，不会把右侧标题一起染色。
 
 ```cangjie
 public func draw(ctx: UiContext): Unit

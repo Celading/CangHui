@@ -69,7 +69,14 @@ public import cui.core.ButtonLayoutStyle
 public import cui.core.ButtonRole
 public import cui.core.ButtonStyle
 public import cui.core.ButtonVisualState
+public import cui.core.ComponentControlAppearance
+public import cui.core.ComponentControlKind
+public import cui.core.ComponentControlState
+public import cui.core.ComponentControlStyle
+public import cui.core.ComponentShape
+public import cui.core.ComponentSpacing
 public import cui.core.ComponentTheme
+public import cui.core.ComponentTypography
 public import cui.core.CrossAxisAlignment
 public import cui.core.ComponentProbe
 public import cui.core.CursorShape
