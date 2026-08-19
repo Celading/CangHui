@@ -210,6 +210,14 @@ public func probeSemanticRegions(provider: ProbeSemanticRegionProvider): Unit {
     }
 }
 
+/** Lets stock-control semantics yield to an explicit probe for the same action owner. */
+protected func shouldRecordAutomaticControlSemantics(actionOwner: String): Bool {
+    match (activeComponentProbeSession) {
+        case Some(session) => !session.currentDrawNodeOwns(actionOwner)
+        case None => false
+    }
+}
+
 /**
  * Deterministic device-free component runner. Scripts use one command per line:
  * `move-in x y`, `press x y`, `move-out x y`, `release x y`, `key Enter`,
@@ -668,6 +676,15 @@ private class ComponentProbeSession {
 
     func enterNode(id: String): Unit { drawNodeStack.add(id) }
     func leaveNode(): Unit { if (!drawNodeStack.isEmpty()) { drawNodeStack.remove(at: drawNodeStack.size - 1) } }
+
+    func currentDrawNodeOwns(actionOwner: String): Bool {
+        if (drawNodeStack.isEmpty()) { return false }
+        let id = drawNodeStack[drawNodeStack.size - 1]
+        match (findNode(id)) {
+            case Some(node) => node.id == actionOwner || node.focusId == actionOwner
+            case None => false
+        }
+    }
 
     func beginDraw(timeMs: UInt64): Unit {
         logicalTimeMs = timeMs

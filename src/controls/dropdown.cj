@@ -2,10 +2,11 @@ package cui.controls
 
 import sdl.{Color, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
 import cui.core.{AnimationSpec, Animator, Bindable, CUI_SMALL_H, ComponentControlAppearance,
-    ComponentControlKind, ComponentControlState, ComponentControlStyle, CursorShape, Motion, Overlay, ScrollBar,
-    ScrollMotion, ScrollOptions, State, UiContext, Widget, resolveControlKey, advanceScrollMotion,
+    ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
+    CursorShape, Motion, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget, resolveControlKey,
+    advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawSurface,
-    drawVerticalScrollBar, emit, handlePointerClick, localState, registerFocusable,
+    drawVerticalScrollBar, emit, handlePointerClick, localState, recordControlSemantics, registerFocusable,
     resolveComponentControlAppearance, scrollBarGutter}
 
 private let DROPDOWN_DEFAULT_W: Float32 = 190.0
@@ -44,6 +45,7 @@ public class Dropdown <: Widget {
     // Retained across rebuilt frames so a popup-row press can be cancelled permanently on move-out.
     private let popupPressedRow: State<Int64>
     private var customStyle: ?ComponentControlStyle
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = None) {
@@ -64,6 +66,7 @@ public class Dropdown <: Widget {
             DROPDOWN_NO_PRESSED_ROW
         }
         this.customStyle = None
+        this.semanticLabel = ""
         registerFocusable(ident)
         emit(this)
     }
@@ -95,6 +98,7 @@ public class Dropdown <: Widget {
             DROPDOWN_NO_PRESSED_ROW
         }
         this.customStyle = None
+        this.semanticLabel = ""
         emit(this)
     }
 
@@ -107,6 +111,12 @@ public class Dropdown <: Widget {
     /** Overrides the component theme's state-aware control style. */
     public func controlStyle(value: ComponentControlStyle): Dropdown {
         customStyle = Some(value)
+        this
+    }
+
+    /** Names this selection field for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Dropdown {
+        semanticLabel = value
         this
     }
 
@@ -135,10 +145,27 @@ public class Dropdown <: Widget {
     public func draw(ctx: UiContext): Unit {
         let appearance = currentAppearance(ctx)
         drawSurface(ctx, frame, appearance.surface)
+        recordControlSemantics(frame, "Dropdown", ControlSemantics(
+            "combobox",
+            label: if (semanticLabel.isEmpty()) { currentLabel() } else { semanticLabel },
+            value: currentLabel(),
+            action: "Dropdown.open()",
+            actionOwner: id,
+            expanded: Some(open.value)
+        ))
         let content = labelArea(ctx)
         ctx.renderer.pushClip(content)
         match (selectedFace) {
-            case Some(value) => value.draw(ctx)
+            case Some(value) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                appearance.foreground,
+                role: "combobox",
+                interactionOwner: id,
+                selected: true,
+                expanded: open.value,
+                focused: ctx.hasFocus(id),
+                hovered: ctx.isHovered(id),
+                pressed: ctx.isPressed(id)
+            )) {=> value.draw(ctx)}
             case None =>
                 let pointSize = max(1.0, ctx.resolve(ctx.theme.components.typography.control))
                 let textY = content.centerY() - ctx.renderer.textHeight(pointSize: pointSize) / 2.0

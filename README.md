@@ -151,25 +151,30 @@ focus, keyboard, release-inside and move-out cancellation contract:
 ```cangjie
 Button(onClick: {=> openWorkspace()}, role: ButtonRole.Primary) {
     HStack(spacing: 8.vp) {
-        Icon(IconName.Folder).foregroundColor(Color.rgb(255, 255, 255))
+        Icon(IconName.Folder)
         VStack(spacing: 2.vp) {
-            Label("Open workspace").foregroundColor(Color.rgb(255, 255, 255)).bold()
-            Label("Local or remote").foregroundColor(Color.rgba(255, 255, 255, 190)).fontSize(12.fp)
+            Label("Open workspace").bold()
+            Label("Local or remote").muted().fontSize(12.fp)
         }.hug()
     }.hug()
-}.contentPadding(LengthInsets(16.vp, 10.vp))
+}.accessibilityLabel("Open workspace")
+ .contentPadding(LengthInsets(16.vp, 10.vp))
 ```
 
 Slot content is decorative: the outer button remains the only focus and click
 owner. `ButtonStyle` and `ComponentTheme` customize state-aware button chrome
-and default Panel surfaces across an application; slot children keep explicit
-ownership of their own text and icon colors.
+and default Panel surfaces across an application. Slot Label, Icon and Symbol
+content inherits the resolved outer foreground through
+`ControlContentEnvironment`; explicit child colors still win.
 
 The same decorative-slot contract is available for `Chip`, `Checkbox`, the
 closed face of `Dropdown`, and `AccordionSection` headers. Their shared
 `ComponentControlStyle` receives selection/expansion, hover, press and focus
 state, while `ComponentTypography`, `ComponentSpacing`, and `ComponentShape`
-provide one product-wide control rhythm without replacing each widget.
+provide one product-wide control rhythm without replacing each widget. These
+compound controls also publish one outer `ControlSemantics` action to the
+headless probe/Draw IR surface, so function-level UI checks do not need a
+screenshot or hand-authored probe node for each stock control.
 
 See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
 override rules.

@@ -79,6 +79,7 @@ public class UiContext {
     // paints — above it. Events walk the stack top-down (see `dispatchOverlay`).
     private let overlays = ArrayList<Overlay>()
     private let inkRipples = ArrayList<InkRippleOverlay>()
+    private let controlContentEnvironments = ArrayList<ControlContentEnvironment>()
     private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
@@ -113,6 +114,38 @@ public class UiContext {
             max(0.0, resolve(insets.bottom)),
             max(0.0, resolve(insets.left))
         )
+    }
+
+    /** Returns the nearest compound-control content environment, if one is active. */
+    public func controlContentEnvironment(): ?ControlContentEnvironment {
+        if (controlContentEnvironments.isEmpty()) { return None }
+        Some(controlContentEnvironments[controlContentEnvironments.size - 1])
+    }
+
+    /** Theme or compound-control foreground inherited by content without an explicit color. */
+    public func contentForeground(): Color {
+        match (controlContentEnvironment()) {
+            case Some(value) => value.foreground
+            case None => theme.text
+        }
+    }
+
+    /** Theme or compound-control supporting foreground inherited by muted content. */
+    public func contentSupportingForeground(): Color {
+        match (controlContentEnvironment()) {
+            case Some(value) => value.supportingForeground
+            case None => theme.mutedText
+        }
+    }
+
+    /** Runs one draw callback with a scoped, automatically restored content environment. */
+    public func withControlContentEnvironment(environment: ControlContentEnvironment, body: () -> Unit): Unit {
+        controlContentEnvironments.add(environment)
+        try {
+            body()
+        } finally {
+            controlContentEnvironments.remove(at: controlContentEnvironments.size - 1)
+        }
     }
 
     private var focusClaimedInPress = false

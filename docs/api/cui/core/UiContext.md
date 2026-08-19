@@ -76,6 +76,10 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`resolve(...)`](#resolve) | 把带单位的长度换算为逻辑像素。 |
+| [`controlContentEnvironment()`](#controlcontentenvironment) | 返回最近一层组合控件装饰内容环境；没有活动环境时返回 `None`。 |
+| [`contentForeground()`](#contentforeground) | 返回当前装饰内容前景色，没有活动环境时回退到主题正文色。 |
+| [`contentSupportingForeground()`](#contentsupportingforeground) | 返回当前装饰内容辅助前景色，没有活动环境时回退到主题弱化正文色。 |
+| [`withControlContentEnvironment(...)`](#withcontrolcontentenvironment) | 在一个绘制回调内压入环境，并在返回或抛错后自动恢复。 |
 | [`requestClose()`](#requestclose) | 请求退出应用：置位 `shouldClose`，宿主据此结束主循环。 |
 | [`requestFrame()`](#requestframe) | 请求在无输入、无状态变化时也渲染下一帧。 |
 | [`focusNext()`](#focusnext) | 把键盘焦点移到焦点环中的下一个控件，到末尾时回绕。 |
@@ -165,6 +169,48 @@ public func resolve(insets: LengthInsets): Insets
 - `insets`: [`LengthInsets`](LengthInsets.md) — 待换算的四边内边距。
 
 **返回值** `Float32` / `Insets` — 逻辑像素值；内边距重载保证每边不小于 0。
+
+### controlContentEnvironment
+
+返回最近一层组合控件为装饰性 slot 压入的只读内容环境。普通树或组合控件之外返回 `None`。
+
+```cangjie
+public func controlContentEnvironment(): ?ControlContentEnvironment
+```
+
+**返回值** `?`[`ControlContentEnvironment`](ControlContentEnvironment.md) — 当前环境或 `None`。
+
+### contentForeground
+
+返回未显式设色内容应使用的前景色。活动环境存在时返回其 `foreground`，否则返回 `theme.text`。
+
+```cangjie
+public func contentForeground(): Color
+```
+
+### contentSupportingForeground
+
+返回弱化内容应使用的辅助前景色。活动环境存在时返回其 `supportingForeground`，否则返回 `theme.mutedText`。
+
+```cangjie
+public func contentSupportingForeground(): Color
+```
+
+### withControlContentEnvironment
+
+在 `body` 执行期间压入一层内容环境。该方法使用栈式作用域，即使 `body` 抛错也会恢复前一层环境。它主要供自定义组合控件在 `draw` 中包裹装饰子树。
+
+```cangjie
+public func withControlContentEnvironment(
+    environment: ControlContentEnvironment,
+    body: () -> Unit
+): Unit
+```
+
+**参数**
+
+- `environment`: [`ControlContentEnvironment`](ControlContentEnvironment.md) — 当前组合控件解析后的前景、角色、动作所有者和交互状态。
+- `body`: `() -> Unit` — 在该环境中绘制装饰内容的回调。
 
 ### requestClose
 

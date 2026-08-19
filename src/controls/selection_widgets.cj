@@ -2,11 +2,13 @@ package cui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import cui.core.{AnimationSpec, Bindable, CUI_SMALL_H, ComponentControlAppearance,
-    ComponentControlKind, ComponentControlState, ComponentControlStyle, CursorShape, InteractionAnimation, Motion,
-    ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset, Spring, State, UiContext, Widget, requireControlId,
+    ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
+    CursorShape, InteractionAnimation, Motion, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset, Spring,
+    State, UiContext, Widget, requireControlId,
     advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawFocusRing,
     drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity, handlePointerClick, localState,
-    resolveComponentControlAppearance, reregisterFocusable, scrollLineIndex, scrollLineRemainder}
+    recordControlSemantics, resolveComponentControlAppearance, reregisterFocusable, scrollLineIndex,
+    scrollLineRemainder}
 
 public class Checkbox <: Widget {
     private let label: ?String
@@ -17,6 +19,7 @@ public class Checkbox <: Widget {
     private let interaction: InteractionAnimation
     private var customStyle: ?ComponentControlStyle
     private var animationSpec: AnimationSpec
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(label: String, checked: Bindable<Bool>) {
@@ -37,6 +40,7 @@ public class Checkbox <: Widget {
         }.value
         this.customStyle = None
         this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = label
         emit(this)
     }
 
@@ -53,6 +57,7 @@ public class Checkbox <: Widget {
         }.value
         this.customStyle = None
         this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = ""
         emit(this)
     }
 
@@ -76,6 +81,12 @@ public class Checkbox <: Widget {
     /** Applies an automatic or exact interaction animation property. */
     public func animation(value: AnimationSpec): Checkbox {
         animationSpec = value
+        this
+    }
+
+    /** Names decorative checkbox content for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Checkbox {
+        semanticLabel = value
         this
     }
 
@@ -120,6 +131,10 @@ public class Checkbox <: Widget {
                 focused: ctx.hasFocus(controlId), selected: checked.value), styleOverride: customStyle)
         let box = indicatorFrame(ctx)
         drawSurface(ctx, box, appearance.surface)
+        recordControlSemantics(frame, "Checkbox", ControlSemantics(
+            "checkbox", label: semanticLabel, action: "Checkbox.toggle()",
+            actionOwner: controlId, selected: Some(checked.value)
+        ))
         // The fill grows from the centre to fill the box as it is ticked.
         if (t > 0.001) {
             let full = box.inset(4.0)
@@ -135,7 +150,15 @@ public class Checkbox <: Widget {
                 let textY = content.centerY() - ctx.renderer.textHeight(pointSize: pointSize) / 2.0
                 ctx.renderer.text(value, content.x, textY, appearance.foreground, pointSize: pointSize)
             case None => match (child) {
-                case Some(value) => value.draw(ctx)
+                case Some(value) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                    appearance.foreground,
+                    role: "checkbox",
+                    interactionOwner: controlId,
+                    selected: checked.value,
+                    focused: ctx.hasFocus(controlId),
+                    hovered: progress.hover > 0.0,
+                    pressed: progress.press > 0.0
+                )) {=> value.draw(ctx)}
                 case None => ()
             }
         }

@@ -52,6 +52,7 @@ main(): Unit {
 |---|---|
 | [`key(value: String)`](#key) | 设置显式的焦点与按下状态标识并返回自身，便于链式声明。 |
 | `controlStyle(value: ComponentControlStyle)` | 覆盖 Checkbox indicator/前景/InkWell 状态样式。 |
+| `accessibilityLabel(value: String)` | 为装饰 slot 设置语义名称；文本构造器默认使用 label。 |
 | `animation(value: AnimationSpec)` | 覆盖 hover/press 动画属性。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 按 indicator、slot/文本、组件间距与最小高度测量，并受可用尺寸约束。 |
 | [`layout(ctx: UiContext, rect: Rect)`](#layout) | 记录框架并布局右侧 slot。 |

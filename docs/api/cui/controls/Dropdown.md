@@ -58,6 +58,7 @@ main(): Unit {
 |---|---|
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择弹出列表的平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | `controlStyle(value: ComponentControlStyle)` | 覆盖闭合字段的状态样式。 |
+| `accessibilityLabel(value: String)` | 设置选择字段语义名称；当前选项继续作为 semantic value。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 默认至少 190×38，slot 更大时按内容与组件内边距扩展。 |
 | [`layout(ctx: UiContext, rect: Rect)`](#layout) | 记录框架并布局闭合面的 selected-value slot。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制状态化字段、当前文本/slot 与 disclosure；打开时注册交互浮层。 |
@@ -82,7 +83,8 @@ public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = Non
 - `key!`: `?String` — 显式控件标识（同时标识浮层注册）；空串抛 `IllegalArgumentException`。默认 `None`，按构建顺序自动派生。
 
 slot 构造器的 `selectedContent(index, text)` 每次声明时按当前绑定值构建闭合面，可组合图标、主副标题和状态点。
-它不会改变字符串弹出行、键盘导航或浮层滚动契约；slot 内的可聚焦后代不会进入 Tab 环。
+它不会改变字符串弹出行、键盘导航或浮层滚动契约；slot 内的可聚焦后代不会进入 Tab 环，未显式设色的
+Label/Icon/Symbol 继承闭合字段已解析的前景色。
 
 ## 方法
 

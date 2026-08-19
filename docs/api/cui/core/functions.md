@@ -153,6 +153,24 @@ public func drawFocusRing(ctx: UiContext, rect: Rect, radius: Float32): Unit
 - `rect`: `Rect` — 控件矩形；环画在其外 2 像素。
 - `radius`: `Float32` — 控件自身的圆角半径；环用 `radius + 2`。
 
+### recordControlSemantics
+
+当 [`ComponentProbe`](../../index.md) 活跃时，为一个自定义组合控件记录唯一外层交互语义区域。没有活动 probe 时该函数不产生记录；若当前显式 `.probe(...)` 节点已拥有相同 `actionOwner`，自动区域会让位，避免重复动作和 ASCII 标记漂移。
+
+```cangjie
+public func recordControlSemantics(
+    frame: Rect,
+    widgetType: String,
+    semantics: ControlSemantics
+): Unit
+```
+
+**参数**
+
+- `frame`: `Rect` — 外层控件的可交互矩形。
+- `widgetType`: `String` — 报告中展示的控件类型名称。
+- `semantics`: [`ControlSemantics`](ControlSemantics.md) — role、label/value、action、shortcut、唯一动作所有者和可选状态。
+
 ### emit
 
 把新构造的组件注册进最内层打开的构建块。每个组件构造函数都调用它。在任何块之外（比如为存储复用而构建的组件）是无操作，组件保持普通值语义；把已有组件显式摆进块里也用它：`VStack { for (w in built) { emit(w) } }`。

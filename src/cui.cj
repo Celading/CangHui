@@ -73,6 +73,8 @@ public import cui.core.ComponentControlAppearance
 public import cui.core.ComponentControlKind
 public import cui.core.ComponentControlState
 public import cui.core.ComponentControlStyle
+public import cui.core.ControlContentEnvironment
+public import cui.core.ControlSemantics
 public import cui.core.ComponentShape
 public import cui.core.ComponentSpacing
 public import cui.core.ComponentTheme
@@ -120,6 +122,7 @@ public import cui.core.ProbeProperty
 public import cui.core.ProbeSemanticProvider
 public import cui.core.ProbeSemanticRegion
 public import cui.core.ProbeSemanticRegionProvider
+public import cui.core.recordControlSemantics
 public import cui.core.Radii
 public import cui.core.Reveal
 public import cui.core.ScrollBar

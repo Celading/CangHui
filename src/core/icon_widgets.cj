@@ -73,7 +73,7 @@ public class Symbol <: Widget {
         let extent = max(1.0, ctx.resolve(symbolExtent))
         let color = match (symbolColorOverride) {
             case Some(value) => value
-            case None => ctx.theme.text
+            case None => ctx.contentForeground()
         }
         let _ = drawSymbol(ctx.renderer, symbolName, centeredIconRect(frame, extent), color,
             weight: symbolWeight, variant: symbolVariant, direction: symbolDirection,
@@ -149,7 +149,7 @@ public class Icon <: Widget {
     private func iconColor(ctx: UiContext): Color {
         match (iconColorOverride) {
             case Some(value) => value
-            case None => ctx.theme.text
+            case None => ctx.contentForeground()
         }
     }
 }

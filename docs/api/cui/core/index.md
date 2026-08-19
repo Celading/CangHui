@@ -71,6 +71,8 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ComponentShape`](ComponentTheme.md) | 可继承 Theme 的 small/control/pill 组件圆角。 |
 | [`ComponentSpacing`](ComponentTheme.md) | compact/control/selection 内边距、间距、最小高度与 indicator 尺寸。 |
 | [`ComponentTypography`](ComponentTheme.md) | Chip、Checkbox、Dropdown 与 Accordion header 的 control 语义字号。 |
+| [`ControlContentEnvironment`](ControlContentEnvironment.md) | 当前装饰内容的前景、supporting 前景、role、action owner 与交互状态。 |
+| [`ControlSemantics`](ControlSemantics.md) | role、label/value、action、shortcut、owner 与可选选择/展开状态。 |
 | [`Gradient`](Gradient.md) | 圆角背景用的双色线性渐变填充，默认自上而下、`vertical` 为 false 时自左向右。 |
 | [`Length`](Length.md) | 带显式单位的一维尺寸，写作 `100.px`、`24.vp` 或 `15.fp`。 |
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |

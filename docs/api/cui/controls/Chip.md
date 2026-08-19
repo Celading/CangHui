@@ -18,7 +18,7 @@ public class Chip <: Widget
 
 ## 说明
 
-Chip 与 [`Checkbox`](Checkbox.md) 共用 release-inside 约定。slot 可组合图标、标题、数量或状态点，但属于装饰子树：外层 Chip 仍是唯一焦点和激活所有者。
+Chip 与 [`Checkbox`](Checkbox.md) 共用 release-inside 约定。slot 可组合图标、标题、数量或状态点，但属于装饰子树：外层 Chip 仍是唯一焦点和激活所有者。未显式设色的 Label/Icon/Symbol 继承外层状态样式前景色。
 
 ## 示例
 
@@ -52,6 +52,7 @@ main(): Unit {
 |---|---|
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 按文本/slot、组件 compact padding 与最小高度测量。 |
 | `controlStyle(value: ComponentControlStyle)` | 覆盖本 Chip 的共享组件状态样式。 |
+| `accessibilityLabel(value: String)` | 为装饰 slot 设置语义名称；文本构造器默认使用 `text`。 |
 | `animation(value: AnimationSpec)` | 覆盖 hover/press 动画属性。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配到的框架。 |
 | [`isFlexible()`](#isflexible) | 恒返回 `false`——标签贴合内容，不参与栈的剩余空间分配。 |

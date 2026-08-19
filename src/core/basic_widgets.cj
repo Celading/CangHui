@@ -49,6 +49,7 @@ public class Button <: Widget {
     private var controlId: String
     private let interaction: InteractionAnimation
     private var animationSpec: AnimationSpec
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(
@@ -73,6 +74,7 @@ public class Button <: Widget {
             InteractionAnimation()
         }.value
         this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = title
         emit(this)
     }
 
@@ -106,6 +108,7 @@ public class Button <: Widget {
             InteractionAnimation()
         }.value
         this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = ""
         emit(this)
     }
 
@@ -124,6 +127,12 @@ public class Button <: Widget {
     /** Applies semantic button coloring. */
     public func role(value: ButtonRole): Button {
         buttonRole = value
+        this
+    }
+
+    /** Names a slot-based button for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Button {
+        semanticLabel = value
         this
     }
 
@@ -224,11 +233,22 @@ public class Button <: Widget {
             case None => frame
         }
         drawSurface(ctx, visualFrame, appearance.surface)
+        recordControlSemantics(visualFrame, "Button", ControlSemantics(
+            "button", label: semanticLabel, action: "Button.activate()",
+            actionOwner: controlId
+        ))
         match (title) {
             case Some(value) => ctx.renderer.textCenter(value, visualFrame, appearance.foreground,
                 pointSize: max(1.0, ctx.resolve(pointSize)))
             case None => match (child) {
-                case Some(value) => value.draw(ctx)
+                case Some(value) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                    appearance.foreground,
+                    role: "button",
+                    interactionOwner: controlId,
+                    focused: state.focused,
+                    hovered: state.hover > 0.0,
+                    pressed: state.press > 0.0
+                )) {=> value.draw(ctx)}
                 case None => ()
             }
         }

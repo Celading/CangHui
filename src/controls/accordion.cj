@@ -3,9 +3,10 @@ package cui.controls
 import std.collection.{ArrayList, HashSet}
 import sdl.{Color, Key, Pen, Rect, Size, UiEvent}
 import cui.core.{AnimationSpec, Animator, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
-    ComponentControlStyle, InteractionAnimation, LAYOUT_UNBOUNDED, Motion, State, UiContext, Widget,
+    ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, LAYOUT_UNBOUNDED,
+    Motion, State, UiContext, Widget,
     resolveControlKey, buildKeyedChild, drawFocusRing, drawSurface, emit, focusableControlIdentity,
-    handlePointerClick, localState, resolveComponentControlAppearance}
+    handlePointerClick, localState, recordControlSemantics, resolveComponentControlAppearance}
 
 private let ACCORDION_HEADER_H: Float32 = 42.0
 
@@ -18,18 +19,21 @@ public struct AccordionSection {
     let title: ?String
     let header: ?() -> Unit
     let body: () -> Unit
+    let semanticLabel: String
 
     public init(title: String, body: () -> Unit) {
         this.title = Some(title)
         this.header = None
         this.body = body
+        this.semanticLabel = title
     }
 
     /** Creates a section with arbitrary decorative header content. */
-    public init(header!: () -> Unit, body!: () -> Unit) {
+    public init(accessibilityLabel!: String = "", header!: () -> Unit, body!: () -> Unit) {
         this.title = None
         this.header = Some(header)
         this.body = body
+        this.semanticLabel = accessibilityLabel
     }
 }
 
@@ -47,6 +51,7 @@ public struct AccordionSection {
 public class Accordion <: Widget {
     private let titles: Array<?String>
     private let headers: Array<?Widget>
+    private let semanticLabels: Array<String>
     private let headerIds: Array<String>
     // The built body for each open section, or None while collapsed.
     private let bodies: Array<?Widget>
@@ -78,6 +83,7 @@ public class Accordion <: Widget {
         let count = sections.size
         let builtTitles = ArrayList<?String>()
         let builtHeaders = ArrayList<?Widget>()
+        let builtSemanticLabels = ArrayList<String>()
         let builtIds = ArrayList<String>()
         let builtBodies = ArrayList<?Widget>()
         let builtBodyAnimations = ArrayList<Animator>()
@@ -86,6 +92,7 @@ public class Accordion <: Widget {
         // controls, next header, and so on.
         for (i in 0..count) {
             builtTitles.add(sections[i].title)
+            builtSemanticLabels.add(sections[i].semanticLabel)
             let headerId = focusableControlIdentity("Accordion:${ident}:header:${i}")
             builtIds.add(headerId)
             match (sections[i].header) {
@@ -109,6 +116,7 @@ public class Accordion <: Widget {
         }
         this.titles = builtTitles.toArray()
         this.headers = builtHeaders.toArray()
+        this.semanticLabels = builtSemanticLabels.toArray()
         this.headerIds = builtIds.toArray()
         this.bodies = builtBodies.toArray()
         this.bodyAnimations = builtBodyAnimations.toArray()
@@ -291,6 +299,14 @@ public class Accordion <: Widget {
                 selection: Some(reveal), expanded: expandedState.value.contains(index)),
             styleOverride: customStyle)
         drawSurface(ctx, rect, appearance.surface)
+        recordControlSemantics(rect, "AccordionHeader", ControlSemantics(
+            "button",
+            label: semanticLabels[index],
+            value: if (expandedState.value.contains(index)) { "expanded" } else { "collapsed" },
+            action: "Accordion.toggle(" + index.toString() + ")",
+            actionOwner: headerId,
+            expanded: Some(expandedState.value.contains(index))
+        ))
         if (ctx.showFocusRing(headerId)) {
             drawFocusRing(ctx, rect, appearance.focusRadius)
         }
@@ -303,7 +319,16 @@ public class Accordion <: Widget {
                 ctx.renderer.text(value, headerContentFrame(ctx, rect).x, textY, appearance.foreground,
                     pointSize: pointSize)
             case None => match (headers[index]) {
-                case Some(widget) => widget.draw(ctx)
+                case Some(widget) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                    appearance.foreground,
+                    role: "button",
+                    interactionOwner: headerId,
+                    selected: expandedState.value.contains(index),
+                    expanded: expandedState.value.contains(index),
+                    focused: ctx.hasFocus(headerId),
+                    hovered: progress.hover > 0.0,
+                    pressed: progress.press > 0.0
+                )) {=> widget.draw(ctx)}
                 case None => ()
             }
         }

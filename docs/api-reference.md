@@ -178,6 +178,11 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 `ComponentTheme` 将该样式、Button 默认布局、`ComponentControlStyle`、组件排版/间距/形状和 Panel 默认表面装入 `Theme`。主题切换和插值会
 保留或选择完整的组件覆盖层，而不会退回脚手架默认外观。
 
+slot Button、Chip、Checkbox、Dropdown 闭合面与 Accordion header 绘制装饰子树时会压入只读
+`ControlContentEnvironment`。未显式设色的 Label/Icon/Symbol 自动继承外层已解析前景色，muted Label
+继承 supporting foreground；自定义 Widget 可从 `UiContext.controlContentEnvironment()` 读取 role、
+interaction owner 与 selected/expanded/focus/hover/press 状态。作用域在子树绘制完成后自动恢复。
+
 ## 6. 布局与容器
 
 | 类型 | 必要构造信息 | 链式 API/行为 |
@@ -215,7 +220,7 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 | 类型 | 必要构造信息 | 链式 API |
 |---|---|---|
 | `Label` | `text` | `muted()`、`muted(bool)`、`textAlign`、`foregroundColor`、`fontSize`、`maxLines(n)`、`wrap()` |
-| `Button` | `title + onClick`，或 `onClick + body` slot | `key`、`role`、`style`、`buttonStyle`、`contentPadding`、`minControlSize`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
+| `Button` | `title + onClick`，或 `onClick + body` slot | `key`、`role`、`accessibilityLabel`、`style`、`buttonStyle`、`contentPadding`、`minControlSize`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Icon` | `IconName` | `iconSize`、`foregroundColor` |
 | `IconButton` | `IconName`、`onClick` | `id`、`label`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Divider` | 无 | `axis`、`color` |
@@ -225,8 +230,8 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 只有按下和释放都位于控件内才激活；按下后移出会立即取消 press 与 InkWell，随后在外部释放不会回调。
 二者支持取得焦点后的 Enter/Space，悬停与按压位移、颜色和 InkWell 强度由主题动效力度控制。
 slot Button 可组合任意装饰性 CUI 子树；外层 Button 独占焦点、点击和键盘激活，slot 内的可聚焦后代不会
-进入 Tab 环，也不会收到事件。slot 子项自行声明文字/图标颜色，按钮的 `ButtonStyle` 负责外层表面、
-InkWell 与焦点几何。
+进入 Tab 环，也不会收到事件。slot 内未显式设色的 Label/Icon/Symbol 自动继承 `ButtonStyle` 解析出的
+前景色；显式颜色仍优先。`accessibilityLabel` 为无标题 slot 提供语义名称。
 
 ## 8. 选择、导航和数值控件
 
@@ -234,8 +239,8 @@ InkWell 与焦点几何。
 
 | 类型 | 构造函数 | 补充 API/行为 |
 |---|---|---|
-| `Checkbox` | `Checkbox(label, state)` 或 `Checkbox(state) { slot }` | `key`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
-| `Chip` | `Chip(text, state)` 或 `Chip(state) { slot }` | `controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
+| `Checkbox` | `Checkbox(label, state)` 或 `Checkbox(state) { slot }` | `key`、`accessibilityLabel`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
+| `Chip` | `Chip(text, state)` 或 `Chip(state) { slot }` | `accessibilityLabel`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
 | `Switch` | `Switch(label, Bindable<Bool>)` | `id`；二态开关 |
 | `RadioButton` | `RadioButton(label, selected, value)` | `id`；多个实例共享同一 `Bindable<Int64>` |
 | `Picker` | `Picker(id, items, selected)` | 点击前后区域或 Left/Right 循环选择；宽度按最长选项自适应（切换选项不抖动） |

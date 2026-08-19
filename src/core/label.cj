@@ -218,9 +218,9 @@ public class Label <: Widget {
             case Some(value) => value
             case None =>
                 if (isMuted) {
-                    ctx.theme.mutedText
+                    ctx.contentSupportingForeground()
                 } else {
-                    ctx.theme.text
+                    ctx.contentForeground()
                 }
         }
     }

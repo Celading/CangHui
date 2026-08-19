@@ -3,8 +3,9 @@ package cui.controls
 import std.collection.HashSet
 import sdl.{Color, Key, MouseButton, Rect, Renderer, Size, SurfaceStyle, UiEvent}
 import cui.core.{Button, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
-    ComponentControlStyle, ComponentShape, ComponentSpacing, ComponentTheme, ComponentTypography, Label,
-    LengthInsets, LengthUnits, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
+    ComponentControlStyle, ComponentProbe, ComponentShape, ComponentSpacing, ComponentTheme, ComponentTypography,
+    ControlContentEnvironment, Label, LengthInsets, LengthUnits, State, StateStore, Theme, UiContext, VStack,
+    Widget, buildRoot, emit}
 
 private class ControlSlotProbe <: Widget {
     private let desired: Size
@@ -28,6 +29,17 @@ private class ControlSlotProbe <: Widget {
     public func handle(_: UiContext, _: UiEvent): Bool {
         false
     }
+}
+
+private class ControlSlotEnvironmentProbe <: Widget {
+    var captured: ?ControlContentEnvironment = None
+
+    init() { emit(this) }
+
+    public func measure(_: UiContext, _: Size): Size { Size(40.0, 18.0) }
+    public func layout(_: UiContext, _: Rect): Unit {}
+    public func draw(ctx: UiContext): Unit { captured = ctx.controlContentEnvironment() }
+    public func handle(_: UiContext, _: UiEvent): Bool { false }
 }
 
 private func slotTestContext(theme!: Theme = Theme.light()): UiContext {
@@ -184,4 +196,65 @@ func componentThemeTokensAndStyleReachAllCompositeControls(): Unit {
     @Expect(sawSelected.value)
     @Expect(chip.measure(ctx, Size(300.0, 100.0)).h, Float32(34.0))
     @Expect(checkbox.measure(ctx, Size(300.0, 100.0)).h, Float32(46.0))
+}
+
+@Test
+func compositeControlSlotReceivesResolvedStateEnvironment(): Unit {
+    let probe = ControlSlotEnvironmentProbe()
+    let foreground = Color.rgb(41, 73, 109)
+    let style = ComponentControlStyle(resolve: {theme, _, _ =>
+        ComponentControlAppearance(
+            surface: SurfaceStyle(theme.field, radius: 12.0),
+            foreground: foreground,
+            indicator: theme.accent,
+            ink: theme.inkColor(),
+            focusRadius: 12.0
+        )
+    })
+    let ctx = slotTestContext()
+    let chip = Chip(State<Bool>(true), key: Some("environment-chip")) { emit(probe) }
+        .controlStyle(style)
+        .accessibilityLabel("Active filter")
+    chip.layout(ctx, Rect(0.0, 0.0, 120.0, 34.0))
+    ctx.focus("environment-chip")
+    chip.draw(ctx)
+    let environment = probe.captured.getOrThrow()
+    @Expect(environment.foreground.r, foreground.r)
+    @Expect(environment.role, "checkbox")
+    @Expect(environment.interactionOwner, "environment-chip")
+    @Expect(environment.selected)
+    @Expect(environment.focused)
+}
+
+@Test
+func compoundControlsExposeOneOuterHeadlessSemanticAction(): Unit {
+    let report = ComponentProbe("test.compound-semantics", width: 360.0, height: 240.0).run("") {
+        VStack {
+            Chip("Nearby", State<Bool>(true), key: Some("semantic-chip"))
+            Checkbox(State<Bool>(false)) { Label("Offline") }
+                .accessibilityLabel("Offline mode")
+                .key("semantic-checkbox")
+            Dropdown(["Local", "Remote"], State<Int64>(1), key: Some("semantic-dropdown"))
+                .accessibilityLabel("Engine")
+            Accordion([
+                AccordionSection(accessibilityLabel: "Details", header: {=> Label("Details")},
+                    body: {=> Label("Body")})
+            ], initiallyExpanded: [0], key: Some("semantic-accordion"))
+        }
+    }
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-chip\""))
+    @Expect(report.contains("\"actionOwner\":\"semantic-chip\""))
+    @Expect(report.contains("\"selected\":\"true\""))
+    @Expect(report.contains("\"label\":\"Offline mode\""))
+    @Expect(report.contains("\"label\":\"Engine\""))
+    @Expect(report.contains("\"value\":\"Remote\""))
+    @Expect(report.contains("\"action\":\"Accordion.toggle(0)\""))
+    @Expect(report.contains("\"semanticDescendants\":\"decorative\""))
+
+    let ascii = ComponentProbe("test.compound-semantics-ascii", width: 220.0, height: 70.0)
+        .run("@cui-ascii 55 14") {
+            Chip("Nearby", State<Bool>(true), key: Some("ascii-chip"))
+        }
+    @Expect(ascii.contains("Nearby"))
+    @Expect(ascii.contains("Chip.toggle()"))
 }

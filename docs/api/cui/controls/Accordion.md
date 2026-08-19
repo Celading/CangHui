@@ -22,6 +22,9 @@ public class Accordion <: Widget
 
 只有展开的分区体才会构建：收起时不构建正文，但其正文里的局部状态也随之丢弃，重新展开时会复位——需要跨折叠保留的状态应提升到分区体之外。每条标题都是焦点项，Tab 依声明顺序走过"标题、其展开正文内的控件、下一条标题"。
 
+slot header 可通过 `AccordionSection(accessibilityLabel:, header:, body:)` 设置语义名称。未显式设色的
+Label/Icon/Symbol 继承 header 当前状态前景色；每条 header 自动输出一个外层展开/收起语义动作。
+
 ## 示例
 
 ```cangjie verify

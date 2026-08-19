@@ -2,8 +2,9 @@ package cui.controls
 
 import sdl.{Key, Rect, Size, UiEvent}
 import cui.core.{AnimationSpec, Bindable, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
-    ComponentControlStyle, InteractionAnimation, Motion, UiContext, Widget, drawFocusRing, drawSurface, emit,
-    handlePointerClick, localState, registerFocusable, resolveComponentControlAppearance, resolveControlKey}
+    ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, Motion, UiContext,
+    Widget, drawFocusRing, drawSurface, emit, handlePointerClick, localState, recordControlSemantics,
+    registerFocusable, resolveComponentControlAppearance, resolveControlKey}
 
 /*
  * A selectable filter tag — a rounded pill bound to a `Bindable<Bool>`. Clicking (or Space/Enter while
@@ -18,6 +19,7 @@ public class Chip <: Widget {
     private let interaction: InteractionAnimation
     private var customStyle: ?ComponentControlStyle
     private var animationSpec: AnimationSpec
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(text: String, selected: Bindable<Bool>, key!: ?String = None) {
@@ -31,6 +33,7 @@ public class Chip <: Widget {
         }.value
         this.customStyle = None
         this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = text
         emit(this)
     }
 
@@ -46,6 +49,7 @@ public class Chip <: Widget {
         }.value
         this.customStyle = None
         this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = ""
         emit(this)
     }
 
@@ -58,6 +62,12 @@ public class Chip <: Widget {
     /** Applies an automatic or exact interaction animation property. */
     public func animation(value: AnimationSpec): Chip {
         animationSpec = value
+        this
+    }
+
+    /** Names decorative chip content for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Chip {
+        semanticLabel = value
         this
     }
 
@@ -101,6 +111,10 @@ public class Chip <: Widget {
             ComponentControlState(hover: progress.hover, press: progress.press,
                 focused: ctx.hasFocus(id), selected: on), styleOverride: customStyle)
         drawSurface(ctx, frame, appearance.surface)
+        recordControlSemantics(frame, "Chip", ControlSemantics(
+            "checkbox", label: semanticLabel, action: "Chip.toggle()",
+            actionOwner: id, selected: Some(on)
+        ))
         if (ctx.showFocusRing(id)) {
             drawFocusRing(ctx, frame, appearance.focusRadius)
         }
@@ -112,7 +126,15 @@ public class Chip <: Widget {
                 ctx.renderer.text(value, frame.centerX() - tw / 2.0, ty, appearance.foreground,
                     pointSize: pointSize)
             case None => match (child) {
-                case Some(value) => value.draw(ctx)
+                case Some(value) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                    appearance.foreground,
+                    role: "checkbox",
+                    interactionOwner: id,
+                    selected: on,
+                    focused: ctx.hasFocus(id),
+                    hovered: progress.hover > 0.0,
+                    pressed: progress.press > 0.0
+                )) {=> value.draw(ctx)}
                 case None => ()
             }
         }

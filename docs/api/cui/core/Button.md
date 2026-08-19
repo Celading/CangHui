@@ -20,7 +20,7 @@ Button <: [`Widget`](Widget.md)
 
 点击识别是"按下-释放"式的：主键在按钮内按下时获得焦点与按压，在按钮内松开才算一次点击，拖出按钮后松开则取消。焦点与按下状态标识默认按构建位置自动生成、每次构建唯一；需要在树形变化中保持标识时用 [`key`](#key) 固定。Normal 角色的表面随按下/悬停切换主题填充色（重叠布局中只有位于最上层的控件高亮）；焦点环只在焦点经键盘到达时绘制（`:focus-visible` 约定），指针点击不会留下键盘样式的描边。
 
-slot 构造器用于图标、主副标题、状态点等组合内容。slot 是装饰子树：外层 Button 独占焦点与激活，slot 内的可聚焦后代不会进入 Tab 环或接收事件，因此不要在其中嵌套真正需要独立操作的控件。slot 子项自行声明文字与图标颜色。
+slot 构造器用于图标、主副标题、状态点等组合内容。slot 是装饰子树：外层 Button 独占焦点与激活，slot 内的可聚焦后代不会进入 Tab 环或接收事件，因此不要在其中嵌套真正需要独立操作的控件。未显式设色的 Label/Icon/Symbol 会从 [`ControlContentEnvironment`](ControlContentEnvironment.md) 继承 ButtonStyle 已解析的前景色。
 
 ## 示例
 
@@ -65,6 +65,7 @@ main(): Unit {
 |---|---|
 | [`key(value: String)`](#key) | 设置显式的焦点与按下状态标识。 |
 | [`role(value: ButtonRole)`](#role) | 应用语义按钮配色。 |
+| `accessibilityLabel(value: String)` | 为 slot Button 设置 headless/native accessibility 可复用的语义名称。 |
 | [`style(value: SurfaceStyle)`](#style) | 覆盖主题推导的按钮表面。 |
 | `buttonStyle(value: ButtonStyle)` | 覆盖状态感知的表面、前景、InkWell 与焦点几何。 |
 | `contentPadding(value: LengthInsets)` | 覆盖标题或 slot 内容内边距。 |
@@ -112,6 +113,9 @@ public init(
 - `style!`: `?SurfaceStyle` — 完全覆盖主题推导的表面（含按下/悬停反馈）；默认 `None`，按 `role` 从主题取表面。
 - `fontSize!`: [`Length`](Length.md) — 标题字号；默认 `Length(FontSizes.CONTROL, LengthUnit.Fp)`（15 fp，随用户字体缩放）。
 - `body!`: `() -> Unit` — slot 装饰内容；其可聚焦后代会从 Tab 环移除，事件由外层 Button 独占。
+
+Button 会自动向 ComponentProbe/Draw IR 暴露一个 `role=button` 的 [`ControlSemantics`](ControlSemantics.md)
+区域；slot 后代标记为 decorative，动作所有者始终是外层 Button。
 
 ## 方法
 
