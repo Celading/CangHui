@@ -278,6 +278,12 @@ public import cui.host.MobileSigningPreparationReceipt
 public import cui.host.MobileSigningPreparationState
 public import cui.host.mobileSigningPreparationStateName
 public import cui.host.prepareMobileSigning
+public import cui.host.CANGHUI_MOBILE_EXTERNAL_SIGNER_RECEIPT_PROTOCOL
+public import cui.host.MobileExternalSignerReceiptState
+public import cui.host.MobileExternalSignerReceiptRequest
+public import cui.host.MobileExternalSignerReceipt
+public import cui.host.mobileExternalSignerReceiptStateName
+public import cui.host.bindMobileExternalSignerReceipt
 public import cui.host.NativeSurfaceBackend
 public import cui.host.NativeSurfaceDescriptor
 public import cui.host.NativeSurfaceEvent

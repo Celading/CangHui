@@ -1,16 +1,17 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://canghui.dev/contracts/canghui-mobile-signing-preparation-v0.schema.json",
-  "title": "CangHui mobile signing preparation receipt",
+  "$id": "https://canghui.dev/contracts/canghui-mobile-external-signer-receipt-v0.schema.json",
+  "title": "CangHui mobile external signer receipt",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "protocol", "platform", "packageKind", "sourceStage", "applicationId",
-    "lifecycleEpoch", "surfaceGeneration", "sourceBinding", "state", "outputName",
-    "requiredCapabilities", "missingCapabilities", "limitations", "signedPackage", "installable"
+    "lifecycleEpoch", "surfaceGeneration", "state", "outputName", "signerTool",
+    "signerIdentity", "provisioningProfile", "artifactDigest", "sourceBinding",
+    "limitations", "signedPackage", "installable", "deviceProven"
   ],
   "properties": {
-    "protocol": { "const": "canghui.mobile-signing-preparation.v0" },
+    "protocol": { "const": "canghui.mobile-external-signer-receipt.v0" },
     "platform": { "enum": ["ios", "android", "harmonyos"] },
     "packageKind": {
       "enum": [
@@ -19,33 +20,25 @@
         "harmony-application-package"
       ]
     },
-    "sourceStage": {
-      "enum": ["contract-ready", "input-tree", "signed-package", "device-proven"]
-    },
+    "sourceStage": { "const": "input-tree" },
     "applicationId": { "type": "string", "minLength": 1 },
     "lifecycleEpoch": { "type": "integer", "minimum": 0 },
     "surfaceGeneration": { "type": "integer", "minimum": 0 },
+    "state": { "enum": ["rejected", "accepted"] },
+    "outputName": { "type": "string", "pattern": "^[A-Za-z0-9._:-]+$", "maxLength": 255 },
+    "signerTool": { "type": "string", "pattern": "^[A-Za-z0-9._:-]+$", "maxLength": 128 },
+    "signerIdentity": { "type": "string", "pattern": "^[A-Za-z0-9._:-]+$", "maxLength": 128 },
+    "provisioningProfile": { "type": "string", "pattern": "^[A-Za-z0-9._:-]+$", "maxLength": 128 },
+    "artifactDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "sourceBinding": { "type": "string", "pattern": "^[A-Za-z0-9:._-]+$", "maxLength": 256 },
-    "state": { "enum": ["blocked", "requirements-satisfied"] },
-    "outputName": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 255 },
-    "requiredCapabilities": {
-      "type": "array",
-      "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 128 },
-      "uniqueItems": true,
-      "maxItems": 16
-    },
-    "missingCapabilities": {
-      "type": "array",
-      "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$", "maxLength": 128 },
-      "uniqueItems": true
-    },
     "limitations": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },
       "uniqueItems": true
     },
     "signedPackage": { "const": false },
-    "installable": { "const": false }
+    "installable": { "const": false },
+    "deviceProven": { "const": false }
   },
   "allOf": [
     {
@@ -59,15 +52,6 @@
     {
       "if": { "properties": { "platform": { "const": "harmonyos" } } },
       "then": { "properties": { "packageKind": { "const": "harmony-application-package" } } }
-    },
-    {
-      "if": { "properties": { "state": { "const": "requirements-satisfied" } } },
-      "then": {
-        "properties": {
-          "sourceStage": { "const": "input-tree" },
-          "missingCapabilities": { "maxItems": 0 }
-        }
-      }
     }
   ]
 }

@@ -60,6 +60,10 @@ public struct MobileSigningPreparationReceipt {
     public let platform: MobileApplicationPlatform
     public let packageKind: MobilePackageKind
     public let sourceStage: MobilePackageStage
+    public let applicationId: String
+    public let lifecycleEpoch: Int64
+    public let surfaceGeneration: Int64
+    public let sourceBinding: String
     public let state: MobileSigningPreparationState
     public let outputName: String
     public let requiredCapabilities: Array<String>
@@ -74,6 +78,10 @@ public struct MobileSigningPreparationReceipt {
         this.platform = source.platform
         this.packageKind = source.packageKind
         this.sourceStage = source.stage
+        this.applicationId = source.applicationId
+        this.lifecycleEpoch = source.lifecycleEpoch
+        this.surfaceGeneration = source.surfaceGeneration
+        this.sourceBinding = mobileSigningSourceBinding(source)
         this.state = if (source.stage == MobilePackageStage.InputTree &&
             source.signing == MobileSigningState.Unsigned) {
             let required = mobileSigningRequiredCapabilities(source.platform)
@@ -106,7 +114,10 @@ public struct MobileSigningPreparationReceipt {
         "{\"protocol\":\"" + protocol + "\",\"platform\":\"" +
             mobileApplicationPlatformName(platform) + "\",\"packageKind\":\"" +
             mobilePackageKindName(packageKind) + "\",\"sourceStage\":\"" +
-            mobilePackageStageName(sourceStage) + "\",\"state\":\"" +
+            mobilePackageStageName(sourceStage) + "\",\"applicationId\":" +
+            mobileSigningQuote(applicationId) + ",\"lifecycleEpoch\":" + lifecycleEpoch.toString() +
+            ",\"surfaceGeneration\":" + surfaceGeneration.toString() +
+            ",\"sourceBinding\":" + mobileSigningQuote(sourceBinding) + ",\"state\":\"" +
             mobileSigningPreparationStateName(state) + "\",\"outputName\":\"" +
             outputName + "\",\"requiredCapabilities\":" +
             renderSigningPreparationStrings(requiredCapabilities) +
@@ -114,6 +125,14 @@ public struct MobileSigningPreparationReceipt {
             ",\"limitations\":" + renderSigningPreparationStrings(limitations) +
             ",\"signedPackage\":false,\"installable\":false}"
     }
+}
+
+/** Correlates a signer result with one provider receipt; it is not a digest. */
+public func mobileSigningSourceBinding(source: MobileHostPackageReceipt): String {
+    "input-tree-v0:" + mobileApplicationPlatformName(source.platform) + ":" +
+        mobilePackageKindName(source.packageKind) + ":id-" + source.applicationId.size.toString() + ":" +
+        source.lifecycleEpoch.toString() + ":" + source.surfaceGeneration.toString() + ":" +
+        source.inputFiles.size.toString()
 }
 
 public func prepareMobileSigning(
@@ -212,10 +231,25 @@ private func renderSigningPreparationStrings(values: Array<String>): String {
     for (value in values) {
         if (!first) { out.append(",") }
         first = false
-        out.append("\"")
-        out.append(value)
-        out.append("\"")
+        out.append(mobileSigningQuote(value))
     }
     out.append("]")
+    out.toString()
+}
+
+private func mobileSigningQuote(value: String): String {
+    let out = StringBuilder()
+    out.append("\"")
+    for (r in value.toRuneArray()) {
+        match (r) {
+            case r'\\' => out.append("\\\\")
+            case r'"' => out.append("\\\"")
+            case r'\n' => out.append("\\n")
+            case r'\r' => out.append("\\r")
+            case r'\t' => out.append("\\t")
+            case _ => out.append(r.toString())
+        }
+    }
+    out.append("\"")
     out.toString()
 }

@@ -78,3 +78,12 @@ include 输入树，以及 current/stale 回调判断；它不运行 UIKit/Metal
 准备动作不会推进移动安装包 receipt。它的 JSON 始终保留
 `signedPackage=false` 与 `installable=false`；必须由 Xcode 或其他平台所有的
 签名器产生独立验证过的签名证据，公共 receipt 才能推进到 `signed-package`。
+
+## 外部签名器 receipt 绑定
+
+`canghui.mobile-external-signer-receipt.v0` 会把不透明的签名器元数据绑定到
+准备结果的输出名、生命周期 epoch、原生 surface generation 和有限的 source
+binding，并校验 `sha256:` 摘要格式，拒绝过期或不匹配的绑定。`accepted` 只表示
+receipt 与当前准备契约相符，不验证签名字节、不执行签名器，也不会推进
+`MobileHostPackageReceipt`；平台 owner 仍需独立验证签名包后，公共 receipt 才能进入
+`input-tree` 之后的阶段。

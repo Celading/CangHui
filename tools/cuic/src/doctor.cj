@@ -647,6 +647,12 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
     checks.add(doctorRequiredFile("mobile-host.signing-preparation-schema", "Mobile signing preparation schema",
         joinPath(framework, "contracts/canghui-mobile-signing-preparation-v0.schema.json"),
         "Restore the public mobile signing preparation receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.external-signer-receipt", "Mobile external signer receipt contract",
+        joinPath(framework, "src/host/mobile_external_signer_receipt.cj"),
+        "Restore the bounded external signer receipt binding contract."))
+    checks.add(doctorRequiredFile("mobile-host.external-signer-receipt-schema", "Mobile external signer receipt schema",
+        joinPath(framework, "contracts/canghui-mobile-external-signer-receipt-v0.schema.json"),
+        "Restore the public external signer receipt binding schema."))
     checks.add(doctorRequiredFile("mobile-host.replay-contract", "Mobile host semantic replay contract",
         joinPath(framework, "src/host/mobile_host_replay.cj"),
         "Restore the platform-neutral mobile host semantic replay contract."))

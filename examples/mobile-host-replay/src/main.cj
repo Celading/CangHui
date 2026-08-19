@@ -39,6 +39,10 @@ private func ensureIOSProvider(): Unit {
     iosProviderReady = true
 }
 
+private func signerField(inputs: Array<String>, index: Int64): String {
+    if (index < inputs.size) { inputs[index] } else { "" }
+}
+
 @KModeLink["mobile.demo.host.replay"]
 func replayMobileHost(payload: String): String {
     replayHandler(payload)
@@ -62,6 +66,26 @@ func prepareIOSMobileSigning(payload: String): String {
         "CangHui.app",
         declaredCapabilities: inputs
     )).toJson()
+}
+
+@KModeLink["mobile.demo.ios.signing.bind"]
+func bindIOSMobileSigning(payload: String): String {
+    ensureIOSProvider()
+    let preparation = iosProvider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+    ))
+    var inputs: Array<String> = []
+    if (!payload.isEmpty()) { inputs = payload.split("|") }
+    let outputName = signerField(inputs, 0)
+    bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            if (outputName.isEmpty()) { "CangHui.app" } else { outputName },
+            signerField(inputs, 1), signerField(inputs, 2), signerField(inputs, 3),
+            signerField(inputs, 4), signerField(inputs, 5)
+        )
+    ).toJson()
 }
 
 main(): Int64 {

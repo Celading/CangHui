@@ -92,3 +92,13 @@ Preparation never advances the mobile package receipt. Its JSON always reports
 `signedPackage=false` and `installable=false`; Xcode or another platform-owned
 signer must produce independently verified signing evidence before the common
 receipt can advance to `signed-package`.
+
+## External signer receipt binding
+
+`canghui.mobile-external-signer-receipt.v0` binds opaque signer metadata to the
+preparation output name, lifecycle epoch, native-surface generation and bounded
+source binding. It validates a `sha256:` artifact digest shape and rejects stale
+or mismatched bindings. The accepted state means only that the receipt matches
+the current preparation contract; it does not verify signature bytes, execute a
+signer, or advance `MobileHostPackageReceipt`. The common receipt remains at
+`input-tree` until a platform owner independently verifies the signed package.

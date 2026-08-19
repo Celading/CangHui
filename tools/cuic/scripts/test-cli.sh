@@ -186,6 +186,14 @@ printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"missingCapabilities":\
 printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"signedPackage":false'
 printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"installable":false'
 
+IOS_SIGNING_BINDING="input-tree-v0:ios:ios-application-bundle:id-31:4:9:14"
+IOS_SIGNING_RECEIPT_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.bind "CangHui.app|xcode|identity-ref|profile-ref|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|${IOS_SIGNING_BINDING}")"
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"protocol":"canghui.mobile-external-signer-receipt.v0"'
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"state":"accepted"'
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"signedPackage":false'
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"deviceProven":false'
+
 SYMBOL_CATALOG_JSON="$("${ROOT_DIR}/bin/cuic" symbol list --json)"
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"schema":"canghui.symbol.catalog.v0"'
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"id":"material"'

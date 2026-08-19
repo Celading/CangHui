@@ -119,3 +119,66 @@ func mobileSigningPreparationRejectsPathLikeLabels(): Unit {
     }
     @Expect(rejected)
 }
+
+@Test
+func mobileExternalSignerReceiptAcceptsOnlyFreshPreparationBinding(): Unit {
+    let source = MobileSigningPreparationReceipt(
+        MobileHostPackageReceipt(
+            MobileApplicationPlatform.IOS,
+            MobilePackageKind.IOSApplicationBundle,
+            MobilePackageStage.InputTree,
+            "dev.canghui.ios.signing",
+            AppLifecycleState.Active,
+            4,
+            9,
+            signing: MobileSigningState.Unsigned,
+            inputFiles: ["Info.plist", "CangHuiRuntimeBootstrap.m"]
+        ),
+        MobileSigningPreparationRequest(
+            "CangHui.app",
+            declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+        )
+    )
+    let receipt = bindMobileExternalSignerReceipt(
+        source,
+        MobileExternalSignerReceiptRequest(
+            "CangHui.app",
+            "xcode",
+            "identity-ref",
+            "profile-ref",
+            "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            source.sourceBinding
+        )
+    )
+    @Expect(receipt.accepted())
+    @Expect(!receipt.advancesPackageReceipt())
+    @Expect(receipt.toJson().contains("\"state\":\"accepted\""))
+    @Expect(receipt.toJson().contains("\"signedPackage\":false"))
+}
+
+@Test
+func mobileExternalSignerReceiptRejectsStaleBindingAndUnsafeDigest(): Unit {
+    let source = MobileSigningPreparationReceipt(
+        replayFixtureReceipt(),
+        MobileSigningPreparationRequest("player.apk")
+    )
+    var digestRejected = false
+    try {
+        let _ = MobileExternalSignerReceiptRequest(
+            "player.apk", "apksigner", "identity", "profile", "sha256:bad", source.sourceBinding
+        )
+    } catch (_: IllegalArgumentException) {
+        digestRejected = true
+    }
+    @Expect(digestRejected)
+    let receipt = bindMobileExternalSignerReceipt(
+        source,
+        MobileExternalSignerReceiptRequest(
+            "other.apk", "apksigner", "identity", "profile",
+            "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            "input-tree-v0:android:android-application-package:stale:4:9:2"
+        )
+    )
+    @Expect(!receipt.accepted())
+    @Expect(receipt.toJson().contains("source binding is stale or mismatched"))
+}

@@ -12,6 +12,8 @@ cuic kmode call mobile-host-replay mobile.demo.ios.provider.replay \
   'player.toggle|4|9'
 cuic kmode call mobile-host-replay mobile.demo.ios.signing.prepare \
   'ios-signing-identity,ios-provisioning-profile'
+cuic kmode call mobile-host-replay mobile.demo.ios.signing.bind \
+  'CangHui.app|xcode|identity-ref|profile-ref|sha256:<64-lowercase-hex>|<source-binding>'
 ```
 
 The payload accepts one callback per line as
@@ -27,3 +29,8 @@ installable packages or device proof.
 iOS signing capability labels. An empty or incomplete payload shows the blocked result.
 The receipt always keeps `signedPackage=false` and `installable=false`; the
 application-owned Xcode signing step is deliberately outside the endpoint.
+
+`mobile.demo.ios.signing.bind` accepts only opaque signer labels, one
+`sha256:` digest and the preparation source binding. An accepted response
+correlates the metadata with the current lifecycle/surface generation; it does
+not verify signature bytes or advance the package receipt.
