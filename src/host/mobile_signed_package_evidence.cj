@@ -167,6 +167,17 @@ public struct MobileSignedPackageEvidenceReceipt {
         sameSignedPackageStrings(sourceInputFiles, values)
     }
 
+    func matchesSignedPackageReceipt(source: MobileHostPackageReceipt): Bool {
+        applied() && source.platform == platform && source.packageKind == packageKind &&
+            source.stage == MobilePackageStage.SignedPackage &&
+            source.signing == MobileSigningState.Signed &&
+            source.deviceProof == MobileDeviceProofState.NotRun &&
+            source.applicationId == applicationId && source.lifecycleEpoch == lifecycleEpoch &&
+            source.surfaceGeneration == surfaceGeneration &&
+            mobileSigningSourceBinding(source) == sourceBinding &&
+            matchesSourceInputFiles(source.inputFiles)
+    }
+
     public func toJson(): String {
         let advanced = if (applied()) { "true" } else { "false" }
         "{\"protocol\":\"" + protocol + "\",\"platform\":\"" +

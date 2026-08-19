@@ -659,6 +659,12 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
     checks.add(doctorRequiredFile("mobile-host.signed-package-evidence-schema", "Mobile signed package evidence schema",
         joinPath(framework, "contracts/canghui-mobile-signed-package-evidence-v0.schema.json"),
         "Restore the public signed package evidence receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.installation-attempt", "Mobile installation attempt contract",
+        joinPath(framework, "src/host/mobile_installation_attempt.cj"),
+        "Restore the platform-owner installation attempt receipt gate."))
+    checks.add(doctorRequiredFile("mobile-host.installation-attempt-schema", "Mobile installation attempt schema",
+        joinPath(framework, "contracts/canghui-mobile-installation-attempt-v0.schema.json"),
+        "Restore the public installation attempt receipt schema."))
     checks.add(doctorRequiredFile("mobile-host.replay-contract", "Mobile host semantic replay contract",
         joinPath(framework, "src/host/mobile_host_replay.cj"),
         "Restore the platform-neutral mobile host semantic replay contract."))
@@ -679,7 +685,7 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
     let iosProvider = joinPath(framework, "src/host/ios_mobile_application_host.cj")
     checks.add(if (exists(iosAdapter) && exists(iosProvider)) {
         doctorReady("mobile-host.ios-provider", "iOS host provider boundary",
-            "The provider-owned iOS input-tree binding, external-signer receipt and signed-package evidence gate are present; installation and device replay remain separate gates.",
+            "The provider-owned iOS input-tree, signed-package evidence and installation-attempt gates are present; launch and device replay remain separate gates.",
             iosProvider + " + " + iosAdapter)
     } else {
         doctorDegraded("mobile-host.ios-provider", "iOS host provider boundary",

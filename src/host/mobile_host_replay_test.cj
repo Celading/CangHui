@@ -332,3 +332,146 @@ func mobileSignedPackageEvidenceCannotAdvanceAReplacementInputTree(): Unit {
     }
     @Expect(rejected)
 }
+
+@Test
+func mobileInstallationAttemptRecordsInstalledAndFailedOutcomesWithoutDeviceProof(): Unit {
+    let source = MobileHostPackageReceipt(
+        MobileApplicationPlatform.IOS,
+        MobilePackageKind.IOSApplicationBundle,
+        MobilePackageStage.InputTree,
+        "dev.canghui.ios.install",
+        AppLifecycleState.Active,
+        4,
+        9,
+        signing: MobileSigningState.Unsigned,
+        inputFiles: ["Info.plist", "CangHuiRuntimeBootstrap.m"]
+    )
+    let preparation = prepareMobileSigning(
+        source,
+        MobileSigningPreparationRequest(
+            "CangHui.app",
+            declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+        )
+    )
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "CangHui.app", "xcode", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let evidence = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "CangHui.app", "ios-platform-owner", "codesign-verify", "strict-v1",
+            "verify-20260819-install", digest, 4096, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    let signed = advanceMobileSignedPackageReceipt(source, evidence)
+    let installed = recordMobileInstallationAttempt(
+        signed,
+        evidence,
+        MobileInstallationAttemptRequest(
+            "CangHui.app", "ios-platform-owner", MobileInstallationTargetClass.PhysicalDevice,
+            "devicectl", "development-install-v1", "install-20260819-001",
+            digest, 4096, MobileInstallationAttemptOutcome.Installed
+        )
+    )
+    @Expect(installed.recorded())
+    @Expect(installed.installed())
+    @Expect(installed.installationProven())
+    @Expect(!installed.advancesPackageReceipt())
+    @Expect(installed.toJson().contains("\"sourceStage\":\"signed-package\""))
+    @Expect(installed.toJson().contains("\"installationProven\":true"))
+    @Expect(installed.toJson().contains("\"launchProven\":false"))
+    @Expect(installed.toJson().contains("\"deviceProven\":false"))
+
+    let failed = recordMobileInstallationAttempt(
+        signed,
+        evidence,
+        MobileInstallationAttemptRequest(
+            "CangHui.app", "ios-platform-owner", MobileInstallationTargetClass.PhysicalDevice,
+            "devicectl", "development-install-v1", "install-20260819-002",
+            digest, 4096, MobileInstallationAttemptOutcome.Failed
+        )
+    )
+    @Expect(failed.recorded())
+    @Expect(!failed.installed())
+    @Expect(!failed.installationProven())
+    @Expect(failed.toJson().contains("platform installer reported a failed installation attempt"))
+}
+
+@Test
+func mobileInstallationAttemptRejectsStaleArtifactAndReplacementTree(): Unit {
+    let source = replayFixtureReceipt()
+    let preparation = prepareMobileSigning(
+        source,
+        MobileSigningPreparationRequest(
+            "player.apk",
+            declaredCapabilities: ["android-keystore", "android-key-alias"]
+        )
+    )
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "player.apk", "apksigner", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let evidence = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "player.apk", "android-platform-owner", "apksigner-verify", "strict-v1",
+            "verify-20260819-install", digest, 8192, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    let signed = advanceMobileSignedPackageReceipt(source, evidence)
+    let mismatched = recordMobileInstallationAttempt(
+        signed,
+        evidence,
+        MobileInstallationAttemptRequest(
+            "player.apk", "android-platform-owner", MobileInstallationTargetClass.PhysicalDevice,
+            "adb", "development-install-v1", "install-20260819-mismatch",
+            "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            8192, MobileInstallationAttemptOutcome.Installed
+        )
+    )
+    @Expect(!mismatched.recorded())
+    @Expect(!mismatched.installationProven())
+
+    let replacement = MobileHostPackageReceipt(
+        signed.platform,
+        signed.packageKind,
+        signed.stage,
+        signed.applicationId,
+        signed.lifecycleState,
+        signed.lifecycleEpoch,
+        signed.surfaceGeneration,
+        signing: signed.signing,
+        deviceProof: signed.deviceProof,
+        permissions: signed.permissions,
+        inputFiles: ["AndroidManifest.xml", "lib/arm64-v8a/libreplacement.so"],
+        limitations: signed.limitations
+    )
+    let wrongTree = recordMobileInstallationAttempt(
+        replacement,
+        evidence,
+        MobileInstallationAttemptRequest(
+            "player.apk", "android-platform-owner", MobileInstallationTargetClass.PhysicalDevice,
+            "adb", "development-install-v1", "install-20260819-tree",
+            digest, 8192, MobileInstallationAttemptOutcome.Installed
+        )
+    )
+    @Expect(!wrongTree.recorded())
+
+    @Expect(
+        mobileInstallationTargetClassName(MobileInstallationTargetClass.ManagedDevicePool),
+        "managed-device-pool"
+    )
+}

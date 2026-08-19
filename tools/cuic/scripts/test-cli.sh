@@ -203,6 +203,28 @@ printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installable":true'
 printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installationProven":false'
 printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"deviceProven":false'
 
+IOS_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|installed")"
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"protocol":"canghui.mobile-installation-attempt.v0"'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"state":"recorded"'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"sourceStage":"signed-package"'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"installed":true'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"installationProven":true'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"launchProven":false'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"deviceProven":false'
+
+IOS_FAILED_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli-failed|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|failed")"
+printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"state":"recorded"'
+printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"outcome":"failed"'
+printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"installationProven":false'
+
+IOS_STALE_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli-stale|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|input-tree-v0:ios:ios-application-bundle:stale:4:9:14|installed")"
+printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"state":"rejected"'
+printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"installationProven":false'
+printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"deviceProven":false'
+
 IOS_STALE_SIGNED_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
     mobile.demo.ios.signing.verify "CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-20260819-stale|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|input-tree-v0:ios:ios-application-bundle:stale:4:9:14|passed")"
 printf '%s' "${IOS_STALE_SIGNED_PACKAGE_JSON}" | grep -q '"state":"rejected"'

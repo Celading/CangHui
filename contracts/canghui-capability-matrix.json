@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260819.19",
+  "matrixVersion": "CangHui.20260819.20",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -28,7 +28,8 @@
     "proofs/20260819-canghui-ios-provider-input-tree-v0.json",
     "proofs/20260819-canghui-mobile-signing-preparation-v0.json",
     "proofs/20260819-canghui-mobile-external-signer-receipt-v0.json",
-    "proofs/20260819-canghui-mobile-signed-package-evidence-v0.json"
+    "proofs/20260819-canghui-mobile-signed-package-evidence-v0.json",
+    "proofs/20260819-canghui-mobile-installation-attempt-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -53,6 +54,7 @@
       "provider-owned iOS unsigned input-tree binding over the UIKit native-surface bridge",
       "non-secret mobile external-signer preparation receipts that cannot claim signed or installable output",
       "platform-owner signed-package evidence bound to verifier receipt, artifact digest, lifecycle and surface generation",
+      "platform-owner installation-attempt receipts bound to the exact signed artifact and predecessor input tree",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
@@ -291,7 +293,7 @@
     {
       "id": "mobile-host-contracts",
       "version": "canghui.mobile-application-host.v0",
-      "state": "source-test-schema-doctor-headless-kmode-consumer-fixture-proven; provider-owned iOS unsigned input-tree, external-signer correlation and signed-package evidence replay-proven; applied evidence advances only to signed-package/installable-candidate while installationProven=false/deviceProven=false; ios-runtime-static-package-n2c-abi-and-native-surface-adapter historically proven on simulator and device; current installation/device replay open; android-product-apk-and-harmonyos-hap-open",
+      "state": "source-test-schema-doctor-headless-kmode-consumer-fixture-proven; provider-owned iOS unsigned input-tree, external-signer correlation, signed-package evidence and installation-attempt replay-proven; a matched installed receipt may report installationProven=true while package stage remains signed-package and launchProven/renderingProven/deviceProven remain false; ios-runtime-static-package-n2c-abi-and-native-surface-adapter historically proven on simulator and device; current real installer execution, launch and device replay open; android-product-apk-and-harmonyos-hap-open",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
         "src/host/mobile_host_contracts_test.cj",
@@ -301,6 +303,7 @@
         "src/host/mobile_signing_preparation.cj",
         "src/host/mobile_external_signer_receipt.cj",
         "src/host/mobile_signed_package_evidence.cj",
+        "src/host/mobile_installation_attempt.cj",
         "src/host/mobile_host_replay.cj",
         "src/host/mobile_host_replay_test.cj",
         "src/kmode/mobile_host_replay.cj",
@@ -308,6 +311,7 @@
         "contracts/canghui-mobile-signing-preparation-v0.schema.json",
         "contracts/canghui-mobile-external-signer-receipt-v0.schema.json",
         "contracts/canghui-mobile-signed-package-evidence-v0.schema.json",
+        "contracts/canghui-mobile-installation-attempt-v0.schema.json",
         "contracts/canghui-mobile-host-replay-v0.schema.json",
         "docs/mobile-application-host.md",
         "tools/cuic/src/doctor.cj",

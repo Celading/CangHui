@@ -121,6 +121,16 @@ public class IOSMobileApplicationHostProvider <: MobileApplicationHostProvider {
         }
     }
 
+    /** Record one external installer result without advancing to device-proven. */
+    public func recordInstallationAttempt(
+        evidence: MobileSignedPackageEvidenceReceipt,
+        request: MobileInstallationAttemptRequest
+    ): MobileInstallationAttemptReceipt {
+        synchronized(stateMutex) {
+            recordMobileInstallationAttempt(packageReceiptLocked(), evidence, request)
+        }
+    }
+
     /** Stage the actual checked-in iOS host input tree without package claims. */
     public func stageUnsignedInputTree(): Bool {
         synchronized(stateMutex) {

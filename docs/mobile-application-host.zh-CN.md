@@ -105,3 +105,19 @@ HAP 签名器或其验证命令。
 此时 `installable=true` 只表示产物具备尝试安装的资格；receipt 仍明确保持
 `installationProven=false` 与 `deviceProven=false`。实际安装、启动、渲染和真机
 回放属于后续相互独立的证据阶段。
+
+## 安装尝试 receipt
+
+`canghui.mobile-installation-attempt.v0` 用于记录一次由平台 owner 控制的安装器
+边界所报告的结果。请求会重复签名产物的输出名、`sha256:` 摘要与大小，并增加平台
+owner、目标设备类别、安装器工具、安装策略和外部 receipt ID 等受限不透明标签。
+它不会接收设备 UDID、文件路径、命令行、凭据或安装包字节。
+
+只有当前 package 仍处于 `signed-package`，且已应用的签名包证据继续精确匹配应用
+身份、lifecycle epoch、原生 Surface generation 与前序 input-tree，receipt 才会进入
+`recorded`。匹配的 `failed` 结果只记录失败尝试，不证明安装；匹配的 `installed`
+结果可以报告 `installationProven=true`，但不会推进 `MobileHostPackageReceipt`。
+
+CangHui 不执行安装器，也不独立验证安装器结果。因此安装 receipt 始终保留
+`launchProven=false`、`renderingProven=false` 与 `deviceProven=false`。启动观察、
+渲染表面证据和语义真机回放仍需后续独立 receipt。

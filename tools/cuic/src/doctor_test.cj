@@ -126,6 +126,8 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     var externalSignerReceiptSchemaReady = false
     var signedPackageEvidenceReady = false
     var signedPackageEvidenceSchemaReady = false
+    var installationAttemptReady = false
+    var installationAttemptSchemaReady = false
     var replayContractReady = false
     var replaySchemaReady = false
     var kmodeAdapterReady = false
@@ -159,6 +161,12 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
         }
         if (check.id == "mobile-host.signed-package-evidence-schema" && doctorStatusName(check.status) == "ready") {
             signedPackageEvidenceSchemaReady = true
+        }
+        if (check.id == "mobile-host.installation-attempt" && doctorStatusName(check.status) == "ready") {
+            installationAttemptReady = true
+        }
+        if (check.id == "mobile-host.installation-attempt-schema" && doctorStatusName(check.status) == "ready") {
+            installationAttemptSchemaReady = true
         }
         if (check.id == "mobile-host.replay-contract" && doctorStatusName(check.status) == "ready") {
             replayContractReady = true
@@ -196,6 +204,8 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     @Expect(externalSignerReceiptSchemaReady)
     @Expect(signedPackageEvidenceReady)
     @Expect(signedPackageEvidenceSchemaReady)
+    @Expect(installationAttemptReady)
+    @Expect(installationAttemptSchemaReady)
     @Expect(replayContractReady)
     @Expect(replaySchemaReady)
     @Expect(kmodeAdapterReady)

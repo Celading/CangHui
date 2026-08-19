@@ -293,6 +293,16 @@ public import cui.host.mobileSignedPackageVerificationOutcomeName
 public import cui.host.mobileSignedPackageEvidenceStateName
 public import cui.host.verifyMobileSignedPackageEvidence
 public import cui.host.advanceMobileSignedPackageReceipt
+public import cui.host.CANGHUI_MOBILE_INSTALLATION_ATTEMPT_PROTOCOL
+public import cui.host.MobileInstallationAttemptOutcome
+public import cui.host.MobileInstallationAttemptState
+public import cui.host.MobileInstallationTargetClass
+public import cui.host.MobileInstallationAttemptRequest
+public import cui.host.MobileInstallationAttemptReceipt
+public import cui.host.mobileInstallationAttemptOutcomeName
+public import cui.host.mobileInstallationAttemptStateName
+public import cui.host.mobileInstallationTargetClassName
+public import cui.host.recordMobileInstallationAttempt
 public import cui.host.NativeSurfaceBackend
 public import cui.host.NativeSurfaceDescriptor
 public import cui.host.NativeSurfaceEvent

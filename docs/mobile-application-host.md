@@ -123,3 +123,24 @@ At this stage `installable=true` means only that the artifact is eligible for
 an installation attempt. The receipt explicitly keeps
 `installationProven=false` and `deviceProven=false`; installation, launch,
 rendering and physical-device replay are later and independent evidence.
+
+## Installation attempt receipt
+
+`canghui.mobile-installation-attempt.v0` records one result reported by a
+platform-owner-controlled installer boundary. The request repeats the signed
+artifact output name, `sha256:` digest and size, then adds bounded opaque labels
+for the platform owner, target device class, installer tool, installation
+policy and external receipt ID. It deliberately does not accept a device UDID,
+filesystem path, command line, credential or package bytes.
+
+The receipt is `recorded` only when the current package remains at
+`signed-package` and the applied signed-package evidence still matches the
+application identity, lifecycle epoch, native-surface generation and exact
+predecessor input tree. A matched `failed` outcome records the failed attempt
+without proving installation. A matched `installed` outcome may report
+`installationProven=true`, but it does not advance `MobileHostPackageReceipt`.
+
+CangHui does not execute or independently verify the installer. Every
+installation receipt therefore keeps `launchProven=false`,
+`renderingProven=false` and `deviceProven=false`. Launch observation, rendered
+surface evidence and semantic device replay require later independent receipts.

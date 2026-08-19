@@ -16,6 +16,8 @@ cuic kmode call mobile-host-replay mobile.demo.ios.signing.bind \
   'CangHui.app|xcode|identity-ref|profile-ref|sha256:<64-lowercase-hex>|<source-binding>'
 cuic kmode call mobile-host-replay mobile.demo.ios.signing.verify \
   'CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-demo-001|sha256:<64-lowercase-hex>|4096|<source-binding>|passed'
+cuic kmode call mobile-host-replay mobile.demo.ios.installation.record \
+  'CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-demo-001|sha256:<64-lowercase-hex>|4096|<source-binding>|installed'
 ```
 
 The payload accepts one callback per line as
@@ -42,3 +44,9 @@ verification receipt. A passed and fully matched receipt advances the provider
 to `signed-package`; the JSON still reports `installationProven=false` and
 `deviceProven=false`. No signer, verifier, installation or device command is
 executed by the example.
+
+`mobile.demo.ios.installation.record` demonstrates the next external receipt.
+It reconstructs the signed-package gate, then records an opaque platform
+installer result. `installed` may set `installationProven=true`, but launch,
+rendering and device proof remain false. The example does not run `devicectl`
+or inspect an iPad identifier.
