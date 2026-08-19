@@ -34,6 +34,7 @@ public struct Theme {
     /** When true, automatic animations collapse to the shortest duration. */
     public let reduceMotion: Bool
     public let fontFamily: ?String
+    public let components: ComponentTheme
 
     public init(
         bg!: Color,
@@ -55,7 +56,8 @@ public struct Theme {
         borderWidth!: Float32 = 1.0,
         motionLevel!: MotionLevel = MotionLevel.Standard,
         reduceMotion!: Bool = false,
-        fontFamily!: ?String = None<String>
+        fontFamily!: ?String = None<String>,
+        components!: ComponentTheme = ComponentTheme()
     ) {
         this.bg = bg
         this.panel = panel
@@ -77,6 +79,7 @@ public struct Theme {
         this.motionLevel = motionLevel
         this.reduceMotion = reduceMotion
         this.fontFamily = fontFamily
+        this.components = components
     }
 
     public static func light(motionLevel!: MotionLevel = MotionLevel.Standard, reduceMotion!: Bool = false): Theme {
@@ -124,7 +127,35 @@ public struct Theme {
             borderWidth: borderWidth,
             motionLevel: motionLevel,
             reduceMotion: reduceMotion,
-            fontFamily: value
+            fontFamily: value,
+            components: components
+        )
+    }
+
+    /** Returns the same semantic palette with component-scoped appearance overrides. */
+    public func withComponents(value: ComponentTheme): Theme {
+        Theme(
+            bg: bg,
+            panel: panel,
+            panelEdge: panelEdge,
+            text: text,
+            mutedText: mutedText,
+            accent: accent,
+            accentText: accentText,
+            danger: danger,
+            field: field,
+            fieldActive: fieldActive,
+            panelRaised: panelRaised,
+            accentSoft: accentSoft,
+            shadow: shadow,
+            radius: radius,
+            smallRadius: smallRadius,
+            controlRadius: controlRadius,
+            borderWidth: borderWidth,
+            motionLevel: motionLevel,
+            reduceMotion: reduceMotion,
+            fontFamily: fontFamily,
+            components: value
         )
     }
 
@@ -173,7 +204,8 @@ public struct Theme {
             borderWidth: borderWidth,
             motionLevel: value,
             reduceMotion: reduceMotion,
-            fontFamily: fontFamily
+            fontFamily: fontFamily,
+            components: components
         )
     }
 
@@ -199,7 +231,8 @@ public struct Theme {
             borderWidth: borderWidth,
             motionLevel: motionLevel,
             reduceMotion: value,
-            fontFamily: fontFamily
+            fontFamily: fontFamily,
+            components: components
         )
     }
 
@@ -226,19 +259,23 @@ public struct Theme {
             borderWidth: borderWidth + (other.borderWidth - borderWidth) * k,
             motionLevel: if (k < 0.5) { motionLevel } else { other.motionLevel },
             reduceMotion: reduceMotion || other.reduceMotion,
-            fontFamily: if (k < 0.5) { fontFamily } else { other.fontFamily }
+            fontFamily: if (k < 0.5) { fontFamily } else { other.fontFamily },
+            components: if (k < 0.5) { components } else { other.components }
         )
     }
 
     public func panelSurface(): SurfaceStyle {
-        SurfaceStyle(
-            panel,
-            border: panelEdge,
-            radius: radius,
-            borderWidth: borderWidth,
-            shadow: shadow,
-            shadowOffsetY: 2.0
-        )
+        match (components.panelSurface) {
+            case Some(value) => value
+            case None => SurfaceStyle(
+                panel,
+                border: panelEdge,
+                radius: radius,
+                borderWidth: borderWidth,
+                shadow: shadow,
+                shadowOffsetY: 2.0
+            )
+        }
     }
 
     public func raisedSurface(): SurfaceStyle {

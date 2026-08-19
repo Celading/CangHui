@@ -16,7 +16,8 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 |---|---|
 | [`Animator`](Animator.md) | 按固定时长与 [`Easing`](Easing.md) 曲线把数值从当前位置补间到目标的动画器——CSS transition 与 SwiftUI/Compose `.animation(...)` 背后的模型。 |
 | [`Binding`](Binding.md) | 指向另一个可绑定值中某个字段的双向绑定，用 Bindable.project 创建。 |
-| [`Button`](Button.md) | 带按主题显示的背景与边框与居中标题的按压按钮，在按钮内部按下并松开时触发 `onClick`。 |
+| [`Button`](Button.md) | 带主题表面的按压按钮，既可使用居中标题，也可承载任意装饰性内容 slot。 |
+| [`ButtonStyle`](ButtonStyle.md) | 按 hover、press、focus 与语义角色解析 Button/IconButton 外观的状态样式。 |
 | [`DerivedState`](DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
 | [`Divider`](Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
 | [`EventHandler`](EventHandler.md) | 在子树收到事件之前先把每个事件交给回调的透明包装组件，回调返回 `true` 即消费该事件。 |
@@ -60,12 +61,16 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | 类型 | 说明 |
 |---|---|
 | [`Corners`](Corners.md) | 背景四角的独立圆角半径，即 CSS 四值 `border-radius` 模型，按左上、右上、右下、左下排列。 |
+| [`ButtonAppearance`](ButtonStyle.md#buttonappearance) | ButtonStyle 返回的表面、前景、InkWell 与焦点圆角。 |
+| [`ButtonLayoutStyle`](ComponentTheme.md#buttonlayoutstyle) | 标题/slot Button 的默认内容内边距与最小尺寸。 |
+| [`ButtonVisualState`](ButtonStyle.md#buttonvisualstate) | 连续 hover/press 进度与焦点状态。 |
+| [`ComponentTheme`](ComponentTheme.md) | Theme 中的组件级 Button 与 Panel 覆盖层。 |
 | [`Gradient`](Gradient.md) | 圆角背景用的双色线性渐变填充，默认自上而下、`vertical` 为 false 时自左向右。 |
 | [`Length`](Length.md) | 带显式单位的一维尺寸，写作 `100.px`、`24.vp` 或 `15.fp`。 |
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |
 | [`Shadow`](Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
 | [`ScrollOptions`](ScrollOptions.md) | 可滚动组件共享的滚轮策略：选择即时或平滑行为，并配置步长、播放时长与曲线。 |
-| [`Theme`](Theme.md) | 组件共用的外观设置：按用途提供背景、面板、输入框、文字、强调色和危险色，并保存统一的圆角与描边宽度（逻辑像素）。 |
+| [`Theme`](Theme.md) | 组件共用的语义调色板、动效设置与组件级覆盖层。 |
 
 **接口**
 

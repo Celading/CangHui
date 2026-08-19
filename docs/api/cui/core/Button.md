@@ -4,7 +4,7 @@
 
 `cui.core` 包中的 public class
 
-带按主题显示的背景与边框与居中标题的按压按钮，在按钮内部按下并松开时触发 `onClick`。可聚焦：获得键盘焦点后 Enter 与空格同样触发；[`ButtonRole`](ButtonRole.md) 选择语义配色，`style` 完全覆盖表面。
+带主题表面的按压按钮，可使用居中标题或任意装饰性内容 slot。在按钮内部按下并松开时触发 `onClick`；获得键盘焦点后 Enter 与空格同样触发。[`ButtonRole`](ButtonRole.md) 选择语义配色，`style` 覆盖表面，`buttonStyle` 覆盖完整的状态外观。
 
 ## 声明
 
@@ -20,6 +20,8 @@ Button <: [`Widget`](Widget.md)
 
 点击识别是"按下-释放"式的：主键在按钮内按下时获得焦点与按压，在按钮内松开才算一次点击，拖出按钮后松开则取消。焦点与按下状态标识默认按构建位置自动生成、每次构建唯一；需要在树形变化中保持标识时用 [`key`](#key) 固定。Normal 角色的表面随按下/悬停切换主题填充色（重叠布局中只有位于最上层的控件高亮）；焦点环只在焦点经键盘到达时绘制（`:focus-visible` 约定），指针点击不会留下键盘样式的描边。
 
+slot 构造器用于图标、主副标题、状态点等组合内容。slot 是装饰子树：外层 Button 独占焦点与激活，slot 内的可聚焦后代不会进入 Tab 环或接收事件，因此不要在其中嵌套真正需要独立操作的控件。slot 子项自行声明文字与图标颜色。
+
 ## 示例
 
 ```cangjie verify
@@ -33,6 +35,15 @@ main(): Unit {
         let saved = rememberState<Int64>("saved") {0}
         VStack(spacing: 12.vp) {
             Button("保存", {=> saved.value = saved.value + 1}, role: ButtonRole.Primary)
+            Button(onClick: {=> saved.value = saved.value + 1}) {
+                HStack(spacing: 8.vp) {
+                    Icon(IconName.Save)
+                    VStack(spacing: 2.vp) {
+                        Label("保存副本").bold()
+                        Label("保留当前版本").muted().fontSize(12.fp)
+                    }.hug()
+                }.hug()
+            }.contentPadding(LengthInsets(16.vp, 8.vp))
             Label("已保存 ${saved.value} 次").muted()
         }.padding(24.0)
         // 运行时：点击主按钮或聚焦后按 Enter/空格，计数标签随状态更新。
@@ -46,7 +57,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
-| [`init(...)`](#init) | 创建按钮：标题、点击回调，以及可选的角色、表面与字号。 |
+| [`init(...)`](#init) | 创建标题按钮，或以 `onClick + body` 创建 slot 按钮。 |
 
 **方法**
 
@@ -55,6 +66,9 @@ main(): Unit {
 | [`key(value: String)`](#key) | 设置显式的焦点与按下状态标识。 |
 | [`role(value: ButtonRole)`](#role) | 应用语义按钮配色。 |
 | [`style(value: SurfaceStyle)`](#style) | 覆盖主题推导的按钮表面。 |
+| `buttonStyle(value: ButtonStyle)` | 覆盖状态感知的表面、前景、InkWell 与焦点几何。 |
+| `contentPadding(value: LengthInsets)` | 覆盖标题或 slot 内容内边距。 |
+| `minControlSize(width, height)` | 覆盖按钮最小尺寸。 |
 | [`fontSize(value: Length)`](#fontsize) | 设置标题字号。 |
 | [`fontSize(value: Float32)`](#fontsize) | 设置标题字号。 |
 | [`measure(...)`](#measure) | 按标题文本宽度加内边距测量：宽度下限 72、不超过可用宽度，高度为固定控件高 38 逻辑像素。 |
@@ -79,6 +93,17 @@ public init(
 )
 ```
 
+slot 构造器：
+
+```cangjie
+public init(
+    onClick!: () -> Unit,
+    role!: ButtonRole = ButtonRole.Normal,
+    style!: ?SurfaceStyle = None,
+    body!: () -> Unit
+)
+```
+
 **参数**
 
 - `title`: `String` — 居中绘制的按钮标题，也参与默认标识的生成。
@@ -86,6 +111,7 @@ public init(
 - `role!`: [`ButtonRole`](ButtonRole.md) — 语义配色：`Primary` 强调、`Danger` 危险动作；默认 `ButtonRole.Normal`，使用常规表面并叠加按下/悬停反馈。
 - `style!`: `?SurfaceStyle` — 完全覆盖主题推导的表面（含按下/悬停反馈）；默认 `None`，按 `role` 从主题取表面。
 - `fontSize!`: [`Length`](Length.md) — 标题字号；默认 `Length(FontSizes.CONTROL, LengthUnit.Fp)`（15 fp，随用户字体缩放）。
+- `body!`: `() -> Unit` — slot 装饰内容；其可聚焦后代会从 Tab 环移除，事件由外层 Button 独占。
 
 ## 方法
 
@@ -123,7 +149,7 @@ public func role(value: ButtonRole): Button
 
 ### style
 
-覆盖主题推导的按钮表面。设置后按下/悬停不再切换填充色。返回 `this` 便于链式调用。
+覆盖主题推导的按钮基础表面，并保留框架的按下/悬停颜色反馈。返回 `this` 便于链式调用。
 
 ```cangjie
 public func style(value: SurfaceStyle): Button
@@ -155,7 +181,7 @@ public func fontSize(value: Float32): Button
 
 ### measure
 
-按标题文本宽度加内边距测量：宽度下限 72、不超过可用宽度，高度为固定控件高 38 逻辑像素。
+按标题或 slot 内容加组件主题/实例内边距测量；默认最小宽度 72、最小高度 38，不超过可用尺寸。
 
 ```cangjie
 public func measure(ctx: UiContext, available: Size): Size

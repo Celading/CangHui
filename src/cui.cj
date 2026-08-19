@@ -64,7 +64,12 @@ public import cui.core.Axis
 public import cui.core.Bindable
 public import cui.core.Binding
 public import cui.core.Button
+public import cui.core.ButtonAppearance
+public import cui.core.ButtonLayoutStyle
 public import cui.core.ButtonRole
+public import cui.core.ButtonStyle
+public import cui.core.ButtonVisualState
+public import cui.core.ComponentTheme
 public import cui.core.CrossAxisAlignment
 public import cui.core.ComponentProbe
 public import cui.core.CursorShape

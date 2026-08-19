@@ -170,8 +170,13 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 
 - `Theme.light(motionLevel:)`、`Theme.dark(motionLevel:)`；默认 `MotionLevel.Standard`。
 - `withMotionLevel(value)`：保留颜色和几何令牌，仅替换动效力度。
+- `withComponents(value)`：覆盖组件级 Button 样式/布局与 Panel 表面，不要求每个调用点重复传样式。
 - `panelSurface()`、`raisedSurface()`。
 - `fieldSurface(active)`、`buttonSurface(role)`、`selectedSurface()`。
+
+`ButtonStyle` 按 `ButtonVisualState(hover, press, focused)` 返回表面、前景色、InkWell 色与焦点圆角；
+`ComponentTheme` 将该样式、Button 默认内边距/最小尺寸和 Panel 默认表面装入 `Theme`。主题切换和插值会
+保留或选择完整的组件覆盖层，而不会退回脚手架默认外观。
 
 ## 6. 布局与容器
 
@@ -210,7 +215,7 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 | 类型 | 必要构造信息 | 链式 API |
 |---|---|---|
 | `Label` | `text` | `muted()`、`muted(bool)`、`textAlign`、`foregroundColor`、`fontSize`、`maxLines(n)`、`wrap()` |
-| `Button` | `title`、`onClick` | `id`、`role`、`style`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
+| `Button` | `title + onClick`，或 `onClick + body` slot | `key`、`role`、`style`、`buttonStyle`、`contentPadding`、`minControlSize`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Icon` | `IconName` | `iconSize`、`foregroundColor` |
 | `IconButton` | `IconName`、`onClick` | `id`、`label`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Divider` | 无 | `axis`、`color` |
@@ -219,6 +224,9 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 `maxLines` 参数必须大于 0。Button 与 IconButton 共用 move-in/hover/press/move-out 状态机：
 只有按下和释放都位于控件内才激活；按下后移出会立即取消 press 与 InkWell，随后在外部释放不会回调。
 二者支持取得焦点后的 Enter/Space，悬停与按压位移、颜色和 InkWell 强度由主题动效力度控制。
+slot Button 可组合任意装饰性 CUI 子树；外层 Button 独占焦点、点击和键盘激活，slot 内的可聚焦后代不会
+进入 Tab 环，也不会收到事件。slot 子项自行声明文字/图标颜色，按钮的 `ButtonStyle` 负责外层表面、
+InkWell 与焦点几何。
 
 ## 8. 选择、导航和数值控件
 

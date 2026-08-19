@@ -4,7 +4,7 @@
 
 `cui.core` 包中的 public struct
 
-组件共用的外观设置：按用途提供背景、面板、输入框、文字、强调色和危险色，并保存统一的圆角与描边宽度（逻辑像素）。组件按用途取色，而不是各自写死颜色；替换上下文中的 `Theme` 就能让整棵界面一起换肤。[`light`](#light) 与 [`dark`](#dark) 是内置浅色和深色主题。本类型不可变；要修改某一项，需要构造一个新值。
+组件共用的外观设置：按用途提供背景、面板、输入框、文字、强调色和危险色，并保存统一的圆角、描边、动效和组件级覆盖。组件按用途取色，而不是各自写死颜色；替换上下文中的 `Theme` 就能让整棵界面一起换肤。[`light`](#light) 与 [`dark`](#dark) 是内置浅色和深色主题。本类型不可变；用 `withComponents` 等方法返回新值。
 
 ## 声明
 
@@ -47,6 +47,7 @@ main(): Unit {
 |---|---|
 | [`static light()`](#light) | 返回内置浅色主题。 |
 | [`static dark()`](#dark) | 返回内置深色主题。 |
+| `withComponents(value: ComponentTheme)` | 保留语义调色板并替换组件级 Button/Panel 覆盖。 |
 | [`panelSurface()`](#panelsurface) | 返回标准面板表面：`panel` 填充、`panelEdge` 描边、`radius` 圆角与柔和阴影。 |
 | [`raisedSurface()`](#raisedsurface) | 返回浮起表面：`panelRaised` 填充，阴影偏移比面板更深一档。 |
 | [`fieldSurface(active: Bool)`](#fieldsurface) | 返回输入域表面；激活时改用 `fieldActive` 填充、`accent` 描边并加淡淡的强调辉光。 |
@@ -74,6 +75,7 @@ main(): Unit {
 | [`smallRadius`](#smallradius) | 小元素圆角半径，逻辑像素。 |
 | [`controlRadius`](#controlradius) | 控件圆角半径，逻辑像素。 |
 | [`borderWidth`](#borderwidth) | 描边宽度，逻辑像素。 |
+| `components` | Button 状态样式、Button 布局与 Panel 表面的组件级覆盖。 |
 
 ## 构造函数
 
@@ -99,7 +101,11 @@ public init(
     radius!: Float32 = 12.0,
     smallRadius!: Float32 = 7.0,
     controlRadius!: Float32 = 9.0,
-    borderWidth!: Float32 = 1.0
+    borderWidth!: Float32 = 1.0,
+    motionLevel!: MotionLevel = MotionLevel.Standard,
+    reduceMotion!: Bool = false,
+    fontFamily!: ?String = None<String>,
+    components!: ComponentTheme = ComponentTheme()
 )
 ```
 
@@ -122,6 +128,7 @@ public init(
 - `smallRadius!`: `Float32` — 小元素圆角；默认 `7.0`。
 - `controlRadius!`: `Float32` — 控件圆角；默认 `9.0`。
 - `borderWidth!`: `Float32` — 描边宽度；默认 `1.0`。
+- `components!`: `ComponentTheme` — 组件级覆盖；默认保留内建 Button 与 Panel 外观。
 
 ## 方法
 

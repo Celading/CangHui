@@ -145,6 +145,26 @@ main() {
 }
 ```
 
+Buttons also accept arbitrary decorative content while retaining the same
+focus, keyboard, release-inside and move-out cancellation contract:
+
+```cangjie
+Button(onClick: {=> openWorkspace()}, role: ButtonRole.Primary) {
+    HStack(spacing: 8.vp) {
+        Icon(IconName.Folder).foregroundColor(Color.rgb(255, 255, 255))
+        VStack(spacing: 2.vp) {
+            Label("Open workspace").foregroundColor(Color.rgb(255, 255, 255)).bold()
+            Label("Local or remote").foregroundColor(Color.rgba(255, 255, 255, 190)).fontSize(12.fp)
+        }.hug()
+    }.hug()
+}.contentPadding(LengthInsets(16.vp, 10.vp))
+```
+
+Slot content is decorative: the outer button remains the only focus and click
+owner. `ButtonStyle` and `ComponentTheme` customize state-aware button chrome
+and default Panel surfaces across an application; slot children keep explicit
+ownership of their own text and icon colors.
+
 See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
 override rules.
 
@@ -190,8 +210,8 @@ framework development, but it is not the normal application layout.
   `ScrollOptions` policy configures immediate or smooth behavior, logical-pixel
   wheel step, duration, and easing across views, lazy lists, tables, trees,
   text areas, dropdowns, and combo boxes.
-- Design tokens: `Spacing`, `Radii`, `Motion`, color `Theme`, `FontSizes`, and
-  `Shadow.elevation`.
+- Design tokens: `Spacing`, `Radii`, `Motion`, color `Theme`, component-scoped
+  `ComponentTheme` / `ButtonStyle`, `FontSizes`, and `Shadow.elevation`.
 - Pointer-origin light/dark theme reveal and semantic-color InkWell feedback
   clipped to real rounded geometry, with release-inside activation and permanent
   move-out cancellation.
