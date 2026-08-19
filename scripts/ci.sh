@@ -39,7 +39,11 @@ fi
 echo "==> cuic build + test"
 (cd tools/cuic && cjpm test && cjpm build)
 
-# 5. Public-surface checks.
+# 5. Platform script tests.
+echo "==> iOS provisioning profile decoder"
+bash scripts/test-ios-provisioning-profile.sh
+
+# 6. Public-surface checks.
 echo "==> diff check"
 git diff --check
 

@@ -44,8 +44,12 @@ permission checks remain runtime validation.
 - iOS/iPadOS has a UIKit `CAMetalLayer` native-surface adapter and historical
   simulator/device bootstrap proof. `IOSMobileApplicationHostProvider` now binds
   the existing iOS input tree to the receipt and rejects lifecycle/surface-stale
-  receipt replay. A product application package, current signing receipt and
-  product-scene device replay remain separate work.
+  receipt replay. A fresh time-valid development profile has also passed a
+  physical-device `devicectl` installation. The current launch replay remains
+  blocked by the device developer-trust gate, so launch, rendering and semantic
+  device proof stay false. The verification script accepts both the macOS
+  `security cms` decoder and an `openssl smime` compatibility fallback without
+  copying profile contents into project evidence.
 - Android has a Java/JNI/NDK `SurfaceView` bootstrap. Cangjie Android runtime
   linkage, a product APK and device replay remain open.
 - HarmonyOS consumes the same contract through an independently implemented

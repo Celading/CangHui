@@ -39,8 +39,10 @@ generation 同时匹配当前 receipt，回调才可进入 Cangjie UI owner queu
 
 - iOS/iPadOS 已有 UIKit `CAMetalLayer` 原生 Surface 适配器，以及历史模拟器、
   真机 bootstrap 证明。`IOSMobileApplicationHostProvider` 现在把现有 iOS 输入树
-  绑定到 receipt，并拒绝生命周期或 Surface 代际过期的 receipt 回放；产品应用包、
-  当前签名 receipt 和产品场景真机回放仍是独立工作。
+  绑定到 receipt，并拒绝生命周期或 Surface 代际过期的 receipt 回放。当前有效的
+  开发 profile 已通过一次真机 `devicectl` 安装，但本轮启动仍被设备开发者信任门
+  拒绝，因此启动、渲染和语义真机证明继续保持 false。验证脚本同时支持 macOS
+  `security cms` 解码与 `openssl smime` 兼容回退，且不会把 profile 内容写入项目证据。
 - Android 已有 Java/JNI/NDK `SurfaceView` bootstrap；Cangjie Android runtime
   链接、产品 APK 和真机回放仍未完成。
 - HarmonyOS 通过独立实现的 Ability/XComponent 或 OHNativeWindow Provider 消费

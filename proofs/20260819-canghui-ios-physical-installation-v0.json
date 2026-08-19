@@ -1,0 +1,34 @@
+{
+  "schema": "canghui.proof.v0",
+  "id": "20260819-canghui-ios-physical-installation-v0",
+  "project": "CangHui",
+  "capability": "iOS physical-device installation acceptance",
+  "checkpoint": "atomic member commit containing this proof",
+  "evidence": {
+    "hostToolchain": "Cangjie cjc/cjpm 1.1.3 and Xcode 16.4 on aarch64-apple-darwin",
+    "iosToolchain": "Cangjie 1.3.0-alpha-ios static runtime inputs",
+    "profileDecoder": "pass: security cms primary with openssl smime compatibility fallback; success, fallback and dual-failure tests",
+    "profileValidity": "pass: fresh time-valid Xcode-managed development profile at installation time",
+    "artifact": "pass: signed arm64 application executable, sha256:c43ac873805d3a7abd38f47dbf580f2a388b05eaa0df497c1830c3899d4c6679, 5665888 bytes",
+    "installation": "pass: devicectl accepted the application on a paired physical iPad",
+    "launchControl": "blocked: both the CangHui probe and an independently Xcode-signed control application were rejected by the same device developer-trust policy",
+    "frameworkTests": "pass: 580/580",
+    "cuicTests": "pass: 63/63"
+  },
+  "stageTruth": {
+    "installationProven": true,
+    "launchProven": false,
+    "renderingProven": false,
+    "deviceProven": false
+  },
+  "privacy": [
+    "no device identifier, serial number or device path retained",
+    "no signing identity, team identifier, profile UUID or profile path retained",
+    "no certificate, private key or provisioning profile contents retained"
+  ],
+  "nonClaims": [
+    "no current successful launch or console result",
+    "no current Metal frame, touch, lifecycle or semantic device replay",
+    "no product application acceptance, store, release, production or LTS claim"
+  ]
+}
