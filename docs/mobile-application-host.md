@@ -52,3 +52,19 @@ permission checks remain runtime validation.
 
 Run `cuic doctor ios`, `cuic doctor android` or `cuic doctor harmonyos` to see
 the local toolchain facts together with this common provider boundary.
+
+## Headless semantic replay
+
+`canghui.mobile-host-replay.v0` renders a staged receipt together with callback
+acceptance decisions without opening a window. `mobileHostReplayHandler`
+accepts zero or more payload lines in the form
+`actionId|lifecycleEpoch|surfaceGeneration`. It reports `current`,
+`stale-lifecycle`, `stale-surface` or `stale-lifecycle-and-surface` for each
+callback and preserves the receipt's unsigned, signing and device-proof facts.
+
+Consumers should wrap the handler in their own `@KModeLink` function. This
+keeps endpoint ownership in the application and lets `cuic kmode diff` reject
+duplicate names across the dependency graph. The
+`examples/mobile-host-replay` project demonstrates the pattern and carries
+unsigned iOS, Android and HarmonyOS input-tree fixtures. It does not generate
+an IPA, APK or HAP and does not turn headless replay into device proof.

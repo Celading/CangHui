@@ -120,6 +120,10 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     let checks = doctorMobileApplicationHostGroup(framework).checks
     var contractReady = false
     var schemaReady = false
+    var replayContractReady = false
+    var replaySchemaReady = false
+    var kmodeAdapterReady = false
+    var consumerFixtureReady = false
     var docsReady = false
     var iosReady = false
     var androidDegraded = false
@@ -130,6 +134,18 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
         }
         if (check.id == "mobile-host.schema" && doctorStatusName(check.status) == "ready") {
             schemaReady = true
+        }
+        if (check.id == "mobile-host.replay-contract" && doctorStatusName(check.status) == "ready") {
+            replayContractReady = true
+        }
+        if (check.id == "mobile-host.replay-schema" && doctorStatusName(check.status) == "ready") {
+            replaySchemaReady = true
+        }
+        if (check.id == "mobile-host.kmode-adapter" && doctorStatusName(check.status) == "ready") {
+            kmodeAdapterReady = true
+        }
+        if (check.id == "mobile-host.consumer-fixture" && doctorStatusName(check.status) == "ready") {
+            consumerFixtureReady = true
         }
         if (check.id == "mobile-host.docs" && doctorStatusName(check.status) == "ready") {
             docsReady = true
@@ -146,6 +162,10 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     }
     @Expect(contractReady)
     @Expect(schemaReady)
+    @Expect(replayContractReady)
+    @Expect(replaySchemaReady)
+    @Expect(kmodeAdapterReady)
+    @Expect(consumerFixtureReady)
     @Expect(docsReady)
     @Expect(iosReady)
     @Expect(androidDegraded)

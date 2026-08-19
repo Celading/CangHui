@@ -46,3 +46,17 @@ generation 同时匹配当前 receipt，回调才可进入 Cangjie UI owner queu
 
 运行 `cuic doctor ios`、`cuic doctor android` 或 `cuic doctor harmonyos`，可把
 本机工具链事实与这份公共 Provider 边界一起查看。
+
+## 无头语义回放
+
+`canghui.mobile-host-replay.v0` 可在不打开窗口的情况下展示阶段化 receipt，
+并判断回调是否仍属于当前宿主代际。`mobileHostReplayHandler` 接受零行或多行
+`actionId|lifecycleEpoch|surfaceGeneration`，逐项返回 `current`、
+`stale-lifecycle`、`stale-surface` 或 `stale-lifecycle-and-surface`，同时保留
+receipt 中真实的未签名、签名与真机证明状态。
+
+消费者应在自己的 `@KModeLink` 函数中调用该 handler。这样 endpoint 仍归应用
+所有，`cuic kmode diff` 也能在依赖图中提前拒绝重名。
+`examples/mobile-host-replay` 展示了这一模式，并携带 iOS、Android、HarmonyOS
+三份未签名 input-tree fixture。它不会生成 IPA、APK 或 HAP，无头回放也不等于
+真机证明。

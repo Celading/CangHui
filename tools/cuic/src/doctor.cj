@@ -641,6 +641,18 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
     checks.add(doctorRequiredFile("mobile-host.schema", "Mobile host package receipt schema",
         joinPath(framework, "contracts/canghui-mobile-host-package-v0.schema.json"),
         "Restore the public mobile host package receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.replay-contract", "Mobile host semantic replay contract",
+        joinPath(framework, "src/host/mobile_host_replay.cj"),
+        "Restore the platform-neutral mobile host semantic replay contract."))
+    checks.add(doctorRequiredFile("mobile-host.replay-schema", "Mobile host semantic replay schema",
+        joinPath(framework, "contracts/canghui-mobile-host-replay-v0.schema.json"),
+        "Restore the public mobile host semantic replay schema."))
+    checks.add(doctorRequiredFile("mobile-host.kmode-adapter", "Mobile host kMode replay adapter",
+        joinPath(framework, "src/kmode/mobile_host_replay.cj"),
+        "Restore the kMode adapter for consumer-owned mobile host receipts."))
+    checks.add(doctorRequiredFile("mobile-host.consumer-fixture", "Mobile host replay consumer fixture",
+        joinPath(framework, "examples/mobile-host-replay/src/main.cj"),
+        "Restore the headless mobile host consumer fixture."))
     checks.add(doctorRequiredFile("mobile-host.docs", "Mobile application host guide",
         joinPath(framework, "docs/mobile-application-host.md"),
         "Restore the public mobile application host guide."))

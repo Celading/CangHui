@@ -162,6 +162,13 @@ printf '%s' "${PROBE_ASCII}" | grep -q 'Run probe'
 printf '%s' "${PROBE_ASCII}" | grep -Fq 'Semantic map:'
 printf '%s' "${PROBE_ASCII}" | grep -Fq '$i1 - "Button#primary-button"'
 
+MOBILE_HOST_REPLAY_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.host.replay 'player.toggle|4|9')"
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"protocol":"canghui.mobile-host-replay.v0"'
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"stage":"input-tree"'
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"installable":false'
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"decision":"current"'
+
 SYMBOL_CATALOG_JSON="$("${ROOT_DIR}/bin/cuic" symbol list --json)"
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"schema":"canghui.symbol.catalog.v0"'
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"id":"material"'

@@ -93,7 +93,7 @@ scene rendering or application acceptance.
 | Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
 | Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
 | Packaging | `cuic init`, manifest validation, deterministic plans, unsigned macOS `.app` generation, Windows resource inputs, Linux desktop inputs, dependency cache/lock discipline and doctor | Self-contained native runtime closure, signing, notarization, MSIX/store publication and non-macOS host launch remain platform gates |
-| Mobile bridge | iOS native-surface lifecycle slice and Android surface bootstrap | Full product rendering and consumer acceptance are still platform-specific work |
+| Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts and kMode callback replay | Full product rendering, signed packages, device replay and consumer acceptance are still platform-specific work |
 
 ## Quick Start
 
