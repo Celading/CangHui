@@ -14,6 +14,8 @@ cuic kmode call mobile-host-replay mobile.demo.ios.signing.prepare \
   'ios-signing-identity,ios-provisioning-profile'
 cuic kmode call mobile-host-replay mobile.demo.ios.signing.bind \
   'CangHui.app|xcode|identity-ref|profile-ref|sha256:<64-lowercase-hex>|<source-binding>'
+cuic kmode call mobile-host-replay mobile.demo.ios.signing.verify \
+  'CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-demo-001|sha256:<64-lowercase-hex>|4096|<source-binding>|passed'
 ```
 
 The payload accepts one callback per line as
@@ -34,3 +36,9 @@ application-owned Xcode signing step is deliberately outside the endpoint.
 `sha256:` digest and the preparation source binding. An accepted response
 correlates the metadata with the current lifecycle/surface generation; it does
 not verify signature bytes or advance the package receipt.
+
+`mobile.demo.ios.signing.verify` demonstrates the separate platform-owner
+verification receipt. A passed and fully matched receipt advances the provider
+to `signed-package`; the JSON still reports `installationProven=false` and
+`deviceProven=false`. No signer, verifier, installation or device command is
+executed by the example.

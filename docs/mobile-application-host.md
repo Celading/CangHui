@@ -102,3 +102,24 @@ or mismatched bindings. The accepted state means only that the receipt matches
 the current preparation contract; it does not verify signature bytes, execute a
 signer, or advance `MobileHostPackageReceipt`. The common receipt remains at
 `input-tree` until a platform owner independently verifies the signed package.
+
+## Signed package evidence
+
+`canghui.mobile-signed-package-evidence.v0` is the next explicit gate. A
+platform owner supplies bounded labels for the verifier tool, verification
+policy and verification receipt, plus the verified artifact size and the same
+`sha256:` digest, output name and source binding carried by the accepted signer
+receipt. CangHui rejects failed outcomes, stale lifecycle or surface facts,
+digest/output mismatches and receipts that are not rooted in the current
+unsigned input tree.
+
+An `applied` receipt may advance `MobileHostPackageReceipt` from `input-tree`
+to `signed-package`. `IOSMobileApplicationHostProvider` refuses a direct
+input-tree-to-signed transition through `applyPackageReceipt`; platform code
+must use `applySignedPackageEvidence` for this stage. CangHui still does not
+run `codesign`, `apksigner`, a HAP signer or their verification commands.
+
+At this stage `installable=true` means only that the artifact is eligible for
+an installation attempt. The receipt explicitly keeps
+`installationProven=false` and `deviceProven=false`; installation, launch,
+rendering and physical-device replay are later and independent evidence.

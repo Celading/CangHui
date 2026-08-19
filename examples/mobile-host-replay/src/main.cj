@@ -1,5 +1,6 @@
 package canghui_mobile_host_replay
 
+import std.convert.*
 import cui.*
 import cui.kmode.macros.*
 
@@ -86,6 +87,44 @@ func bindIOSMobileSigning(payload: String): String {
             signerField(inputs, 4), signerField(inputs, 5)
         )
     ).toJson()
+}
+
+@KModeLink["mobile.demo.ios.signing.verify"]
+func verifyIOSMobileSigning(payload: String): String {
+    ensureIOSProvider()
+    var inputs: Array<String> = []
+    if (!payload.isEmpty()) { inputs = payload.split("|") }
+    let outputName = signerField(inputs, 0)
+    let digest = signerField(inputs, 5)
+    let sourceBinding = signerField(inputs, 7)
+    let preparation = iosProvider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+    ))
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            outputName, "xcode", "identity-ref", "profile-ref", digest, sourceBinding
+        )
+    )
+    let outcome = if (signerField(inputs, 8) == "passed") {
+        MobileSignedPackageVerificationOutcome.Passed
+    } else {
+        MobileSignedPackageVerificationOutcome.Failed
+    }
+    let evidence = verifyMobileSignedPackageEvidence(
+        iosProvider.packageReceipt(),
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            outputName, signerField(inputs, 1), signerField(inputs, 2), signerField(inputs, 3),
+            signerField(inputs, 4), digest, Int64.parse(signerField(inputs, 6)), sourceBinding,
+            outcome
+        )
+    )
+    if (evidence.applied() && !iosProvider.applySignedPackageEvidence(evidence)) {
+        throw IllegalStateException("iOS signed package evidence was not applied by the provider")
+    }
+    evidence.toJson()
 }
 
 main(): Int64 {

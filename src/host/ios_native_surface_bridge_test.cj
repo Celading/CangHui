@@ -140,3 +140,50 @@ func iosMobileApplicationProviderPreparesButDoesNotSignPackage(): Unit {
     @Expect(provider.packageStage(), MobilePackageStage.InputTree)
     @Expect(provider.packageReceipt().signing, MobileSigningState.Unsigned)
 }
+
+@Test
+func iosMobileApplicationProviderRequiresSignedEvidenceGate(): Unit {
+    let provider = IOSMobileApplicationHostProvider("dev.canghui.ios.evidence")
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 4))
+    @Expect(provider.attachSurface(61, 1194000, 834000, 2388, 1668, 2000, 9), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let source = provider.packageReceipt()
+    let direct = MobileHostPackageReceipt(
+        source.platform,
+        source.packageKind,
+        MobilePackageStage.SignedPackage,
+        source.applicationId,
+        source.lifecycleState,
+        source.lifecycleEpoch,
+        source.surfaceGeneration,
+        signing: MobileSigningState.Signed,
+        permissions: source.permissions,
+        inputFiles: source.inputFiles
+    )
+    @Expect(!provider.applyPackageReceipt(direct))
+    let preparation = provider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+    ))
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "CangHui.app", "xcode", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let evidence = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "CangHui.app", "ios-platform-owner", "codesign-verify", "strict-v1",
+            "verify-20260819-provider", digest, 4096, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    @Expect(provider.applySignedPackageEvidence(evidence))
+    @Expect(provider.packageStage(), MobilePackageStage.SignedPackage)
+    @Expect(provider.packageReceipt().installable())
+    @Expect(!provider.packageReceipt().deviceProven())
+}

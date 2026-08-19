@@ -284,6 +284,15 @@ public import cui.host.MobileExternalSignerReceiptRequest
 public import cui.host.MobileExternalSignerReceipt
 public import cui.host.mobileExternalSignerReceiptStateName
 public import cui.host.bindMobileExternalSignerReceipt
+public import cui.host.CANGHUI_MOBILE_SIGNED_PACKAGE_EVIDENCE_PROTOCOL
+public import cui.host.MobileSignedPackageVerificationOutcome
+public import cui.host.MobileSignedPackageEvidenceState
+public import cui.host.MobileSignedPackageEvidenceRequest
+public import cui.host.MobileSignedPackageEvidenceReceipt
+public import cui.host.mobileSignedPackageVerificationOutcomeName
+public import cui.host.mobileSignedPackageEvidenceStateName
+public import cui.host.verifyMobileSignedPackageEvidence
+public import cui.host.advanceMobileSignedPackageReceipt
 public import cui.host.NativeSurfaceBackend
 public import cui.host.NativeSurfaceDescriptor
 public import cui.host.NativeSurfaceEvent

@@ -101,7 +101,24 @@ public class IOSMobileApplicationHostProvider <: MobileApplicationHostProvider {
 
     /** Apply the common receipt only when it describes this provider's facts. */
     public func applyPackageReceipt(receipt: MobileHostPackageReceipt): Bool {
-        synchronized(stateMutex) { applyPackageReceiptLocked(receipt) }
+        synchronized(stateMutex) { applyPackageReceiptLocked(receipt, false) }
+    }
+
+    /** Apply signed-package stage only through the verified evidence gate. */
+    public func applySignedPackageEvidence(
+        evidence: MobileSignedPackageEvidenceReceipt
+    ): Bool {
+        synchronized(stateMutex) {
+            let source = packageReceiptLocked()
+            try {
+                applyPackageReceiptLocked(
+                    advanceMobileSignedPackageReceipt(source, evidence),
+                    true
+                )
+            } catch (_: IllegalArgumentException) {
+                false
+            }
+        }
     }
 
     /** Stage the actual checked-in iOS host input tree without package claims. */
@@ -123,27 +140,12 @@ public class IOSMobileApplicationHostProvider <: MobileApplicationHostProvider {
                     "no IPA, signing, installation, or device proof"
                 ]
             )
-            applyPackageReceiptLocked(receipt)
+            applyPackageReceiptLocked(receipt, false)
         }
     }
 
     public func packageReceipt(): MobileHostPackageReceipt {
-        synchronized(stateMutex) {
-            MobileHostPackageReceipt(
-                MobileApplicationPlatform.IOS,
-                MobilePackageKind.IOSApplicationBundle,
-                currentStage,
-                applicationIdentifier,
-                currentState,
-                currentEpoch,
-                bridge.currentGeneration(),
-                signing: currentSigning,
-                deviceProof: currentDeviceProof,
-                permissions: currentPermissions,
-                inputFiles: currentInputFiles,
-                limitations: currentLimitations
-            )
-        }
+        synchronized(stateMutex) { packageReceiptLocked() }
     }
 
     /** Prepare a non-secret handoff to the application-owned Xcode signer. */
@@ -204,7 +206,27 @@ public class IOSMobileApplicationHostProvider <: MobileApplicationHostProvider {
         synchronized(stateMutex) { bridge.detach(generation) }
     }
 
-    private func applyPackageReceiptLocked(receipt: MobileHostPackageReceipt): Bool {
+    private func packageReceiptLocked(): MobileHostPackageReceipt {
+        MobileHostPackageReceipt(
+            MobileApplicationPlatform.IOS,
+            MobilePackageKind.IOSApplicationBundle,
+            currentStage,
+            applicationIdentifier,
+            currentState,
+            currentEpoch,
+            bridge.currentGeneration(),
+            signing: currentSigning,
+            deviceProof: currentDeviceProof,
+            permissions: currentPermissions,
+            inputFiles: currentInputFiles,
+            limitations: currentLimitations
+        )
+    }
+
+    private func applyPackageReceiptLocked(
+        receipt: MobileHostPackageReceipt,
+        signedEvidenceAuthorized: Bool
+    ): Bool {
         if (receipt.platform != platform() || receipt.packageKind != packageKind()) {
             return false
         }
@@ -216,6 +238,10 @@ public class IOSMobileApplicationHostProvider <: MobileApplicationHostProvider {
             return false
         }
         if (!mobilePackageTransitionAllowed(currentStage, receipt.stage)) {
+            return false
+        }
+        if (currentStage == MobilePackageStage.InputTree &&
+            receipt.stage == MobilePackageStage.SignedPackage && !signedEvidenceAuthorized) {
             return false
         }
         if (receipt.stage == currentStage && !sameIOSPackageEvidence(receipt)) {

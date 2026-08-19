@@ -653,6 +653,12 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
     checks.add(doctorRequiredFile("mobile-host.external-signer-receipt-schema", "Mobile external signer receipt schema",
         joinPath(framework, "contracts/canghui-mobile-external-signer-receipt-v0.schema.json"),
         "Restore the public external signer receipt binding schema."))
+    checks.add(doctorRequiredFile("mobile-host.signed-package-evidence", "Mobile signed package evidence contract",
+        joinPath(framework, "src/host/mobile_signed_package_evidence.cj"),
+        "Restore the platform-owner signed package evidence gate."))
+    checks.add(doctorRequiredFile("mobile-host.signed-package-evidence-schema", "Mobile signed package evidence schema",
+        joinPath(framework, "contracts/canghui-mobile-signed-package-evidence-v0.schema.json"),
+        "Restore the public signed package evidence receipt schema."))
     checks.add(doctorRequiredFile("mobile-host.replay-contract", "Mobile host semantic replay contract",
         joinPath(framework, "src/host/mobile_host_replay.cj"),
         "Restore the platform-neutral mobile host semantic replay contract."))
@@ -673,7 +679,7 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
     let iosProvider = joinPath(framework, "src/host/ios_mobile_application_host.cj")
     checks.add(if (exists(iosAdapter) && exists(iosProvider)) {
         doctorReady("mobile-host.ios-provider", "iOS host provider boundary",
-            "The provider-owned iOS input-tree binding, non-secret external-signer preparation and UIKit native-surface adapter are present; signed product packaging remains a separate gate.",
+            "The provider-owned iOS input-tree binding, external-signer receipt and signed-package evidence gate are present; installation and device replay remain separate gates.",
             iosProvider + " + " + iosAdapter)
     } else {
         doctorDegraded("mobile-host.ios-provider", "iOS host provider boundary",

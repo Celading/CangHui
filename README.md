@@ -93,7 +93,7 @@ scene rendering or application acceptance.
 | Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
 | Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
 | Packaging | `cuic init`, manifest validation, deterministic plans, unsigned macOS `.app` generation, Windows resource inputs, Linux desktop inputs, dependency cache/lock discipline and doctor | Self-contained native runtime closure, signing, notarization, MSIX/store publication and non-macOS host launch remain platform gates |
-| Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, non-secret external-signer preparation/receipt binding and kMode callback replay | Receipt binding never handles credentials, verifies signature bytes or claims a signed/installable package; product rendering, signing, device replay and consumer acceptance remain platform-specific work |
+| Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, external-signer correlation, platform-owner signed-package evidence and kMode callback replay | CangHui does not execute signers or verifiers; `installable` means eligible for an install attempt, while installation, launch, device replay and consumer acceptance remain platform-specific work |
 
 ## Quick Start
 

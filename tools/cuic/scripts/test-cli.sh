@@ -194,6 +194,20 @@ printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"state":"accepted"'
 printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"signedPackage":false'
 printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"deviceProven":false'
 
+IOS_SIGNED_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.verify "CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-20260819-cli|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|passed")"
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"protocol":"canghui.mobile-signed-package-evidence.v0"'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"state":"applied"'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"signedPackage":true'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installable":true'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installationProven":false'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"deviceProven":false'
+
+IOS_STALE_SIGNED_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.verify "CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-20260819-stale|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|input-tree-v0:ios:ios-application-bundle:stale:4:9:14|passed")"
+printf '%s' "${IOS_STALE_SIGNED_PACKAGE_JSON}" | grep -q '"state":"rejected"'
+printf '%s' "${IOS_STALE_SIGNED_PACKAGE_JSON}" | grep -q '"signedPackage":false'
+
 SYMBOL_CATALOG_JSON="$("${ROOT_DIR}/bin/cuic" symbol list --json)"
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"schema":"canghui.symbol.catalog.v0"'
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"id":"material"'

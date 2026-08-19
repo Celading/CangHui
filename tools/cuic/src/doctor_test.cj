@@ -124,6 +124,8 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     var signingPreparationSchemaReady = false
     var externalSignerReceiptReady = false
     var externalSignerReceiptSchemaReady = false
+    var signedPackageEvidenceReady = false
+    var signedPackageEvidenceSchemaReady = false
     var replayContractReady = false
     var replaySchemaReady = false
     var kmodeAdapterReady = false
@@ -151,6 +153,12 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
         }
         if (check.id == "mobile-host.external-signer-receipt-schema" && doctorStatusName(check.status) == "ready") {
             externalSignerReceiptSchemaReady = true
+        }
+        if (check.id == "mobile-host.signed-package-evidence" && doctorStatusName(check.status) == "ready") {
+            signedPackageEvidenceReady = true
+        }
+        if (check.id == "mobile-host.signed-package-evidence-schema" && doctorStatusName(check.status) == "ready") {
+            signedPackageEvidenceSchemaReady = true
         }
         if (check.id == "mobile-host.replay-contract" && doctorStatusName(check.status) == "ready") {
             replayContractReady = true
@@ -186,6 +194,8 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     @Expect(signingPreparationSchemaReady)
     @Expect(externalSignerReceiptReady)
     @Expect(externalSignerReceiptSchemaReady)
+    @Expect(signedPackageEvidenceReady)
+    @Expect(signedPackageEvidenceSchemaReady)
     @Expect(replayContractReady)
     @Expect(replaySchemaReady)
     @Expect(kmodeAdapterReady)

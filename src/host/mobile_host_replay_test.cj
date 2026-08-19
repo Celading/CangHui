@@ -182,3 +182,153 @@ func mobileExternalSignerReceiptRejectsStaleBindingAndUnsafeDigest(): Unit {
     @Expect(!receipt.accepted())
     @Expect(receipt.toJson().contains("source binding is stale or mismatched"))
 }
+
+@Test
+func mobileSignedPackageEvidenceAdvancesOnlyFreshPassedVerification(): Unit {
+    let source = MobileHostPackageReceipt(
+        MobileApplicationPlatform.IOS,
+        MobilePackageKind.IOSApplicationBundle,
+        MobilePackageStage.InputTree,
+        "dev.canghui.ios.signed",
+        AppLifecycleState.Active,
+        4,
+        9,
+        signing: MobileSigningState.Unsigned,
+        inputFiles: ["Info.plist", "CangHuiRuntimeBootstrap.m"]
+    )
+    let preparation = prepareMobileSigning(
+        source,
+        MobileSigningPreparationRequest(
+            "CangHui.app",
+            declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+        )
+    )
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "CangHui.app", "xcode", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let evidence = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "CangHui.app", "ios-platform-owner", "codesign-verify", "strict-v1",
+            "verify-20260819-001", digest, 4096, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    @Expect(evidence.applied())
+    @Expect(evidence.advancesPackageReceipt())
+    @Expect(evidence.toJson().contains("\"state\":\"applied\""))
+    @Expect(evidence.toJson().contains("\"installationProven\":false"))
+    let advanced = advanceMobileSignedPackageReceipt(source, evidence)
+    @Expect(advanced.stage, MobilePackageStage.SignedPackage)
+    @Expect(advanced.signing, MobileSigningState.Signed)
+    @Expect(advanced.installable())
+    @Expect(!advanced.deviceProven())
+}
+
+@Test
+func mobileSignedPackageEvidenceRejectsFailedOrStaleVerification(): Unit {
+    let source = replayFixtureReceipt()
+    let preparation = prepareMobileSigning(
+        source,
+        MobileSigningPreparationRequest(
+            "player.apk",
+            declaredCapabilities: ["android-keystore", "android-key-alias"]
+        )
+    )
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "player.apk", "apksigner", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let failed = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "player.apk", "android-platform-owner", "apksigner-verify", "strict-v1",
+            "verify-20260819-002", digest, 8192, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Failed
+        )
+    )
+    @Expect(!failed.applied())
+    @Expect(failed.toJson().contains("verification outcome did not pass"))
+    let stale = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "player.apk", "android-platform-owner", "apksigner-verify", "strict-v1",
+            "verify-20260819-003", digest, 8192,
+            "input-tree-v0:android:android-application-package:stale:4:9:2",
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    @Expect(!stale.applied())
+    var rejectedSize = false
+    try {
+        let _ = MobileSignedPackageEvidenceRequest(
+            "player.apk", "android-platform-owner", "apksigner-verify", "strict-v1",
+            "verify-20260819-004", digest, 0, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    } catch (_: IllegalArgumentException) {
+        rejectedSize = true
+    }
+    @Expect(rejectedSize)
+}
+
+@Test
+func mobileSignedPackageEvidenceCannotAdvanceAReplacementInputTree(): Unit {
+    let source = replayFixtureReceipt()
+    let preparation = prepareMobileSigning(
+        source,
+        MobileSigningPreparationRequest(
+            "player.apk",
+            declaredCapabilities: ["android-keystore", "android-key-alias"]
+        )
+    )
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "player.apk", "apksigner", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let evidence = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "player.apk", "android-platform-owner", "apksigner-verify", "strict-v1",
+            "verify-20260819-tree", digest, 8192, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    let replacement = MobileHostPackageReceipt(
+        source.platform,
+        source.packageKind,
+        source.stage,
+        source.applicationId,
+        source.lifecycleState,
+        source.lifecycleEpoch,
+        source.surfaceGeneration,
+        signing: source.signing,
+        permissions: source.permissions,
+        inputFiles: ["AndroidManifest.xml", "lib/arm64-v8a/libreplacement.so"],
+        limitations: source.limitations
+    )
+    var rejected = false
+    try {
+        let _ = advanceMobileSignedPackageReceipt(replacement, evidence)
+    } catch (_: IllegalArgumentException) {
+        rejected = true
+    }
+    @Expect(rejected)
+}

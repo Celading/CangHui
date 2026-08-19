@@ -87,3 +87,21 @@ binding，并校验 `sha256:` 摘要格式，拒绝过期或不匹配的绑定�
 receipt 与当前准备契约相符，不验证签名字节、不执行签名器，也不会推进
 `MobileHostPackageReceipt`；平台 owner 仍需独立验证签名包后，公共 receipt 才能进入
 `input-tree` 之后的阶段。
+
+## 签名包证据
+
+`canghui.mobile-signed-package-evidence.v0` 是下一道显式门禁。平台 owner
+提供验证器工具、验证策略和验证 receipt 的受限标签，以及已验证产物的大小，并且
+输出名称、`sha256:` 摘要和 source binding 必须与已接受的签名器 receipt 完全一致。
+CangHui 会拒绝失败结果、过期的 lifecycle 或 Surface 代际、摘要/输出不匹配，以及
+没有扎根于当前未签名 input-tree 的证据。
+
+只有 `applied` receipt 才能把 `MobileHostPackageReceipt` 从 `input-tree` 推进到
+`signed-package`。`IOSMobileApplicationHostProvider` 会拒绝通过普通
+`applyPackageReceipt` 直接完成这一跳，平台代码必须使用
+`applySignedPackageEvidence`。CangHui 本身仍不会运行 `codesign`、`apksigner`、
+HAP 签名器或其验证命令。
+
+此时 `installable=true` 只表示产物具备尝试安装的资格；receipt 仍明确保持
+`installationProven=false` 与 `deviceProven=false`。实际安装、启动、渲染和真机
+回放属于后续相互独立的证据阶段。
