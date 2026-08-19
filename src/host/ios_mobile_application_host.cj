@@ -146,6 +146,31 @@ public class IOSMobileApplicationHostProvider <: MobileApplicationHostProvider {
         }
     }
 
+    /** Prepare a non-secret handoff to the application-owned Xcode signer. */
+    public func prepareSigning(
+        request: MobileSigningPreparationRequest
+    ): MobileSigningPreparationReceipt {
+        synchronized(stateMutex) {
+            prepareMobileSigning(
+                MobileHostPackageReceipt(
+                    MobileApplicationPlatform.IOS,
+                    MobilePackageKind.IOSApplicationBundle,
+                    currentStage,
+                    applicationIdentifier,
+                    currentState,
+                    currentEpoch,
+                    bridge.currentGeneration(),
+                    signing: currentSigning,
+                    deviceProof: currentDeviceProof,
+                    permissions: currentPermissions,
+                    inputFiles: currentInputFiles,
+                    limitations: currentLimitations
+                ),
+                request
+            )
+        }
+    }
+
     public func attachSurface(
         handle: Int64,
         logicalWidthMilli: Int64,

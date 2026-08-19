@@ -76,3 +76,19 @@ checked-in UIKit probe, bootstrap, runtime and include files through
 `IOSMobileApplicationHostProvider`, then reports the same current/stale callback
 decisions. The endpoint is a semantic input-tree proof only; it does not run
 UIKit, Metal, Xcode signing or an iPad.
+
+## External signer preparation
+
+`canghui.mobile-signing-preparation.v0` creates a non-secret handoff receipt
+from an unsigned `input-tree`. The request contains only an output name and
+opaque capability labels such as `ios-signing-identity` and
+`ios-provisioning-profile`; it accepts no certificate, key, profile contents,
+passwords, shell commands or paths. A complete declaration becomes
+`requirements-satisfied`, while missing labels remain `blocked`. This state
+does not assert that the current host actually owns a valid signing identity;
+`cuic doctor` and the platform signer remain authoritative for that fact.
+
+Preparation never advances the mobile package receipt. Its JSON always reports
+`signedPackage=false` and `installable=false`; Xcode or another platform-owned
+signer must produce independently verified signing evidence before the common
+receipt can advance to `signed-package`.

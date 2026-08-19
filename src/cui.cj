@@ -272,6 +272,12 @@ public import cui.host.MobilePackageStage
 public import cui.host.MobilePermissionState
 public import cui.host.MobilePermissionReceipt
 public import cui.host.MobileSigningState
+public import cui.host.CANGHUI_MOBILE_SIGNING_PREPARATION_PROTOCOL
+public import cui.host.MobileSigningPreparationRequest
+public import cui.host.MobileSigningPreparationReceipt
+public import cui.host.MobileSigningPreparationState
+public import cui.host.mobileSigningPreparationStateName
+public import cui.host.prepareMobileSigning
 public import cui.host.NativeSurfaceBackend
 public import cui.host.NativeSurfaceDescriptor
 public import cui.host.NativeSurfaceEvent

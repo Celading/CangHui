@@ -10,6 +10,8 @@ cuic kmode call mobile-host-replay mobile.demo.host.replay \
   'player.toggle|4|9'
 cuic kmode call mobile-host-replay mobile.demo.ios.provider.replay \
   'player.toggle|4|9'
+cuic kmode call mobile-host-replay mobile.demo.ios.signing.prepare \
+  'ios-signing-identity,ios-provisioning-profile'
 ```
 
 The payload accepts one callback per line as
@@ -20,3 +22,8 @@ inputs represented by `canghui.mobile-application-host.v0` staged receipts.
 The iOS provider endpoint binds the checked-in UIKit probe/bootstrap/runtime
 input tree to the current lifecycle and surface generation. These are not
 installable packages or device proof.
+
+`mobile.demo.ios.signing.prepare` accepts a comma-separated set of non-secret
+iOS signing capability labels. An empty or incomplete payload shows the blocked result.
+The receipt always keeps `signedPackage=false` and `installable=false`; the
+application-owned Xcode signing step is deliberately outside the endpoint.

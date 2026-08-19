@@ -65,3 +65,16 @@ receipt 中真实的未签名、签名与真机证明状态。
 `IOSMobileApplicationHostProvider` 展示仓内 UIKit probe、bootstrap、runtime 和
 include 输入树，以及 current/stale 回调判断；它不运行 UIKit/Metal，不做 Xcode
 签名，也不代表 iPad 真机证明。
+
+## 外部签名器准备
+
+`canghui.mobile-signing-preparation.v0` 从未签名的 `input-tree` 生成一份不含
+秘密信息的交接 receipt。请求只包含输出名称以及 `ios-signing-identity`、
+`ios-provisioning-profile` 等不透明能力标签；不接收证书、密钥、描述文件内容、
+口令、Shell 命令或文件路径。声明标签完整时状态为 `requirements-satisfied`，缺项
+时保持 `blocked`。这个状态不声称当前宿主真的持有有效签名身份；该事实仍以
+`cuic doctor` 与平台签名器为准。
+
+准备动作不会推进移动安装包 receipt。它的 JSON 始终保留
+`signedPackage=false` 与 `installable=false`；必须由 Xcode 或其他平台所有的
+签名器产生独立验证过的签名证据，公共 receipt 才能推进到 `signed-package`。

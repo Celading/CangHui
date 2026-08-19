@@ -53,6 +53,17 @@ func replayIOSMobileHost(payload: String): String {
     )
 }
 
+@KModeLink["mobile.demo.ios.signing.prepare"]
+func prepareIOSMobileSigning(payload: String): String {
+    ensureIOSProvider()
+    var inputs: Array<String> = []
+    if (!payload.isEmpty()) { inputs = payload.split(",") }
+    iosProvider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: inputs
+    )).toJson()
+}
+
 main(): Int64 {
     if (runKModeStdioIfRequested()) { return 0 }
     println("Use cuic kmode call mobile-host-replay mobile.demo.host.replay [payload].")

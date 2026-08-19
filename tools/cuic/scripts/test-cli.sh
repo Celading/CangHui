@@ -178,6 +178,14 @@ printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"deviceProven":false'
 printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q 'platform/ios/probe/Info.plist'
 printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"decision":"current"'
 
+IOS_SIGNING_PREPARATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.prepare 'ios-signing-identity,ios-provisioning-profile')"
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"protocol":"canghui.mobile-signing-preparation.v0"'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"state":"requirements-satisfied"'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"missingCapabilities":\[\]'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"signedPackage":false'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"installable":false'
+
 SYMBOL_CATALOG_JSON="$("${ROOT_DIR}/bin/cuic" symbol list --json)"
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"schema":"canghui.symbol.catalog.v0"'
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"id":"material"'

@@ -42,7 +42,8 @@ public struct ExternalFrameSnapshot {
  * provider can render its latest frame into a CangHui Renderer rectangle and
  * expose playback/seek state without CangHui knowing the provider.
  *
- * Harmony providers implement this over the HarmonyHap `CangHUI_ExternalFrame*`
+ * Harmony providers implement this over their platform bridge and the
+ * `CangHUI_ExternalFrame*`
  * C ABI; desktop/media consumers can implement it over their own surface.
  */
 public interface ExternalFramePlane {

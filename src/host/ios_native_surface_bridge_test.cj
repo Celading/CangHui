@@ -123,3 +123,20 @@ func iosMobileApplicationProviderRejectsNonMonotonicLifecycle(): Unit {
     @Expect(provider.lifecycleState(), AppLifecycleState.Active)
     @Expect(provider.lifecycleEpoch(), 3)
 }
+
+@Test
+func iosMobileApplicationProviderPreparesButDoesNotSignPackage(): Unit {
+    let provider = IOSMobileApplicationHostProvider("dev.canghui.ios.prepare")
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 1))
+    @Expect(provider.attachSurface(59, 1194000, 834000, 2388, 1668, 2000, 1), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let prepared = provider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+    ))
+    @Expect(prepared.requirementsSatisfied())
+    @Expect(!prepared.signedPackage())
+    @Expect(!prepared.installable())
+    @Expect(provider.packageStage(), MobilePackageStage.InputTree)
+    @Expect(provider.packageReceipt().signing, MobileSigningState.Unsigned)
+}

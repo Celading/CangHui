@@ -66,3 +66,56 @@ func mobileHostSemanticReplayEscapesConsumerControlledStrings(): Unit {
     @Expect(json.contains("dev.canghui.\\\"quoted\\\""))
     @Expect(json.contains("line one\\nline two"))
 }
+
+@Test
+func mobileSigningPreparationStaysBlockedWithoutSecretCapabilities(): Unit {
+    let source = replayFixtureReceipt()
+    let receipt = prepareMobileSigning(
+        source,
+        MobileSigningPreparationRequest("player.apk")
+    )
+    @Expect(receipt.state, MobileSigningPreparationState.Blocked)
+    @Expect(receipt.missingCapabilities.size, Int64(2))
+    @Expect(!receipt.signedPackage())
+    @Expect(!receipt.installable())
+}
+
+@Test
+func mobileSigningPreparationBecomesReadyOnlyForExternalSigner(): Unit {
+    let source = MobileHostPackageReceipt(
+        MobileApplicationPlatform.IOS,
+        MobilePackageKind.IOSApplicationBundle,
+        MobilePackageStage.InputTree,
+        "dev.canghui.ios.signing",
+        AppLifecycleState.Active,
+        4,
+        9,
+        signing: MobileSigningState.Unsigned,
+        inputFiles: ["Info.plist", "CangHuiRuntimeBootstrap.m"]
+    )
+    let receipt = prepareMobileSigning(
+        source,
+        MobileSigningPreparationRequest(
+            "CangHui.app",
+            declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+        )
+    )
+    @Expect(receipt.state, MobileSigningPreparationState.RequirementsSatisfied)
+    @Expect(receipt.missingCapabilities.size, Int64(0))
+    @Expect(receipt.toJson().contains("\"signedPackage\":false"))
+    @Expect(receipt.toJson().contains("external platform signer is still required"))
+}
+
+@Test
+func mobileSigningPreparationRejectsPathLikeLabels(): Unit {
+    var rejected = false
+    try {
+        let _ = MobileSigningPreparationRequest(
+            "CangHui.app",
+            declaredCapabilities: ["../private-key"]
+        )
+    } catch (_: IllegalArgumentException) {
+        rejected = true
+    }
+    @Expect(rejected)
+}

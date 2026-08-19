@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260819.16",
+  "matrixVersion": "CangHui.20260819.17",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -25,7 +25,8 @@
     "proofs/20260802-canghui-ios-native-surface-v0.json",
     "proofs/20260802-canghui-android-native-surface-bootstrap-v0.json",
     "proofs/20260819-canghui-mobile-host-replay-v0.json",
-    "proofs/20260819-canghui-ios-provider-input-tree-v0.json"
+    "proofs/20260819-canghui-ios-provider-input-tree-v0.json",
+    "proofs/20260819-canghui-mobile-signing-preparation-v0.json"
   ],
   "frameworkContract": {
     "owns": [
@@ -48,6 +49,7 @@
       "provider-neutral iOS, Android and HarmonyOS application-host package receipts with lifecycle epoch and native-surface generation guards",
       "headless mobile-host receipt and callback semantic replay through consumer-owned kMode endpoints",
       "provider-owned iOS unsigned input-tree binding over the UIKit native-surface bridge",
+      "non-secret mobile external-signer preparation receipts that cannot claim signed or installable output",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
@@ -286,17 +288,19 @@
     {
       "id": "mobile-host-contracts",
       "version": "canghui.mobile-application-host.v0",
-      "state": "source-test-schema-doctor-headless-kmode-consumer-fixture-proven; provider-owned iOS unsigned input-tree replay-proven; ios-runtime-static-package-n2c-abi-and-native-surface-adapter historically proven on simulator and device; signed-product-package-and-current-device-replay-open; android-product-apk-and-harmonyos-hap-open",
+      "state": "source-test-schema-doctor-headless-kmode-consumer-fixture-proven; provider-owned iOS unsigned input-tree and non-secret external-signer preparation replay-proven; preparation remains signedPackage=false/installable=false; ios-runtime-static-package-n2c-abi-and-native-surface-adapter historically proven on simulator and device; signed-product-package-and-current-device-replay-open; android-product-apk-and-harmonyos-hap-open",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
         "src/host/mobile_host_contracts_test.cj",
         "src/host/mobile_application_host.cj",
         "src/host/mobile_application_host_test.cj",
         "src/host/ios_mobile_application_host.cj",
+        "src/host/mobile_signing_preparation.cj",
         "src/host/mobile_host_replay.cj",
         "src/host/mobile_host_replay_test.cj",
         "src/kmode/mobile_host_replay.cj",
         "contracts/canghui-mobile-host-package-v0.schema.json",
+        "contracts/canghui-mobile-signing-preparation-v0.schema.json",
         "contracts/canghui-mobile-host-replay-v0.schema.json",
         "docs/mobile-application-host.md",
         "tools/cuic/src/doctor.cj",

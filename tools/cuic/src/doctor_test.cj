@@ -120,6 +120,8 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     let checks = doctorMobileApplicationHostGroup(framework).checks
     var contractReady = false
     var schemaReady = false
+    var signingPreparationReady = false
+    var signingPreparationSchemaReady = false
     var replayContractReady = false
     var replaySchemaReady = false
     var kmodeAdapterReady = false
@@ -135,6 +137,12 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
         }
         if (check.id == "mobile-host.schema" && doctorStatusName(check.status) == "ready") {
             schemaReady = true
+        }
+        if (check.id == "mobile-host.signing-preparation" && doctorStatusName(check.status) == "ready") {
+            signingPreparationReady = true
+        }
+        if (check.id == "mobile-host.signing-preparation-schema" && doctorStatusName(check.status) == "ready") {
+            signingPreparationSchemaReady = true
         }
         if (check.id == "mobile-host.replay-contract" && doctorStatusName(check.status) == "ready") {
             replayContractReady = true
@@ -166,6 +174,8 @@ func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit 
     }
     @Expect(contractReady)
     @Expect(schemaReady)
+    @Expect(signingPreparationReady)
+    @Expect(signingPreparationSchemaReady)
     @Expect(replayContractReady)
     @Expect(replaySchemaReady)
     @Expect(kmodeAdapterReady)
