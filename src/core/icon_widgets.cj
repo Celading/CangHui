@@ -163,6 +163,8 @@ public class Icon <: Widget {
 public class IconButton <: Widget {
     private let symbolName: SymbolName
     private var labelText: ?String
+    private var semanticLabel: String
+    private var semanticLabelExplicit: Bool
     private var buttonRole: ButtonRole
     private var customStyle: ?SurfaceStyle
     private var customButtonStyle: ?ButtonStyle
@@ -181,6 +183,8 @@ public class IconButton <: Widget {
     ) {
         this.symbolName = symbolNameForIcon(icon)
         this.labelText = label
+        this.semanticLabel = match (label) { case Some(value) => value case None => "" }
+        this.semanticLabelExplicit = false
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
@@ -206,6 +210,8 @@ public class IconButton <: Widget {
     ) {
         this.symbolName = name
         this.labelText = label
+        this.semanticLabel = match (label) { case Some(value) => value case None => "" }
+        this.semanticLabelExplicit = false
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
@@ -238,6 +244,14 @@ public class IconButton <: Widget {
     /** Adds a text label beside the icon. */
     public func label(value: String): IconButton {
         labelText = Some(value)
+        if (!semanticLabelExplicit) { semanticLabel = value }
+        this
+    }
+
+    /** Names this button without changing its visible icon or optional text label. */
+    public func accessibilityLabel(value: String): IconButton {
+        semanticLabel = value
+        semanticLabelExplicit = true
         this
     }
 
@@ -294,6 +308,10 @@ public class IconButton <: Widget {
             focused: ctx.hasFocus(controlId)))
         let visualFrame = animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
         drawSurface(ctx, visualFrame, appearance.surface)
+        recordControlSemantics(visualFrame, "IconButton", ControlSemantics(
+            "button", label: semanticLabel, action: "IconButton.activate()",
+            actionOwner: controlId
+        ))
         let color = appearance.foreground
         let _ = drawSymbol(ctx.renderer, symbolName, iconFrame(visualFrame), color)
         match (labelText) {

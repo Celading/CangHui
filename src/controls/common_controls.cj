@@ -1,9 +1,10 @@
 package cui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, CursorShape, Motion, Spring, UiContext, Widget,
-    requireControlId, claimHoverIfInside, drawFocusRing, drawSurface, emit, focusableControlIdentity,
-    handlePointerClick, localState, reregisterFocusable, registerFocusable, resolveControlKey}
+import cui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, ControlSemantics, CursorShape, Motion, Spring,
+    UiContext, Widget, requireControlId, claimHoverIfInside, drawFocusRing, drawSurface, emit,
+    focusableControlIdentity, handlePointerClick, localState, recordControlSemantics, reregisterFocusable,
+    registerFocusable, resolveControlKey}
 
 private let SWITCH_TRACK_W: Float32 = 40.0
 private let SWITCH_TRACK_H: Float32 = 22.0
@@ -68,6 +69,7 @@ public class Switch <: Widget {
     private let label: String
     private let checked: Bindable<Bool>
     private var controlId: String
+    private var semanticLabel: String
     private let knobSpring: Spring
     private var frame = Rect.zero()
 
@@ -76,6 +78,7 @@ public class Switch <: Widget {
         this.checked = checked
         let cid = focusableControlIdentity("Switch:${label}")
         this.controlId = cid
+        this.semanticLabel = label
         // The knob position animates between 0 (off) and 1 (on). Retained so the slide
         // survives per-frame rebuilds; started at the current state so a static first frame
         // is already settled (no animation, snapshot-stable).
@@ -96,6 +99,12 @@ public class Switch <: Widget {
         this
     }
 
+    /** Overrides the semantic name without changing the visible label. */
+    public func accessibilityLabel(value: String): Switch {
+        semanticLabel = value
+        this
+    }
+
     public func measure(ctx: UiContext, available: Size): Size {
         Size(min(available.w, SWITCH_TRACK_W + 12.0 + ctx.renderer.textWidth(label)), CUI_CONTROL_H)
     }
@@ -111,6 +120,13 @@ public class Switch <: Widget {
             0.0
         }
         let t = knobSpring.animate(ctx, target: goal)
+
+        recordControlSemantics(frame, "Switch", ControlSemantics(
+            "switch", label: semanticLabel,
+            value: if (checked.value) { "on" } else { "off" },
+            action: "Switch.toggle()", actionOwner: controlId,
+            selected: Some(checked.value)
+        ))
 
         let track = trackFrame()
         // Track colour and knob position share the spring, so both cross together smoothly.
@@ -152,6 +168,7 @@ public class RadioButton <: Widget {
     private let selected: Bindable<Int64>
     private let optionValue: Int64
     private var controlId: String
+    private var semanticLabel: String
     private let dotSpring: Spring
     private var frame = Rect.zero()
 
@@ -160,6 +177,7 @@ public class RadioButton <: Widget {
         this.selected = selected
         this.optionValue = value
         this.controlId = focusableControlIdentity("RadioButton:${label}:${value}")
+        this.semanticLabel = label
         // The inner dot scales in when this option becomes selected. Retained across rebuilds and
         // started at the current state, so a static first frame is settled (snapshot-stable).
         let dotStart: Float32 = if (selected.value == value) {
@@ -179,6 +197,12 @@ public class RadioButton <: Widget {
         this
     }
 
+    /** Overrides the semantic name without changing the visible label. */
+    public func accessibilityLabel(value: String): RadioButton {
+        semanticLabel = value
+        this
+    }
+
     public func measure(ctx: UiContext, available: Size): Size {
         Size(min(available.w, ctx.renderer.textWidth(label) + 34.0), CUI_CONTROL_H)
     }
@@ -194,6 +218,11 @@ public class RadioButton <: Widget {
             0.0
         }
         let t = dotSpring.animate(ctx, target: goal)
+        recordControlSemantics(frame, "RadioButton", ControlSemantics(
+            "radio", label: semanticLabel, value: optionValue.toString(),
+            action: "RadioButton.select()", actionOwner: controlId,
+            selected: Some(isSelected())
+        ))
         let centerX = frame.x + 9.0
         let centerY = frame.centerY()
         ctx.renderer.fillCircle(centerX, centerY, 9.0, ctx.theme.field)
@@ -230,6 +259,7 @@ public class Picker <: Widget {
     private let items: Array<String>
     private let selected: Bindable<Int64>
     private let textMotion: DirectionalTextMotion
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = None) {
@@ -240,8 +270,15 @@ public class Picker <: Widget {
         this.textMotion = localState<DirectionalTextMotion>("Picker:${this.id}:text-motion") {
             DirectionalTextMotion(initial)
         }.value
+        this.semanticLabel = ""
         registerFocusable(this.id)
         emit(this)
+    }
+
+    /** Names this picker for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Picker {
+        semanticLabel = value
+        this
     }
 
     // Content-adaptive width: wide enough for the longest item between the two chevron
@@ -266,6 +303,11 @@ public class Picker <: Widget {
         } else {
             items[currentIndex()]
         }
+        recordControlSemantics(frame, "Picker", ControlSemantics(
+            "combobox", label: if (semanticLabel.isEmpty()) { label } else { semanticLabel },
+            value: label, action: "Picker.move()", shortcut: "Left|Right",
+            actionOwner: id
+        ))
         textMotion.sync(label)
         // Item text comes from application data; clip it so a long item cannot paint
         // over the chevrons or escape the control surface.
@@ -349,6 +391,7 @@ public class Stepper <: Widget {
     private var upperBound: Int64 = Int64.Max
     private var stepSize: Int64 = 1
     private let textMotion: DirectionalTextMotion
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(
@@ -369,6 +412,7 @@ public class Stepper <: Widget {
         this.textMotion = localState<DirectionalTextMotion>("Stepper:${this.id}:text-motion") {
             DirectionalTextMotion("${value.value}")
         }.value
+        this.semanticLabel = ""
         registerFocusable(this.id)
         // Clamp the initial value into range, like range() does (write-on-change to avoid churn).
         let clamped = clampInt(value.value)
@@ -376,6 +420,12 @@ public class Stepper <: Widget {
             value.value = clamped
         }
         emit(this)
+    }
+
+    /** Names this numeric editor for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Stepper {
+        semanticLabel = value
+        this
     }
 
     /** Sets the inclusive range and immediately clamps the current value. */
@@ -413,6 +463,11 @@ public class Stepper <: Widget {
 
     public func draw(ctx: UiContext): Unit {
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id)))
+        recordControlSemantics(frame, "Stepper", ControlSemantics(
+            "spinbutton", label: semanticLabel, value: value.value.toString(),
+            action: "Stepper.adjust()", shortcut: "Left|Right|Up|Down",
+            actionOwner: id
+        ))
         ctx.renderer.textCenter("−", decrementButton(), ctx.theme.text, pointSize: FontSizes.TITLE)
         let valueArea = valueFrame()
         textMotion.sync("${value.value}")

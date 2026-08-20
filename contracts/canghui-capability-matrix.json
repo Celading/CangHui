@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260819.22",
+  "matrixVersion": "CangHui.20260820.23",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -123,6 +123,19 @@
         "contracts/canghui-arkui-component-matrix.json",
         "packages/gallery-components",
         "examples/component-gallery"
+      ]
+    },
+    {
+      "id": "primitive-control-semantics",
+      "version": "canghui.control-semantics.v1",
+      "state": "source-test-headless-proven; native-accessibility-adapters-open",
+      "codeRefs": [
+        "src/core/control_content_environment.cj",
+        "src/core/icon_widgets.cj",
+        "src/controls/common_controls.cj",
+        "src/controls/value_widgets.cj",
+        "src/core/probe.cj",
+        "docs/api/cui/core/ControlSemantics.md"
       ]
     },
     {

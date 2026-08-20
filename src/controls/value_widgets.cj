@@ -1,8 +1,9 @@
 package cui.controls
 
 import sdl.{FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent, clampF32}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, Observable, Spring, UiContext, Widget,
-    claimHoverIfInside, controlIdentity, drawSurface, emit, localState, registerFocusable, resolveControlKey}
+import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, ControlSemantics, CursorShape, Observable, Spring,
+    UiContext, Widget, claimHoverIfInside, controlIdentity, drawSurface, emit, localState,
+    recordControlSemantics, registerFocusable, resolveControlKey}
 
 private let VALUE_CONTROL_W: Float32 = 180.0
 
@@ -63,6 +64,7 @@ public class Slider <: Widget {
     private var upperBound: Float32
     // 0 means continuous; a positive step snaps the value to `lower + k*step` multiples.
     private var stepSize: Float32 = 0.0
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(value: Bindable<Float32>, key!: ?String = None, lower!: Float32 = 0.0, upper!: Float32 = 1.0,
@@ -72,6 +74,7 @@ public class Slider <: Widget {
         this.lowerBound = lower
         this.upperBound = upper
         this.stepSize = max(0.0, step)
+        this.semanticLabel = ""
         // Snap the initial value only for a discrete slider, so a continuous slider keeps its exact
         // starting value (byte-identical to before this parameter existed).
         if (stepSize > 0.0) {
@@ -79,6 +82,12 @@ public class Slider <: Widget {
         }
         registerFocusable(this.id)
         emit(this)
+    }
+
+    /** Names this range control for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Slider {
+        semanticLabel = value
+        this
     }
 
     /** Sets the inclusive value range controlled by the slider. */
@@ -113,6 +122,10 @@ public class Slider <: Widget {
     public func draw(ctx: UiContext): Unit {
         let track = Rect(frame.x + 8.0, frame.centerY() - 3.0, max(0.0, frame.w - 16.0), 6.0)
         let amount = normalizedAmount(value.value, lowerBound, upperBound)
+        recordControlSemantics(frame, "Slider", ControlSemantics(
+            "slider", label: semanticLabel, value: value.value.toString(),
+            action: "Slider.adjust()", shortcut: "Left|Right", actionOwner: id
+        ))
         let knobX = track.x + track.w * amount
         ctx.renderer.fillRoundedRect(track, ctx.theme.smallRadius, ctx.theme.field)
         ctx

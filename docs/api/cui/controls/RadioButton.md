@@ -53,6 +53,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`key(value: String)`](#key) | 设置显式焦点与按下状态标识；默认标识按构建顺序唯一。 |
+| `accessibilityLabel(value: String)` | 覆盖无障碍与 headless probe 名称，不改变可见标签。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 返回标签宽加 34 逻辑像素圆点区的宽度（封顶于可用宽度）与 38 高。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录控件框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制外圈（选中渐变为强调色）、按弹簧比例放大的内点、标签与键盘焦点环。 |
@@ -64,6 +65,8 @@ main(): Unit {
 ### init
 
 以标签、组内共享绑定与本项代表值构造单选项。
+
+RadioButton 自动记录 `role=radio`、代表值、当前 `selected` 状态和 `RadioButton.select()` 动作；同一 key 上的显式 probe 仍优先。
 
 ```cangjie
 public init(label: String, selected: Bindable<Int64>, value: Int64)

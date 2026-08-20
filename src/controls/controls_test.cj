@@ -1,7 +1,8 @@
 package cui.controls
 
-import sdl.{Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{Button, Spacer, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
+import sdl.{IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
+import cui.core.{Button, ComponentProbe, IconButton, ProbeProperty, Spacer, State, StateStore, Theme,
+    UiContext, VStack, Widget, buildRoot, emit}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -333,6 +334,68 @@ func stepperConstructorBoundsClampInitialValue(): Unit {
     let stepper = Stepper(value, key: "age", lower: 0, upper: 100, step: 5)
     stepper.layout(ctx, Rect(0.0, 0.0, 120.0, 32.0))
     @Expect(value.value, Int64(100)) // clamped into [0, 100] by the constructor
+}
+
+@Test
+func primitiveControlsExposeStableHeadlessSemantics(): Unit {
+    let enabled = State<Bool>(true)
+    let mode = State<Int64>(2)
+    let volume = State<Float32>(0.75)
+    let density = State<Int64>(1)
+    let quantity = State<Int64>(4)
+    let report = ComponentProbe("test.primitive-control-semantics", width: 420.0, height: 300.0).run("") {
+        VStack {
+            IconButton(IconName.Save) {=> ()}
+                .key("semantic-save")
+                .accessibilityLabel("Save document")
+            Switch("Notifications", enabled).key("semantic-switch")
+            RadioButton("Detailed", mode, 2).key("semantic-radio")
+                .accessibilityLabel("Detailed layout")
+            Slider(volume, key: "semantic-slider").accessibilityLabel("Volume")
+            Picker(["Compact", "Comfortable"], density, key: "semantic-picker")
+                .accessibilityLabel("Density")
+            Stepper(quantity, key: "semantic-stepper", lower: 0, upper: 10)
+                .accessibilityLabel("Quantity")
+        }
+    }
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-save\""))
+    @Expect(report.contains("\"label\":\"Save document\""))
+    @Expect(report.contains("\"role\":\"switch\""))
+    @Expect(report.contains("\"value\":\"on\""))
+    @Expect(report.contains("\"label\":\"Detailed layout\""))
+    @Expect(report.contains("\"selected\":\"true\""))
+    @Expect(report.contains("\"label\":\"Volume\""))
+    @Expect(report.contains("\"value\":\"0.750000\""))
+    @Expect(report.contains("\"label\":\"Density\""))
+    @Expect(report.contains("\"value\":\"Comfortable\""))
+    @Expect(report.contains("\"label\":\"Quantity\""))
+    @Expect(report.contains("\"shortcut\":\"Left|Right|Up|Down\""))
+
+    let ascii = ComponentProbe("test.primitive-control-semantics-ascii", width: 240.0, height: 60.0)
+        .run("@cui-ascii 60 12") {
+            Slider(volume, key: "ascii-volume").accessibilityLabel("Volume")
+        }
+    @Expect(ascii.contains("Volume"))
+    @Expect(ascii.contains("Slider.adjust()"))
+    @Expect(ascii.contains("Left|Right"))
+}
+
+@Test
+func explicitPrimitiveControlProbeKeepsSameOwnerPrecedence(): Unit {
+    let report = ComponentProbe("test.explicit-primitive-probe", width: 120.0, height: 60.0).run("") {
+        IconButton(IconName.Save) {=> ()}
+            .key("explicit-icon")
+            .accessibilityLabel("Save")
+            .probe("explicit-icon", "IconButton", [
+                ProbeProperty("role", "button"),
+                ProbeProperty("label", "Explicit save"),
+                ProbeProperty("action", "document.save()")
+            ])
+    }
+    @Expect(report.contains("\"id\":\"explicit-icon\""))
+    @Expect(report.contains("\"action\":\"document.save()\""))
+    @Expect(!report.contains("control-semantic:explicit-icon"))
 }
 
 private class ControlLayoutProbe <: Widget {

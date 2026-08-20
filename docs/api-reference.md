@@ -222,7 +222,7 @@ interaction owner 与 selected/expanded/focus/hover/press 状态。作用域在�
 | `Label` | `text` | `muted()`、`muted(bool)`、`textAlign`、`foregroundColor`、`fontSize`、`maxLines(n)`、`wrap()` |
 | `Button` | `title + onClick`，或 `onClick + body` slot | `key`、`role`、`accessibilityLabel`、`style`、`buttonStyle`、`contentPadding`、`minControlSize`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Icon` | `IconName` | `iconSize`、`foregroundColor` |
-| `IconButton` | `IconName`、`onClick` | `id`、`label`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
+| `IconButton` | `IconName`、`onClick` | `id`、`label`、`accessibilityLabel`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Divider` | 无 | `axis`、`color` |
 
 单行 `Label` 超宽时自动省略号截断；`maxLines(n)` 换行至 n 行（末行截断），`wrap()` 不限行数，
@@ -241,9 +241,11 @@ slot Button 可组合任意装饰性 CUI 子树；外层 Button 独占焦点、�
 |---|---|---|
 | `Checkbox` | `Checkbox(label, state)` 或 `Checkbox(state) { slot }` | `key`、`accessibilityLabel`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
 | `Chip` | `Chip(text, state)` 或 `Chip(state) { slot }` | `accessibilityLabel`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
-| `Switch` | `Switch(label, Bindable<Bool>)` | `id`；二态开关 |
-| `RadioButton` | `RadioButton(label, selected, value)` | `id`；多个实例共享同一 `Bindable<Int64>` |
-| `Picker` | `Picker(id, items, selected)` | 点击前后区域或 Left/Right 循环选择；宽度按最长选项自适应（切换选项不抖动） |
+| `Switch` | `Switch(label, Bindable<Bool>)` | `id`、`accessibilityLabel`；二态开关 |
+| `RadioButton` | `RadioButton(label, selected, value)` | `id`、`accessibilityLabel`；多个实例共享同一 `Bindable<Int64>` |
+| `Picker` | `Picker(id, items, selected)` | `accessibilityLabel`；点击前后区域或 Left/Right 循环选择；宽度按最长选项自适应（切换选项不抖动） |
+| `Slider` | `Slider(value, lower, upper, step)` | `accessibilityLabel`；拖拽或 Left/Right 调整数值 |
+| `Stepper` | `Stepper(value, lower, upper, step)` | `accessibilityLabel`；点击或方向键调整整数 |
 | `Stepper` | `Stepper(id, Bindable<Int64>, lower!, upper!, step!)` | 范围/步长可经构造参或链式 `range(lower, upper)`、`step(value)` 设置（构造参对齐 Slider/ProgressBar）；宽度按数值内容自适应（一至两位数稳定） |
 | `SegmentedControl` | `SegmentedControl(items, selected, id!: ?String = None)` | 分段单选；选中指示器弹簧滑动到新段；`Tab` 聚焦后 Left/Right 切换（端点钳制）；`id` 可选，缺省按构建序自动派生 |
 | `TabView` | `TabView(labels, selected, id!: ?String = None) { pages }` | 页面按标签顺序声明；活动标签指示器弹簧滑动；页签条为焦点停靠点（先于页内控件），聚焦后 Left/Right 切换页签；`id` 可选 |

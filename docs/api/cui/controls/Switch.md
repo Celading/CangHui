@@ -52,6 +52,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`key(value: String)`](#key) | 设置显式焦点与按下状态标识；默认标识按构建顺序唯一。 |
+| `accessibilityLabel(value: String)` | 覆盖无障碍与 headless probe 名称，不改变可见标签。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 返回 40 逻辑像素轨道加 12 间距加标签宽的宽度（封顶于可用宽度）与 38 高。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录控件框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 按弹簧进度绘制轨道渐变色与滑动圆钮，随后是标签与键盘焦点环。 |
@@ -63,6 +64,8 @@ main(): Unit {
 ### init
 
 以标签与布尔绑定构造开关。
+
+Switch 在 ComponentProbe/Draw IR 中自动记录一个 `role=switch` 区域，包含 `on`/`off` 当前值与唯一动作所有者；显式 `.probe(...)` 对同一 key 仍优先。
 
 ```cangjie
 public init(label: String, checked: Bindable<Bool>)

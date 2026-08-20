@@ -56,6 +56,7 @@ main(): Unit {
 |---|---|
 | [`key(value: String)`](#key) | 设置显式的焦点与按下状态标识。 |
 | [`label(value: String)`](#label) | 在图标右侧加一行文字标签。 |
+| `accessibilityLabel(value: String)` | 设置无障碍与 headless probe 名称，不改变可见图标或文字。 |
 | [`role(value: ButtonRole)`](#role) | 应用语义按钮配色。 |
 | [`style(value: SurfaceStyle)`](#style) | 覆盖主题推导的按钮表面。 |
 | [`measure(...)`](#measure) | 无标签时测量为 38×38 逻辑像素的方形；有标签时按文字宽度加图标与内边距扩展，宽度下限 76。 |
@@ -121,6 +122,16 @@ public func label(value: String): IconButton
 - `value`: `String` — 标签文字，以控件字号绘制。
 
 **返回值** `IconButton` — `this`。
+
+### accessibilityLabel
+
+设置无障碍与 headless probe 使用的语义名称。它与可见的 `label` 分开，适合纯图标按钮或需要更完整描述的按钮。
+
+```cangjie
+public func accessibilityLabel(value: String): IconButton
+```
+
+`IconButton` 在 ComponentProbe/Draw IR 中自动记录 `role=button`、`IconButton.activate()` 和 `Enter|Space`；同一 key 上的显式 `.probe(...)` 仍优先。
 
 ### role
 

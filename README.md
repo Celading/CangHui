@@ -176,6 +176,11 @@ compound controls also publish one outer `ControlSemantics` action to the
 headless probe/Draw IR surface, so function-level UI checks do not need a
 screenshot or hand-authored probe node for each stock control.
 
+Primitive controls follow the same headless contract. `IconButton`, `Switch`,
+`RadioButton`, `Slider`, `Picker` and `Stepper` expose one semantic region with
+their action owner, keyboard shortcut and current value/selection state;
+`accessibilityLabel` supplies a stable name for icon-only or value-only faces.
+
 See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
 override rules.
 

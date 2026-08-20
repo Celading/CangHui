@@ -53,6 +53,7 @@ main(): Unit {
 |---|---|
 | [`range(lower: Int64, upper: Int64)`](#range) | 设置闭区间范围并立即限制当前值。 |
 | [`step(value: Int64)`](#step) | 设置正数步长。 |
+| `accessibilityLabel(value: String)` | 设置步进器的无障碍与 headless probe 名称。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 返回自适应当前数字的宽度（值区下限 40，加两个 36 宽按钮）与 38 逻辑像素高。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录控件框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制字段面与 −、当前值、+ 三个区。 |
@@ -64,6 +65,8 @@ main(): Unit {
 ### init
 
 以整数绑定、可选范围与步长构造步进器。构造即把绑定值夹入范围（仅在值确实变化时写回）。
+
+Stepper 自动记录当前整数值、`Stepper.adjust()` 动作和 `Left|Right|Up|Down` 快捷键；数值编辑仍由外层步进器独占。
 
 ```cangjie
 public init(

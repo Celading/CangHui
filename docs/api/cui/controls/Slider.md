@@ -53,6 +53,7 @@ main(): Unit {
 |---|---|
 | [`range(lower: Float32, upper: Float32)`](#range) | 设置滑杆控制的闭区间范围并规范化当前值。 |
 | [`step(step: Float32)`](#step) | 设置取值步长；0 让滑杆保持连续。 |
+| `accessibilityLabel(value: String)` | 设置滑杆的无障碍与 headless probe 名称。 |
 | [`measure(_: UiContext, available: Size)`](#measure) | 返回 min(可用宽, 180) × 38 逻辑像素。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录控件框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制轨道、已填充段与强调色描边的圆钮。 |
@@ -64,6 +65,8 @@ main(): Unit {
 ### init
 
 以实数绑定、可选范围与步长构造滑杆。构造时只有离散滑杆（`step` 为正）会吸附初值，连续滑杆保持初值不动。
+
+Slider 自动记录当前值、`Slider.adjust()` 动作和 `Left|Right` 快捷键；拖拽与键盘仍共享同一焦点/拖拽所有者。
 
 ```cangjie
 public init(value: Bindable<Float32>, key!: ?String = None, lower!: Float32 = 0.0, upper!: Float32 = 1.0, step!: Float32 = 0.0)

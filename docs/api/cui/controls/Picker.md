@@ -52,6 +52,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
+| `accessibilityLabel(value: String)` | 设置选择器的无障碍与 headless probe 名称。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 返回自适应最长项的宽度（下限 120、含两侧按钮区）与 38 逻辑像素高，封顶于可用宽度。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录控件框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制字段面、裁剪进中间区的当前项文本与两侧 ‹ › 按钮；空集合显示“—”。 |
@@ -63,6 +64,8 @@ main(): Unit {
 ### init
 
 以候选项与选中下标绑定构造选择器。
+
+Picker 自动记录当前文本值、`Picker.move()` 动作和 `Left|Right` 快捷键；未设置名称时使用当前候选项作为语义 label。
 
 ```cangjie
 public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = None)
