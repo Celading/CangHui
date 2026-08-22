@@ -80,7 +80,7 @@ public class StepIndicator <: Widget {
         let cy = frame.y + STEP_TOP_PAD + STEP_CIRCLE_R
         let xs = stepCenters()
         let normalizedCurrent = clampStepIndex(n, current)
-        recordControlSemantics(frame, "StepIndicator", ControlSemantics(
+        recordControlSemantics(ctx, frame, "StepIndicator", ControlSemantics(
             "stepindicator", label: semanticLabel,
             value: "step ${normalizedCurrent + 1} of ${n}",
             action: if (onSelect.isSome()) { "StepIndicator.select()" } else { "" },

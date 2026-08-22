@@ -95,7 +95,7 @@ public class Pagination <: Widget {
     public func draw(ctx: UiContext): Unit {
         refreshItemsAndRects()
         let page = clampPage(current.value, pageCount)
-        recordControlSemantics(frame, "Pagination", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Pagination", ControlSemantics(
             "pagination", label: semanticLabel,
             value: "page ${page + 1} of ${pageCount}",
             action: "Pagination.setPage()", shortcut: "Enter|Space",

@@ -164,7 +164,7 @@ class ModifiedWidget <: Widget {
                     child.draw(ctx)
                 }
             case WidgetModifier.Enabled(isEnabled) =>
-                child.draw(ctx)
+                ctx.withInteractionsEnabled(isEnabled) {=> child.draw(ctx)}
                 if (!isEnabled) {
                     ctx.renderer.fill(frame, ctx.theme.bg.withAlpha(96))
                 }
@@ -247,6 +247,13 @@ class ModifiedWidget <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionsEnabled(): Bool {
+        match (modifier) {
+            case WidgetModifier.Enabled(isEnabled) => isEnabled && child.interactionsEnabled()
+            case _ => child.interactionsEnabled()
+        }
     }
 
     /** Resolves an exact-size length, clamped to non-negative logical pixels. */

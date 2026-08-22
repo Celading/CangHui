@@ -122,7 +122,7 @@ public class Slider <: Widget {
     public func draw(ctx: UiContext): Unit {
         let track = Rect(frame.x + 8.0, frame.centerY() - 3.0, max(0.0, frame.w - 16.0), 6.0)
         let amount = normalizedAmount(value.value, lowerBound, upperBound)
-        recordControlSemantics(frame, "Slider", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Slider", ControlSemantics(
             "slider", label: semanticLabel, value: value.value.toString(),
             action: "Slider.adjust()", shortcut: "Left|Right", actionOwner: id
         ))

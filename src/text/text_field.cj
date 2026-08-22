@@ -120,7 +120,7 @@ public class TextField <: Widget {
     public func draw(ctx: UiContext): Unit {
         let edit = editState()
         edit.normalizeCursor()
-        recordControlSemantics(frame, "TextField", ControlSemantics(
+        recordControlSemantics(ctx, frame, "TextField", ControlSemantics(
             "textfield", label: semanticLabel, value: text.value, placeholder: placeholderText,
             action: if (isEditable) { "TextField.edit()" } else { "" },
             shortcut: if (isEditable) { "TextInput" } else { "" },

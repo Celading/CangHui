@@ -157,3 +157,55 @@ func componentProbeRejectsSemanticRegionIdsThatCollideWithNodes(): Unit {
     @Expect(report.contains("\"ok\":false"))
     @Expect(report.contains("duplicate component probe semantic region id: custom.play"))
 }
+
+@Test
+func disabledAutomaticControlSemanticsRemoveActionsAndExposeState(): Unit {
+    let report = ComponentProbe("test.disabled-automatic-semantics", width: 260.0, height: 120.0).run("") {
+        Button("Disabled", {=> ()}).key("disabled-button").enabled(false)
+    }
+    @Expect(report.contains("\"id\":\"control-semantic:disabled-button\""))
+    @Expect(report.contains("\"disabled\":\"true\""))
+    @Expect(report.contains("\"enabled\":\"false\""))
+    @Expect(!report.contains("Button.activate()"))
+    @Expect(!report.contains("Enter|Space"))
+}
+
+@Test
+func disabledExplicitProbeTruthDoesNotDependOnModifierOrder(): Unit {
+    let report = ComponentProbe("test.disabled-explicit-order", width: 320.0, height: 140.0).run("") {
+        VStack {
+            Button("Probe first", {=> ()}).key("probe-first")
+                .probe("probe-first", "Button", [
+                    ProbeProperty("role", "button"),
+                    ProbeProperty("action", "probe-first.activate()"),
+                    ProbeProperty("shortcut", "Enter|Space")
+                ]).enabled(false)
+            Button("Enabled first", {=> ()}).key("enabled-first").enabled(false)
+                .probe("enabled-first", "Button", [
+                    ProbeProperty("role", "button"),
+                    ProbeProperty("action", "enabled-first.activate()"),
+                    ProbeProperty("shortcut", "Enter|Space")
+                ])
+        }
+    }
+    @Expect(report.contains("\"id\":\"probe-first\""))
+    @Expect(report.contains("\"id\":\"enabled-first\""))
+    @Expect(report.contains("\"disabled\":\"true\""))
+    @Expect(!report.contains("probe-first.activate()"))
+    @Expect(!report.contains("enabled-first.activate()"))
+    @Expect(!report.contains("Enter|Space"))
+}
+
+@Test
+func disabledContainerPropagatesToDescendantControlSemantics(): Unit {
+    let report = ComponentProbe("test.disabled-container-semantics", width: 320.0, height: 140.0).run("") {
+        VStack {
+            Button("First", {=> ()}).key("disabled-first")
+            Button("Second", {=> ()}).key("disabled-second")
+        }.enabled(false)
+    }
+    @Expect(report.contains("control-semantic:disabled-first"))
+    @Expect(report.contains("control-semantic:disabled-second"))
+    @Expect(!report.contains("Button.activate()"))
+    @Expect(!report.contains("Enter|Space"))
+}

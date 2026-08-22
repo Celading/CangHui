@@ -591,7 +591,7 @@ func visible(isVisible: Bool): Widget
 
 ### enabled
 
-保留组件的布局与绘制、按 `isEnabled` 屏蔽其输入。`enabled(false)` 的子树同时退出焦点遍历（只会忽略 Enter/空格的焦点项是死角），绘制后蒙上半透明背景罩示意禁用；帧事件 `UiEvent.Frame` 仍然放行，内部的帧钩子在禁用期间继续计时。可作用于单个控件，也可作用于整行表单或整块面板。
+保留组件的布局与绘制、按 `isEnabled` 屏蔽其输入。`enabled(false)` 的子树同时退出焦点遍历（只会忽略 Enter/空格的焦点项是死角），绘制后蒙上半透明背景罩示意禁用；帧事件 `UiEvent.Frame` 仍然放行，内部的帧钩子在禁用期间继续计时。可作用于单个控件，也可作用于整行表单或整块面板。ComponentProbe/Draw IR 会把该状态贯通到自动语义和显式 probe：输出禁用状态并移除不可执行的 action/shortcut，且不受 `.enabled` 与 `.probe` 链接顺序影响。
 
 ```cangjie
 func enabled(isEnabled: Bool): Widget

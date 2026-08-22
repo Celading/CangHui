@@ -308,7 +308,7 @@ public class IconButton <: Widget {
             focused: ctx.hasFocus(controlId)))
         let visualFrame = animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
         drawSurface(ctx, visualFrame, appearance.surface)
-        recordControlSemantics(visualFrame, "IconButton", ControlSemantics(
+        recordControlSemantics(ctx, visualFrame, "IconButton", ControlSemantics(
             "button", label: semanticLabel, action: "IconButton.activate()",
             actionOwner: controlId
         ))

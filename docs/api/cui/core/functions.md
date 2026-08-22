@@ -155,10 +155,11 @@ public func drawFocusRing(ctx: UiContext, rect: Rect, radius: Float32): Unit
 
 ### recordControlSemantics
 
-当 [`ComponentProbe`](../../index.md) 活跃时，为一个自定义组合控件记录唯一外层交互语义区域。没有活动 probe 时该函数不产生记录；若当前显式 `.probe(...)` 节点已拥有相同 `actionOwner`，自动区域会让位，避免重复动作和 ASCII 标记漂移。
+当 [`ComponentProbe`](../../index.md) 活跃时，为一个自定义组合控件记录唯一外层交互语义区域。没有活动 probe 时该函数不产生记录；若当前显式 `.probe(...)` 节点已拥有相同 `actionOwner`，自动区域会让位，避免重复动作和 ASCII 标记漂移。推荐传入当前 `UiContext`：这样 `.enabled(false)` 会自动发射 `disabled=true` / `enabled=false` 并去除 action/shortcut。三参数重载为兼容入口，无法推断外层禁用状态。
 
 ```cangjie
 public func recordControlSemantics(
+    ctx: UiContext,
     frame: Rect,
     widgetType: String,
     semantics: ControlSemantics
@@ -167,9 +168,20 @@ public func recordControlSemantics(
 
 **参数**
 
-- `frame`: `Rect` — 外层控件的可交互矩形。
+- `ctx`: [`UiContext`](UiContext.md) — 提供当前嵌套 `.enabled(...)` 的有效交互状态。
+- `frame`: `Rect` — 外层控件矩形。
 - `widgetType`: `String` — 报告中展示的控件类型名称。
 - `semantics`: [`ControlSemantics`](ControlSemantics.md) — role、label/value、action、shortcut、唯一动作所有者和可选状态。
+
+兼容重载：
+
+```cangjie
+public func recordControlSemantics(
+    frame: Rect,
+    widgetType: String,
+    semantics: ControlSemantics
+): Unit
+```
 
 ### emit
 

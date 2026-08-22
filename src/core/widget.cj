@@ -66,6 +66,15 @@ public interface Widget {
         }
     }
 
+    /**
+     * Whether generic widget modifiers leave this subtree interactive. Controls with an intrinsic
+     * display-only/read-only mode should still express that through their own semantic action; this
+     * flag is reserved for `.enabled(false)` propagation through wrappers and probes.
+     */
+    func interactionsEnabled(): Bool {
+        true
+    }
+
     /** Constrains this widget to an exact width, e.g. `.width(160.vp)`. */
     func width(value: Length): Widget {
         applyModifier(this, WidgetModifier.Width(value))

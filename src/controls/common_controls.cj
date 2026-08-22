@@ -121,7 +121,7 @@ public class Switch <: Widget {
         }
         let t = knobSpring.animate(ctx, target: goal)
 
-        recordControlSemantics(frame, "Switch", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Switch", ControlSemantics(
             "switch", label: semanticLabel,
             value: if (checked.value) { "on" } else { "off" },
             action: "Switch.toggle()", actionOwner: controlId,
@@ -218,7 +218,7 @@ public class RadioButton <: Widget {
             0.0
         }
         let t = dotSpring.animate(ctx, target: goal)
-        recordControlSemantics(frame, "RadioButton", ControlSemantics(
+        recordControlSemantics(ctx, frame, "RadioButton", ControlSemantics(
             "radio", label: semanticLabel, value: optionValue.toString(),
             action: "RadioButton.select()", actionOwner: controlId,
             selected: Some(isSelected())
@@ -303,7 +303,7 @@ public class Picker <: Widget {
         } else {
             items[currentIndex()]
         }
-        recordControlSemantics(frame, "Picker", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Picker", ControlSemantics(
             "combobox", label: if (semanticLabel.isEmpty()) { label } else { semanticLabel },
             value: label, action: "Picker.move()", shortcut: "Left|Right",
             actionOwner: id
@@ -463,7 +463,7 @@ public class Stepper <: Widget {
 
     public func draw(ctx: UiContext): Unit {
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id)))
-        recordControlSemantics(frame, "Stepper", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Stepper", ControlSemantics(
             "spinbutton", label: semanticLabel, value: value.value.toString(),
             action: "Stepper.adjust()", shortcut: "Left|Right|Up|Down",
             actionOwner: id

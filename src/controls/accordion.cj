@@ -299,7 +299,7 @@ public class Accordion <: Widget {
                 selection: Some(reveal), expanded: expandedState.value.contains(index)),
             styleOverride: customStyle)
         drawSurface(ctx, rect, appearance.surface)
-        recordControlSemantics(rect, "AccordionHeader", ControlSemantics(
+        recordControlSemantics(ctx, rect, "AccordionHeader", ControlSemantics(
             "button",
             label: semanticLabels[index],
             value: if (expandedState.value.contains(index)) { "expanded" } else { "collapsed" },

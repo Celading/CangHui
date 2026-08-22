@@ -78,11 +78,36 @@ public struct ControlSemantics {
     }
 }
 
-/** Records a compound-control region when a device-free ComponentProbe is active. */
+/**
+ * Records a control region with the current generic `.enabled(...)` scope. Disabled controls keep
+ * role/label/value/state but omit actions and shortcuts.
+ */
+public func recordControlSemantics(
+    ctx: UiContext,
+    frame: Rect,
+    widgetType: String,
+    semantics: ControlSemantics
+): Unit {
+    recordControlSemanticsResolved(frame, widgetType, semantics, ctx.interactionsEnabled())
+}
+
+/**
+ * Compatibility entry for custom controls that do not yet pass `UiContext`. It assumes the caller is
+ * enabled; use the context-aware overload so generic disabled modifiers are reflected automatically.
+ */
 public func recordControlSemantics(
     frame: Rect,
     widgetType: String,
     semantics: ControlSemantics
+): Unit {
+    recordControlSemanticsResolved(frame, widgetType, semantics, true)
+}
+
+private func recordControlSemanticsResolved(
+    frame: Rect,
+    widgetType: String,
+    semantics: ControlSemantics,
+    interactionsEnabled: Bool
 ): Unit {
     if (!shouldRecordAutomaticControlSemantics(semantics.actionOwner)) { return }
     let properties = ArrayList<ProbeProperty>()
@@ -90,8 +115,13 @@ public func recordControlSemantics(
     if (!semantics.label.isEmpty()) { properties.add(ProbeProperty("label", semantics.label)) }
     if (!semantics.value.isEmpty()) { properties.add(ProbeProperty("value", semantics.value)) }
     if (!semantics.placeholder.isEmpty()) { properties.add(ProbeProperty("placeholder", semantics.placeholder)) }
-    if (!semantics.action.isEmpty()) { properties.add(ProbeProperty("action", semantics.action)) }
-    if (!semantics.shortcut.isEmpty()) { properties.add(ProbeProperty("shortcut", semantics.shortcut)) }
+    if (interactionsEnabled) {
+        if (!semantics.action.isEmpty()) { properties.add(ProbeProperty("action", semantics.action)) }
+        if (!semantics.shortcut.isEmpty()) { properties.add(ProbeProperty("shortcut", semantics.shortcut)) }
+    } else {
+        properties.add(ProbeProperty("disabled", "true"))
+        properties.add(ProbeProperty("enabled", "false"))
+    }
     properties.add(ProbeProperty("actionOwner", semantics.actionOwner))
     properties.add(ProbeProperty("semanticDescendants", "decorative"))
     match (semantics.selected) {

@@ -97,7 +97,7 @@ public class Breadcrumb <: Widget {
                 break
             }
         }
-        recordControlSemantics(frame, "Breadcrumb", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Breadcrumb", ControlSemantics(
             "breadcrumb", label: semanticLabel,
             value: if (segments.isEmpty()) { "" } else { segments[activeIndex()] },
             action: if (anyClickable) { "Breadcrumb.navigate()" } else { "" },

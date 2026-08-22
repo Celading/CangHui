@@ -33,6 +33,18 @@ func controlContentEnvironmentNestsAndRestores(): Unit {
 }
 
 @Test
+func interactionEnabledScopesNestByConjunctionAndRestore(): Unit {
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+    @Expect(ctx.interactionsEnabled())
+    ctx.withInteractionsEnabled(false) {=>
+        @Expect(!ctx.interactionsEnabled())
+        ctx.withInteractionsEnabled(true) {=> @Expect(!ctx.interactionsEnabled()) }
+        @Expect(!ctx.interactionsEnabled())
+    }
+    @Expect(ctx.interactionsEnabled())
+}
+
+@Test
 func slotButtonPublishesResolvedForegroundAndStateToDecorativeContent(): Unit {
     let capture = ContentEnvironmentCapture()
     let foreground = Color.rgb(17, 44, 91)

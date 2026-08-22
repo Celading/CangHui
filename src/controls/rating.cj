@@ -68,7 +68,7 @@ public class Rating <: Widget {
         let selectedTo = clampRating(value.get(), count)
         let previewTo = if (hovered >= 0) { hovered + 1 } else { -1 }
         let cy = frame.centerY()
-        recordControlSemantics(frame, "Rating", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Rating", ControlSemantics(
             "rating", label: semanticLabel, value: "${selectedTo}/${count}",
             action: if (readonly) { "" } else { "Rating.set()" },
             shortcut: if (readonly) { "" } else { "Left|Down|Right|Up|Home|End" },

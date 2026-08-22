@@ -145,7 +145,7 @@ public class Dropdown <: Widget {
     public func draw(ctx: UiContext): Unit {
         let appearance = currentAppearance(ctx)
         drawSurface(ctx, frame, appearance.surface)
-        recordControlSemantics(frame, "Dropdown", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Dropdown", ControlSemantics(
             "combobox",
             label: if (semanticLabel.isEmpty()) { currentLabel() } else { semanticLabel },
             value: currentLabel(),

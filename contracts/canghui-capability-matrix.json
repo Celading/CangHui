@@ -128,7 +128,7 @@
     {
       "id": "primitive-control-semantics",
       "version": "canghui.control-semantics.v1",
-      "state": "source-test-headless-proven; native-accessibility-adapters-open",
+      "state": "source-test-headless-disabled-state-proven; native-accessibility-adapters-open",
       "codeRefs": [
         "src/core/control_content_environment.cj",
         "src/core/icon_widgets.cj",
@@ -139,6 +139,8 @@
         "src/controls/pagination.cj",
         "src/controls/step_indicator.cj",
         "src/text/text_field.cj",
+        "src/core/widget_modifiers.cj",
+        "src/core/ui_context.cj",
         "src/core/probe.cj",
         "docs/api/cui/core/ControlSemantics.md"
       ]

@@ -80,6 +80,7 @@ public class UiContext {
     private let overlays = ArrayList<Overlay>()
     private let inkRipples = ArrayList<InkRippleOverlay>()
     private let controlContentEnvironments = ArrayList<ControlContentEnvironment>()
+    private let interactionEnabledScopes = ArrayList<Bool>()
     private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
@@ -145,6 +146,23 @@ public class UiContext {
             body()
         } finally {
             controlContentEnvironments.remove(at: controlContentEnvironments.size - 1)
+        }
+    }
+
+    /** Whether the currently drawn subtree may receive ordinary interaction. */
+    public func interactionsEnabled(): Bool {
+        if (interactionEnabledScopes.isEmpty()) { return true }
+        interactionEnabledScopes[interactionEnabledScopes.size - 1]
+    }
+
+    /** Runs one draw callback with nested `.enabled(...)` values combined by logical conjunction. */
+    public func withInteractionsEnabled(isEnabled: Bool, body: () -> Unit): Unit {
+        let effective = interactionsEnabled() && isEnabled
+        interactionEnabledScopes.add(effective)
+        try {
+            body()
+        } finally {
+            interactionEnabledScopes.remove(at: interactionEnabledScopes.size - 1)
         }
     }
 

@@ -233,7 +233,7 @@ public class Button <: Widget {
             case None => frame
         }
         drawSurface(ctx, visualFrame, appearance.surface)
-        recordControlSemantics(visualFrame, "Button", ControlSemantics(
+        recordControlSemantics(ctx, visualFrame, "Button", ControlSemantics(
             "button", label: semanticLabel, action: "Button.activate()",
             actionOwner: controlId
         ))

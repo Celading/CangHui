@@ -111,7 +111,7 @@ public class Chip <: Widget {
             ComponentControlState(hover: progress.hover, press: progress.press,
                 focused: ctx.hasFocus(id), selected: on), styleOverride: customStyle)
         drawSurface(ctx, frame, appearance.surface)
-        recordControlSemantics(frame, "Chip", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Chip", ControlSemantics(
             "checkbox", label: semanticLabel, action: "Chip.toggle()",
             actionOwner: id, selected: Some(on)
         ))

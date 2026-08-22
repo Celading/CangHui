@@ -84,14 +84,16 @@ public class ProbeNode <: Widget {
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
         child.layout(ctx, rect)
-        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+            properties, semantics, ctx)
     }
 
     public func draw(ctx: UiContext): Unit {
         enterActiveProbeNode(id)
         ctx.renderer.pushDrawIrScope(id)
         try {
-            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+                properties, semantics, ctx)
             child.draw(ctx)
         } finally {
             ctx.renderer.popDrawIrScope()
@@ -112,6 +114,7 @@ public class ProbeNode <: Widget {
     public func participatesInLayout(): Bool { child.participatesInLayout() }
     public func focusableId(): ?String { child.focusableId() }
     public func focusableIds(): Array<String> { child.focusableIds() }
+    public func interactionsEnabled(): Bool { child.interactionsEnabled() }
 }
 
 class ProbedWidget <: Widget {
@@ -143,14 +146,16 @@ class ProbedWidget <: Widget {
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
         child.layout(ctx, rect)
-        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+            properties, semantics, ctx)
     }
 
     public func draw(ctx: UiContext): Unit {
         enterActiveProbeNode(id)
         ctx.renderer.pushDrawIrScope(id)
         try {
-            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+                properties, semantics, ctx)
             child.draw(ctx)
         } finally {
             ctx.renderer.popDrawIrScope()
@@ -171,6 +176,7 @@ class ProbedWidget <: Widget {
     public func participatesInLayout(): Bool { child.participatesInLayout() }
     public func focusableId(): ?String { child.focusableId() }
     public func focusableIds(): Array<String> { child.focusableIds() }
+    public func interactionsEnabled(): Bool { child.interactionsEnabled() }
 }
 
 protected func applyProbeModifier(
@@ -653,7 +659,8 @@ private class ComponentProbeSession {
     func popParent(): Unit { if (!parentStack.isEmpty()) { parentStack.remove(at: parentStack.size - 1) } }
 
     func updateNode(id: String, widgetType: String, frame: Rect, focusId: ?String,
-        base: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider, ctx: UiContext): Unit {
+        subtreeInteractionsEnabled: Bool, base: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider,
+        ctx: UiContext): Unit {
         let node = match (findNode(id)) {
             case Some(value) => value
             case None =>
@@ -670,6 +677,12 @@ private class ComponentProbeSession {
         match (semantics) {
             case Some(provider) => for (property in provider()) { putProbeProperty(merged, property) }
             case None => ()
+        }
+        if (!(ctx.interactionsEnabled() && subtreeInteractionsEnabled)) {
+            removeProbeProperty(merged, "action")
+            removeProbeProperty(merged, "shortcut")
+            putProbeProperty(merged, ProbeProperty("disabled", "true"))
+            putProbeProperty(merged, ProbeProperty("enabled", "false"))
         }
         node.properties = sortedProbeProperties(merged.toArray())
     }
@@ -1062,9 +1075,11 @@ private func popActiveProbeParent(): Unit {
 }
 
 private func updateActiveProbeNode(id: String, widgetType: String, frame: Rect, focusId: ?String,
-    properties: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider, ctx: UiContext): Unit {
+    subtreeInteractionsEnabled: Bool, properties: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider,
+    ctx: UiContext): Unit {
     match (activeComponentProbeSession) {
-        case Some(session) => session.updateNode(id, widgetType, frame, focusId, properties, semantics, ctx)
+        case Some(session) => session.updateNode(id, widgetType, frame, focusId, subtreeInteractionsEnabled,
+            properties, semantics, ctx)
         case None => ()
     }
 }
@@ -1183,6 +1198,14 @@ private func putProbeProperty(target: ArrayList<ProbeProperty>, property: ProbeP
         i -= 1
     }
     target.add(property)
+}
+
+private func removeProbeProperty(target: ArrayList<ProbeProperty>, name: String): Unit {
+    var i = target.size - 1
+    while (i >= 0) {
+        if (target[i].name == name) { target.remove(at: i) }
+        i -= 1
+    }
 }
 
 private func sortedProbeProperties(values: Array<ProbeProperty>): Array<ProbeProperty> {

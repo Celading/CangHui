@@ -131,7 +131,7 @@ public class Checkbox <: Widget {
                 focused: ctx.hasFocus(controlId), selected: checked.value), styleOverride: customStyle)
         let box = indicatorFrame(ctx)
         drawSurface(ctx, box, appearance.surface)
-        recordControlSemantics(frame, "Checkbox", ControlSemantics(
+        recordControlSemantics(ctx, frame, "Checkbox", ControlSemantics(
             "checkbox", label: semanticLabel, action: "Checkbox.toggle()",
             actionOwner: controlId, selected: Some(checked.value)
         ))
