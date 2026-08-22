@@ -2,8 +2,8 @@ package cui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, Bindable, InteractionAnimation, Motion, State, UiContext, Widget,
-    resolveControlKey, emit, handlePointerClick, localState}
+import cui.core.{AnimationSpec, Animator, Bindable, ControlSemantics, InteractionAnimation, Motion, State,
+    UiContext, Widget, resolveControlKey, emit, handlePointerClick, localState, recordControlSemantics}
 
 private let PAGE_BTN_W: Float32 = 34.0
 private let PAGE_BTN_H: Float32 = 34.0
@@ -24,6 +24,7 @@ public class Pagination <: Widget {
     private let window: Int64
     private var items: Array<Int64>
     private let maxItemCells: Int64
+    private var semanticLabel: String
     private var frame = Rect.zero()
     private var prevRect = Rect.zero()
     private var nextRect = Rect.zero()
@@ -45,6 +46,7 @@ public class Pagination <: Widget {
         this.window = normalizedWindow
         this.items = builtItems
         this.maxItemCells = min(normalizedCount, max(1, normalizedWindow * 2 + 5))
+        this.semanticLabel = ""
         this.itemRects = Array<Rect>(maxItemCells, {_ => Rect.zero()})
         this.itemAnimations = Array<InteractionAnimation>(maxItemCells, {i =>
             localState<InteractionAnimation>("Pagination:${ident}:item:${i}") {
@@ -60,6 +62,12 @@ public class Pagination <: Widget {
         this.selectionX = localState<Animator>("Pagination:${ident}:selection-x") {Animator(0.0)}.value
         this.selectionInitialized = localState<Bool>("Pagination:${ident}:selection-initialized") {false}
         emit(this)
+    }
+
+    /** Overrides the semantic name without changing the visible page numbers. */
+    public func accessibilityLabel(value: String): Pagination {
+        semanticLabel = value
+        this
     }
 
     public func measure(_: UiContext, _: Size): Size {
@@ -87,6 +95,12 @@ public class Pagination <: Widget {
     public func draw(ctx: UiContext): Unit {
         refreshItemsAndRects()
         let page = clampPage(current.value, pageCount)
+        recordControlSemantics(frame, "Pagination", ControlSemantics(
+            "pagination", label: semanticLabel,
+            value: "page ${page + 1} of ${pageCount}",
+            action: "Pagination.setPage()", shortcut: "Enter|Space",
+            actionOwner: id
+        ))
         let selectedRect = currentPageRect(page)
         if (!selectionInitialized.value) {
             selectionX.reset(selectedRect.x)

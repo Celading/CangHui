@@ -2,7 +2,8 @@ package cui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, UiContext, Widget, resolveControlKey, emit, handlePointerClick, localState}
+import cui.core.{Bindable, ControlSemantics, UiContext, Widget, resolveControlKey, emit, handlePointerClick,
+    localState, recordControlSemantics}
 
 private let BC_H: Float32 = 28.0
 private let BC_HPAD: Float32 = 7.0
@@ -25,6 +26,7 @@ public class Breadcrumb <: Widget {
     private let historyShow: Bool
     private let historyIndex: Bindable<Int64>
     private let items: Array<Int64>
+    private var semanticLabel: String
     private var frame = Rect.zero()
     private let itemRects: Array<Rect>
 
@@ -48,8 +50,15 @@ public class Breadcrumb <: Widget {
             case None => localState<Int64>("Breadcrumb:${ident}:history") {max(0, segments.size - 1)}
         }
         this.items = breadcrumbItems(segments.size, maxItems)
+        this.semanticLabel = joinCrumbPath(segments)
         this.itemRects = Array<Rect>(this.items.size, {_ => Rect.zero()})
         emit(this)
+    }
+
+    /** Overrides the semantic name without changing the visible path. */
+    public func accessibilityLabel(value: String): Breadcrumb {
+        semanticLabel = value
+        this
     }
 
     public func measure(ctx: UiContext, _: Size): Size {
@@ -81,6 +90,20 @@ public class Breadcrumb <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        var anyClickable = false
+        for (i in 0..items.size) {
+            if (isSegmentClickable(items[i])) {
+                anyClickable = true
+                break
+            }
+        }
+        recordControlSemantics(frame, "Breadcrumb", ControlSemantics(
+            "breadcrumb", label: semanticLabel,
+            value: if (segments.isEmpty()) { "" } else { segments[activeIndex()] },
+            action: if (anyClickable) { "Breadcrumb.navigate()" } else { "" },
+            shortcut: if (anyClickable) { "Enter|Space" } else { "" },
+            actionOwner: id
+        ))
         ctx.renderer.pushClip(frame)
         for (i in 0..items.size) {
             let idx = items[i]
@@ -210,4 +233,16 @@ internal func breadcrumbItems(count: Int64, maxItems: Int64): Array<Int64> {
         i += 1
     }
     result.toArray()
+}
+
+// The semantic label default: the visible path, segments joined by " / ".
+private func joinCrumbPath(segments: Array<String>): String {
+    let builder = StringBuilder()
+    for (i in 0..segments.size) {
+        if (i > 0) {
+            builder.append(" / ")
+        }
+        builder.append(segments[i])
+    }
+    builder.toString()
 }

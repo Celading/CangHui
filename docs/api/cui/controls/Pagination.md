@@ -55,12 +55,15 @@ main(): Unit {
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 从左到右排布上一页箭头、页码单元格与下一页箭头。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制箭头（端点处变淡禁用）、页码（当前页强调色、一基显示）与省略号。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 点击页码跳到该页、箭头步进一页并在端点处忽略；悬停可点目标时申请交互指针。 |
+| `accessibilityLabel(value: String)` | 覆盖无障碍与 headless probe 名称，不改变可见页码。 |
 
 ## 构造函数
 
 ### init
 
 以总页数、当前页绑定与窗口宽度构造页码导航条。
+
+Pagination 在 ComponentProbe/Draw IR 中自动记录一个 `role=pagination` 区域，包含 `page {一基当前页} of {总页数}` 当前值与唯一动作所有者。显式 `.probe(...)` 对同一 key 仍优先。
 
 ```cangjie
 public init(pageCount: Int64, current: Bindable<Int64>, window!: Int64 = 1, key!: ?String = None)

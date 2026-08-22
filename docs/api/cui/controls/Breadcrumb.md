@@ -61,12 +61,15 @@ main(): Unit {
 | [`isFlexible()`](#isflexible) | 恒返回 `false`——面包屑贴合内容，不参与栈的剩余空间分配。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制各段文本、可点击段的悬停底色与分隔箭头，整体裁剪到自身框架。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 点击可点击段时，以该段下标调用 `onSelect` 并消费事件。 |
+| `accessibilityLabel(value: String)` | 覆盖无障碍与 headless probe 名称，不改变可见路径。 |
 
 ## 构造函数
 
 ### init
 
 由路径段构造面包屑，可选路径选择回调与折叠上限。
+
+Breadcrumb 在 ComponentProbe/Draw IR 中自动记录一个 `role=breadcrumb` 区域，默认标签为以 ` / ` 连接的路径、值为当前位置段；存在可点击段时报告 `Breadcrumb.navigate()` 动作。显式 `.probe(...)` 对同一 key 仍优先。
 
 ```cangjie
 public init(segments: Array<String>, onSelect!: ?(Int64) -> Unit = None, maxItems!: Int64 = 0, key!: ?String = None)

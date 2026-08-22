@@ -398,6 +398,96 @@ func explicitPrimitiveControlProbeKeepsSameOwnerPrecedence(): Unit {
     @Expect(!report.contains("control-semantic:explicit-icon"))
 }
 
+@Test
+func compoundControlsExposeStableHeadlessSemantics(): Unit {
+    let score = State<Int64>(3)
+    let page = State<Int64>(1)
+    let report = ComponentProbe("test.compound-control-semantics", width: 620.0, height: 300.0).run("") {
+        VStack {
+            Rating(score, count: 5, key: "semantic-rating").accessibilityLabel("Score")
+            Breadcrumb(["Home", "Docs", "Project"], onSelect: {_ => ()}, key: "semantic-crumbs")
+                .accessibilityLabel("Document path")
+            Pagination(5, page, key: "semantic-pages").accessibilityLabel("Results")
+            StepIndicator(["Account", "Configure", "Confirm"], 2, onSelect: {_ => ()}, key: "semantic-steps")
+                .accessibilityLabel("Checkout")
+        }
+    }
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-rating\""))
+    @Expect(report.contains("\"role\":\"rating\""))
+    @Expect(report.contains("\"label\":\"Score\""))
+    @Expect(report.contains("\"value\":\"3/5\""))
+    @Expect(report.contains("\"shortcut\":\"Left|Down|Right|Up|Home|End\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-crumbs\""))
+    @Expect(report.contains("\"role\":\"breadcrumb\""))
+    @Expect(report.contains("\"label\":\"Document path\""))
+    @Expect(report.contains("\"value\":\"Project\""))
+    @Expect(report.contains("\"action\":\"Breadcrumb.navigate()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-pages\""))
+    @Expect(report.contains("\"role\":\"pagination\""))
+    @Expect(report.contains("\"label\":\"Results\""))
+    @Expect(report.contains("\"value\":\"page 2 of 5\""))
+    @Expect(report.contains("\"action\":\"Pagination.setPage()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-steps\""))
+    @Expect(report.contains("\"role\":\"stepindicator\""))
+    @Expect(report.contains("\"label\":\"Checkout\""))
+    @Expect(report.contains("\"value\":\"step 3 of 3\""))
+    @Expect(report.contains("\"action\":\"StepIndicator.select()\""))
+
+    let ascii = ComponentProbe("test.compound-control-semantics-ascii", width: 360.0, height: 120.0)
+        .run("@cui-ascii 60 20") {
+            Rating(score, count: 5, key: "ascii-rating").accessibilityLabel("Score")
+            StepIndicator(["Account", "Configure", "Confirm"], 2, key: "ascii-steps")
+        }
+    @Expect(ascii.contains("Score"))
+    @Expect(ascii.contains("Rating.set()"))
+    @Expect(!ascii.contains("StepIndicator.select()"))
+}
+
+@Test
+func explicitCompoundControlProbeKeepsSameOwnerPrecedence(): Unit {
+    let score = State<Int64>(2)
+    let report = ComponentProbe("test.explicit-compound-probe", width: 160.0, height: 60.0).run("") {
+        Rating(score, count: 5, key: "explicit-rating")
+            .accessibilityLabel("Score")
+            .probe("explicit-rating", "Rating", [
+                ProbeProperty("role", "rating"),
+                ProbeProperty("label", "Explicit score"),
+                ProbeProperty("action", "score.set()")
+            ])
+    }
+    @Expect(report.contains("\"id\":\"explicit-rating\""))
+    @Expect(report.contains("\"action\":\"score.set()\""))
+    @Expect(!report.contains("control-semantic:explicit-rating"))
+}
+
+@Test
+func readonlyCompoundControlsExposeValueWithoutAction(): Unit {
+    let score = State<Int64>(4)
+    let report = ComponentProbe("test.readonly-compound-semantics", width: 420.0, height: 140.0).run("") {
+        VStack {
+            Rating(score, count: 5, readonly: true, key: "readonly-rating")
+            StepIndicator(["Account", "Configure", "Confirm"], 1, key: "display-steps")
+            Breadcrumb(["Home", "Docs", "Project"], key: "display-crumbs")
+        }
+    }
+    @Expect(report.contains("\"id\":\"control-semantic:readonly-rating\""))
+    @Expect(report.contains("\"role\":\"rating\""))
+    @Expect(report.contains("\"value\":\"4/5\""))
+    @Expect(!report.contains("\"action\":\"Rating.set()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:display-steps\""))
+    @Expect(report.contains("\"value\":\"step 2 of 3\""))
+    @Expect(!report.contains("\"action\":\"StepIndicator.select()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:display-crumbs\""))
+    @Expect(report.contains("\"role\":\"breadcrumb\""))
+    @Expect(!report.contains("\"action\":\"Breadcrumb.navigate()\""))
+}
+
 private class ControlLayoutProbe <: Widget {
     var rect = Rect.zero()
 

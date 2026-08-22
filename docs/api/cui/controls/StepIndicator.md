@@ -53,12 +53,15 @@ main(): Unit {
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配的矩形作为节点排布与命中的基准（[`Widget`](../core/Widget.md) 协议）。 |
 | [`draw(ctx: UiContext)`](#draw) | 先画连接线再画节点与标签：完成段强调色、未达段中性色（[`Widget`](../core/Widget.md) 协议）。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 有 `onSelect` 时，点击已到达步骤的节点触发回调（[`Widget`](../core/Widget.md) 协议）。 |
+| `accessibilityLabel(value: String)` | 覆盖无障碍与 headless probe 名称，不改变可见步骤标签。 |
 
 ## 构造函数
 
 ### init
 
 以步骤标签与当前步下标构造步骤条。
+
+StepIndicator 在 ComponentProbe/Draw IR 中自动记录一个 `role=stepindicator` 区域，默认标签为以 ` / ` 连接的步骤、值为 `step {一基当前步} of {总步数}`；传入 `onSelect` 时报告 `StepIndicator.select()` 动作，否则只展示不报告动作。显式 `.probe(...)` 对同一 key 仍优先。
 
 ```cangjie
 public init(steps: Array<String>, current: Int64, onSelect!: ?(Int64) -> Unit = None, key!: ?String = None)

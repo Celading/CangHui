@@ -1,8 +1,8 @@
 package cui.controls
 
 import sdl.{Color, FontSizes, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, InteractionAnimation, InteractionProgress, Motion, UiContext, Widget,
-    resolveControlKey, emit, handlePointerClick, localState}
+import cui.core.{AnimationSpec, Animator, ControlSemantics, InteractionAnimation, InteractionProgress, Motion,
+    UiContext, Widget, resolveControlKey, emit, handlePointerClick, localState, recordControlSemantics}
 
 private let STEP_CIRCLE_R: Float32 = 14.0
 private let STEP_EDGE_PAD: Float32 = 44.0
@@ -23,6 +23,7 @@ public class StepIndicator <: Widget {
     private let steps: Array<String>
     private let current: Int64
     private let onSelect: ?(Int64) -> Unit
+    private var semanticLabel: String
     private let currentAnimation: Animator
     private let nodeAnimations: Array<InteractionAnimation>
     private var animationSpec: AnimationSpec
@@ -40,6 +41,7 @@ public class StepIndicator <: Widget {
         this.steps = steps
         this.current = current
         this.onSelect = onSelect
+        this.semanticLabel = joinStepLabels(steps)
         this.currentAnimation = localState<Animator>("${ident}:current-motion") {
             Animator(Float32(clampStepIndex(steps.size, current)))
         }.value
@@ -48,6 +50,12 @@ public class StepIndicator <: Widget {
         })
         this.animationSpec = animation
         emit(this)
+    }
+
+    /** Overrides the semantic name without changing the visible step labels. */
+    public func accessibilityLabel(value: String): StepIndicator {
+        semanticLabel = value
+        this
     }
 
     /** Applies an automatic or exact progress animation property. */
@@ -72,6 +80,13 @@ public class StepIndicator <: Widget {
         let cy = frame.y + STEP_TOP_PAD + STEP_CIRCLE_R
         let xs = stepCenters()
         let normalizedCurrent = clampStepIndex(n, current)
+        recordControlSemantics(frame, "StepIndicator", ControlSemantics(
+            "stepindicator", label: semanticLabel,
+            value: "step ${normalizedCurrent + 1} of ${n}",
+            action: if (onSelect.isSome()) { "StepIndicator.select()" } else { "" },
+            shortcut: if (onSelect.isSome()) { "Enter|Space" } else { "" },
+            actionOwner: id
+        ))
         let animatedCurrent = currentAnimation.animate(ctx, target: Float32(normalizedCurrent), spec: animationSpec)
         // Connectors first, behind the nodes: done segments accent, the rest neutral.
         var i = 0
@@ -176,4 +191,16 @@ internal func clampStepIndex(stepCount: Int64, current: Int64): Int64 {
     } else {
         max(Int64(0), min(stepCount - 1, current))
     }
+}
+
+// The semantic label default: the visible step labels, joined by " / ".
+private func joinStepLabels(steps: Array<String>): String {
+    let builder = StringBuilder()
+    for (i in 0..steps.size) {
+        if (i > 0) {
+            builder.append(" / ")
+        }
+        builder.append(steps[i])
+    }
+    builder.toString()
 }

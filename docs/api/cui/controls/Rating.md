@@ -57,12 +57,15 @@ main(): Unit {
 | [`focusableId()`](#focusableid) | 交互模式返回焦点标识；`readonly` 时返回 `None`，不进入 Tab 遍历。 |
 | [`draw(ctx: UiContext)`](#draw) | 实心圆点画到评分处、其余空心；悬停时按指针预览填充，键盘聚焦画焦点环。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 点击圆点设置或清零评分并夺焦，←/↓/→/↑ 增减、Home 清零、End 拉满；`readonly` 时忽略一切输入。 |
+| `accessibilityLabel(value: String)` | 覆盖无障碍与 headless probe 名称，不改变可见圆点。 |
 
 ## 构造函数
 
 ### init
 
 以评分绑定、点数与只读开关构造评分控件。
+
+Rating 在 ComponentProbe/Draw IR 中自动记录一个 `role=rating` 区域，包含 `{评分}/{count}` 当前值与唯一动作所有者；`readonly` 时只报告数值、不报告激活动作。显式 `.probe(...)` 对同一 key 仍优先。
 
 ```cangjie
 public init(value: Bindable<Int64>, count!: Int64 = 5, readonly!: Bool = false, key!: ?String = None)
