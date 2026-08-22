@@ -2,7 +2,7 @@ package cui.controls
 
 import std.collection.{ArrayList, HashMap}
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent, drawIcon}
-import cui.core.{CUI_SMALL_H, CursorShape, Length, LengthUnit, UiContext, Widget, drawFocusRing, emit,
+import cui.core.{CUI_SMALL_H, CursorShape, Length, LengthUnit, TextAlign, UiContext, Widget, drawFocusRing, emit,
     focusableControlIdentity, resolveControlKey}
 
 // Gap after an inline icon before the next span.
@@ -30,6 +30,7 @@ private let RICH_HIGHLIGHT_RADIUS: Float32 = 3.0
 public class RichText <: Widget {
     private let spans: Array<RichSpan>
     private var pointSize: Length
+    private var alignment: TextAlign
     private let controlId: String
     // Focus-stop id per link span index — a keyboard focus stop and click-press slot for each link.
     // None for the common linkless RichText, which allocates nothing (the tree is rebuilt every frame).
@@ -51,6 +52,7 @@ public class RichText <: Widget {
     ) {
         this.spans = spans
         this.pointSize = fontSize
+        this.alignment = TextAlign.Leading
         // An identity for click-press tracking of link spans; auto-derived by build order unless given.
         this.controlId = resolveControlKey(key, "RichText")
         // Register a keyboard focus stop for each link span, in declaration order so Tab walks links
@@ -84,6 +86,12 @@ public class RichText <: Widget {
         fontSize(Length(value, LengthUnit.Fp))
     }
 
+    /** Sets horizontal alignment of the wrapped lines inside the assigned frame. */
+    public func textAlign(value: TextAlign): RichText {
+        alignment = value
+        this
+    }
+
     public func measure(ctx: UiContext, available: Size): Size {
         let ps = resolvedPointSize(ctx)
         let lineHeight = ctx.renderer.textHeight(pointSize: ps)
@@ -113,8 +121,9 @@ public class RichText <: Widget {
         let offsetY = max(0.0, (frame.h - layout.height) / 2.0)
         for (item in layout.items) {
             // The fragment's box in window space; its y already centres it within its (possibly
-            // taller) line, so icons and differently-sized text need no further offset here.
-            let box = fragmentRect(item, offsetY)
+            // taller) line, so icons and differently-sized text need no further offset here. The
+            // x is shifted by the line's alignment so a Trailing or Center block moves as a whole.
+            let box = fragmentRect(item, offsetY, lineAlignShift(layout.lineWidths[item.line]))
             let color = colorFor(ctx, item)
             // A <mark>-style highlight box behind the fragment, drawn first so the glyphs sit on top.
             // It covers exactly the fragment box; a mark split across separately highlighted spans
@@ -138,11 +147,18 @@ public class RichText <: Widget {
         }
     }
 
-    // The fragment's box in window space: layout position plus the block's vertical centring, sized by
-    // the fragment's advance width and line height. Drawing (glyphs, highlight, focus ring) and link
-    // hit-testing both use this one definition, so the drawn box and the hit box cannot drift apart.
-    private func fragmentRect(item: PlacedItem, offsetY: Float32): Rect {
-        Rect(frame.x + item.x, frame.y + offsetY + item.y, item.width, item.height)
+    // The fragment's box in window space: layout position plus the block's vertical centring and the
+    // line's horizontal alignment shift, sized by the fragment's advance width and line height.
+    // Drawing (glyphs, highlight, focus ring) and link hit-testing both use this one definition, so
+    // the drawn box and the hit box cannot drift apart.
+    private func fragmentRect(item: PlacedItem, offsetY: Float32, alignShift: Float32): Rect {
+        Rect(frame.x + item.x + alignShift, frame.y + offsetY + item.y, item.width, item.height)
+    }
+
+    // The per-line horizontal shift for the current alignment. Alignment is block-level: each line
+    // shifts by its own measured width, so a wrapped block lines up per line instead of per advance.
+    private func lineAlignShift(lineWidth: Float32): Float32 {
+        richLineAlignShift(alignment, lineWidth, frame.w)
     }
 
     /*
@@ -246,7 +262,8 @@ public class RichText <: Widget {
         for (item in layout.items) {
             match (item.onTap) {
                 case Some(_) =>
-                    if (fragmentRect(item, offsetY).contains(mx, my)) {
+                    if (fragmentRect(item, offsetY, lineAlignShift(layout.lineWidths[item.line]))
+                        .contains(mx, my)) {
                         return item
                     }
                 case None => ()
@@ -308,5 +325,19 @@ public class RichText <: Widget {
                 case None => basePointSize
             }
         }
+    }
+}
+
+/*
+ * The per-line horizontal shift for a block alignment, in logical pixels. Leading never shifts;
+ * Center and Trailing use the line's own measured width, clamped so a line wider than the frame
+ * stays put instead of overflowing to the left. `Leading`/`Trailing` are direction-agnostic and are
+ * intentionally not collapsed to Left/Right, so a future RTL layout direction can keep the same enum.
+ */
+internal func richLineAlignShift(alignment: TextAlign, lineWidth: Float32, frameW: Float32): Float32 {
+    match (alignment) {
+        case TextAlign.Leading => 0.0
+        case TextAlign.Center => max(0.0, (frameW - lineWidth) / 2.0)
+        case TextAlign.Trailing => max(0.0, frameW - lineWidth)
     }
 }

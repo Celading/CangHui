@@ -13,6 +13,7 @@ enum PlacedKind {
 struct PlacedItem {
     let x: Float32
     let y: Float32
+    let line: Int64
     let kind: PlacedKind
     let color: ?Color
     let muted: Bool
@@ -37,6 +38,7 @@ struct PlacedItem {
     init(
         x!: Float32,
         y!: Float32,
+        line!: Int64,
         kind!: PlacedKind,
         color!: ?Color,
         muted!: Bool,
@@ -51,6 +53,7 @@ struct PlacedItem {
     ) {
         this.x = x
         this.y = y
+        this.line = line
         this.kind = kind
         this.color = color
         this.muted = muted
@@ -118,25 +121,29 @@ extend LaidFrag {
     // Settles this fragment at its final vertical position — the ONE place a LaidFrag becomes a
     // PlacedItem, so the two field lists are never copied across anywhere else.
     func placed(y: Float32): PlacedItem {
-        PlacedItem(x: x, y: y, kind: kind, color: color, muted: muted, style: style, font: font, size: size,
-            width: width, height: height, spanIndex: spanIndex, onTap: onTap, highlight: highlight)
+        PlacedItem(x: x, y: y, line: line, kind: kind, color: color, muted: muted, style: style, font: font,
+            size: size, width: width, height: height, spanIndex: spanIndex, onTap: onTap, highlight: highlight)
     }
 }
 
 // The result of laying spans out: the placed fragments, the total content height, the widest line,
-// and the line count (what "single line" means for hugging — a line's height varies with its runs, so
-// comparing heights cannot answer it).
+// the line count (what "single line" means for hugging — a line's height varies with its runs, so
+// comparing heights cannot answer it), and one measured width per line so block alignment can be
+// computed per line from that line's own metrics rather than a uniform advance.
 struct RichLayout {
     let items: Array<PlacedItem>
     let height: Float32
     let width: Float32
     let lines: Int64
+    let lineWidths: Array<Float32>
 
-    init(items: Array<PlacedItem>, height: Float32, width: Float32, lines: Int64) {
+    init(items: Array<PlacedItem>, height: Float32, width: Float32, lines: Int64,
+        lineWidths: Array<Float32>) {
         this.items = items
         this.height = height
         this.width = width
         this.lines = lines
+        this.lineWidths = lineWidths
     }
 }
 
@@ -191,6 +198,8 @@ internal func layoutRichSpans(
     let frags = ArrayList<LaidFrag>()
     let lineHeights = ArrayList<Float32>()
     lineHeights.add(0.0)
+    let lineWidths = ArrayList<Float32>()
+    lineWidths.add(0.0)
     var x: Float32 = 0.0
     var line: Int64 = 0
     var widest: Float32 = 0.0
@@ -219,6 +228,7 @@ internal func layoutRichSpans(
                             x = 0.0
                             line += 1
                             lineHeights.add(0.0)
+                            lineWidths.add(0.0)
                             continue
                         }
                         // A single rune overflows even a full line; place it anyway to make progress.
@@ -244,6 +254,7 @@ internal func layoutRichSpans(
                                 x = 0.0
                                 line += 1
                                 lineHeights.add(0.0)
+                                lineWidths.add(0.0)
                                 continue
                             }
                         }
@@ -259,6 +270,7 @@ internal func layoutRichSpans(
                         lineHeights[line] = fragHeight
                     }
                     x += segWidth
+                    lineWidths[line] = x
                     widest = max(widest, x)
                     i += fit
                 }
@@ -267,6 +279,7 @@ internal func layoutRichSpans(
                     x = 0.0
                     line += 1
                     lineHeights.add(0.0)
+                    lineWidths.add(0.0)
                 }
                 frags.add(
                     LaidFrag(x: x, line: line, height: iconSize, kind: PlacedKind.PlacedIcon(icon),
@@ -276,12 +289,13 @@ internal func layoutRichSpans(
                     lineHeights[line] = iconSize
                 }
                 x += iconSize
+                lineWidths[line] = x
                 widest = max(widest, x)
                 x += spanGap
         }
     }
     if (frags.isEmpty()) {
-        return RichLayout(Array<PlacedItem>(), 0.0, 0.0, 0)
+        return RichLayout(Array<PlacedItem>(), 0.0, 0.0, 0, [])
     }
     // Second pass: stack the lines and centre each fragment within its line's height.
     let lineTops = ArrayList<Float32>()
@@ -294,5 +308,5 @@ internal func layoutRichSpans(
     for (frag in frags) {
         placed.add(frag.placed(lineTops[frag.line] + (lineHeights[frag.line] - frag.height) / 2.0))
     }
-    RichLayout(placed.toArray(), acc, widest, lineHeights.size)
+    RichLayout(placed.toArray(), acc, widest, lineHeights.size, lineWidths.toArray())
 }

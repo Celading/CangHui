@@ -1,7 +1,8 @@
 package cui.controls
 
+import std.convert.*
 import sdl.{Color, FontStyle, FrameInfo, IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import cui.core.{State, TextAlign, Theme, UiContext}
 
 private func richTextTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -460,4 +461,97 @@ func richTextContinuationSkipsBrokenOnSpace(): Unit {
     @Expect(fragText(layout.items[0]), "abc")
     @Expect(fragText(layout.items[1]), "def")
     @Expect(layout.items[1].x, Float32(0.0))
+}
+
+@Test
+func richLineAlignShiftIsExact(): Unit {
+    // Leading never shifts; Center and Trailing use the line's own measured width.
+    @Expect(richLineAlignShift(TextAlign.Leading, 100.0, 300.0), Float32(0.0))
+    @Expect(richLineAlignShift(TextAlign.Center, 100.0, 300.0), Float32(100.0))
+    @Expect(richLineAlignShift(TextAlign.Trailing, 100.0, 300.0), Float32(200.0))
+    // A line wider than the frame stays put instead of overflowing to the left.
+    @Expect(richLineAlignShift(TextAlign.Center, 400.0, 300.0), Float32(0.0))
+    @Expect(richLineAlignShift(TextAlign.Trailing, 400.0, 300.0), Float32(0.0))
+    // A line exactly as wide as the frame has nowhere to shift.
+    @Expect(richLineAlignShift(TextAlign.Trailing, 300.0, 300.0), Float32(0.0))
+}
+
+@Test
+func richLayoutReportsPerLineWidths(): Unit {
+    // One line of 5 runes → 50px; the line-width array mirrors the line count.
+    let single = runLayout([RichSpan.text("hello")], 200.0, 20.0, 16.0, 3.0, TEN_PX_PER_RUNE)
+    @Expect(single.lines, 1)
+    @Expect(single.lineWidths.size, 1)
+    @Expect(single.lineWidths[0], Float32(50.0))
+    // 10 runes into a 50px line → two 50px lines, each carrying its own measured width.
+    let wrapped = runLayout([RichSpan.text("abcdefghij")], 50.0, 20.0, 16.0, 3.0, TEN_PX_PER_RUNE)
+    @Expect(wrapped.lines, 2)
+    @Expect(wrapped.lineWidths.size, 2)
+    @Expect(wrapped.lineWidths[0], Float32(50.0))
+    @Expect(wrapped.lineWidths[1], Float32(50.0))
+    // An icon + text line reports the full line width including the icon.
+    let mixed = runLayout([RichSpan.icon(IconName.Save), RichSpan.text("hi")], 100.0, 20.0, 16.0, 3.0,
+        TEN_PX_PER_RUNE)
+    @Expect(mixed.lineWidths[0], Float32(19.0 + 20.0))
+    // Fragments carry their line index so a block can shift line-by-line.
+    @Expect(wrapped.items[0].line, 0)
+    @Expect(wrapped.items[1].line, 1)
+}
+
+@Test
+func richTextAlignmentShiftsDrawnFragments(): Unit {
+    // The same single-line content in a wide frame draws strictly right for Center then Trailing —
+    // font-metric independent, since only the relative order is asserted.
+    let leadingX = drawnRichTextX(TextAlign.Leading)
+    let centerX = drawnRichTextX(TextAlign.Center)
+    let trailingX = drawnRichTextX(TextAlign.Trailing)
+    @Expect(centerX > leadingX)
+    @Expect(trailingX > centerX)
+}
+
+// Draws a one-line RichText in a 300px-wide frame on a fresh recording renderer and returns the first
+// text command's x, or -1 when no text was recorded (fails the caller's ordering assertions).
+private func drawnRichTextX(align: TextAlign): Float32 {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let rich = RichText([RichSpan.text("aligned")], key: "align").textAlign(align)
+    rich.layout(ctx, Rect(0.0, 0.0, 300.0, 40.0))
+    rich.draw(ctx)
+    for (cmd in renderer.drawIr()) {
+        if (cmd.kind == "text") {
+            match (drawIrX(cmd.data)) {
+                case Some(x) => return x
+                case None => ()
+            }
+        }
+    }
+    -1.0
+}
+
+// Extracts the `"x":<number>` value from a DrawIrCommand data payload (no surrounding braces).
+private func drawIrX(data: String): ?Float32 {
+    let marker = "\"x\":"
+    let runes = data.toRuneArray()
+    let mrunes = marker.toRuneArray()
+    var i: Int64 = 0
+    while (i <= runes.size - mrunes.size) {
+        var j: Int64 = 0
+        while (j < mrunes.size && runes[i + j] == mrunes[j]) {
+            j += 1
+        }
+        if (j == mrunes.size) {
+            let start = i + mrunes.size
+            var end = start
+            while (end < runes.size && runes[end] != r',' && runes[end] != r'}') {
+                end += 1
+            }
+            let builder = StringBuilder()
+            for (k in start..end) {
+                builder.append(runes[k].toString())
+            }
+            return Some(Float32.parse(builder.toString()))
+        }
+        i += 1
+    }
+    None
 }

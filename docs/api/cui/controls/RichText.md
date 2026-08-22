@@ -22,7 +22,7 @@ public class RichText <: Widget
 
 带 [`onTap`](RichSpan.md#ontap) 的链接片段可交互：按下并在同一片段盒上松开触发动作、悬停显示交互指针；每个链接片段按声明序注册为键盘焦点项，Tab 依次走过、Enter/Space 激活，键盘聚焦的链接画焦点环。不含链接的 `RichText` 不注册、不分配任何交互结构，保持纯静态。
 
-测量语义：内容只占一行时贴合内容宽（行内嵌进横排容器时按内容收身），一旦换行即充满可用宽度。排版结果按宽度、字号与显示缩放缓存，测量与绘制共用，不逐帧重排。
+测量语义：内容只占一行时贴合内容宽（行内嵌进横排容器时按内容收身），一旦换行即充满可用宽度。排版结果按宽度、字号与显示缩放缓存，测量与绘制共用，不逐帧重排。换行后的水平对齐由 [`textAlign(...)`](#textalign) 控制（默认 Leading），按行实测宽度逐行偏移；对齐只影响绘制与链接命中盒，不改变测量与换行。
 
 ## 示例
 
@@ -60,6 +60,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`fontSize(...)`](#fontsize) | 设置未自带字号的片段共享的基准字号。 |
+| [`textAlign(value: TextAlign)`](#textalign) | 设置换行后各行在框架内的水平对齐：Leading（默认）/ Center / Trailing。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 单行时贴合内容宽、换行后充满可用宽；高度随行内最大字号增长且不低于基准行高。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录文本框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 逐片段画高亮底、文字或图标，给键盘聚焦的链接片段画焦点环；内容块垂直居中，与 Label 同行时基线对齐。 |
@@ -107,6 +108,20 @@ public func fontSize(value: Float32): RichText
 **参数**
 
 - `value`: [`Length`](../core/Length.md) — `Length` 重载接收带单位的基准字号；`Float32` 重载接收字体像素（fp）数值，随用户字体缩放。
+
+**返回值** `RichText` — 返回自身以便链式调用。
+
+### textAlign
+
+设置换行后各行在框架内的水平对齐，默认 `Leading`。对齐按行计算：每行用自己实测的行宽偏移，`Center` 使各行居中、`Trailing` 右对齐，行宽超出框架时该行不偏移、绝不出现在框架左侧。`Leading`/`Trailing` 是方向无关语义，不折叠成 Left/Right，为未来 RTL 排版方向保留同一枚举。对齐只影响绘制与链接命中盒，不改变测量与换行结果。
+
+```cangjie
+public func textAlign(value: TextAlign): RichText
+```
+
+**参数**
+
+- `value`: [`TextAlign`](../core/TextAlign.md) — `Leading`（默认，靠前）/ `Center`（居中）/ `Trailing`（靠后）。
 
 **返回值** `RichText` — 返回自身以便链式调用。
 
