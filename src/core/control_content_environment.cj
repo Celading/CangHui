@@ -46,6 +46,7 @@ public struct ControlSemantics {
     public let role: String
     public let label: String
     public let value: String
+    public let placeholder: String
     public let action: String
     public let shortcut: String
     public let actionOwner: String
@@ -56,6 +57,7 @@ public struct ControlSemantics {
         role: String,
         label!: String = "",
         value!: String = "",
+        placeholder!: String = "",
         action!: String = "control.activate()",
         shortcut!: String = "Enter|Space",
         actionOwner!: String,
@@ -67,6 +69,7 @@ public struct ControlSemantics {
         this.role = role
         this.label = label
         this.value = value
+        this.placeholder = placeholder
         this.action = action
         this.shortcut = shortcut
         this.actionOwner = actionOwner
@@ -86,6 +89,7 @@ public func recordControlSemantics(
     properties.add(ProbeProperty("role", semantics.role))
     if (!semantics.label.isEmpty()) { properties.add(ProbeProperty("label", semantics.label)) }
     if (!semantics.value.isEmpty()) { properties.add(ProbeProperty("value", semantics.value)) }
+    if (!semantics.placeholder.isEmpty()) { properties.add(ProbeProperty("placeholder", semantics.placeholder)) }
     if (!semantics.action.isEmpty()) { properties.add(ProbeProperty("action", semantics.action)) }
     if (!semantics.shortcut.isEmpty()) { properties.add(ProbeProperty("shortcut", semantics.shortcut)) }
     properties.add(ProbeProperty("actionOwner", semantics.actionOwner))

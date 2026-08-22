@@ -138,6 +138,7 @@
         "src/controls/breadcrumb.cj",
         "src/controls/pagination.cj",
         "src/controls/step_indicator.cj",
+        "src/text/text_field.cj",
         "src/core/probe.cj",
         "docs/api/cui/core/ControlSemantics.md"
       ]

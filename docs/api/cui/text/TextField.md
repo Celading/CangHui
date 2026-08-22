@@ -56,6 +56,8 @@ main(): Unit {
 | [`autofocus()`](#autofocus) | 控件首次出现时申请键盘焦点，返回自身以便链式声明。 |
 | [`undo()`](#undo) | 回退最近一组编辑；同时绑定在 Ctrl+Z。 |
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
+| `placeholder(value: String)` | 设置字段为空时显示的暗色提示文本，不改变编辑行为。 |
+| `accessibilityLabel(value: String)` | 覆盖无障碍与 headless probe 名称，不改变渲染内容。 |
 | [`measure(...)`](#measure) | [`Widget`](../core/Widget.md) 协议实现：占满可用宽度，高度固定为标准控件高 38 逻辑像素。 |
 | [`layout(...)`](#layout) | [`Widget`](../core/Widget.md) 协议实现：记录分配的框架矩形，供绘制与命中测试使用。 |
 | [`draw(...)`](#draw) | [`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、文本与光标，三者共用同一水平跟随偏移并整体裁剪进框内。 |
@@ -68,13 +70,16 @@ main(): Unit {
 
 构造单行编辑框，并把它注册进当前声明式构建块。
 
+TextField 在 ComponentProbe/Draw IR 中自动记录一个 `role=textfield` 区域，包含当前值、占位提示与唯一动作所有者；`placeholder` 是语义提示，与 `label`/`accessibilityLabel` 明确区分，只有非空时才发射。`editable: false` 时只报告角色与数值、不报告激活动作。显式 `.probe(...)` 对同一 key 仍优先。
+
 ```cangjie
 public init(
     text: Bindable<String>,
     key!: ?String = None,
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None,
-    editable!: Bool = true
+    editable!: Bool = true,
+    placeholder!: String = ""
 )
 ```
 
@@ -85,6 +90,7 @@ public init(
 - `cursor!`: `?State<Int64>` — 外部接管的光标字节偏移；默认 `None`，控件在自身标识下保留光标，初值在文本末尾。
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
 - `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读，拒绝编辑事件且不进入 Tab 焦点遍历。
+- `placeholder!`: `String` — 字段为空时以暗色文本显示的提示；默认 `""`（无提示）。不影响值或编辑。
 
 **异常**
 
