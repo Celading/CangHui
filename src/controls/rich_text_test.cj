@@ -33,7 +33,8 @@ private func runLayout(
     lineHeight: Float32,
     iconSize: Float32,
     spanGap: Float32,
-    measure: (String, FontStyle, ?String) -> Float32
+    measure: (String, FontStyle, ?String) -> Float32,
+    lineGap!: Float32 = 0.0
 ): RichLayout {
     layoutRichSpans(
         spans,
@@ -42,7 +43,8 @@ private func runLayout(
         iconSize,
         spanGap,
         {text, _, style, font => measure(text, style, font)},
-        {_, _, _ => lineHeight}
+        {_, _, _ => lineHeight},
+        lineGap: lineGap
     )
 }
 
@@ -461,6 +463,54 @@ func richTextContinuationSkipsBrokenOnSpace(): Unit {
     @Expect(fragText(layout.items[0]), "abc")
     @Expect(fragText(layout.items[1]), "def")
     @Expect(layout.items[1].x, Float32(0.0))
+}
+
+@Test
+func richTextLineSpacingPreservesPerLineWidthsAndAlignmentInputs(): Unit {
+    let gapped = runLayout([RichSpan.text("abcdefghij")], 50.0, 20.0, 16.0, 3.0,
+        TEN_PX_PER_RUNE, lineGap: 6.0)
+    @Expect(gapped.lines, 2)
+    @Expect(gapped.height, Float32(46.0))
+    @Expect(gapped.items[1].y, Float32(26.0))
+    @Expect(gapped.lineWidths.size, 2)
+    @Expect(gapped.lineWidths[0], Float32(50.0))
+    @Expect(gapped.lineWidths[1], Float32(50.0))
+    @Expect(richLineAlignShift(TextAlign.Center, gapped.lineWidths[1], 90.0), Float32(20.0))
+    @Expect(richLineAlignShift(TextAlign.Trailing, gapped.lineWidths[1], 90.0), Float32(40.0))
+    let single = runLayout([RichSpan.text("abc")], 200.0, 20.0, 16.0, 3.0,
+        TEN_PX_PER_RUNE, lineGap: 6.0)
+    @Expect(single.height, Float32(20.0))
+}
+
+@Test
+func richTextLineSpacingThreadsThroughMeasureDrawAndAlignment(): Unit {
+    let ctx = richTextTestContext()
+    let text = "the quick brown fox jumps over the lazy dog"
+    let narrow = Size(100.0, 400.0)
+    let plain = RichText([RichSpan.text(text)], key: "ls-plain").textAlign(TextAlign.Center)
+    let spaced = RichText([RichSpan.text(text)], key: "ls-spaced")
+        .lineSpacing(12.0).textAlign(TextAlign.Trailing)
+    let plainSize = plain.measure(ctx, narrow)
+    let spacedSize = spaced.measure(ctx, narrow)
+    @Expect(spacedSize.h > plainSize.h)
+    spaced.layout(ctx, Rect(0.0, 0.0, 100.0, spacedSize.h))
+    spaced.draw(ctx)
+}
+
+@Test
+func richTextLineSpacingRejectsInvalidValues(): Unit {
+    var negativeRejected = false
+    var nanRejected = false
+    var infRejected = false
+    try { let _ = RichText([RichSpan.text("x")], key: "ls-neg").lineSpacing(-0.5) }
+    catch (_: IllegalArgumentException) { negativeRejected = true }
+    try { let _ = RichText([RichSpan.text("x")], key: "ls-nan").lineSpacing(Float32.NaN) }
+    catch (_: IllegalArgumentException) { nanRejected = true }
+    try { let _ = RichText([RichSpan.text("x")], key: "ls-inf").lineSpacing(Float32.Inf) }
+    catch (_: IllegalArgumentException) { infRejected = true }
+    @Expect(negativeRejected)
+    @Expect(nanRejected)
+    @Expect(infRejected)
 }
 
 @Test

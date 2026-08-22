@@ -67,6 +67,7 @@ main(): Unit {
 | [`fontFamily(name: String)`](#fontfamily) | 用已注册的应用字体绘制文本。 |
 | [`maxLines(value: Int64)`](#maxlines) | 允许文本换行至最多 `value` 行，仍有剩余文本时最后一行以省略号截断。 |
 | [`wrap()`](#wrap) | 取消行数上限，让文本按需换行。 |
+| [`lineSpacing(value: Float32)`](#linespacing) | 设置多行文本相邻行之间的间距。 |
 | [`measure(...)`](#measure) | 单行时按整段文本宽度测量，多行时先按可用宽度折行、再报告最宽行与行数决定的高度。 |
 | [`layout(...)`](#layout) | 记录分配的帧矩形。 |
 | [`draw(...)`](#draw) | 绘制文本：单行溢出时省略号截断，多行时逐行绘制并整体垂直居中。 |
@@ -273,6 +274,16 @@ public func wrap(): Label
 ```
 
 **返回值** `Label` — `this`。
+
+### lineSpacing
+
+设置多行文本相邻行之间的逻辑像素间距，默认 `2.0`；单行文本不受影响。
+
+```cangjie
+public func lineSpacing(value: Float32): Label
+```
+
+`value` 必须是非负有限值，否则抛出 `IllegalArgumentException`。返回 `this`。
 
 ### measure
 

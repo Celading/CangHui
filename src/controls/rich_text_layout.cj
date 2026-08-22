@@ -183,8 +183,8 @@ internal func asciiWordEnd(runes: Array<Rune>, start: Int64): Int64 {
  * Two passes: the first places fragments left-to-right with wrapping, recording each line's height as
  * the tallest fragment on it; the second stacks the lines and centres every fragment within its line,
  * so runs of different sizes align on a common centre and the line grows to the largest. For a uniform
- * size this is identical to top-of-line placement. Returns the placed items, the total content height
- * (sum of line heights), and the widest line.
+ * size this is identical to top-of-line placement. `lineGap` is inserted only between consecutive
+ * lines. Returns the placed items, total content height, widest line, and each line's measured width.
  */
 internal func layoutRichSpans(
     spans: Array<RichSpan>,
@@ -193,7 +193,8 @@ internal func layoutRichSpans(
     iconSize: Float32,
     spanGap: Float32,
     widthOf: (String, Float32, FontStyle, ?String) -> Float32,
-    heightOf: (Float32, FontStyle, ?String) -> Float32
+    heightOf: (Float32, FontStyle, ?String) -> Float32,
+    lineGap!: Float32 = 0.0
 ): RichLayout {
     let frags = ArrayList<LaidFrag>()
     let lineHeights = ArrayList<Float32>()
@@ -297,12 +298,17 @@ internal func layoutRichSpans(
     if (frags.isEmpty()) {
         return RichLayout(Array<PlacedItem>(), 0.0, 0.0, 0, [])
     }
-    // Second pass: stack the lines and centre each fragment within its line's height.
+    // Second pass: stack lines, adding the configured gap after every line except the final one.
     let lineTops = ArrayList<Float32>()
     var acc: Float32 = 0.0
+    var stacked: Int64 = 0
     for (h in lineHeights) {
         lineTops.add(acc)
         acc += h
+        stacked += 1
+        if (stacked < lineHeights.size) {
+            acc += lineGap
+        }
     }
     let placed = ArrayList<PlacedItem>()
     for (frag in frags) {

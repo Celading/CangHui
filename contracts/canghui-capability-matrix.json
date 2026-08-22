@@ -115,7 +115,7 @@
     {
       "id": "arkui-oriented-component-surface",
       "version": "upstream-0.9.2-intake-v1",
-      "state": "build-test-snapshot-proven; semantic-parity-matrix-recorded",
+      "state": "build-test-snapshot-proven; semantic-parity-matrix-recorded; label-richtext-line-spacing-and-alignment-proven",
       "codeRefs": [
         "src/controls",
         "src/core",

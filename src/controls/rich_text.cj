@@ -11,6 +11,8 @@ private let RICH_SPAN_GAP: Float32 = 3.0
 // Corner radius of a span's `<mark>`-style highlight box.
 private let RICH_HIGHLIGHT_RADIUS: Float32 = 3.0
 
+private let RICH_LINE_GAP: Float32 = 2.0
+
 /**
  * Inline styled text: a sequence of `RichSpan`s (coloured, styled text runs and inline icons) laid out
  * on one line, wrapping to the available width across as many lines as needed. Runs vary by colour,
@@ -31,6 +33,7 @@ public class RichText <: Widget {
     private let spans: Array<RichSpan>
     private var pointSize: Length
     private var alignment: TextAlign
+    private var lineGap: Float32 = RICH_LINE_GAP
     private let controlId: String
     // Focus-stop id per link span index — a keyboard focus stop and click-press slot for each link.
     // None for the common linkless RichText, which allocates nothing (the tree is rebuilt every frame).
@@ -89,6 +92,16 @@ public class RichText <: Widget {
     /** Sets horizontal alignment of the wrapped lines inside the assigned frame. */
     public func textAlign(value: TextAlign): RichText {
         alignment = value
+        this
+    }
+
+    /** Sets the non-negative finite gap between wrapped lines; single-line content is unaffected. */
+    public func lineSpacing(value: Float32): RichText {
+        if (value < 0.0 || value - value != 0.0) {
+            throw IllegalArgumentException("RichText lineSpacing must be a non-negative finite value")
+        }
+        lineGap = value
+        cached = None
         this
     }
 
@@ -306,7 +319,8 @@ public class RichText <: Widget {
                     richIconSize(lineHeight),
                     RICH_SPAN_GAP,
                     {text, size, style, font => ctx.renderer.textWidth(text, pointSize: size, style: style, font: font)},
-                    {size, style, font => ctx.renderer.textHeight(pointSize: size, style: style, font: font)}
+                    {size, style, font => ctx.renderer.textHeight(pointSize: size, style: style, font: font)},
+                    lineGap: lineGap
                 )
                 cached = Some(layout)
                 cachedWidthKey = width

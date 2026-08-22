@@ -61,6 +61,7 @@ main(): Unit {
 |---|---|
 | [`fontSize(...)`](#fontsize) | 设置未自带字号的片段共享的基准字号。 |
 | [`textAlign(value: TextAlign)`](#textalign) | 设置换行后各行在框架内的水平对齐：Leading（默认）/ Center / Trailing。 |
+| [`lineSpacing(value: Float32)`](#linespacing) | 设置相邻换行之间的间距，默认与 Label 一致。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 单行时贴合内容宽、换行后充满可用宽；高度随行内最大字号增长且不低于基准行高。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录文本框架。 |
 | [`draw(ctx: UiContext)`](#draw) | 逐片段画高亮底、文字或图标，给键盘聚焦的链接片段画焦点环；内容块垂直居中，与 Label 同行时基线对齐。 |
@@ -110,6 +111,16 @@ public func fontSize(value: Float32): RichText
 - `value`: [`Length`](../core/Length.md) — `Length` 重载接收带单位的基准字号；`Float32` 重载接收字体像素（fp）数值，随用户字体缩放。
 
 **返回值** `RichText` — 返回自身以便链式调用。
+
+### lineSpacing
+
+设置相邻换行之间的逻辑像素间距，默认 `2.0`，只作用于行与行之间；单行内容不受影响。该属性与 `textAlign`、链接绘制及命中共用同一份布局几何。
+
+```cangjie
+public func lineSpacing(value: Float32): RichText
+```
+
+`value` 必须是非负有限值，否则抛出 `IllegalArgumentException`。返回自身以便链式调用。
 
 ### textAlign
 

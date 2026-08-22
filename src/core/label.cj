@@ -20,6 +20,7 @@ public class Label <: Widget {
     private var textStyle: FontStyle = FontStyle.regular
     private var fontFace: ?String = None
     private var lineLimit: Int64 = 1
+    private var lineGap: Float32 = LABEL_LINE_GAP
     private var frame = Rect.zero()
     // Wrapping runs several renderer measurements; measure and draw reuse the result
     // for the same width and point size instead of re-breaking the text each pass.
@@ -160,6 +161,15 @@ public class Label <: Widget {
         this
     }
 
+    /** Sets the non-negative finite gap between wrapped lines; single-line labels are unaffected. */
+    public func lineSpacing(value: Float32): Label {
+        if (value < 0.0 || value - value != 0.0) {
+            throw IllegalArgumentException("Label lineSpacing must be a non-negative finite value")
+        }
+        lineGap = value
+        this
+    }
+
     public func measure(ctx: UiContext, available: Size): Size {
         let ps = resolvedPointSize(ctx)
         let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: textStyle, font: fontFace)
@@ -168,7 +178,7 @@ public class Label <: Widget {
         }
         let lines = linesFor(ctx, available.w, ps)
         let count = max(1, lines.size)
-        let textBlock = Float32(count) * lineHeight + Float32(count - 1) * LABEL_LINE_GAP
+        let textBlock = Float32(count) * lineHeight + Float32(count - 1) * lineGap
         // widest was measured when the lines were wrapped and cached; a warm pass reuses it.
         Size(min(available.w, cachedLinesWidest), max(CUI_SMALL_H, textBlock + 6.0))
     }
@@ -201,11 +211,11 @@ public class Label <: Widget {
             return
         }
         let lines = linesFor(ctx, frame.w, ps)
-        let textBlock = Float32(lines.size) * lineHeight + Float32(max(0, lines.size - 1)) * LABEL_LINE_GAP
+        let textBlock = Float32(lines.size) * lineHeight + Float32(max(0, lines.size - 1)) * lineGap
         var y = frame.centerY() - textBlock / 2.0
         for (line in lines) {
             ctx.renderer.text(line, lineX(ctx, line, ps), y, color, pointSize: ps, style: textStyle, font: fontFace)
-            y += lineHeight + LABEL_LINE_GAP
+            y += lineHeight + lineGap
         }
     }
 
