@@ -1,6 +1,6 @@
-package cui.core
+package chui.core
 
-import sdl.{Color, Rect, Size, SurfaceStyle, UiEvent}
+import sdl.{Color, FontStyle, Rect, Size, SurfaceStyle, UiEvent}
 
 protected let CUI_CONTROL_H: Float32 = 38.0
 protected let CUI_SMALL_H: Float32 = 28.0
@@ -64,6 +64,86 @@ public interface Widget {
             case Some(id) => [id]
             case None => []
         }
+    }
+
+    /*
+     * Every node in this subtree that can own ordinary input or an accessibility
+     * action, independently from keyboard focus. The default covers focusable
+     * controls; event-only nodes and containers must override and propagate it.
+     * `InteractionSurface` uses this to keep its decorative slot one-owner-only.
+     */
+    func interactionOwnerIds(): Array<String> {
+        focusableIds()
+    }
+
+    /**
+     * Whether generic widget modifiers leave this subtree interactive. Controls with an intrinsic
+     * display-only/read-only mode should still express that through their own semantic action; this
+     * flag is reserved for `.enabled(false)` propagation through wrappers and probes.
+     */
+    func interactionsEnabled(): Bool {
+        true
+    }
+
+    /** Supplies independently optional typography values to descendant semantic text leaves. */
+    func typography(value: TypographyEnvironment): Widget {
+        applyModifier(this, WidgetModifier.Typography(value))
+    }
+
+    /** Supplies an inherited registered font family to descendant semantic text leaves. */
+    func fontFamily(value: String): Widget {
+        typography(TypographyEnvironment(fontFamily: value))
+    }
+
+    /** Supplies an inherited font size to descendant semantic text leaves. */
+    func fontSize(value: Length): Widget {
+        typography(TypographyEnvironment(fontSize: value))
+    }
+
+    /** Supplies an inherited font size in font pixels. */
+    func fontSize(value: Float32): Widget {
+        fontSize(Length(value, LengthUnit.Fp))
+    }
+
+    /** Supplies a complete inherited style, including explicit Regular clearing. */
+    func fontStyle(value: FontStyle): Widget {
+        typography(TypographyEnvironment().withFontStyle(value))
+    }
+
+    /** Supplies an inherited bold value without replacing the other style fields. */
+    func bold(): Widget {
+        bold(value: true)
+    }
+
+    func bold(value!: Bool): Widget {
+        typography(TypographyEnvironment(bold: value))
+    }
+
+    /** Supplies an inherited italic value without replacing the other style fields. */
+    func italic(): Widget {
+        italic(value: true)
+    }
+
+    func italic(value!: Bool): Widget {
+        typography(TypographyEnvironment(italic: value))
+    }
+
+    /** Supplies an inherited underline value without replacing the other style fields. */
+    func underline(): Widget {
+        underline(value: true)
+    }
+
+    func underline(value!: Bool): Widget {
+        typography(TypographyEnvironment(underline: value))
+    }
+
+    /** Supplies an inherited strikethrough value without replacing the other style fields. */
+    func strikethrough(): Widget {
+        strikethrough(value: true)
+    }
+
+    func strikethrough(value!: Bool): Widget {
+        typography(TypographyEnvironment(strikethrough: value))
     }
 
     /** Constrains this widget to an exact width, e.g. `.width(160.vp)`. */

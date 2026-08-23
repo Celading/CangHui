@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 表格与详情
+[CangHui 指南](../index.md) › 表格与详情
 
 # 构建可排序表格与详情面板
 
@@ -33,7 +33,7 @@
 ```cangjie role=variation
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("机群主从表格", 760, 420))
@@ -64,7 +64,7 @@ main(): Unit {
 package docexample
 
 import std.collection.ArrayList
-import cui.*
+import chui.*
 
 class Server {
     let id: String
@@ -250,9 +250,9 @@ Tab 进入表格后用方向键、Home/End 改变行选择，确认详情同步�
 
 ## 相关 API
 
-- [`Table`](../../api/cui/controls/Table.md)、[`TableColumn`](../../api/cui/controls/TableColumn.md) 与 [`DataColumn`](../../api/cui/controls/DataColumn.md) — 两种行模型、排序、选择和窗口化。
-- [`SplitView`](../../api/cui/controls/SplitView.md) — 可调主从布局。
-- [`State`](../../api/cui/core/State.md) 与 [`DerivedState`](../../api/cui/core/DerivedState.md) — 选择和详情派生。
+- [`Table`](../../api/chui/controls/Table.md)、[`TableColumn`](../../api/chui/controls/TableColumn.md) 与 [`DataColumn`](../../api/chui/controls/DataColumn.md) — 两种行模型、排序、选择和窗口化。
+- [`SplitView`](../../api/chui/controls/SplitView.md) — 可调主从布局。
+- [`State`](../../api/chui/core/State.md) 与 [`DerivedState`](../../api/chui/core/DerivedState.md) — 选择和详情派生。
 
 ## 下一步
 

@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{FontSizes, IconName, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent, clampF32, drawIcon}
-import cui.core.{Bindable, CUI_CONTROL_H, CursorShape, Overlay, State, UiContext, Widget, resolveControlKey,
+import chui.core.{Bindable, CUI_CONTROL_H, CursorShape, Overlay, State, UiContext, Widget, resolveControlKey,
     claimHoverIfInside, drawSurface, emit, localState, registerFocusable}
 
 private let TP_FIELD_W: Float32 = 132.0

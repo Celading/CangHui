@@ -2,7 +2,7 @@
  * 看板的数据模型：卡片是唯一数据源，列头计数、筛选结果全部由它派生，
  * 展示数字不可能再与卡片数量脱节。
  */
-package cui_data_board
+package chui_data_board
 
 import std.collection.ArrayList
 

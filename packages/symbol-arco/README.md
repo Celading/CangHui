@@ -1,6 +1,6 @@
 # CangHui Arco Symbols
 
-Optional Arco Design Icons provider for `cui.Symbol`. The provider remains
+Optional Arco Design Icons provider for `chui.Symbol`. The provider remains
 separate from core CangHui and supports generated declared subsets.
 
 The current audited outlined inventory contains `plus`, `minus`, `close`,

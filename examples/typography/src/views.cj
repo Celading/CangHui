@@ -4,9 +4,9 @@
  * 字号阶梯每档与页脚摘要都由当前样式现算；点顶部 Chip 切换样式，阶梯与摘要随之更新。
  * 参考卡固定展示各样式的样子，不随开关变化，作为对照。
  */
-package cui_typography
+package chui_typography
 
-import cui.{Chip, CrossAxisAlignment, Divider, FontSizes, HStack, Label, LengthUnits, Panel, ScrollView,
+import chui.{Chip, CrossAxisAlignment, Divider, FontSizes, HStack, Label, LengthUnits, Panel, ScrollView,
     Spacer, VStack}
 
 // 阶梯与参考卡共用的示范文本：中西混排，验证同一样式对两种脚本一致生效。

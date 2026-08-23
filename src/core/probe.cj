@@ -1,10 +1,10 @@
-package cui.core
+package chui.core
 
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
 import sdl.{DrawIrAsciiAnnotation, DrawIrAsciiAnnotationKind, DrawIrAsciiOptions, DrawIrCommand, FrameInfo,
     Key, MouseButton, Rect, Renderer, Size, UiEvent, drawIrAsciiAnnotationKindName, renderDrawIrAscii}
-import cui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
+import chui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
 
 /** A stable public property emitted by a probe-enabled widget. */
 public struct ProbeProperty {
@@ -84,14 +84,16 @@ public class ProbeNode <: Widget {
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
         child.layout(ctx, rect)
-        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+            properties, semantics, ctx)
     }
 
     public func draw(ctx: UiContext): Unit {
         enterActiveProbeNode(id)
         ctx.renderer.pushDrawIrScope(id)
         try {
-            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+                properties, semantics, ctx)
             child.draw(ctx)
         } finally {
             ctx.renderer.popDrawIrScope()
@@ -112,6 +114,8 @@ public class ProbeNode <: Widget {
     public func participatesInLayout(): Bool { child.participatesInLayout() }
     public func focusableId(): ?String { child.focusableId() }
     public func focusableIds(): Array<String> { child.focusableIds() }
+    public func interactionOwnerIds(): Array<String> { child.interactionOwnerIds() }
+    public func interactionsEnabled(): Bool { child.interactionsEnabled() }
 }
 
 class ProbedWidget <: Widget {
@@ -143,14 +147,16 @@ class ProbedWidget <: Widget {
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
         child.layout(ctx, rect)
-        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+            properties, semantics, ctx)
     }
 
     public func draw(ctx: UiContext): Unit {
         enterActiveProbeNode(id)
         ctx.renderer.pushDrawIrScope(id)
         try {
-            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), properties, semantics, ctx)
+            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
+                properties, semantics, ctx)
             child.draw(ctx)
         } finally {
             ctx.renderer.popDrawIrScope()
@@ -171,6 +177,8 @@ class ProbedWidget <: Widget {
     public func participatesInLayout(): Bool { child.participatesInLayout() }
     public func focusableId(): ?String { child.focusableId() }
     public func focusableIds(): Array<String> { child.focusableIds() }
+    public func interactionOwnerIds(): Array<String> { child.interactionOwnerIds() }
+    public func interactionsEnabled(): Bool { child.interactionsEnabled() }
 }
 
 protected func applyProbeModifier(
@@ -202,11 +210,27 @@ public func probedAction(name: String, action: () -> Unit): () -> Unit {
     }
 }
 
+/** Adds one stable structural error to the active component probe, if any. */
+protected func recordProbeStructuralError(code: String, message: String): Unit {
+    match (activeComponentProbeSession) {
+        case Some(session) => session.failUnique("structural-" + code, message)
+        case None => ()
+    }
+}
+
 /** Records semantic subcontrols only while a component probe is active. */
 public func probeSemanticRegions(provider: ProbeSemanticRegionProvider): Unit {
     match (activeComponentProbeSession) {
         case Some(session) => session.recordRegions(provider())
         case None => ()
+    }
+}
+
+/** Lets stock-control semantics yield to an explicit probe for the same action owner. */
+protected func shouldRecordAutomaticControlSemantics(actionOwner: String): Bool {
+    match (activeComponentProbeSession) {
+        case Some(session) => !session.currentDrawNodeOwns(actionOwner)
+        case None => false
     }
 }
 
@@ -645,7 +669,8 @@ private class ComponentProbeSession {
     func popParent(): Unit { if (!parentStack.isEmpty()) { parentStack.remove(at: parentStack.size - 1) } }
 
     func updateNode(id: String, widgetType: String, frame: Rect, focusId: ?String,
-        base: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider, ctx: UiContext): Unit {
+        subtreeInteractionsEnabled: Bool, base: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider,
+        ctx: UiContext): Unit {
         let node = match (findNode(id)) {
             case Some(value) => value
             case None =>
@@ -663,11 +688,26 @@ private class ComponentProbeSession {
             case Some(provider) => for (property in provider()) { putProbeProperty(merged, property) }
             case None => ()
         }
+        if (!(ctx.interactionsEnabled() && subtreeInteractionsEnabled)) {
+            removeProbeProperty(merged, "action")
+            removeProbeProperty(merged, "shortcut")
+            putProbeProperty(merged, ProbeProperty("disabled", "true"))
+            putProbeProperty(merged, ProbeProperty("enabled", "false"))
+        }
         node.properties = sortedProbeProperties(merged.toArray())
     }
 
     func enterNode(id: String): Unit { drawNodeStack.add(id) }
     func leaveNode(): Unit { if (!drawNodeStack.isEmpty()) { drawNodeStack.remove(at: drawNodeStack.size - 1) } }
+
+    func currentDrawNodeOwns(actionOwner: String): Bool {
+        if (drawNodeStack.isEmpty()) { return false }
+        let id = drawNodeStack[drawNodeStack.size - 1]
+        match (findNode(id)) {
+            case Some(node) => node.id == actionOwner || node.focusId == actionOwner
+            case None => false
+        }
+    }
 
     func beginDraw(timeMs: UInt64): Unit {
         logicalTimeMs = timeMs
@@ -846,6 +886,11 @@ private class ComponentProbeSession {
 
     func fail(kind: String, message: String): Unit {
         failures.add(kind + ": " + message)
+    }
+
+    func failUnique(kind: String, message: String): Unit {
+        let value = kind + ": " + message
+        if (!failures.contains(value)) { failures.add(value) }
     }
 
     func reportJson(): String {
@@ -1045,9 +1090,11 @@ private func popActiveProbeParent(): Unit {
 }
 
 private func updateActiveProbeNode(id: String, widgetType: String, frame: Rect, focusId: ?String,
-    properties: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider, ctx: UiContext): Unit {
+    subtreeInteractionsEnabled: Bool, properties: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider,
+    ctx: UiContext): Unit {
     match (activeComponentProbeSession) {
-        case Some(session) => session.updateNode(id, widgetType, frame, focusId, properties, semantics, ctx)
+        case Some(session) => session.updateNode(id, widgetType, frame, focusId, subtreeInteractionsEnabled,
+            properties, semantics, ctx)
         case None => ()
     }
 }
@@ -1166,6 +1213,14 @@ private func putProbeProperty(target: ArrayList<ProbeProperty>, property: ProbeP
         i -= 1
     }
     target.add(property)
+}
+
+private func removeProbeProperty(target: ArrayList<ProbeProperty>, name: String): Unit {
+    var i = target.size - 1
+    while (i >= 0) {
+        if (target[i].name == name) { target.remove(at: i) }
+        i -= 1
+    }
 }
 
 private func sortedProbeProperties(values: Array<ProbeProperty>): Array<ProbeProperty> {

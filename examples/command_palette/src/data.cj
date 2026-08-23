@@ -4,7 +4,7 @@
  * 每条命令带一组小写英文别名 keywords，因此英文输入也能命中中文标题的命令；
  * 匹配是大小写不敏感的子串匹配（对中文标题按原样、对英文别名按小写）。
  */
-package cui_command_palette
+package chui_command_palette
 
 import std.collection.ArrayList
 
@@ -35,7 +35,7 @@ func commandCatalog(): Array<Command> {
         Command("切换深色主题", "在浅色与深色之间切换", "dark light theme mode"),
         Command("命令面板设置", "配置命令面板的行为", "settings preferences config"),
         Command("清空执行记录", "清除下方的历史列表", "clear history log"),
-        Command("关于 CUI", "查看框架版本与信息", "about info version")
+        Command("关于 CangHui", "查看框架版本与信息", "about info version")
     ]
 }
 

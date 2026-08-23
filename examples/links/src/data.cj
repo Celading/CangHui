@@ -3,9 +3,9 @@
  *
  * 每条通知由若干片段拼成，其中 isLink 的片段是可点击链接；点击它会把该片段文本设为“已选择”。数据不可变。
  */
-package cui_links
+package chui_links
 
-import cui.{Color, IconName}
+import chui.{Color, IconName}
 
 // 通知行的一个片段：文本 + 是否为链接。
 struct Segment {

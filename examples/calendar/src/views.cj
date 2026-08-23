@@ -6,9 +6,9 @@
  *    两枚箭头互不吞事件
  *  - 尺寸一律使用 vp/fp 单位表达
  */
-package cui_calendar
+package chui_calendar
 
-import cui.{Button, ButtonRole, FontSizes, ForEachIndexed, HStack, IconButton, IconName, ImageView, Label,
+import chui.{Button, ButtonRole, FontSizes, ForEachIndexed, HStack, IconButton, IconName, ImageView, Label,
     LengthUnits, Panel, Spacer, TabView, TextAlign, VStack}
 
 func calendarView(model: CalendarModel): Unit {

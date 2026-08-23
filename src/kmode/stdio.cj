@@ -1,4 +1,4 @@
-package cui.kmode
+package chui.kmode
 
 import std.env.{getStdIn, getStdOut}
 

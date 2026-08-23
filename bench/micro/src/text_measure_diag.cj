@@ -12,7 +12,7 @@
  */
 package bench_micro
 
-import cui.{ListView, Rect, State, Table, TableColumn, UiContext, Widget}
+import chui.{ListView, Rect, State, Table, TableColumn, UiContext, Widget}
 import bench_scenes.{contentScrollScene, lazyContentScrollScene, makeListItems, makeTableRows}
 import bench_harness.{printSection, reportCount}
 

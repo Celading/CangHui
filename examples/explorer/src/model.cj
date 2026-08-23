@@ -4,9 +4,9 @@
  * 当前目录内容、面包屑分段、条目计数都是路径的纯函数派生；进入子文件夹压入路径，“上级”或面包屑截断路径。
  * 单击文件仅选中（状态栏展示详情），任何导航都清除选中——这与资源管理器的习惯一致。
  */
-package cui_explorer
+package chui_explorer
 
-import cui.State
+import chui.State
 
 class ExplorerModel {
     let root: FsNode = buildTree()

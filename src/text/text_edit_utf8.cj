@@ -1,4 +1,4 @@
-package cui.text
+package chui.text
 
 private let UTF8_CONTINUATION_LOW: UInt8 = UInt8(128)
 private let UTF8_CONTINUATION_HIGH: UInt8 = UInt8(192)

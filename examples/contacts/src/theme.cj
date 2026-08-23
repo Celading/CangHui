@@ -1,9 +1,9 @@
 /*
  * 通讯录主题：干净的浅色配色、靛蓝强调，字号令牌集中于此。
  */
-package cui_contacts
+package chui_contacts
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 let CONTACTS_TITLE: Length = 20.fp
 let CONTACTS_HEADING: Length = 16.fp

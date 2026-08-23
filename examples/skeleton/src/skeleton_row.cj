@@ -5,9 +5,9 @@
  * 这是即时模式 + 脏帧跳过下驱动常亮动画的标准路径（同 MotionLab/Toaster）。占位条宽度比例来自纯函数，
  * 长短交错更像真实文字。
  */
-package cui_skeleton
+package chui_skeleton
 
-import cui.{Pulse, Rect, Size, UiContext, UiEvent, Widget, emit}
+import chui.{Pulse, Rect, Size, UiContext, UiEvent, Widget, emit}
 
 private let ROW_H: Float32 = 58.0
 private let AVATAR_R: Float32 = 17.0

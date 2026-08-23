@@ -1,6 +1,6 @@
 package canghui_symbol_material
 
-import cui.{Color, Rect, Renderer, SymbolDirection, SymbolName, SymbolPaint, SymbolRegistry, SymbolVariant}
+import chui.{Color, Rect, Renderer, SymbolDirection, SymbolName, SymbolPaint, SymbolRegistry, SymbolVariant}
 
 @Test
 func materialProviderFreezesSourceAndHonorsSubsets(): Unit {

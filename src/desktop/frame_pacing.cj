@@ -1,4 +1,4 @@
-package cui.desktop
+package chui.desktop
 
 /** Controls how the desktop loop waits between rendered frames. */
 public enum FramePacing {

@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.HashSet
 import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{State, Theme, UiContext}
 
 private func treeTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

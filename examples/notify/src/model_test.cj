@@ -1,6 +1,6 @@
-package cui_notify
+package chui_notify
 
-import cui.ToastKind
+import chui.ToastKind
 
 @Test
 func modelSeedsTwoToasts(): Unit {

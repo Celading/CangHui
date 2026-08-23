@@ -1,4 +1,4 @@
-package cui_tracker
+package chui_tracker
 
 @Test
 func withUpdatedBoolReplacesOne(): Unit {

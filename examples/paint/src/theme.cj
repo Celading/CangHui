@@ -1,9 +1,9 @@
 /*
  * 画板的草木绿主题与画笔调色板。
  */
-package cui_paint
+package chui_paint
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 /** 可选画笔颜色，从冷到暖排列，方便在色板上一眼定位。 */
 let PALETTE = [

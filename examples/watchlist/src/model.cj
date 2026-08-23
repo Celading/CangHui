@@ -4,9 +4,9 @@
  * 每部电影的评分是评分数组在该下标上的镜头（`project`），`Rating` 双向读写它；已评计数与平均分都是
  * 评分数组的纯函数，每帧现算。
  */
-package cui_watchlist
+package chui_watchlist
 
-import cui.{Binding, State}
+import chui.{Binding, State}
 
 class WatchlistModel {
     let movies: Array<Movie> = seedMovies()

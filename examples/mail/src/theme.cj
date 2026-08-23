@@ -1,9 +1,9 @@
 /*
  * 邮件客户端主题：冷灰底、信笺蓝强调的商务浅色。
  */
-package cui_mail
+package chui_mail
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func mailTheme(): Theme {
     Theme(

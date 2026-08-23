@@ -4,9 +4,9 @@
  * 拖动重排通过 `move(from, to)` 整表替换触发更新；每行的完成勾选用 `tasks.project` 双向绑定到该任务的
  * done 字段，单一数据源、无副本。`ReorderableList` 只负责报告移动，数据仍由模型持有。
  */
-package cui_tasklist
+package chui_tasklist
 
-import cui.{Binding, DerivedState, State}
+import chui.{Binding, DerivedState, State}
 
 class TaskModel {
     let tasks: State<Array<Task>>

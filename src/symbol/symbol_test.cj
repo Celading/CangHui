@@ -1,4 +1,4 @@
-package cui.symbol
+package chui.symbol
 
 import sdl.{Color, Rect, Renderer}
 

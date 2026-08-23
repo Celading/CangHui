@@ -1,7 +1,8 @@
-package cui.controls
+package chui.controls
 
+import std.convert.*
 import sdl.{Color, FontStyle, FrameInfo, IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{Length, LengthUnit, State, TextAlign, Theme, TypographyEnvironment, UiContext}
 
 private func richTextTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -23,6 +24,32 @@ private let BOLD_WIDENS: (String, FontStyle, ?String) -> Float32 = {text, style,
     }
 }
 
+// Keep the legacy test call shape out of production: it supplies each span's local style/font as the
+// already-resolved arrays expected by the container-typography-aware layout engine.
+private func layoutRichSpans(
+    spans: Array<RichSpan>,
+    spanSizes: Array<Float32>,
+    maxWidth: Float32,
+    iconSize: Float32,
+    spanGap: Float32,
+    widthOf: (String, Float32, FontStyle, ?String) -> Float32,
+    heightOf: (Float32, FontStyle, ?String) -> Float32,
+    lineGap!: Float32 = 0.0
+): RichLayout {
+    layoutResolvedRichSpans(
+        spans,
+        spanSizes,
+        Array<FontStyle>(spans.size, {i => spans[i].style}),
+        Array<?String>(spans.size, {i => spans[i].fontFace}),
+        maxWidth,
+        iconSize,
+        spanGap,
+        widthOf,
+        heightOf,
+        lineGap: lineGap
+    )
+}
+
 // Adapts the old uniform-size call shape to the size-aware engine — every span at one size, a constant
 // line height, and a size-agnostic width measure — so the pre-existing assertions still hold, proving
 // the two-pass layout is byte-identical to the previous top-of-line placement for a uniform size.
@@ -32,7 +59,8 @@ private func runLayout(
     lineHeight: Float32,
     iconSize: Float32,
     spanGap: Float32,
-    measure: (String, FontStyle, ?String) -> Float32
+    measure: (String, FontStyle, ?String) -> Float32,
+    lineGap!: Float32 = 0.0
 ): RichLayout {
     layoutRichSpans(
         spans,
@@ -41,7 +69,8 @@ private func runLayout(
         iconSize,
         spanGap,
         {text, _, style, font => measure(text, style, font)},
-        {_, _, _ => lineHeight}
+        {_, _, _ => lineHeight},
+        lineGap: lineGap
     )
 }
 
@@ -119,6 +148,17 @@ func richSpanBuildersComposeStyleAndFont(): Unit {
     @Expect(mono.style.bold)
     // muted keeps its muting through a style builder.
     @Expect(RichSpan.muted("y").italic().isMuted)
+}
+
+@Test
+func richSpanExplicitFieldsOverrideInheritedStyleFieldwise(): Unit {
+    let inherited = FontStyle(bold: true, italic: true, underline: true)
+    let onlyBoldCleared = RichSpan.text("x").bold(value: false).resolvedStyle(inherited)
+    @Expect(!onlyBoldCleared.bold)
+    @Expect(onlyBoldCleared.italic)
+    @Expect(onlyBoldCleared.underline)
+    let regular = RichSpan.text("x").fontStyle(FontStyle.regular).resolvedStyle(inherited)
+    @Expect(regular.isRegular)
 }
 
 @Test
@@ -250,6 +290,72 @@ func richTextWidgetGrowsWithLargerSpan(): Unit {
     let plainSize = plain.measure(ctx, Size(500.0, 500.0))
     let bigSize = big.measure(ctx, Size(500.0, 500.0))
     @Expect(bigSize.h > plainSize.h)
+}
+
+@Test
+func richTextInheritsContainerTypographyAndExplicitSpanClearsIt(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let rich = RichText([
+        RichSpan.text("Inherited"),
+        RichSpan.text("Explicit").fontStyle(FontStyle.regular).fontSize(12.0)
+    ], key: "inherited-rich").typography(TypographyEnvironment(
+        fontSize: Length(24.0, LengthUnit.Fp),
+        bold: true,
+        italic: true
+    ))
+    let size = rich.measure(ctx, Size(600.0, 200.0))
+    rich.layout(ctx, Rect(0.0, 0.0, 600.0, size.h))
+    rich.draw(ctx)
+    let commands = renderer.drawIr()
+    @Expect(commands.size, 2)
+    @Expect(commands[0].toJson().contains("\"pointSize\":24.000000"))
+    @Expect(commands[0].toJson().contains("\"bold\":true"))
+    @Expect(commands[0].toJson().contains("\"italic\":true"))
+    @Expect(commands[1].toJson().contains("\"pointSize\":12.000000"))
+    @Expect(commands[1].toJson().contains("\"bold\":false"))
+    @Expect(commands[1].toJson().contains("\"italic\":false"))
+}
+
+@Test
+func richTextInheritedTypographyKeepsMultilineMeasureAndDrawAligned(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let rich = RichText([
+        RichSpan.text("alpha beta gamma delta")
+    ], key: "inherited-multiline").typography(TypographyEnvironment(
+        fontSize: Length(24.0, LengthUnit.Fp),
+        bold: true
+    ))
+    let size = rich.measure(ctx, Size(96.0, 300.0))
+    @Expect(size.h > Float32(40.0))
+    rich.layout(ctx, Rect(0.0, 0.0, 96.0, size.h))
+    rich.draw(ctx)
+    let commands = renderer.drawIr()
+    @Expect(commands.size > 1)
+    for (command in commands) {
+        @Expect(command.toJson().contains("\"pointSize\":24.000000"))
+        @Expect(command.toJson().contains("\"bold\":true"))
+    }
+}
+
+@Test
+func richTextCacheKeysInheritedTypographyAndHandleUsesSameScope(): Unit {
+    let ctx = richTextTestContext()
+    let fired = State<Bool>(false)
+    let rich = RichText([RichSpan.text("open link").onTap({=> fired.value = true})], key: "scoped-link")
+    let small = rich.typography(TypographyEnvironment(fontSize: Length(12.0, LengthUnit.Fp), bold: false))
+    let large = rich.typography(TypographyEnvironment(fontSize: Length(30.0, LengthUnit.Fp), bold: true))
+    let smallSize = small.measure(ctx, Size(600.0, 200.0))
+    let largeSize = large.measure(ctx, Size(600.0, 200.0))
+    @Expect(largeSize.w > smallSize.w)
+    @Expect(largeSize.h > smallSize.h)
+    large.layout(ctx, Rect(0.0, 0.0, 600.0, largeSize.h))
+    let px: Float32 = 6.0
+    let py = largeSize.h / 2.0
+    @Expect(large.handle(ctx, UiEvent.MouseDown(MouseButton.Left, px, py)))
+    @Expect(large.handle(ctx, UiEvent.MouseUp(MouseButton.Left, px, py)))
+    @Expect(fired.value)
 }
 
 @Test
@@ -460,4 +566,145 @@ func richTextContinuationSkipsBrokenOnSpace(): Unit {
     @Expect(fragText(layout.items[0]), "abc")
     @Expect(fragText(layout.items[1]), "def")
     @Expect(layout.items[1].x, Float32(0.0))
+}
+
+@Test
+func richTextLineSpacingPreservesPerLineWidthsAndAlignmentInputs(): Unit {
+    let gapped = runLayout([RichSpan.text("abcdefghij")], 50.0, 20.0, 16.0, 3.0,
+        TEN_PX_PER_RUNE, lineGap: 6.0)
+    @Expect(gapped.lines, 2)
+    @Expect(gapped.height, Float32(46.0))
+    @Expect(gapped.items[1].y, Float32(26.0))
+    @Expect(gapped.lineWidths.size, 2)
+    @Expect(gapped.lineWidths[0], Float32(50.0))
+    @Expect(gapped.lineWidths[1], Float32(50.0))
+    @Expect(richLineAlignShift(TextAlign.Center, gapped.lineWidths[1], 90.0), Float32(20.0))
+    @Expect(richLineAlignShift(TextAlign.Trailing, gapped.lineWidths[1], 90.0), Float32(40.0))
+    let single = runLayout([RichSpan.text("abc")], 200.0, 20.0, 16.0, 3.0,
+        TEN_PX_PER_RUNE, lineGap: 6.0)
+    @Expect(single.height, Float32(20.0))
+}
+
+@Test
+func richTextLineSpacingThreadsThroughMeasureDrawAndAlignment(): Unit {
+    let ctx = richTextTestContext()
+    let text = "the quick brown fox jumps over the lazy dog"
+    let narrow = Size(100.0, 400.0)
+    let plain = RichText([RichSpan.text(text)], key: "ls-plain").textAlign(TextAlign.Center)
+    let spaced = RichText([RichSpan.text(text)], key: "ls-spaced")
+        .lineSpacing(12.0).textAlign(TextAlign.Trailing)
+    let plainSize = plain.measure(ctx, narrow)
+    let spacedSize = spaced.measure(ctx, narrow)
+    @Expect(spacedSize.h > plainSize.h)
+    spaced.layout(ctx, Rect(0.0, 0.0, 100.0, spacedSize.h))
+    spaced.draw(ctx)
+}
+
+@Test
+func richTextLineSpacingRejectsInvalidValues(): Unit {
+    var negativeRejected = false
+    var nanRejected = false
+    var infRejected = false
+    try { let _ = RichText([RichSpan.text("x")], key: "ls-neg").lineSpacing(-0.5) }
+    catch (_: IllegalArgumentException) { negativeRejected = true }
+    try { let _ = RichText([RichSpan.text("x")], key: "ls-nan").lineSpacing(Float32.NaN) }
+    catch (_: IllegalArgumentException) { nanRejected = true }
+    try { let _ = RichText([RichSpan.text("x")], key: "ls-inf").lineSpacing(Float32.Inf) }
+    catch (_: IllegalArgumentException) { infRejected = true }
+    @Expect(negativeRejected)
+    @Expect(nanRejected)
+    @Expect(infRejected)
+}
+
+@Test
+func richLineAlignShiftIsExact(): Unit {
+    // Leading never shifts; Center and Trailing use the line's own measured width.
+    @Expect(richLineAlignShift(TextAlign.Leading, 100.0, 300.0), Float32(0.0))
+    @Expect(richLineAlignShift(TextAlign.Center, 100.0, 300.0), Float32(100.0))
+    @Expect(richLineAlignShift(TextAlign.Trailing, 100.0, 300.0), Float32(200.0))
+    // A line wider than the frame stays put instead of overflowing to the left.
+    @Expect(richLineAlignShift(TextAlign.Center, 400.0, 300.0), Float32(0.0))
+    @Expect(richLineAlignShift(TextAlign.Trailing, 400.0, 300.0), Float32(0.0))
+    // A line exactly as wide as the frame has nowhere to shift.
+    @Expect(richLineAlignShift(TextAlign.Trailing, 300.0, 300.0), Float32(0.0))
+}
+
+@Test
+func richLayoutReportsPerLineWidths(): Unit {
+    // One line of 5 runes → 50px; the line-width array mirrors the line count.
+    let single = runLayout([RichSpan.text("hello")], 200.0, 20.0, 16.0, 3.0, TEN_PX_PER_RUNE)
+    @Expect(single.lines, 1)
+    @Expect(single.lineWidths.size, 1)
+    @Expect(single.lineWidths[0], Float32(50.0))
+    // 10 runes into a 50px line → two 50px lines, each carrying its own measured width.
+    let wrapped = runLayout([RichSpan.text("abcdefghij")], 50.0, 20.0, 16.0, 3.0, TEN_PX_PER_RUNE)
+    @Expect(wrapped.lines, 2)
+    @Expect(wrapped.lineWidths.size, 2)
+    @Expect(wrapped.lineWidths[0], Float32(50.0))
+    @Expect(wrapped.lineWidths[1], Float32(50.0))
+    // An icon + text line reports the full line width including the icon.
+    let mixed = runLayout([RichSpan.icon(IconName.Save), RichSpan.text("hi")], 100.0, 20.0, 16.0, 3.0,
+        TEN_PX_PER_RUNE)
+    @Expect(mixed.lineWidths[0], Float32(19.0 + 20.0))
+    // Fragments carry their line index so a block can shift line-by-line.
+    @Expect(wrapped.items[0].line, 0)
+    @Expect(wrapped.items[1].line, 1)
+}
+
+@Test
+func richTextAlignmentShiftsDrawnFragments(): Unit {
+    // The same single-line content in a wide frame draws strictly right for Center then Trailing —
+    // font-metric independent, since only the relative order is asserted.
+    let leadingX = drawnRichTextX(TextAlign.Leading)
+    let centerX = drawnRichTextX(TextAlign.Center)
+    let trailingX = drawnRichTextX(TextAlign.Trailing)
+    @Expect(centerX > leadingX)
+    @Expect(trailingX > centerX)
+}
+
+// Draws a one-line RichText in a 300px-wide frame on a fresh recording renderer and returns the first
+// text command's x, or -1 when no text was recorded (fails the caller's ordering assertions).
+private func drawnRichTextX(align: TextAlign): Float32 {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let rich = RichText([RichSpan.text("aligned")], key: "align").textAlign(align)
+    rich.layout(ctx, Rect(0.0, 0.0, 300.0, 40.0))
+    rich.draw(ctx)
+    for (cmd in renderer.drawIr()) {
+        if (cmd.kind == "text") {
+            match (drawIrX(cmd.data)) {
+                case Some(x) => return x
+                case None => ()
+            }
+        }
+    }
+    -1.0
+}
+
+// Extracts the `"x":<number>` value from a DrawIrCommand data payload (no surrounding braces).
+private func drawIrX(data: String): ?Float32 {
+    let marker = "\"x\":"
+    let runes = data.toRuneArray()
+    let mrunes = marker.toRuneArray()
+    var i: Int64 = 0
+    while (i <= runes.size - mrunes.size) {
+        var j: Int64 = 0
+        while (j < mrunes.size && runes[i + j] == mrunes[j]) {
+            j += 1
+        }
+        if (j == mrunes.size) {
+            let start = i + mrunes.size
+            var end = start
+            while (end < runes.size && runes[end] != r',' && runes[end] != r'}') {
+                end += 1
+            }
+            let builder = StringBuilder()
+            for (k in start..end) {
+                builder.append(runes[k].toString())
+            }
+            return Some(Float32.parse(builder.toString()))
+        }
+        i += 1
+    }
+    None
 }

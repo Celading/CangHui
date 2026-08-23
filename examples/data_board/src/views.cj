@@ -7,9 +7,9 @@
  *  - 筛选器直接作用于三列可见集合；“新增任务／添加到某列”会真正追加卡片
  *  - 进行中数量超过在制上限时，列头计数切换为警示色
  */
-package cui_data_board
+package chui_data_board
 
-import cui.{Button, ButtonRole, Color, CrossAxisAlignment, FlowRow, FontSizes, ForEach, Grid, HStack, Icon, IconName,
+import chui.{Button, ButtonRole, Color, CrossAxisAlignment, FlowRow, FontSizes, ForEach, Grid, HStack, Icon, IconName,
     Label, LengthUnits, Panel, Picker, ScrollView, Spacer, State, Stepper, Switch, VStack}
 
 func boardView(model: BoardModel): Unit {

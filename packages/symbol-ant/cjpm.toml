@@ -6,4 +6,4 @@ output-type = "static"
 description = "Optional Ant Design Icons adapter for CangHui."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

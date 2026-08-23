@@ -23,7 +23,7 @@ for preview in android harmony tablet desktop ios; do
     sleep 1
   done
   if [[ "${captured}" != true ]]; then
-    printf 'CUI snapshot was not produced: %s\n' "${snapshot}" >&2
+    printf 'CangHui snapshot was not produced: %s\n' "${snapshot}" >&2
     exit 1
   fi
   sleep 1

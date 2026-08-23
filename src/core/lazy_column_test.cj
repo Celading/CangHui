@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 // A reference-type counter so a build closure can tally invocations (captured vars are read-only).
 class LazyBuildCounter {

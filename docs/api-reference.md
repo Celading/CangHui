@@ -1,6 +1,6 @@
-# CUI API 参考
+# CangHui API 参考
 
-本文记录 `cui` 根包重新导出的 GUI API。几何、渲染、窗口、事件、对话框、输入和系统能力见
+本文记录 `chui` 根包重新导出的 GUI API。几何、渲染、窗口、事件、对话框、输入和系统能力见
 [SDL API 参考](../sdl/docs/api-reference.md)。
 
 ## 1. 尺寸单位
@@ -170,8 +170,18 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 
 - `Theme.light(motionLevel:)`、`Theme.dark(motionLevel:)`；默认 `MotionLevel.Standard`。
 - `withMotionLevel(value)`：保留颜色和几何令牌，仅替换动效力度。
+- `withComponents(value)`：覆盖 Button、选择/披露控件样式、组件排版/间距/形状与 Panel 表面。
 - `panelSurface()`、`raisedSurface()`。
 - `fieldSurface(active)`、`buttonSurface(role)`、`selectedSurface()`。
+
+`ButtonStyle` 按 `ButtonVisualState(hover, press, focused)` 返回表面、前景色、InkWell 色与焦点圆角；
+`ComponentTheme` 将该样式、Button 默认布局、`ComponentControlStyle`、组件排版/间距/形状和 Panel 默认表面装入 `Theme`。主题切换和插值会
+保留或选择完整的组件覆盖层，而不会退回脚手架默认外观。
+
+slot Button、Chip、Checkbox、Dropdown 闭合面与 Accordion header 绘制装饰子树时会压入只读
+`ControlContentEnvironment`。未显式设色的 Label/Icon/Symbol 自动继承外层已解析前景色，muted Label
+继承 supporting foreground；自定义 Widget 可从 `UiContext.controlContentEnvironment()` 读取 role、
+interaction owner 与 selected/expanded/focus/hover/press 状态。作用域在子树绘制完成后自动恢复。
 
 ## 6. 布局与容器
 
@@ -183,10 +193,10 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 | `Grid` | `columns`、`body` | `spacing(all)`、`spacing(horizontal, vertical)`；列数小于 1 抛异常 |
 | `FlowRow` | `body` | `spacing`；空间不足自动换行 |
 | `ScrollView` | `id`、`body` | 垂直滚动；`scrollState` 接管偏移；`scrollOptions` 选择默认 Web 式缓动、即时模式或自定义步长/时长/曲线；溢出时为滚动条预留轨道，不遮挡内容；滑块可拖动、轨道可翻页 |
-| `Accordion` | `sections`；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header hover/press、chevron 与高度 reveal 动画；`.animation(AnimationSpec)`；按下后移出取消，release-inside 才切换 |
+| `Accordion` | `sections`（文本或 slot header）；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header `controlStyle`、hover/press、chevron 与高度 reveal 动画；按下后移出取消，release-inside 才切换 |
 | `Panel` | `body`（可选 `padding: LengthInsets`） | `contentPadding`、`style`、`flexible`、`hug` |
 | `Tooltip` | `text`、`body` | 悬停约 500ms 后在树上层绘制提示气泡；透明包裹，不改变布局/事件 |
-| `Dropdown` | `id`、`items`、`selected` | 下拉选择：点击/Enter 打开，弹出列表浮于树上（下方放不下翻到上方）；选中/外点/Esc 关闭，上下键移动高亮。长列表在弹层内部按 `scrollOptions` 滚动：滚轮、可拖动滑块、方向键揭示高亮，打开时选中行滚入视野 |
+| `Dropdown` | `items`、`selected`；可选闭合面 `selectedContent(index, text)` slot | `controlStyle`；点击/Enter 打开字符串弹出列表；选中/外点/Esc 关闭，上下键移动高亮；长列表支持滚轮、滑块与键盘揭示 |
 | `ContextMenu` | `items`、`body` | 为子控件附加右键菜单：指针处弹出，选中运行动作并关闭、外点/Esc 取消、方向键与悬停移动高亮；透明包裹，仅拦截子区域内右键 |
 | `Modal` | `presented`、`body`（可选 `onDismiss`） | 模态对话框：`presented` 为真时暗化背景+居中面板，承载真实控件子树；拦截全部输入，`Tab` 在对话框内循环（焦点陷阱），每帧 Frame 转发进子树（`autofocus` 可用）；外点/Esc 关闭；对话框内可再开 `Dropdown`/`ComboBox`/`ContextMenu`（弹层经浮层栈压在面板之上，逐层关闭）；零尺寸、仅呈现时构建 `body`，置于根部 `ZStack` |
 | `Flexible` | `body` | 兼容的权重包装容器，新代码可用 `.flex` |
@@ -210,15 +220,18 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 | 类型 | 必要构造信息 | 链式 API |
 |---|---|---|
 | `Label` | `text` | `muted()`、`muted(bool)`、`textAlign`、`foregroundColor`、`fontSize`、`maxLines(n)`、`wrap()` |
-| `Button` | `title`、`onClick` | `id`、`role`、`style`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
+| `Button` | `title + onClick`，或 `onClick + body` slot | `key`、`role`、`accessibilityLabel`、`style`、`buttonStyle`、`contentPadding`、`minControlSize`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Icon` | `IconName` | `iconSize`、`foregroundColor` |
-| `IconButton` | `IconName`、`onClick` | `id`、`label`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
+| `IconButton` | `IconName`、`onClick` | `id`、`label`、`accessibilityLabel`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Divider` | 无 | `axis`、`color` |
 
 单行 `Label` 超宽时自动省略号截断；`maxLines(n)` 换行至 n 行（末行截断），`wrap()` 不限行数，
 `maxLines` 参数必须大于 0。Button 与 IconButton 共用 move-in/hover/press/move-out 状态机：
 只有按下和释放都位于控件内才激活；按下后移出会立即取消 press 与 InkWell，随后在外部释放不会回调。
 二者支持取得焦点后的 Enter/Space，悬停与按压位移、颜色和 InkWell 强度由主题动效力度控制。
+slot Button 可组合任意装饰性 CangHui 子树；外层 Button 独占焦点、点击和键盘激活，slot 内的可聚焦后代不会
+进入 Tab 环，也不会收到事件。slot 内未显式设色的 Label/Icon/Symbol 自动继承 `ButtonStyle` 解析出的
+前景色；显式颜色仍优先。`accessibilityLabel` 为无标题 slot 提供语义名称。
 
 ## 8. 选择、导航和数值控件
 
@@ -226,10 +239,13 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 
 | 类型 | 构造函数 | 补充 API/行为 |
 |---|---|---|
-| `Checkbox` | `Checkbox(label, Bindable<Bool>)` | `id`；鼠标释放或 Enter/Space 切换 |
-| `Switch` | `Switch(label, Bindable<Bool>)` | `id`；二态开关 |
-| `RadioButton` | `RadioButton(label, selected, value)` | `id`；多个实例共享同一 `Bindable<Int64>` |
-| `Picker` | `Picker(id, items, selected)` | 点击前后区域或 Left/Right 循环选择；宽度按最长选项自适应（切换选项不抖动） |
+| `Checkbox` | `Checkbox(label, state)` 或 `Checkbox(state) { slot }` | `key`、`accessibilityLabel`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
+| `Chip` | `Chip(text, state)` 或 `Chip(state) { slot }` | `accessibilityLabel`、`controlStyle`、`animation`；release-inside 或 Enter/Space 切换 |
+| `Switch` | `Switch(label, Bindable<Bool>)` | `id`、`accessibilityLabel`；二态开关 |
+| `RadioButton` | `RadioButton(label, selected, value)` | `id`、`accessibilityLabel`；多个实例共享同一 `Bindable<Int64>` |
+| `Picker` | `Picker(id, items, selected)` | `accessibilityLabel`；点击前后区域或 Left/Right 循环选择；宽度按最长选项自适应（切换选项不抖动） |
+| `Slider` | `Slider(value, lower, upper, step)` | `accessibilityLabel`；拖拽或 Left/Right 调整数值 |
+| `Stepper` | `Stepper(value, lower, upper, step)` | `accessibilityLabel`；点击或方向键调整整数 |
 | `Stepper` | `Stepper(id, Bindable<Int64>, lower!, upper!, step!)` | 范围/步长可经构造参或链式 `range(lower, upper)`、`step(value)` 设置（构造参对齐 Slider/ProgressBar）；宽度按数值内容自适应（一至两位数稳定） |
 | `SegmentedControl` | `SegmentedControl(items, selected, id!: ?String = None)` | 分段单选；选中指示器弹簧滑动到新段；`Tab` 聚焦后 Left/Right 切换（端点钳制）；`id` 可选，缺省按构建序自动派生 |
 | `TabView` | `TabView(labels, selected, id!: ?String = None) { pages }` | 页面按标签顺序声明；活动标签指示器弹簧滑动；页签条为焦点停靠点（先于页内控件），聚焦后 Left/Right 切换页签；`id` 可选 |
@@ -341,7 +357,7 @@ VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩
 
 ## 12. kMode 无界面控制面
 
-应用从 `cui.kmode.macros.*` 导入 `KModeLink`，把一个顶层 `(String) -> String` 函数注册为端点：
+应用从 `chui.kmode.macros.*` 导入 `KModeLink`，把一个顶层 `(String) -> String` 函数注册为端点：
 
 ```cangjie
 @KModeLink["app.echo"]

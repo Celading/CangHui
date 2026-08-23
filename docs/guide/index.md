@@ -1,6 +1,6 @@
-# CUI 使用指南
+# CangHui 使用指南
 
-CUI 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建函数中描述当前数据对应的界面，框架负责布局、绘制、焦点和事件循环。本指南按用户要完成的工作组织，不按源码包罗列控件；查询构造签名、默认值和全部成员时，请使用独立的 [CUI API 参考](../api/index.md)。
+CangHui 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建函数中描述当前数据对应的界面，框架负责布局、绘制、焦点和事件循环。本指南按用户要完成的工作组织，不按源码包罗列控件；查询构造签名、默认值和全部成员时，请使用独立的 [CangHui API 参考](../api/index.md)。
 
 ## 这套指南怎么用
 
@@ -12,7 +12,7 @@ CUI 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建函�
 
 ## 从这里开始
 
-如果你还没有 CUI 项目，从[创建第一个 CUI 窗口](getting-started/first-window.md)开始。你会建立路径依赖、准备 SDL 运行库，并运行一个可点击、可关闭的计数器。前置知识只需要会使用 `cjpm`、认识仓颉函数和 class；预计 15 分钟。如果窗口无法启动，先不要继续抄更多界面代码，直接使用[通用排障](troubleshooting/common-problems.md)的动态库分支。
+如果你还没有 CangHui 项目，从[创建第一个 CangHui 窗口](getting-started/first-window.md)开始。你会建立路径依赖、准备 SDL 运行库，并运行一个可点击、可关闭的计数器。前置知识只需要会使用 `cjpm`、认识仓颉函数和 class；预计 15 分钟。如果窗口无法启动，先不要继续抄更多界面代码，直接使用[通用排障](troubleshooting/common-problems.md)的动态库分支。
 
 首窗口不是“能编译就算完成”。继续之前逐项确认：`cjpm build` 退出码为 0；窗口能显示计数和按钮；点击按钮后计数确实增加；关闭按钮能结束进程。如果构建通过但看不到窗口，检查 SDL 动态库和运行目录；窗口出现但点击无效，则从事件与状态分支排查。把这四项结果都观察到，再进入声明式构建概念。
 
@@ -26,7 +26,7 @@ CUI 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建函�
 
 ### 1. 首次成功：空项目到可靠表单
 
-[第一个窗口](getting-started/first-window.md) → [构建生命周期](concepts/composition-and-lifecycle.md) → [状态与绑定](concepts/state-and-binding.md) → [设置表单](tutorials/settings-form.md)。适合第一次使用 CUI 的应用开发者，约 65 分钟；结束时能运行窗口、定位状态所有权并完成带校验反馈的表单。
+[第一个窗口](getting-started/first-window.md) → [构建生命周期](concepts/composition-and-lifecycle.md) → [状态与绑定](concepts/state-and-binding.md) → [设置表单](tutorials/settings-form.md)。适合第一次使用 CangHui 的应用开发者，约 65 分钟；结束时能运行窗口、定位状态所有权并完成带校验反馈的表单。
 
 ### 2. 真实应用：单页到可维护工作台
 
@@ -119,7 +119,7 @@ CUI 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建函�
 
 ## API 参考
 
-需要精确签名时进入 [CUI API 参考](../api/index.md)。应用生命周期查 [DesktopApp](../api/cui/desktop/DesktopApp.md)，状态查 [State](../api/cui/core/State.md)，布局查 [VStack](../api/cui/core/VStack.md) 和 [Grid](../api/cui/core/Grid.md)，媒体查 [ImageView](../api/cui/media/ImageView.md)。指南解释选择和任务路径，API 参考负责成员清单与声明。
+需要精确签名时进入 [CangHui API 参考](../api/index.md)。应用生命周期查 [DesktopApp](../api/chui/desktop/DesktopApp.md)，状态查 [State](../api/chui/core/State.md)，布局查 [VStack](../api/chui/core/VStack.md) 和 [Grid](../api/chui/core/Grid.md)，媒体查 [ImageView](../api/chui/media/ImageView.md)。指南解释选择和任务路径，API 参考负责成员清单与声明。
 
 ## 排查问题
 

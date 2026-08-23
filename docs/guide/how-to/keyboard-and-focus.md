@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 键盘与焦点
+[CangHui 指南](../index.md) › 键盘与焦点
 
 # 让鼠标、Tab 和快捷键共享业务动作
 
@@ -78,10 +78,10 @@ Tab 顺序与视觉阅读一致，焦点样式可见；Enter/Space 触发正确�
 
 ## 相关 API
 
-- [`EventHandler`](../../api/cui/core/EventHandler.md) — 应用级键盘处理。
-- [`Button`](../../api/cui/core/Button.md) 与 [`TextField`](../../api/cui/text/TextField.md) — 标准焦点/键盘行为。
-- [`ListView`](../../api/cui/controls/ListView.md) — 选择与方向键导航。
-- [`Modal`](../../api/cui/controls/Modal.md) — 焦点和背景交互边界。
+- [`EventHandler`](../../api/chui/core/EventHandler.md) — 应用级键盘处理。
+- [`Button`](../../api/chui/core/Button.md) 与 [`TextField`](../../api/chui/text/TextField.md) — 标准焦点/键盘行为。
+- [`ListView`](../../api/chui/controls/ListView.md) — 选择与方向键导航。
+- [`Modal`](../../api/chui/controls/Modal.md) — 焦点和背景交互边界。
 
 ## 下一步
 

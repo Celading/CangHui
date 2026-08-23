@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import std.collection.{ArrayList, HashMap, HashSet}
 import std.sync.AtomicInt64

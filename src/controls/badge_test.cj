@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{Theme, UiContext}
+import chui.core.{Theme, UiContext}
 
 private func badgeTestContext(): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())

@@ -5,9 +5,9 @@
  *  - “画笔 N px”“N 条笔迹”直接读取 PaintModel 中的派生文本
  *  - 尺寸一律使用 vp 单位表达
  */
-package cui_paint
+package chui_paint
 
-import cui.{ButtonRole, CanvasWidget, FontSizes, HStack, Icon, IconButton, IconName, Label, LengthUnits, Panel, Slider,
+import chui.{ButtonRole, CanvasWidget, FontSizes, HStack, Icon, IconButton, IconName, Label, LengthUnits, Panel, Slider,
     Spacer, VStack}
 
 func paintView(model: PaintModel): Unit {

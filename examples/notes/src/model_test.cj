@@ -1,4 +1,4 @@
-package cui_notes
+package chui_notes
 
 /*
  * 主从绑定必须始终读写“当前选中”的那条笔记，且新增/删除后选中索引要保持在有效范围内——

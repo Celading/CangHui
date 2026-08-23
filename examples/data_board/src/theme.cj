@@ -1,9 +1,9 @@
 /*
  * 看板主题、列/卡片表面与共享字号令牌。
  */
-package cui_data_board
+package chui_data_board
 
-import cui.{Color, Length, LengthUnits, SurfaceStyle, Theme}
+import chui.{Color, Length, LengthUnits, SurfaceStyle, Theme}
 
 /** 列标题与展开态卡片标题共用的字号。 */
 let BOARD_HEADING: Length = 17.fp

@@ -6,9 +6,9 @@
  *  - 表单模态承载真实控件子树，保存按钮按“姓名非空”校验启用；公司字段用对话框内的
  *    ComboBox 演示嵌套浮层——建议列表经浮层栈压在对话框之上
  */
-package cui_contacts
+package chui_contacts
 
-import cui.{Button, ButtonRole, ComboBox, ContextMenu, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits,
+import chui.{Button, ButtonRole, ComboBox, ContextMenu, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits,
     MenuItem, Modal, Panel, Spacer, State, Table, TextField, Tooltip, VStack, ZStack}
 
 func contactsView(model: ContactsModel): Unit {

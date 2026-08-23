@@ -6,9 +6,9 @@
  *  - 分隔条可 Tab 聚焦、方向键微调，悬停显示对应的横向/纵向调整光标。
  *  - 大纲与统计由正文实时派生（见 model 的 `derive`），编辑即刻反映到右下信息区。
  */
-package cui_workbench
+package chui_workbench
 
-import cui.{Axis, ButtonRole, CrossAxisAlignment, Divider, FontSizes, ForEach, HStack, IconButton, IconName, Label,
+import chui.{Axis, ButtonRole, CrossAxisAlignment, Divider, FontSizes, ForEach, HStack, IconButton, IconName, Label,
     LengthUnits, ListView, Panel, ScrollView, Spacer, SplitView, TextArea, Tooltip, VStack}
 
 func workbenchView(model: WorkbenchModel): Unit {

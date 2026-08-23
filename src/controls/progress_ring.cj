@@ -1,9 +1,9 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import std.math.{cos, sin}
 import sdl.{FontSizes, Pen, Point, Rect, Size, UiEvent}
-import cui.core.{UiContext, Widget, emit}
+import chui.core.{UiContext, Widget, emit}
 
 private let RING_PI: Float64 = 3.141592653589793
 private let RING_TAU: Float64 = 6.283185307179586

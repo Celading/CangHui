@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Color, Pen, Rect, Size, SurfaceStyle, UiEvent}
 
@@ -29,6 +29,7 @@ protected enum WidgetModifier {
     | Flex(Float32)
     | Visible(Bool)
     | Enabled(Bool)
+    | Typography(TypographyEnvironment)
 }
 
 class ModifiedWidget <: Widget {
@@ -78,6 +79,8 @@ class ModifiedWidget <: Widget {
                 } else {
                     Size.zero()
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.measure(ctx, available) }
             case _ => child.measure(ctx, available)
         }
     }
@@ -98,6 +101,8 @@ class ModifiedWidget <: Widget {
                 if (isVisible) {
                     child.layout(ctx, rect)
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.layout(ctx, rect) }
             case _ => child.layout(ctx, rect)
         }
     }
@@ -164,10 +169,12 @@ class ModifiedWidget <: Widget {
                     child.draw(ctx)
                 }
             case WidgetModifier.Enabled(isEnabled) =>
-                child.draw(ctx)
+                ctx.withInteractionsEnabled(isEnabled) {=> child.draw(ctx)}
                 if (!isEnabled) {
                     ctx.renderer.fill(frame, ctx.theme.bg.withAlpha(96))
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.draw(ctx) }
             case _ => child.draw(ctx)
         }
     }
@@ -182,6 +189,8 @@ class ModifiedWidget <: Widget {
                     case UiEvent.Frame(_) => child.handle(ctx, event)
                     case _ => isEnabled && child.handle(ctx, event)
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.handle(ctx, event) }
             case _ => child.handle(ctx, event)
         }
     }
@@ -247,6 +256,17 @@ class ModifiedWidget <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
+    }
+
+    public func interactionsEnabled(): Bool {
+        match (modifier) {
+            case WidgetModifier.Enabled(isEnabled) => isEnabled && child.interactionsEnabled()
+            case _ => child.interactionsEnabled()
+        }
     }
 
     /** Resolves an exact-size length, clamped to non-negative logical pixels. */

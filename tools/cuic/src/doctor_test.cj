@@ -85,3 +85,134 @@ func doctorAndroidReportsBootstrapWithoutClaimingRuntimeCompletion(): Unit {
     @Expect(readySurfaceAssets, Int64(5))
     @Expect(backendDegraded)
 }
+
+@Test
+func doctorReportsApplicationShellContractAndSchema(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let checks = doctorApplicationShellGroup(framework).checks
+    var contractReady = false
+    var schemaReady = false
+    var planSchemaReady = false
+    var artifactSchemaReady = false
+    for (check in checks) {
+        if (check.id == "application-shell.contract" && doctorStatusName(check.status) == "ready") {
+            contractReady = true
+        }
+        if (check.id == "application-shell.schema" && doctorStatusName(check.status) == "ready") {
+            schemaReady = true
+        }
+        if (check.id == "application-shell.plan-schema" && doctorStatusName(check.status) == "ready") {
+            planSchemaReady = true
+        }
+        if (check.id == "application-shell.artifact-schema" && doctorStatusName(check.status) == "ready") {
+            artifactSchemaReady = true
+        }
+    }
+    @Expect(contractReady)
+    @Expect(schemaReady)
+    @Expect(planSchemaReady)
+    @Expect(artifactSchemaReady)
+}
+
+@Test
+func doctorReportsMobileHostContractWithoutOverclaimingPlatformPackages(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let checks = doctorMobileApplicationHostGroup(framework).checks
+    var contractReady = false
+    var schemaReady = false
+    var signingPreparationReady = false
+    var signingPreparationSchemaReady = false
+    var externalSignerReceiptReady = false
+    var externalSignerReceiptSchemaReady = false
+    var signedPackageEvidenceReady = false
+    var signedPackageEvidenceSchemaReady = false
+    var installationAttemptReady = false
+    var installationAttemptSchemaReady = false
+    var replayContractReady = false
+    var replaySchemaReady = false
+    var kmodeAdapterReady = false
+    var consumerFixtureReady = false
+    var docsReady = false
+    var iosReady = false
+    var iosInputTreeReady = false
+    var androidDegraded = false
+    var harmonyDegraded = false
+    for (check in checks) {
+        if (check.id == "mobile-host.contract" && doctorStatusName(check.status) == "ready") {
+            contractReady = true
+        }
+        if (check.id == "mobile-host.schema" && doctorStatusName(check.status) == "ready") {
+            schemaReady = true
+        }
+        if (check.id == "mobile-host.signing-preparation" && doctorStatusName(check.status) == "ready") {
+            signingPreparationReady = true
+        }
+        if (check.id == "mobile-host.signing-preparation-schema" && doctorStatusName(check.status) == "ready") {
+            signingPreparationSchemaReady = true
+        }
+        if (check.id == "mobile-host.external-signer-receipt" && doctorStatusName(check.status) == "ready") {
+            externalSignerReceiptReady = true
+        }
+        if (check.id == "mobile-host.external-signer-receipt-schema" && doctorStatusName(check.status) == "ready") {
+            externalSignerReceiptSchemaReady = true
+        }
+        if (check.id == "mobile-host.signed-package-evidence" && doctorStatusName(check.status) == "ready") {
+            signedPackageEvidenceReady = true
+        }
+        if (check.id == "mobile-host.signed-package-evidence-schema" && doctorStatusName(check.status) == "ready") {
+            signedPackageEvidenceSchemaReady = true
+        }
+        if (check.id == "mobile-host.installation-attempt" && doctorStatusName(check.status) == "ready") {
+            installationAttemptReady = true
+        }
+        if (check.id == "mobile-host.installation-attempt-schema" && doctorStatusName(check.status) == "ready") {
+            installationAttemptSchemaReady = true
+        }
+        if (check.id == "mobile-host.replay-contract" && doctorStatusName(check.status) == "ready") {
+            replayContractReady = true
+        }
+        if (check.id == "mobile-host.replay-schema" && doctorStatusName(check.status) == "ready") {
+            replaySchemaReady = true
+        }
+        if (check.id == "mobile-host.kmode-adapter" && doctorStatusName(check.status) == "ready") {
+            kmodeAdapterReady = true
+        }
+        if (check.id == "mobile-host.consumer-fixture" && doctorStatusName(check.status) == "ready") {
+            consumerFixtureReady = true
+        }
+        if (check.id == "mobile-host.docs" && doctorStatusName(check.status) == "ready") {
+            docsReady = true
+        }
+        if (check.id == "mobile-host.ios-provider" && doctorStatusName(check.status) == "ready") {
+            iosReady = true
+        }
+        if (check.id == "mobile-host.ios-input-tree" && doctorStatusName(check.status) == "ready") {
+            iosInputTreeReady = true
+        }
+        if (check.id == "mobile-host.android-provider" && doctorStatusName(check.status) == "degraded") {
+            androidDegraded = true
+        }
+        if (check.id == "mobile-host.harmony-provider" && doctorStatusName(check.status) == "degraded") {
+            harmonyDegraded = true
+        }
+    }
+    @Expect(contractReady)
+    @Expect(schemaReady)
+    @Expect(signingPreparationReady)
+    @Expect(signingPreparationSchemaReady)
+    @Expect(externalSignerReceiptReady)
+    @Expect(externalSignerReceiptSchemaReady)
+    @Expect(signedPackageEvidenceReady)
+    @Expect(signedPackageEvidenceSchemaReady)
+    @Expect(installationAttemptReady)
+    @Expect(installationAttemptSchemaReady)
+    @Expect(replayContractReady)
+    @Expect(replaySchemaReady)
+    @Expect(kmodeAdapterReady)
+    @Expect(consumerFixtureReady)
+    @Expect(docsReady)
+    @Expect(iosReady)
+    @Expect(iosInputTreeReady)
+    @Expect(androidDegraded)
+    @Expect(harmonyDegraded)
+}

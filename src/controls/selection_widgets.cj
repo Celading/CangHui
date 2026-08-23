@@ -1,21 +1,30 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions,
-    maxScrollOffset, Spring, State, UiContext, Widget, requireControlId, advanceScrollMotion, applyWheelScroll,
-    cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawFocusRing, drawSurface, drawVerticalScrollBar,
-    emit, focusableControlIdentity, handlePointerClick, localState, reregisterFocusable, scrollLineIndex,
+import chui.core.{AnimationSpec, Bindable, CUI_SMALL_H, ComponentControlAppearance,
+    ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
+    CursorShape, InteractionAnimation, Motion, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset, Spring,
+    State, UiContext, Widget, requireControlId,
+    advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawFocusRing,
+    drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity, handlePointerClick, localState,
+    recordControlSemantics, resolveComponentControlAppearance, reregisterFocusable, scrollLineIndex,
     scrollLineRemainder}
 
 public class Checkbox <: Widget {
-    private let label: String
+    private let label: ?String
+    private let child: ?Widget
     private let checked: Bindable<Bool>
     private var controlId: String
     private let fillSpring: Spring
+    private let interaction: InteractionAnimation
+    private var customStyle: ?ComponentControlStyle
+    private var animationSpec: AnimationSpec
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(label: String, checked: Bindable<Bool>) {
-        this.label = label
+        this.label = Some(label)
+        this.child = None
         this.checked = checked
         this.controlId = focusableControlIdentity("Checkbox:${label}")
         // The check fill scales in when ticked. Retained across rebuilds and started at the
@@ -26,6 +35,29 @@ public class Checkbox <: Widget {
             0.0
         }
         this.fillSpring = localState<Spring>("${this.controlId}:fill") {Spring(checkStart)}.value
+        this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
+            InteractionAnimation()
+        }.value
+        this.customStyle = None
+        this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = label
+        emit(this)
+    }
+
+    /** Creates a checkbox with framework-owned indicator and arbitrary decorative label content. */
+    public init(checked: Bindable<Bool>, body!: () -> Unit) {
+        this.label = None
+        this.checked = checked
+        this.controlId = focusableControlIdentity("Checkbox:content")
+        this.child = Some(buildDecorativeControlChild(body))
+        let checkStart: Float32 = if (checked.value) { 1.0 } else { 0.0 }
+        this.fillSpring = localState<Spring>("${this.controlId}:fill") {Spring(checkStart)}.value
+        this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
+            InteractionAnimation()
+        }.value
+        this.customStyle = None
+        this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = ""
         emit(this)
     }
 
@@ -40,12 +72,50 @@ public class Checkbox <: Widget {
         this
     }
 
-    public func measure(ctx: UiContext, available: Size): Size {
-        Size(min(available.w, ctx.renderer.textWidth(label) + 34.0), CUI_CONTROL_H)
+    /** Overrides the component theme's state-aware control style. */
+    public func controlStyle(value: ComponentControlStyle): Checkbox {
+        customStyle = Some(value)
+        this
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    /** Applies an automatic or exact interaction animation property. */
+    public func animation(value: AnimationSpec): Checkbox {
+        animationSpec = value
+        this
+    }
+
+    /** Names decorative checkbox content for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Checkbox {
+        semanticLabel = value
+        this
+    }
+
+    public func measure(ctx: UiContext, available: Size): Size {
+        let spacing = ctx.theme.components.spacing
+        let insets = ctx.resolve(spacing.selectionPadding)
+        let gap = ctx.resolve(spacing.inlineGap)
+        let pointSize = max(1.0, ctx.resolve(ctx.theme.components.typography.control))
+        let content = match (label) {
+            case Some(value) => Size(ctx.renderer.textWidth(value, pointSize: pointSize),
+                ctx.renderer.textHeight(pointSize: pointSize))
+            case None => match (child) {
+                case Some(value) => value.measure(ctx, Size(
+                    max(0.0, available.w - insets.horizontal() - spacing.indicatorSize - gap),
+                    max(0.0, available.h - insets.vertical())))
+                case None => Size.zero()
+            }
+        }
+        Size(min(available.w, insets.horizontal() + spacing.indicatorSize + gap + content.w),
+            min(available.h, max(spacing.controlMinHeight,
+                insets.vertical() + max(spacing.indicatorSize, content.h))))
+    }
+
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        match (child) {
+            case Some(value) => value.layout(ctx, labelFrame(ctx))
+            case None => ()
+        }
     }
 
     public func draw(ctx: UiContext): Unit {
@@ -55,41 +125,67 @@ public class Checkbox <: Widget {
             0.0
         }
         let t = fillSpring.animate(ctx, target: goal)
-        let box = indicatorFrame()
-        drawSurface(ctx, box, ctx.theme.fieldSurface(false).withBorder(ctx.theme.panelEdge.lerp(ctx.theme.accent, t)))
+        let progress = interaction.animate(ctx, ctx.isHovered(controlId), ctx.isPressed(controlId), animationSpec)
+        let appearance = resolveComponentControlAppearance(ctx.theme, ComponentControlKind.Checkbox,
+            ComponentControlState(hover: progress.hover, press: progress.press,
+                focused: ctx.hasFocus(controlId), selected: checked.value), styleOverride: customStyle)
+        let box = indicatorFrame(ctx)
+        drawSurface(ctx, box, appearance.surface)
+        recordControlSemantics(ctx, frame, "Checkbox", ControlSemantics(
+            "checkbox", label: semanticLabel, action: "Checkbox.toggle()",
+            actionOwner: controlId, selected: Some(checked.value)
+        ))
         // The fill grows from the centre to fill the box as it is ticked.
         if (t > 0.001) {
             let full = box.inset(4.0)
             let w = full.w * t
             let h = full.h * t
             let mark = Rect(full.centerX() - w / 2.0, full.centerY() - h / 2.0, w, h)
-            ctx.renderer.fillRoundedRect(mark, ctx.theme.smallRadius * t, ctx.theme.accent)
+            ctx.renderer.fillRoundedRect(mark, appearance.focusRadius * t, appearance.indicator)
         }
-        let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0
-        ctx.renderer.text(label, frame.x + 26.0, textY, ctx.theme.text, pointSize: FontSizes.CONTROL)
+        match (label) {
+            case Some(value) =>
+                let pointSize = max(1.0, ctx.resolve(ctx.theme.components.typography.control))
+                let content = labelFrame(ctx)
+                let textY = content.centerY() - ctx.renderer.textHeight(pointSize: pointSize) / 2.0
+                ctx.renderer.text(value, content.x, textY, appearance.foreground, pointSize: pointSize)
+            case None => match (child) {
+                case Some(value) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                    appearance.foreground,
+                    role: "checkbox",
+                    interactionOwner: controlId,
+                    selected: checked.value,
+                    focused: ctx.hasFocus(controlId),
+                    hovered: progress.hover > 0.0,
+                    pressed: progress.press > 0.0
+                )) {=> value.draw(ctx)}
+                case None => ()
+            }
+        }
         if (ctx.showFocusRing(controlId)) {
-            drawFocusRing(ctx, box, ctx.theme.smallRadius)
+            drawFocusRing(ctx, box, appearance.focusRadius)
         }
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        let box = indicatorFrame()
+        let appearance = currentAppearance(ctx)
+        let box = indicatorFrame(ctx)
         if (handlePointerClick(ctx, event, frame, controlId, {=> checked.value = !checked.value},
-            inkFrame: Some(box), inkRadius: ctx.theme.smallRadius, inkColor: Some(ctx.theme.inkColor()))) {
+            inkFrame: Some(box), inkRadius: appearance.focusRadius, inkColor: Some(appearance.ink))) {
             return true
         }
         match (event) {
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
                     ctx.startInkRipple(controlId, box, box.centerX(), box.centerY(),
-                        color: Some(ctx.theme.inkColor()), cornerRadius: ctx.theme.smallRadius)
+                        color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
                     checked.value = !checked.value
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
                 if (ctx.hasFocus(controlId)) {
                     ctx.startInkRipple(controlId, box, box.centerX(), box.centerY(),
-                        color: Some(ctx.theme.inkColor()), cornerRadius: ctx.theme.smallRadius)
+                        color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
                     checked.value = !checked.value
                     return true
                 }
@@ -102,8 +198,30 @@ public class Checkbox <: Widget {
         Some(controlId)
     }
 
-    private func indicatorFrame(): Rect {
-        checkboxIndicatorFrame(frame)
+    private func indicatorFrame(ctx: UiContext): Rect {
+        let insets = ctx.resolve(ctx.theme.components.spacing.selectionPadding)
+        let size = ctx.theme.components.spacing.indicatorSize
+        let legacy = checkboxIndicatorFrame(frame)
+        Rect(legacy.x + insets.left, frame.y + insets.top, size, size)
+    }
+
+    private func labelFrame(ctx: UiContext): Rect {
+        let insets = ctx.resolve(ctx.theme.components.spacing.selectionPadding)
+        let indicator = indicatorFrame(ctx)
+        let gap = ctx.resolve(ctx.theme.components.spacing.inlineGap)
+        Rect(indicator.right() + gap, frame.y + insets.top,
+            max(0.0, frame.right() - insets.right - indicator.right() - gap),
+            max(0.0, frame.h - insets.vertical()))
+    }
+
+    private func currentAppearance(ctx: UiContext): ComponentControlAppearance {
+        resolveComponentControlAppearance(ctx.theme, ComponentControlKind.Checkbox,
+            ComponentControlState(
+                hover: if (ctx.isHovered(controlId)) { 1.0 } else { 0.0 },
+                press: if (ctx.isPressed(controlId)) { 1.0 } else { 0.0 },
+                focused: ctx.hasFocus(controlId),
+                selected: checked.value
+            ), styleOverride: customStyle)
     }
 }
 

@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 @Test
 func themeInterpolationKeepsExactEndpoints(): Unit {

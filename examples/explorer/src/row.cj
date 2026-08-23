@@ -5,9 +5,9 @@
  * 进入、单击文件选中（选中行以强调浅底常显）；名称列裁剪到自身宽度，长名不会侵入右侧列。列头行与条目行
  * 共享同一组列几何常量，表头与内容天然对齐。
  */
-package cui_explorer
+package chui_explorer
 
-import cui.{CursorShape, FontSizes, IconName, MouseButton, Rect, Size, UiContext, UiEvent, Widget, drawIcon, emit}
+import chui.{CursorShape, FontSizes, IconName, MouseButton, Rect, Size, UiContext, UiEvent, Widget, drawIcon, emit}
 
 /** 行高与列几何（逻辑像素），条目行与列头行共用。 */
 let ENTRY_ROW_H: Float32 = 34.0

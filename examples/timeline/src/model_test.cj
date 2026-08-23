@@ -1,6 +1,6 @@
-package cui_timeline
+package chui_timeline
 
-import cui.CalendarDate
+import chui.CalendarDate
 
 private let ANCHOR = CalendarDate(2026, 7, 16)
 

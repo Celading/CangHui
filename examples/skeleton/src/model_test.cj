@@ -1,6 +1,6 @@
-package cui_skeleton
+package chui_skeleton
 
-import cui.{Easing, Pulse}
+import chui.{Easing, Pulse}
 
 @Test
 func toggleSwapsLoadedStateAndCopy(): Unit {

@@ -1,6 +1,6 @@
-package cui.core
+package chui.core
 
-import sdl.{FontSizes, Key, Rect, Size, SurfaceStyle, UiEvent}
+import sdl.{FontSizes, Rect, Size, SurfaceStyle, UiEvent}
 
 /**
  * An empty, flexible widget: it measures zero and absorbs a share of its stack's leftover space,
@@ -36,14 +36,21 @@ public class Spacer <: Widget {
  * `key` pins one that survives tree reshapes.
  */
 public class Button <: Widget {
-    private let title: String
-    private let onClick: () -> Unit
+    private let title: ?String
+    private let child: ?Widget
     private var buttonRole: ButtonRole
     private var customStyle: ?SurfaceStyle
+    private var customButtonStyle: ?ButtonStyle
     private var pointSize: Length
+    private var contentPaddingOverride: ?LengthInsets
+    private var minWidthOverride: ?Float32
+    private var minHeightOverride: ?Float32
     private var controlId: String
+    private let interactionSurface: InteractionSurface
+    private let interactionMaterial: ButtonInteractionMaterial
     private let interaction: InteractionAnimation
     private var animationSpec: AnimationSpec
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(
@@ -53,16 +60,58 @@ public class Button <: Widget {
         style!: ?SurfaceStyle = None,
         fontSize!: Length = Length(FontSizes.CONTROL, LengthUnit.Fp)
     ) {
-        this.title = title
-        this.onClick = onClick
+        this.title = Some(title)
+        this.child = None
         this.buttonRole = role
         this.customStyle = style
+        this.customButtonStyle = None
         this.pointSize = fontSize
+        this.contentPaddingOverride = None
+        this.minWidthOverride = None
+        this.minHeightOverride = None
         this.controlId = focusableControlIdentity("Button:${title}")
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
         this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
             InteractionAnimation()
         }.value
         this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = title
+        emit(this)
+    }
+
+    /**
+     * Creates a button whose face is arbitrary decorative CangHui content. The outer button remains the
+     * sole focus and activation owner; focusable descendants are removed from the Tab ring and do not
+     * receive events. Use this for icon/text/badge composition, not for nested interactive controls.
+     */
+    public init(
+        onClick!: () -> Unit,
+        role!: ButtonRole = ButtonRole.Normal,
+        style!: ?SurfaceStyle = None,
+        body!: () -> Unit
+    ) {
+        this.title = None
+        let focusStart = focusableCountNow()
+        this.child = Some(buildChild(body))
+        for (id in focusablesSince(focusStart)) {
+            unregisterFocusable(id)
+        }
+        this.buttonRole = role
+        this.customStyle = style
+        this.customButtonStyle = None
+        this.pointSize = Length(FontSizes.CONTROL, LengthUnit.Fp)
+        this.contentPaddingOverride = None
+        this.minWidthOverride = None
+        this.minHeightOverride = None
+        this.controlId = focusableControlIdentity("Button:content")
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
+        this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
+            InteractionAnimation()
+        }.value
+        this.animationSpec = AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate)
+        this.semanticLabel = ""
         emit(this)
     }
 
@@ -73,7 +122,7 @@ public class Button <: Widget {
      */
     public func key(value: String): Button {
         requireControlId(value, "Button")
-        reregisterFocusable(controlId, value)
+        let _ = interactionSurface.key(value)
         controlId = value
         this
     }
@@ -84,9 +133,36 @@ public class Button <: Widget {
         this
     }
 
+    /** Names a slot-based button for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Button {
+        semanticLabel = value
+        this
+    }
+
     /** Overrides the theme-derived button surface. */
     public func style(value: SurfaceStyle): Button {
         customStyle = Some(value)
+        customButtonStyle = None
+        this
+    }
+
+    /** Overrides the theme's state-aware button style for this button. */
+    public func buttonStyle(value: ButtonStyle): Button {
+        customButtonStyle = Some(value)
+        customStyle = None
+        this
+    }
+
+    /** Overrides the content inset used by title and slot-based buttons. */
+    public func contentPadding(value: LengthInsets): Button {
+        contentPaddingOverride = Some(value)
+        this
+    }
+
+    /** Overrides the minimum control size while retaining content-based measurement. */
+    public func minControlSize(width!: Float32, height!: Float32): Button {
+        minWidthOverride = Some(max(0.0, width))
+        minHeightOverride = Some(max(0.0, height))
         this
     }
 
@@ -113,64 +189,143 @@ public class Button <: Widget {
     }
 
     public func measure(ctx: UiContext, available: Size): Size {
-        let ps = max(1.0, ctx.resolve(pointSize))
-        Size(min(available.w, max(72.0, ctx.renderer.textWidth(title, pointSize: ps) + 24.0)), CUI_CONTROL_H)
+        let layoutStyle = ctx.theme.components.buttonLayout
+        let insets = ctx.resolve(match (contentPaddingOverride) {
+            case Some(value) => value
+            case None => layoutStyle.contentPadding
+        })
+        let minWidth = match (minWidthOverride) {
+            case Some(value) => value
+            case None => layoutStyle.minWidth
+        }
+        let minHeight = match (minHeightOverride) {
+            case Some(value) => value
+            case None => layoutStyle.minHeight
+        }
+        let contentSize = match (title) {
+            case Some(value) => Size(ctx.renderer.textWidth(value, pointSize: max(1.0, ctx.resolve(pointSize))),
+                ctx.renderer.textHeight(pointSize: max(1.0, ctx.resolve(pointSize))))
+            case None => match (child) {
+                case Some(value) => value.measure(ctx, Size(max(0.0, available.w - insets.horizontal()),
+                    max(0.0, available.h - insets.vertical())))
+                case None => Size.zero()
+            }
+        }
+        Size(min(available.w, max(minWidth, contentSize.w + insets.horizontal())),
+            min(available.h, max(minHeight, contentSize.h + insets.vertical())))
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        interactionSurface.layout(ctx, rect)
+        match (child) {
+            case Some(value) => value.layout(ctx, frame.inset(ctx.resolve(match (contentPaddingOverride) {
+                case Some(padding) => padding
+                case None => ctx.theme.components.buttonLayout.contentPadding
+            })))
+            case None => ()
+        }
     }
 
     public func draw(ctx: UiContext): Unit {
         let progress = interaction.animate(ctx, ctx.isHovered(controlId), ctx.isPressed(controlId), animationSpec)
-        let visualFrame = animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
-        drawSurface(ctx, visualFrame, buttonStyle(ctx, progress))
-        let textColor = match (buttonRole) {
-            case ButtonRole.Normal => ctx.theme.text
-            case _ => ctx.theme.accentText
+        let state = ButtonVisualState(hover: progress.hover, press: progress.press,
+            focused: ctx.hasFocus(controlId))
+        let appearance = buttonAppearance(ctx, state)
+        let visualFrame = match (title) {
+            case Some(_) => animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
+            case None => frame
         }
-        ctx.renderer.textCenter(title, visualFrame, textColor, pointSize: max(1.0, ctx.resolve(pointSize)))
+        drawSurface(ctx, visualFrame, appearance.surface)
+        recordControlSemantics(ctx, visualFrame, "Button", ControlSemantics(
+            "button", label: semanticLabel, action: "Button.activate()",
+            actionOwner: controlId
+        ))
+        match (title) {
+            case Some(value) => ctx.renderer.textCenter(value, visualFrame, appearance.foreground,
+                pointSize: max(1.0, ctx.resolve(pointSize)))
+            case None => match (child) {
+                case Some(value) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                    appearance.foreground,
+                    role: "button",
+                    interactionOwner: controlId,
+                    focused: state.focused,
+                    hovered: state.hover > 0.0,
+                    pressed: state.press > 0.0
+                )) {=> value.draw(ctx)}
+                case None => ()
+            }
+        }
         if (ctx.showFocusRing(controlId)) {
-            drawFocusRing(ctx, visualFrame, ctx.theme.controlRadius)
+            drawFocusRing(ctx, visualFrame, appearance.focusRadius)
         }
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        if (handlePointerClick(ctx, event, frame, controlId, onClick,
-            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor(role: buttonRole)))) {
-            return true
-        }
-        match (event) {
-            case UiEvent.KeyDown(Key.Enter, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
-                    onClick()
-                    return true
-                }
-            case UiEvent.KeyDown(Key.Space, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
-                    onClick()
-                    return true
-                }
-            case _ => ()
-        }
-        false
+        let appearance = buttonAppearance(ctx, ButtonVisualState(
+            hover: if (ctx.isHovered(controlId)) { 1.0 } else { 0.0 },
+            press: if (ctx.isPressed(controlId)) { 1.0 } else { 0.0 },
+            focused: ctx.hasFocus(controlId)
+        ))
+        syncButtonInteractionSurface(interactionSurface, interactionMaterial, appearance)
+        interactionSurface.handle(ctx, event)
     }
 
     public func focusableId(): ?String {
-        Some(controlId)
+        interactionSurface.focusableId()
     }
 
-    private func buttonStyle(ctx: UiContext, progress: InteractionProgress): SurfaceStyle {
-        let base = match (customStyle) {
-            case Some(value) => value
-            case None => ctx.theme.buttonSurface(buttonRole)
-        }
-        animatedButtonSurface(ctx, base, buttonRole, progress)
+    private func buttonAppearance(ctx: UiContext, state: ButtonVisualState): ButtonAppearance {
+        resolveButtonAppearance(ctx.theme, buttonRole, state,
+            styleOverride: customButtonStyle, surfaceOverride: customStyle)
     }
+}
+
+protected class ButtonInteractionMaterial <: MaterialProvider {
+    private var value: ?SurfaceMaterial = None
+
+    func update(appearance: ButtonAppearance): Unit {
+        value = Some(SurfaceMaterial(appearance.surface, appearance.foreground, ink: Some(appearance.ink)))
+    }
+
+    public func resolve(theme: Theme, _: SurfaceState): SurfaceMaterial {
+        match (value) {
+            case Some(current) => current
+            case None => SurfaceMaterial(theme.panelSurface(), theme.text, ink: Some(theme.inkColor()))
+        }
+    }
+}
+
+private class ButtonInteractionSurfaceCapture {
+    var value: ?InteractionSurface = None
+}
+
+/*
+ * Builds the interaction owner in an isolated declaration block so the delegate does not become a
+ * visible sibling of the Button recipe. Button and IconButton retain their existing rendering and
+ * semantics while sharing InteractionSurface's focus, release-inside, cancellation and Ink protocol.
+ */
+protected func buildButtonInteractionSurface(action: () -> Unit, id: String): InteractionSurface {
+    let captured = ButtonInteractionSurfaceCapture()
+    let _ = buildChild({=>
+        let value = InteractionSurface(action: action, key: Some(id)) { Spacer() }
+        captured.value = Some(value)
+    })
+    captured.value.getOrThrow()
+}
+
+/** Keeps the delegated Ink material and geometry equal to the current ButtonStyle appearance. */
+protected func syncButtonInteractionSurface(
+    interactionSurface: InteractionSurface,
+    interactionMaterial: ButtonInteractionMaterial,
+    appearance: ButtonAppearance
+): Unit {
+    interactionMaterial.update(appearance)
+    let _ = interactionSurface.surface(
+        Shape.rounded(appearance.focusRadius),
+        interactionMaterial,
+        clip: ClipPolicy.Shape
+    )
 }
 
 protected func animatedButtonFrame(frame: Rect, level: MotionLevel, progress: InteractionProgress): Rect {
@@ -179,23 +334,4 @@ protected func animatedButtonFrame(frame: Rect, level: MotionLevel, progress: In
     let inset = progress.press * amount * 0.75
     Rect(frame.x + inset, frame.y - lift + inset, max(0.0, frame.w - inset * 2.0),
         max(0.0, frame.h - inset * 2.0))
-}
-
-protected func animatedButtonSurface(
-    ctx: UiContext,
-    base: SurfaceStyle,
-    role: ButtonRole,
-    progress: InteractionProgress
-): SurfaceStyle {
-    let amount = ctx.theme.motionLevel.amplitude()
-    let hoverFill = match (role) {
-        case ButtonRole.Normal => ctx.theme.fieldActive
-        case _ => base.fill.lerp(ctx.theme.accentText, min(0.16, 0.08 * amount))
-    }
-    let pressFill = match (role) {
-        case ButtonRole.Normal => ctx.theme.accentSoft
-        case _ => base.fill.lerp(ctx.theme.bg, min(0.24, 0.14 * amount))
-    }
-    let hovered = base.fill.lerp(hoverFill, progress.hover)
-    base.withFill(hovered.lerp(pressFill, progress.press))
 }

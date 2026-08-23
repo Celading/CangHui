@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.UiEvent
 
@@ -18,6 +18,7 @@ import sdl.UiEvent
 public class Overlay {
     private let onEvent: (UiContext, UiEvent) -> Bool
     private let onRender: (UiContext) -> Unit
+    private var capturedTypography = TypographyEnvironment()
     let owner: String
 
     public init(handleEvent!: (UiContext, UiEvent) -> Bool, render!: (UiContext) -> Unit, owner!: String = "") {
@@ -27,10 +28,14 @@ public class Overlay {
     }
 
     func dispatch(ctx: UiContext, event: UiEvent): Bool {
-        onEvent(ctx, event)
+        ctx.withTypographyEnvironment(capturedTypography) {=> onEvent(ctx, event) }
     }
 
     func render(ctx: UiContext): Unit {
-        onRender(ctx)
+        ctx.withTypographyEnvironment(capturedTypography) {=> onRender(ctx) }
+    }
+
+    func captureTypography(environment: TypographyEnvironment): Unit {
+        capturedTypography = environment
     }
 }

@@ -4,9 +4,9 @@
  * 按键与运算符都是枚举：match 穷尽保证新增按键时编译器强制补全每一处分支，
  * 不存在字符串拼写错漏的空间。
  */
-package cui_calculator
+package chui_calculator
 
-import cui.State
+import chui.State
 
 /* 数值边界：显示位数上限、整数吸附阈值与整数显示范围。除零判定用精确的 == 0.0。 */
 struct Limit {

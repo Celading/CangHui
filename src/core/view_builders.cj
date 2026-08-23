@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Rect, Size, UiEvent}
 
@@ -37,6 +37,10 @@ public class VStack <: Widget {
 
     public func focusableIds(): Array<String> {
         stack.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        stack.interactionOwnerIds()
     }
 
     /** Sets the gap between adjacent children, e.g. `.spacing(12.vp)`. */
@@ -114,6 +118,10 @@ public class HStack <: Widget {
 
     public func focusableIds(): Array<String> {
         stack.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        stack.interactionOwnerIds()
     }
 
     /** Sets the gap between adjacent children, e.g. `.spacing(12.vp)`. */
@@ -210,5 +218,9 @@ public class Flexible <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
     }
 }

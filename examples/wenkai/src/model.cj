@@ -4,9 +4,9 @@
  * registered 在启动时由 main 依据目录探测结果写定；selected 由字重切换器绑定。字体缺失时页面仍可渲染
  * （正文回退系统字体），状态条给出获取指引。
  */
-package cui_wenkai
+package chui_wenkai
 
-import cui.State
+import chui.State
 
 class WenkaiModel {
     // 已登记的字体数（0 表示目录缺失，全部回退系统字体）。

@@ -3,9 +3,9 @@
  *
  * 预览卡片与描述都由这三项现算；Stepper/Switch 直接绑定 State（State 即 Bindable）。
  */
-package cui_cards
+package chui_cards
 
-import cui.State
+import chui.State
 
 class CardsModel {
     let elevation = State<Int64>(3) // 0 = 无阴影

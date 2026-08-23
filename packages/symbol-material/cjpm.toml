@@ -6,4 +6,4 @@ output-type = "static"
 description = "Optional Material Symbols adapter for CangHui."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

@@ -3,9 +3,9 @@
 以下接口是 CangHui 母体为多平台/鸿蒙消费提供的平台无关抽象（HarmonyHap/CangHUI 负责
 平台实现）：
 
-- `cui.core.BoundedMailbox<T>`：线程安全有界 FIFO，适合平台宿主向 UI 线程投递事件/命令。
-- `cui.core.PointerInputBridge`：收集合成指针 down/move/up/click，drain 为 `UiEvent`。
-- `cui.media.ExternalFramePlane`：外部视频/相机/表面帧平面接口，可渲染进 CangHui Renderer。
+- `chui.core.BoundedMailbox<T>`：线程安全有界 FIFO，适合平台宿主向 UI 线程投递事件/命令。
+- `chui.core.PointerInputBridge`：收集合成指针 down/move/up/click，drain 为 `UiEvent`。
+- `chui.media.ExternalFramePlane`：外部视频/相机/表面帧平面接口，可渲染进 CangHui Renderer。
 
 Harmony 侧落地状态：
 

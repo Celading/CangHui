@@ -4,10 +4,10 @@
  * 约定每个节点的 id 即其完整路径、label 为末段名；因此路径面包屑可直接由 id 拆分得到，选中项的
  * 元信息（是否文件夹、子项数）由一次遍历建成的 `HashMap` 查得，无需在树上回溯。
  */
-package cui_file_explorer
+package chui_file_explorer
 
 import std.collection.HashMap
-import cui.{IconName, TreeNode}
+import chui.{IconName, TreeNode}
 
 /** 选中节点的元信息，供详情面板展示。 */
 struct FileInfo {

@@ -12,13 +12,13 @@
 
 ## 工作方式
 
-这条媒体链分成三个阶段：`Surface` 在窗口启动前生成文件，`ImageView` 在构建时声明如何显示路径，`finally` 在事件循环结束后删除临时文件。一次性 I/O 不进入构建闭包，跨帧纹理由 CUI 缓存复用，临时文件仍由创建它的程序负责清理。
+这条媒体链分成三个阶段：`SdlSurface` 在窗口启动前生成文件，`ImageView` 在构建时声明如何显示路径，`finally` 在事件循环结束后删除临时文件。一次性 I/O 不进入构建闭包，跨帧纹理由 CangHui 缓存复用，临时文件仍由创建它的程序负责清理。
 
 ## 操作步骤
 
 ### 第一步：生成确定的输入
 
-从网络或用户目录读取图片会把网络、权限和文件变化带进测试。这里用 `Surface.create` 生成 160×90 图像：蓝色底、左侧黄色条。输入固定，快照出现差异时才更可能是布局或渲染变化。
+从网络或用户目录读取图片会把网络、权限和文件变化带进测试。这里用 `SdlSurface.create` 生成 160×90 图像：蓝色底、左侧黄色条。输入固定，快照出现差异时才更可能是布局或渲染变化。
 
 ### 第二步：为图像指定盒子和适配方式
 
@@ -33,12 +33,12 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
-let PREVIEW_PATH = "cui-guide-preview.bmp"
+let PREVIEW_PATH = "chui-guide-preview.bmp"
 
 func writePreview(): Unit {
-    try (surface = Surface.create(160, 90)) {
+    try (surface = SdlSurface.create(160, 90)) {
         surface.clear(Color.rgb(52, 120, 246))
         var y: Int32 = 0
         while (y < 90) {
@@ -90,11 +90,11 @@ HStack(spacing: 16.vp) {
 }
 ```
 
-左图填满正方形并裁掉宽边，右图完整显示宽图并在上下留空。如果列表中反复显示同一路径，CUI 的纹理缓存会复用解码结果；不要在每帧生成不同文件名来绕过缓存。
+左图填满正方形并裁掉宽边，右图完整显示宽图并在上下留空。如果列表中反复显示同一路径，CangHui 的纹理缓存会复用解码结果；不要在每帧生成不同文件名来绕过缓存。
 
 ## 确认结果
 
-执行 `cuic prnt macos . --output media.bmp`。`cuic` 构建后直接启动应用并通过框架采集接口请求画面；进程应自动退出并产生非空的 `media.bmp`。快照中能看见标题、蓝黄预览和状态摘要。退出后 `cui-guide-preview.bmp` 应已删除。普通交互运行时关闭窗口，也应走同一清理路径。
+执行 `cuic prnt macos . --output media.bmp`。`cuic` 构建后直接启动应用并通过框架采集接口请求画面；进程应自动退出并产生非空的 `media.bmp`。快照中能看见标题、蓝黄预览和状态摘要。退出后 `chui-guide-preview.bmp` 应已删除。普通交互运行时关闭窗口，也应走同一清理路径。
 
 普通运行时还要拖动窗口边缘，确认图片盒保持 240×150，外层卡片仍有合理间距。快照模式只覆盖初始画面；Cover/Contain 的裁切差异最好人工查看一次，并在后续稳定环境里保存基准图。
 
@@ -109,7 +109,7 @@ HStack(spacing: 16.vp) {
 
 ## 相关 API
 
-[ImageView](../../api/cui/media/ImageView.md) 声明图片视图，[ImageFit](../../api/cui/media/ImageFit.md) 决定裁切或留白，[媒体函数](../../api/cui/media/functions.md) 管理缓存。`Surface`、`Color` 和 `FileSystem` 由 `cui.*` 入口重导出供完整示例使用。
+[ImageView](../../api/chui/media/ImageView.md) 声明图片视图，[ImageFit](../../api/chui/media/ImageFit.md) 决定裁切或留白，[媒体函数](../../api/chui/media/functions.md) 管理缓存。`SdlSurface`、`Color` 和 `FileSystem` 由 `chui.*` 入口重导出供完整示例使用。
 
 ## 下一步
 

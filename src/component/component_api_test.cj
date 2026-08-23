@@ -1,6 +1,6 @@
-package cui.component
+package chui.component
 
-import cui.host.{HostCapability, HostPlatform, HostProfile}
+import chui.host.{HostCapability, HostPlatform, HostProfile}
 
 @Test
 func commonPackageAcceptsEveryPlatformWhenPlatformListIsEmpty(): Unit {

@@ -1,9 +1,9 @@
 /*
  * 日历的紫色主题与卡片表面样式。
  */
-package cui_calendar
+package chui_calendar
 
-import cui.{Color, SurfaceStyle, Theme}
+import chui.{Color, SurfaceStyle, Theme}
 
 let CALENDAR_ACCENT = Color.rgb(126, 87, 194)
 

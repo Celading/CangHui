@@ -2,9 +2,9 @@
  * 桌面集成层：深色主题、应用元数据与 SDL 提示。
  * 视觉与桌面壳设置集中在一处，与业务逻辑完全解耦。
  */
-package cui_process_manager
+package chui_process_manager
 
-import cui.{AppMetadata, AppMetadataType, Color, SdlHint, SdlHintSetting, Theme}
+import chui.{AppMetadata, AppMetadataType, Color, SdlHint, SdlHintSetting, Theme}
 
 // 深石板底 + 薄荷绿强调：监控类工具的低刺激配色，长时间盯着也不刺眼。
 func processTheme(): Theme {
@@ -30,18 +30,18 @@ func processTheme(): Theme {
 // 元数据供操作系统展示（任务栏、关于对话框等），与窗口标题相互独立。
 func processMetadata(): AppMetadata {
     var metadata = AppMetadata(
-        name: Some("CUI Process Manager"),
+        name: Some("CangHui Process Manager"),
         version: Some("0.1.0"),
         identifier: Some("dev.cui.examples.process-manager")
     )
-    metadata.creator = Some("CUI Examples")
+    metadata.creator = Some("CangHui Examples")
     metadata.appType = Some(AppMetadataType.Application)
     metadata
 }
 
 func processHints(): Array<SdlHintSetting> {
     [
-        SdlHintSetting(SdlHint.AppName, "CUI Process Manager"),
+        SdlHintSetting(SdlHint.AppName, "CangHui Process Manager"),
         SdlHintSetting(SdlHint.AppId, "dev.cui.examples.process-manager"),
         SdlHintSetting(SdlHint.RenderVSync, "1")
     ]

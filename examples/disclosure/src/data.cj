@@ -1,7 +1,7 @@
 /*
  * 折叠问答示例的类型化数据：每条问答是不可变数据。
  */
-package cui_disclosure
+package chui_disclosure
 
 // 一条问答：问题与答案。
 struct FaqItem {
@@ -16,8 +16,8 @@ struct FaqItem {
 
 let FAQ: Array<FaqItem> = [
     FaqItem(
-        "CUI 是什么？",
-        "CUI 是基于仓颉与 SDL3 的声明式桌面 GUI 框架：尾随闭包 + 链式修饰符描述界面，响应式状态驱动更新，自渲染管线负责布局与绘制。"
+        "CangHui 是什么？",
+        "CangHui 是基于仓颉与 SDL3 的声明式桌面 GUI 框架：尾随闭包 + 链式修饰符描述界面，响应式状态驱动更新，自渲染管线负责布局与绘制。"
     ),
     FaqItem(
         "如何加载自定义字体？",

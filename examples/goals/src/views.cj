@@ -3,9 +3,9 @@
  *
  * 每个环的完成度分数与总完成度都由当前值现算；点 +/- 调整当前值，环随之更新。
  */
-package cui_goals
+package chui_goals
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, Grid, HStack, Label, LengthUnits, Panel, ProgressRing,
+import chui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, Grid, HStack, Label, LengthUnits, Panel, ProgressRing,
     VStack}
 
 func goalsView(model: GoalsModel): Unit {

@@ -29,7 +29,7 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("自绘画布", 640, 420))
@@ -91,7 +91,7 @@ case UiEvent.MouseUp(MouseButton.Left, x, y) =>
 
 ## 相关 API
 
-[CanvasWidget](../../api/cui/media/CanvasWidget.md)、[Widget](../../api/cui/core/Widget.md)；事件类型由 CUI 包入口重导出。
+[CanvasWidget](../../api/chui/media/CanvasWidget.md)、[Widget](../../api/chui/core/Widget.md)；事件类型由 CangHui 包入口重导出。
 
 ## 下一步
 

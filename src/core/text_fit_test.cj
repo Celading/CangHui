@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 /*
  * maxRunesFitting 的 gallop 定界与旧的全范围二分同属一个单调谓词上的最大 k 求解，

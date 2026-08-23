@@ -5,9 +5,9 @@
  * 切成若干 RichSpan——命中片段套 `.highlight(...)` 的 <mark> 背景，其余保持常规。matchCount / totalMatches
  * 统计命中数。切分与统计都在 rune 上进行，故中文按字整齐切分，拉丁按 ASCII 大小写不敏感匹配（中文无大小写）。
  */
-package cui_highlight
+package chui_highlight
 
-import cui.{Color, RichSpan}
+import chui.{Color, RichSpan}
 import std.collection.ArrayList
 
 // 一张知识卡片：标题 + 正文。

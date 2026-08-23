@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 // Clamp the timestep so a frame hitch (a long pause between frames) cannot inject a huge
 // impulse and make the integration diverge; motion just proceeds at up to this step.
@@ -7,7 +7,7 @@ private let SPRING_SETTLE_POS: Float32 = 0.0005
 private let SPRING_SETTLE_VEL: Float32 = 0.001
 
 /*
- * A spring-damper that eases a value toward a target across frames. CUI redraws every frame,
+ * A spring-damper that eases a value toward a target across frames. CangHui redraws every frame,
  * so a widget ticks one in `draw` with the frame delta and reads `value` — smooth state
  * transitions with no separate animation timer. Integration is semi-implicit Euler with a
  * clamped timestep for stability, and it settles exactly onto the target so an idle spring

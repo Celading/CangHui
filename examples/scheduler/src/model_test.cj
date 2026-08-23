@@ -1,6 +1,6 @@
-package cui_scheduler
+package chui_scheduler
 
-import cui.{CalendarDate, TimeOfDay}
+import chui.{CalendarDate, TimeOfDay}
 
 @Test
 func durationBetweenTimes(): Unit {

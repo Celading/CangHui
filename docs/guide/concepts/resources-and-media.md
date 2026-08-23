@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 媒体与资源
+[CangHui 指南](../index.md) › 媒体与资源
 
 # 媒体缓存与资源所有权
 
@@ -10,7 +10,7 @@
 
 ## 为什么重要
 
-图片、纹理、光标、表面和窗口背后都有操作系统或 SDL 资源。管理过早会让正在绘制的对象失效，管理太晚会累积原生内存。CUI 对常见图片提供按路径和渲染器作用域共享的缓存，使 `ImageView(path)` 可以像 Label 一样内联声明；自建的长期 `Resource` 则需要清楚的所有者。
+图片、纹理、光标、表面和窗口背后都有操作系统或 SDL 资源。管理过早会让正在绘制的对象失效，管理太晚会累积原生内存。CangHui 对常见图片提供按路径和渲染器作用域共享的缓存，使 `ImageView(path)` 可以像 Label 一样内联声明；自建的长期 `Resource` 则需要清楚的所有者。
 
 媒体还带来失败缓存。若路径不存在，框架不会在每次构建都重新访问磁盘；修复或覆盖文件后要主动失效相应路径。这个行为保护帧循环，却意味着“文件已经换了但画面不变”通常需要缓存失效，而不是重复创建 ImageView。
 
@@ -19,8 +19,8 @@
 先按所有权把对象分三类：
 
 1. **声明式缓存媒体**：`ImageView` 描述路径和 fit，纹理由共享缓存持有。相同路径的重建只是查表。
-2. **应用期长期资源**：自建 Cursor、Surface、Texture 或其他 `Resource` 在多帧使用，交给 `DesktopApp.manage`，应用退出时按逆序关闭。
-3. **短期资源**：只为生成文件或转换格式而创建的 Surface，在函数内用资源语法或 `finally` 关闭。
+2. **应用期长期资源**：自建 Cursor、SdlSurface、Texture 或其他 `Resource` 在多帧使用，交给 `DesktopApp.manage`，应用退出时按逆序关闭。
+3. **短期资源**：只为生成文件或转换格式而创建的 SdlSurface，在函数内用资源语法或 `finally` 关闭。
 
 ### 为什么长期资源要反过来关闭
 
@@ -34,7 +34,7 @@ CanvasWidget 不拥有传入的 Renderer。绘制回调只能在当前帧使用�
 
 ## 选择与取舍
 
-- 普通文件图片用 `ImageView`；需要逐像素生成时先创建 Surface 并保存，再显示结果。
+- 普通文件图片用 `ImageView`；需要逐像素生成时先创建 SdlSurface 并保存，再显示结果。
 - 文件被外部覆盖后用 `invalidateImage(path)`；只有确实要丢弃全部图片时才用 `clearImageCache()`。
 - 画折线、自由笔迹或特殊控件时用 CanvasWidget；需要复用完整 measure/layout/draw/handle 协议时实现 Widget。
 - 长期原生资源由一个应用所有者管理，不要让每个构建分支各自“顺便”关闭。
@@ -51,11 +51,11 @@ invalidateImage("preview.bmp")
 ImageView("preview.bmp", fit: ImageFit.Contain)
 ```
 
-下面跟踪一个短期 Surface 的生命周期。文件写完后 Surface 关闭；下一次构建由 ImageView 缓存负责读取，生成对象不跨帧泄漏：
+下面跟踪一个短期 SdlSurface 的生命周期。文件写完后 SdlSurface 关闭；下一次构建由 ImageView 缓存负责读取，生成对象不跨帧泄漏：
 
 ```cangjie role=trace
 func createPreview(path: String): Unit {
-    try (surface = Surface.create(160, 90)) {
+    try (surface = SdlSurface.create(160, 90)) {
         surface.clear(Color.rgb(35, 102, 210))
         surface.saveBmp(path)
     }
@@ -63,7 +63,7 @@ func createPreview(path: String): Unit {
 }
 ```
 
-若预览文件由后台任务生成，后台只发布“路径已就绪”或错误文本；UI 帧收到后再调用 invalidate 并更新可见状态。不要把 Surface 或 Renderer 通过信箱传回。
+若预览文件由后台任务生成，后台只发布“路径已就绪”或错误文本；UI 帧收到后再调用 invalidate 并更新可见状态。不要把 SdlSurface 或 Renderer 通过信箱传回。
 
 长期 Texture 的完整顺序可以记成一条短链：创建应用窗口（内部创建 Renderer）→ 从 Renderer 创建 Texture → `app.manage(texture)`；应用退出时则是 Texture → 窗口（内部释放 Renderer）。这正是“使用者先关、提供者后关”的具体结果。
 
@@ -78,10 +78,10 @@ func createPreview(path: String): Unit {
 
 ## 相关 API
 
-- [`ImageView`](../../api/cui/media/ImageView.md) 与 [`ImageFit`](../../api/cui/media/ImageFit.md) — 文件图片和装入策略。
-- [`invalidateImage`](../../api/cui/media/functions.md#invalidateimage) 与 [`clearImageCache`](../../api/cui/media/functions.md#clearimagecache) — 缓存失效。
-- [`CanvasWidget`](../../api/cui/media/CanvasWidget.md) — 本帧自绘表面。
-- [`DesktopApp`](../../api/cui/desktop/DesktopApp.md) — 长期资源所有者。
+- [`ImageView`](../../api/chui/media/ImageView.md) 与 [`ImageFit`](../../api/chui/media/ImageFit.md) — 文件图片和装入策略。
+- [`invalidateImage`](../../api/chui/media/functions.md#invalidateimage) 与 [`clearImageCache`](../../api/chui/media/functions.md#clearimagecache) — 缓存失效。
+- [`CanvasWidget`](../../api/chui/media/CanvasWidget.md) — 本帧自绘表面。
+- [`DesktopApp`](../../api/chui/desktop/DesktopApp.md) — 长期资源所有者。
 
 ## 下一步
 

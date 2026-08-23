@@ -1,7 +1,7 @@
-package cui.kmode.linktest
+package chui.kmode.linktest
 
-import cui.kmode.{KModeOperation, KModePolicy, KModeRequest, dispatchKModeRequest}
-import cui.kmode.macros.*
+import chui.kmode.{KModeOperation, KModePolicy, KModeRequest, dispatchKModeRequest}
+import chui.kmode.macros.*
 
 @KModeLink["tests.macro.echo"]
 func linkedEcho(value: String): String {

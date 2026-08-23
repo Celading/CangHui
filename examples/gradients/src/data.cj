@@ -3,9 +3,9 @@
  *
  * 预设是一组两色渐变（起止色 + 名称）；由预设与方向合成 Gradient、下标钳位都是纯函数，便于单测。
  */
-package cui_gradients
+package chui_gradients
 
-import cui.{Color, Gradient}
+import chui.{Color, Gradient}
 
 // 一个渐变预设：名称与两个色标。
 struct GradientPreset {

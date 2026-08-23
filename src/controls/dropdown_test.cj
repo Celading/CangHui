@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{MotionLevel, ScrollOptions, State, Theme, UiContext}
+import chui.core.{MotionLevel, ScrollOptions, State, Theme, UiContext}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

@@ -24,14 +24,14 @@
 
 ### 症状一：ImageView 只显示空白
 
-先检查进程实际工作目录，再检查文件存在与长度，最后用独立图片查看器打开。CUI 对缺失或解码失败的图片画空白并缓存失败结果，不会每帧抛错，因此“窗口没崩”不能证明资源有效。
+先检查进程实际工作目录，再检查文件存在与长度，最后用独立图片查看器打开。CangHui 对缺失或解码失败的图片画空白并缓存失败结果，不会每帧抛错，因此“窗口没崩”不能证明资源有效。
 
 下面探针故意使用不存在路径，只用于确认当前症状与失败占位一致：
 
 ```cangjie role=probe
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     println("exists=${FileSystem.exists("missing-preview.bmp")}")
@@ -47,13 +47,13 @@ main(): Unit {
 ```cangjie role=fix
 package docexample
 
-import cui.*
+import chui.*
 
 let PATH = "known-good.bmp"
 
 main(): Unit {
     try {
-        try (surface = Surface.create(80, 60)) {
+        try (surface = SdlSurface.create(80, 60)) {
             surface.clear(Color.rgb(52, 120, 246))
             surface.saveBmp(PATH)
         }
@@ -75,7 +75,7 @@ main(): Unit {
 
 1. 用同一路径连续打开两次；只有第一次慢，优先判为磁盘读取或首次解码。
 2. 查看是否每帧生成新文件名或查询参数；路径变化会绕过复用。
-3. 确认列表行构建中没有 `Surface.create`、`saveBmp` 或文件读取。
+3. 确认列表行构建中没有 `SdlSurface.create`、`saveBmp` 或文件读取。
 4. 分别记录冷启动和缓存命中数据，不把两者平均成一个数字。
 
 修复顺序是：在进入页面前准备资源；复用稳定路径；为列表缩略图预先生成合适尺寸；只有源文件确实变化时才使对应缓存失效。不要把 `ImageView.close()` 当成全局清缓存，它只退役当前视图。
@@ -123,7 +123,7 @@ main(): Unit {
 
 ## 相关 API
 
-[ImageView](../../api/cui/media/ImageView.md)、[媒体函数](../../api/cui/media/functions.md)、[Animator](../../api/cui/core/Animator.md)、[FrameHandler](../../api/cui/core/FrameHandler.md)、[DesktopApp](../../api/cui/desktop/DesktopApp.md)。
+[ImageView](../../api/chui/media/ImageView.md)、[媒体函数](../../api/chui/media/functions.md)、[Animator](../../api/chui/core/Animator.md)、[FrameHandler](../../api/chui/core/FrameHandler.md)、[DesktopApp](../../api/chui/desktop/DesktopApp.md)。
 
 ## 下一步
 

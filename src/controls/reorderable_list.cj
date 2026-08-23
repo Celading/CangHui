@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import sdl.{MouseButton, Rect, Size, SurfaceStyle, UiEvent, clampF32}
-import cui.core.{CUI_SHADOW_CLEARANCE, CursorShape, State, UiContext, Widget, resolveControlKey, buildLazyChildren,
+import chui.core.{CUI_SHADOW_CLEARANCE, CursorShape, State, UiContext, Widget, resolveControlKey, buildLazyChildren,
     drawSurface, emit, lazyKeyOrIndex, localState}
 
 // Width of the drag handle at the left of each row.

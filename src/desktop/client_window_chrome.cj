@@ -1,4 +1,4 @@
-package cui.desktop
+package chui.desktop
 
 import sdl.{Color, FontStyle, MouseButton, Pen, Rect, Renderer, UiEvent}
 import sdl.input.Mouse

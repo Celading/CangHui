@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{FontStyle, Size}
 
@@ -67,4 +67,33 @@ func maxLinesChangeRewrapsCachedLines(): Unit {
     let twoLines = label.measure(ctx, narrow)
     let manyLines = label.maxLines(8).measure(ctx, narrow)
     @Expect(manyLines.h > twoLines.h)
+}
+
+@Test
+func labelLineSpacingChangesOnlyWrappedGaps(): Unit {
+    let ctx = testContext()
+    let text = "the quick brown fox jumps over the lazy dog"
+    let narrow = Size(160.0, 400.0)
+    let lines = wrapText(ctx, text, 160.0, 15.0, Int64.Max)
+    @Expect(lines.size > 1)
+    let defaultSpacing = Label(text).wrap().measure(ctx, narrow)
+    let wideSpacing = Label(text).wrap().lineSpacing(10.0).measure(ctx, narrow)
+    @Expect(wideSpacing.h - defaultSpacing.h == Float32(lines.size - 1) * 8.0)
+    let single = Label("one line").measure(ctx, LABEL_ROOM)
+    let singleSpaced = Label("one line").lineSpacing(10.0).measure(ctx, LABEL_ROOM)
+    @Expect(singleSpaced.h == single.h)
+    @Expect(singleSpaced.w == single.w)
+}
+
+@Test
+func labelLineSpacingRejectsInvalidValues(): Unit {
+    var negativeRejected = false
+    var nanRejected = false
+    var infRejected = false
+    try { let _ = Label("x").lineSpacing(-1.0) } catch (_: IllegalArgumentException) { negativeRejected = true }
+    try { let _ = Label("x").lineSpacing(Float32.NaN) } catch (_: IllegalArgumentException) { nanRejected = true }
+    try { let _ = Label("x").lineSpacing(Float32.Inf) } catch (_: IllegalArgumentException) { infRejected = true }
+    @Expect(negativeRejected)
+    @Expect(nanRejected)
+    @Expect(infRejected)
 }

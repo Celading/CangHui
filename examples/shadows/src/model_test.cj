@@ -1,6 +1,6 @@
-package cui_shadows
+package chui_shadows
 
-import cui.Shadow
+import chui.Shadow
 
 @Test
 func clampLevelStaysInPresetDomain(): Unit {

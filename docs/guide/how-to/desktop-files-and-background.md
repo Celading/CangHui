@@ -29,7 +29,7 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 import std.sync.Mutex
 
 class UiMailbox {
@@ -137,7 +137,7 @@ match (request.poll()) {
 
 ## 相关 API
 
-[FrameHandler](../../api/cui/core/FrameHandler.md)、[State](../../api/cui/core/State.md)、[DesktopApp](../../api/cui/desktop/DesktopApp.md)。
+[FrameHandler](../../api/chui/core/FrameHandler.md)、[State](../../api/chui/core/State.md)、[DesktopApp](../../api/chui/desktop/DesktopApp.md)。
 
 ## 下一步
 

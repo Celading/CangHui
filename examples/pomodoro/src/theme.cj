@@ -1,9 +1,9 @@
 /*
  * 番茄钟主题：暖白底、番茄红强调，休息用色由视图从主题派生。
  */
-package cui_pomodoro
+package chui_pomodoro
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func pomodoroTheme(): Theme {
     Theme(

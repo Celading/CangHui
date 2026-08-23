@@ -2,8 +2,8 @@ package canghui_component_gallery
 
 import std.env.getCommandLine
 import std.convert.*
-import cui.*
-import cui.kmode.macros.*
+import chui.*
+import chui.kmode.macros.*
 import canghui_gallery_components.*
 
 @KModeLink["gallery.api.version"]
@@ -212,7 +212,7 @@ main(): Int64 {
                         app.transitionTheme(galleryTheme(darkMode.value, motionIndex.value))
                     }.key("gallery-theme-toggle")
                 }
-                Label("CUI API ${componentApiVersion()}", muted: true)
+                Label("CangHui API ${componentApiVersion()}", muted: true)
             }.hug()
             SegmentedControl(previewLabels(), selectedPreview, key: "preview-target")
             Divider()

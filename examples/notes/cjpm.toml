@@ -1,9 +1,9 @@
 [package]
 cjc-version = "1.0.5"
-name = "cui_notes"
+name = "chui_notes"
 version = "0.1.0"
 output-type = "executable"
-description = "CUI master-detail notes example."
+description = "CangHui master-detail notes example."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260802.12",
+  "matrixVersion": "CangHui.20260823.28",
   "project": "CangHui",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
@@ -23,11 +23,18 @@
     "proofs/20260801-canghui-ui-owner-queue-v0.json",
     "proofs/20260801-canghui-frame-pacing-smooth-scroll-v0.json",
     "proofs/20260802-canghui-ios-native-surface-v0.json",
-    "proofs/20260802-canghui-android-native-surface-bootstrap-v0.json"
+    "proofs/20260802-canghui-android-native-surface-bootstrap-v0.json",
+    "proofs/20260819-canghui-mobile-host-replay-v0.json",
+    "proofs/20260819-canghui-ios-provider-input-tree-v0.json",
+    "proofs/20260819-canghui-mobile-signing-preparation-v0.json",
+    "proofs/20260819-canghui-mobile-external-signer-receipt-v0.json",
+    "proofs/20260819-canghui-mobile-signed-package-evidence-v0.json",
+    "proofs/20260819-canghui-mobile-installation-attempt-v0.json",
+    "proofs/20260819-canghui-ios-physical-installation-v0.json"
   ],
   "frameworkContract": {
     "owns": [
-      "declarative CUI core and SDL wrapper",
+      "declarative CangHui core and SDL wrapper",
       "platform-neutral host and capability contracts",
       "typed component package descriptors and compatibility checks",
       "compact, medium and expanded responsive viewport contracts",
@@ -39,22 +46,34 @@
       "provider-neutral Symbol core, optional provider packages, and declared-subset generation",
       "deterministic single-owner task commit queue for immutable worker results",
       "device-aware desktop frame pacing and shared retained smooth-scroll policy",
+      "typed application identity, ordinary and secure settings provider boundaries, and explicit schema migrations",
+      "declarative application menu and status-item projection through stable action IDs with headless replay",
+      "typed notification permission and delivery outcomes plus exact deep-link to action routing",
+      "deterministic unsigned macOS app-bundle, Windows resource-input and Linux desktop-input artifact generation",
+      "provider-neutral iOS, Android and HarmonyOS application-host package receipts with lifecycle epoch and native-surface generation guards",
+      "headless mobile-host receipt and callback semantic replay through consumer-owned kMode endpoints",
+      "provider-owned iOS unsigned input-tree binding over the UIKit native-surface bridge",
+      "non-secret mobile external-signer preparation receipts that cannot claim signed or installable output",
+      "platform-owner signed-package evidence bound to verifier receipt, artifact digest, lifecycle and surface generation",
+      "platform-owner installation-attempt receipts bound to the exact signed artifact and predecessor input tree",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
-      "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
+      "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary",
+      "surface-first decorative composition and one-owner interaction primitives with deterministic nested-owner diagnostics",
+      "fieldwise inherited container typography for semantic text leaves across measure, layout, draw, input geometry and deferred overlays"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
-      "ArkTS or Android application host",
+      "ArkTS, Android or iOS product application host and store package",
       "non-iOS platform lifecycle, IME or accessibility implementation",
       "rollback-capable UI transactions or a complete immutable SceneDiff engine",
-      "application identity, signing or package assembly"
+      "code signing, notarization, MSIX/store publication or self-contained native runtime bundling"
     ]
   },
   "features": [
     {
       "id": "cui-core",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "state": "source-test-proven",
       "codeRefs": [
         "src",
@@ -71,7 +90,7 @@
         "src/core/ui_owner_queue_test.cj",
         "src/core/state.cj",
         "src/desktop/desktop_app.cj",
-        "docs/api/cui/core/UiOwnerQueue.md"
+        "docs/api/chui/core/UiOwnerQueue.md"
       ]
     },
     {
@@ -91,14 +110,14 @@
         "src/controls/dropdown.cj",
         "src/text/text_area.cj",
         "src/text/combo_box.cj",
-        "docs/api/cui/desktop/FramePacing.md",
-        "docs/api/cui/core/ScrollOptions.md"
+        "docs/api/chui/desktop/FramePacing.md",
+        "docs/api/chui/core/ScrollOptions.md"
       ]
     },
     {
       "id": "arkui-oriented-component-surface",
       "version": "upstream-0.9.2-intake-v1",
-      "state": "build-test-snapshot-proven; semantic-parity-matrix-recorded",
+      "state": "build-test-snapshot-proven; semantic-parity-matrix-recorded; label-richtext-line-spacing-and-alignment-proven",
       "codeRefs": [
         "src/controls",
         "src/core",
@@ -106,6 +125,54 @@
         "contracts/canghui-arkui-component-matrix.json",
         "packages/gallery-components",
         "examples/component-gallery"
+      ]
+    },
+    {
+      "id": "primitive-control-semantics",
+      "version": "canghui.control-semantics.v1",
+      "state": "source-test-headless-disabled-state-proven; native-accessibility-adapters-open",
+      "codeRefs": [
+        "src/core/control_content_environment.cj",
+        "src/core/icon_widgets.cj",
+        "src/controls/common_controls.cj",
+        "src/controls/value_widgets.cj",
+        "src/controls/rating.cj",
+        "src/controls/breadcrumb.cj",
+        "src/controls/pagination.cj",
+        "src/controls/step_indicator.cj",
+        "src/controls/context_menu.cj",
+        "src/controls/modal.cj",
+        "src/text/text_field.cj",
+        "src/core/widget_modifiers.cj",
+        "src/core/ui_context.cj",
+        "src/core/probe.cj",
+        "docs/api/chui/core/ControlSemantics.md"
+      ]
+    },
+    {
+      "id": "surface-first-composition",
+      "version": "canghui.surface-interaction.v0.1",
+      "state": "source-build-test-headless-draw-ir-proven; rectangle-rounded-solid-theme-providers-proven; interaction-owner-independent-from-focus-and-invalid-subtree-input-focus-action-shortcut-semantic-fail-close-proven; button-iconbutton-focus-release-cancel-keyboard-and-ink-delegation-with-legacy-visual-semantic-compatibility-proven; pineease-consumer-test-build-proven-at-provider-ebaf7409; arbitrary-path-liquid-glass-platform-blur-other-control-migration-open",
+      "codeRefs": [
+        "src/core/widget.cj",
+        "src/core/ui_build.cj",
+        "src/core/event_handler.cj",
+        "src/core/surface.cj",
+        "src/core/interaction_surface.cj",
+        "src/core/surface_test.cj",
+        "src/core/interaction_surface_test.cj",
+        "src/controls/breadcrumb.cj",
+        "src/controls/pagination.cj",
+        "src/controls/step_indicator.cj",
+        "src/core/basic_widgets.cj",
+        "src/core/icon_widgets.cj",
+        "src/core/button_surface_migration_test.cj",
+        "src/core/control_content_environment.cj",
+        "src/core/probe.cj",
+        "docs/api/chui/core/Surface.md",
+        "docs/api/chui/core/InteractionSurface.md",
+        "docs/api/chui/core/Button.md",
+        "docs/api/chui/core/IconButton.md"
       ]
     },
     {
@@ -220,6 +287,25 @@
       ]
     },
     {
+      "id": "container-typography-environment",
+      "version": "canghui.typography-environment.v0",
+      "state": "source-build-test-external-consumer-proven; Label-RichText-RichSpan-adopted; self-drawn-control-adoption-open",
+      "codeRefs": [
+        "src/core/typography_environment.cj",
+        "src/core/widget.cj",
+        "src/core/widget_modifiers.cj",
+        "src/core/ui_context.cj",
+        "src/core/overlay.cj",
+        "src/core/label.cj",
+        "src/controls/rich_span.cj",
+        "src/controls/rich_text.cj",
+        "src/controls/rich_text_layout.cj",
+        "docs/api/chui/core/TypographyEnvironment.md",
+        "docs/api/chui/core/Widget.md",
+        "docs/api/chui/controls/RichText.md"
+      ]
+    },
+    {
       "id": "symbol-provider-and-generation",
       "version": "canghui.symbol.v0",
       "state": "source-test-cli-generated-consumer-gallery-proven; current provider inventories are audited subsets",
@@ -260,22 +346,58 @@
       ]
     },
     {
+      "id": "application-shell-and-unsigned-packaging",
+      "version": "canghui.packaging-artifact.v0",
+      "state": "source-test-cli-macos-unsigned-bundle-windows-linux-input-tree-proven; signing-notarization-msix-native-host-runtime-open",
+      "codeRefs": [
+        "src/system/application_shell.cj",
+        "src/system/application_settings.cj",
+        "src/system/application_notification.cj",
+        "tools/cuic/src/application_manifest.cj",
+        "tools/cuic/src/application_packaging.cj",
+        "contracts/canghui-packaging-plan-v0.schema.json",
+        "contracts/canghui-packaging-artifact-v0.schema.json",
+        "docs/application-packaging.md"
+      ]
+    },
+    {
       "id": "mobile-host-contracts",
-      "version": "0.1.0",
-      "state": "source-test-proven; ios-runtime-static-package-n2c-abi-and-native-surface-adapter-proven-on-simulator-and-device; full-scene-renderer-open",
+      "version": "canghui.mobile-application-host.v0",
+      "state": "source-test-schema-doctor-headless-kmode-consumer-fixture-proven; provider-owned iOS unsigned input-tree, external-signer correlation, signed-package evidence and installation-attempt replay-proven; current physical-device devicectl installation, launch, Metal drawable/clear, lifecycle generation replay and synthetic touch/pointer/trait ingress proven for the static-package probe; probe-scoped installationProven/launchProven/renderingProven/deviceProven are true while the common product package remains signed-package and full CangHui scene/product acceptance remain open; android-product-apk-and-harmonyos-hap-open",
       "codeRefs": [
         "src/host/mobile_host_contracts.cj",
-        "src/host/mobile_host_contracts_test.cj"
+        "src/host/mobile_host_contracts_test.cj",
+        "src/host/mobile_application_host.cj",
+        "src/host/mobile_application_host_test.cj",
+        "src/host/ios_mobile_application_host.cj",
+        "src/host/mobile_signing_preparation.cj",
+        "src/host/mobile_external_signer_receipt.cj",
+        "src/host/mobile_signed_package_evidence.cj",
+        "src/host/mobile_installation_attempt.cj",
+        "src/host/mobile_host_replay.cj",
+        "src/host/mobile_host_replay_test.cj",
+        "src/kmode/mobile_host_replay.cj",
+        "contracts/canghui-mobile-host-package-v0.schema.json",
+        "contracts/canghui-mobile-signing-preparation-v0.schema.json",
+        "contracts/canghui-mobile-external-signer-receipt-v0.schema.json",
+        "contracts/canghui-mobile-signed-package-evidence-v0.schema.json",
+        "contracts/canghui-mobile-installation-attempt-v0.schema.json",
+        "contracts/canghui-mobile-host-replay-v0.schema.json",
+        "docs/mobile-application-host.md",
+        "tools/cuic/src/doctor.cj",
+        "examples/mobile-host-replay"
       ]
     },
     {
       "id": "ios-host-bootstrap",
       "version": "abi-v1",
-      "state": "runtime-scheduler-package-init-n2c-abi-and-uikit-native-surface-proven-on-simulator-and-device; legacy-cangjiegui-abi-compatibility-retained; product-scene-renderer-open",
+      "state": "runtime-scheduler-package-init-n2c-abi-and-uikit-native-surface freshly proven on a physical device with installation, launch, Metal drawable/clear, 31 frames, detach/reattach generation replay and synthetic touch/pointer/trait ingress; high-contrast probe panel states that the CangHui scene is not mounted; legacy-cangjiegui-abi-compatibility-retained; product-scene-renderer-open",
       "codeRefs": [
         "src/host/ios_host_bootstrap.cj",
         "scripts/build-ios-host-staticlibs.sh",
         "scripts/verify-ios-static-package.sh",
+        "scripts/lib/ios-provisioning-profile.sh",
+        "scripts/test-ios-provisioning-profile.sh",
         "platform/ios/bootstrap/CangHuiRuntimeBootstrap.m",
         "platform/ios/include/CangHuiRuntimeBootstrap.h",
         "platform/ios/probe",
@@ -346,7 +468,7 @@
     "Do not expose kMode as production remote administration without authentication, authorization, audit and deployment gates.",
     "Do not claim Android runtime support from the NDK-only native-surface bootstrap, or full iOS product support from the native-surface clear-pass probe.",
     "Install a Cangjie Android cross SDK, freeze the shared Cangjie-to-Android ABI, and add renderer, Activity, IME, APK and device proof before raising Android beyond bootstrap-only.",
-    "Bind the declarative CUI scene renderer to the proven UIKit CAMetalLayer adapter before claiming product UI rendering.",
+    "Bind the declarative CangHui scene renderer to the proven UIKit CAMetalLayer adapter before claiming product UI rendering.",
     "Build immutable semantic SceneDiff preparation and native-surface owner integration on top of UiOwnerQueue before claiming incremental scene commit.",
     "Keep UiOwnerQueue receipts separate from rollback-capable transactions: task failure advances the owner epoch but does not restore partially changed live state.",
     "Bind SDL_EnterAppMainCallbacks for OwnedWindow mode only after Cangjie static-package initialization is established.",
@@ -355,6 +477,7 @@
     "Treat Material, Ant Design and Arco provider catalogs as the currently audited subsets; expand each inventory only with frozen upstream source and renderer proof.",
     "Add a separate reduced-motion/accessibility policy before claiming accessibility-complete motion behavior.",
     "Keep Web, Video, Map and XComponent-class host rendering platform-bound; desktop common-layout previews do not prove those adapters.",
-    "Keep runtime application-global persistence separate from cuic project script discovery; State, rememberState, StateStore and HostApplicationStorage do not currently constitute AppStorage.init()."
+    "Keep runtime application-global persistence separate from cuic project script discovery; State, rememberState, StateStore and HostApplicationStorage do not currently constitute AppStorage.init().",
+    "Treat unsigned packaging artifacts as local build inputs only until platform signing, native runtime closure and real-host launch replay pass independently."
   ]
 }

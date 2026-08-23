@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Rect, Size, UiEvent}
 
@@ -204,6 +204,10 @@ class Stack <: Widget {
 
     public func focusableIds(): Array<String> {
         collectFocusableIds(children)
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        collectInteractionOwnerIds(children)
     }
 
     /** Leading inset and per-gap step realising the configured main-axis alignment. */

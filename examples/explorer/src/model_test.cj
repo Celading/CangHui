@@ -1,4 +1,4 @@
-package cui_explorer
+package chui_explorer
 
 @Test
 func childrenAtWalksTree(): Unit {

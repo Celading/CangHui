@@ -1,7 +1,7 @@
-package cui.text
+package chui.text
 
 import sdl.{FrameInfo, Key, Rect, Renderer, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{State, Theme, UiContext}
 
 private func historyTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

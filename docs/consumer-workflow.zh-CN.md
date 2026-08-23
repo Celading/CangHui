@@ -6,7 +6,7 @@ CangHui 应用不需要在旁边保留框架源码仓库，也不需要把框架
 
 - `cuic`：由 `tools/cuic` 构建并可单独安装的命令；
 - 应用：普通的 CJPM 可执行模块；
-- `cui`：通过 `commitId` 固定、再由 `cjpm.lock` 锁定的公开 Git 依赖。
+- `chui`：通过 `commitId` 固定、再由 `cjpm.lock` 锁定的公开 Git 依赖。
 
 ## 安装 cuic
 
@@ -31,11 +31,13 @@ cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
 cuic dependency update
 cuic doctor macos
+cuic package plan macos .
+cuic package build macos .
 cuic build macos
 cuic run macos
 ```
 
-`cuic init` 还会创建 `canghui.toml`。其中的 `[scripts]` 表会被自动发现，工程可以用有名称、无 shell 的生命周期流水线替代各平台单独维护的包装脚本：
+`cuic init` 还会创建 `canghui.toml`。其中的 `[application]`、`[assets]` 与 `[system]` 表用于声明经过校验的应用身份和逻辑资源图。`cuic package plan` 只生成确定性规划；`cuic package build` 会生成边界明确的无签名产物与 receipt，但签名、公证、自包含运行时闭合和发布仍是独立平台门禁。`[scripts]` 表会被自动发现，工程可以用有名称、无 shell 的生命周期流水线替代各平台单独维护的包装脚本：
 
 ```bash
 cuic check
@@ -49,7 +51,7 @@ cuic snapshot-ui
 
 ```toml
 [dependencies]
-cui = { git = "https://github.com/Celading/CangHui.git", commitId = "<reviewed-commit>" }
+chui = { git = "https://github.com/Celading/CangHui.git", commitId = "<reviewed-commit>" }
 ```
 
 `cuic dependency update` 是显式的依赖状态修改步骤：它让 CJPM 按经过检查的 manifest pin 解析依赖，把 Git 源码保存在配置的用户缓存中（通常是 `$HOME/.cjpm/git`），并把解析结果写入 `cjpm.lock`。后续构建类命令只复用该缓存；缺少 lock 或 CangHui commit 与 manifest 不一致时会直接失败，不会隐式运行 `cjpm update`。应用应提交 `cjpm.lock`，只有在有意刷新依赖解析结果时才重新执行该显式命令。

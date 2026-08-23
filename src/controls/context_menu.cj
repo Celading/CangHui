@@ -1,7 +1,8 @@
-package cui.controls
+package chui.controls
 
+import std.collection.ArrayList
 import sdl.{Key, MouseButton, Rect, Size, UiEvent}
-import cui.core.{Axis, CursorShape, Overlay, State, UiContext, Widget, resolveControlKey, buildChild, emit,
+import chui.core.{Axis, CursorShape, Overlay, State, UiContext, Widget, resolveControlKey, buildChild, emit,
     localState}
 
 private let CONTEXT_MENU_MARGIN: Float32 = 4.0
@@ -96,6 +97,15 @@ public class ContextMenu <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        let ids = ArrayList<String>()
+        if (!items.isEmpty()) { ids.add(overlayOwner) }
+        for (id in child.interactionOwnerIds()) {
+            if (!ids.contains(id)) { ids.add(id) }
+        }
+        ids.toArray()
     }
 
     private func handleMenu(ctx: UiContext, event: UiEvent, menu: Rect): Bool {

@@ -4,10 +4,10 @@
  * 视图层只读写这里的 State；月份边界、跨年进退位和周行展开等规则集中在本文件，
  * 与渲染完全解耦，可独立测试。
  */
-package cui_calendar
+package chui_calendar
 
 import std.collection.ArrayList
-import cui.{DateTimeParts, DerivedState, State, Time, Weekday, derive}
+import chui.{DateTimeParts, DerivedState, State, Time, Weekday, derive}
 
 let MONTH_NAMES = ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"]
 

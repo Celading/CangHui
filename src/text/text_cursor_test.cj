@@ -1,7 +1,7 @@
-package cui.text
+package chui.text
 
 import sdl.{FrameInfo, Rect, Renderer}
-import cui.core.{Theme, UiContext}
+import chui.core.{Theme, UiContext}
 
 /*
  * The headless renderer measures text as bytes * pointSize * 0.55, so with BODY = 15

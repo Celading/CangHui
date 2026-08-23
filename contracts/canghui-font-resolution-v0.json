@@ -12,7 +12,7 @@
     "platform-system-ui"
   ],
   "missingGlyphPolicy": "select the first face that covers every printable rune in the text run; otherwise render deterministically with the first usable face",
-  "boldPolicy": "prefer a discoverable bold companion and otherwise synthesize bold on the selected base face",
+  "boldPolicy": "prefer an in-file Bold named instance, then a discoverable companion file, and otherwise synthesize bold on the selected base face",
   "runtimeOverride": "CANGHUI_HARMONYOS_SANS",
   "publicApi": [
     "Fonts.register",

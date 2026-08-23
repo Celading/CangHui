@@ -1,10 +1,13 @@
-package cui.controls
+package chui.controls
 
-import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
-import cui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, CUI_SMALL_H, CursorShape, Motion, Overlay,
-    ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget, resolveControlKey, advanceScrollMotion,
+import sdl.{Color, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
+import chui.core.{AnimationSpec, Animator, Bindable, CUI_SMALL_H, ComponentControlAppearance,
+    ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
+    CursorShape, Motion, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget, resolveControlKey,
+    advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawSurface,
-    drawVerticalScrollBar, emit, handlePointerClick, localState, registerFocusable, scrollBarGutter}
+    drawVerticalScrollBar, emit, handlePointerClick, localState, recordControlSemantics, registerFocusable,
+    resolveComponentControlAppearance, scrollBarGutter}
 
 private let DROPDOWN_DEFAULT_W: Float32 = 190.0
 private let DROPDOWN_POPUP_PAD: Float32 = 5.0
@@ -28,6 +31,7 @@ public class Dropdown <: Widget {
     private let id: String
     private let items: Array<String>
     private let selected: Bindable<Int64>
+    private let selectedFace: ?Widget
     private let open: State<Bool>
     // Identifies this control's popup on the overlay stack across per-frame rebuilds, so
     // closing removes exactly its own registration (a dialog beneath it stays open).
@@ -40,6 +44,8 @@ public class Dropdown <: Widget {
     private let popupAnimator: Animator
     // Retained across rebuilt frames so a popup-row press can be cancelled permanently on move-out.
     private let popupPressedRow: State<Int64>
+    private var customStyle: ?ComponentControlStyle
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = None) {
@@ -47,6 +53,7 @@ public class Dropdown <: Widget {
         this.id = ident
         this.items = items
         this.selected = selected
+        this.selectedFace = None
         this.overlayOwner = "Dropdown:${ident}"
         this.open = localState<Bool>("Dropdown:${ident}:open") {false}
         this.popupScroll = localState<Float32>("Dropdown:${ident}:popupScroll") {0.0}
@@ -58,7 +65,40 @@ public class Dropdown <: Widget {
         this.popupPressedRow = localState<Int64>("Dropdown:${ident}:popup-pressed-row") {
             DROPDOWN_NO_PRESSED_ROW
         }
+        this.customStyle = None
+        this.semanticLabel = ""
         registerFocusable(ident)
+        emit(this)
+    }
+
+    /** Creates a dropdown whose closed face is arbitrary decorative content. Popup rows remain strings. */
+    public init(
+        items: Array<String>,
+        selected: Bindable<Int64>,
+        key!: ?String = None,
+        selectedContent!: (Int64, String) -> Unit
+    ) {
+        let ident = resolveControlKey(key, "Dropdown")
+        this.id = ident
+        this.items = items
+        this.selected = selected
+        registerFocusable(ident)
+        let currentIndex = clampDropdownIndex(selected.value, items.size)
+        let currentText = if (items.isEmpty()) { "—" } else { items[currentIndex] }
+        this.selectedFace = Some(buildDecorativeControlChild {=> selectedContent(currentIndex, currentText)})
+        this.overlayOwner = "Dropdown:${ident}"
+        this.open = localState<Bool>("Dropdown:${ident}:open") {false}
+        this.popupScroll = localState<Float32>("Dropdown:${ident}:popupScroll") {0.0}
+        this.popupBar = ScrollBar("Dropdown:${ident}:popupBar")
+        this.popupScrollMotion = localState<ScrollMotion>("Dropdown:${ident}:popup-scroll-motion") {
+            ScrollMotion(0.0)
+        }.value
+        this.popupAnimator = localState<Animator>("Dropdown:${ident}:popup-motion") {Animator(0.0)}.value
+        this.popupPressedRow = localState<Int64>("Dropdown:${ident}:popup-pressed-row") {
+            DROPDOWN_NO_PRESSED_ROW
+        }
+        this.customStyle = None
+        this.semanticLabel = ""
         emit(this)
     }
 
@@ -68,24 +108,73 @@ public class Dropdown <: Widget {
         this
     }
 
-    public func measure(_: UiContext, available: Size): Size {
-        Size(min(available.w, DROPDOWN_DEFAULT_W), CUI_CONTROL_H)
+    /** Overrides the component theme's state-aware control style. */
+    public func controlStyle(value: ComponentControlStyle): Dropdown {
+        customStyle = Some(value)
+        this
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    /** Names this selection field for accessibility and headless semantic inspection. */
+    public func accessibilityLabel(value: String): Dropdown {
+        semanticLabel = value
+        this
+    }
+
+    public func measure(ctx: UiContext, available: Size): Size {
+        let spacing = ctx.theme.components.spacing
+        let insets = ctx.resolve(spacing.controlPadding)
+        let pointSize = max(1.0, ctx.resolve(ctx.theme.components.typography.control))
+        let content = match (selectedFace) {
+            case Some(value) => value.measure(ctx, Size(max(0.0, available.w - insets.horizontal() - 20.0),
+                max(0.0, available.h - insets.vertical())))
+            case None => Size(ctx.renderer.textWidth(currentLabel(), pointSize: pointSize),
+                ctx.renderer.textHeight(pointSize: pointSize))
+        }
+        Size(min(available.w, max(DROPDOWN_DEFAULT_W, content.w + insets.horizontal() + 20.0)),
+            min(available.h, max(spacing.controlMinHeight, content.h + insets.vertical())))
+    }
+
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        match (selectedFace) {
+            case Some(value) => value.layout(ctx, labelArea(ctx))
+            case None => ()
+        }
     }
 
     public func draw(ctx: UiContext): Unit {
-        drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id) || open.value))
-        let labelArea = Rect(frame.x + 10.0, frame.y, max(0.0, frame.w - 40.0), frame.h)
-        ctx.renderer.pushClip(labelArea)
-        let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0
-        ctx.renderer.text(currentLabel(), labelArea.x, textY, ctx.theme.text, pointSize: FontSizes.CONTROL)
+        let appearance = currentAppearance(ctx)
+        drawSurface(ctx, frame, appearance.surface)
+        recordControlSemantics(ctx, frame, "Dropdown", ControlSemantics(
+            "combobox",
+            label: if (semanticLabel.isEmpty()) { currentLabel() } else { semanticLabel },
+            value: currentLabel(),
+            action: "Dropdown.open()",
+            actionOwner: id,
+            expanded: Some(open.value)
+        ))
+        let content = labelArea(ctx)
+        ctx.renderer.pushClip(content)
+        match (selectedFace) {
+            case Some(value) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                appearance.foreground,
+                role: "combobox",
+                interactionOwner: id,
+                selected: true,
+                expanded: open.value,
+                focused: ctx.hasFocus(id),
+                hovered: ctx.isHovered(id),
+                pressed: ctx.isPressed(id)
+            )) {=> value.draw(ctx)}
+            case None =>
+                let pointSize = max(1.0, ctx.resolve(ctx.theme.components.typography.control))
+                let textY = content.centerY() - ctx.renderer.textHeight(pointSize: pointSize) / 2.0
+                ctx.renderer.text(currentLabel(), content.x, textY, appearance.foreground, pointSize: pointSize)
+        }
         ctx.renderer.popClip()
         let popupProgress = popupAnimator.animate(ctx, target: if (open.value) { 1.0 } else { 0.0 },
             spec: AnimationSpec.automatic(duration: Motion.normal, easing: Motion.decelerate))
-        drawChevron(ctx, popupProgress)
+        drawChevron(ctx, popupProgress, appearance.indicator)
 
         // While open, register the popup as the interactive overlay: it is drawn on top and
         // gets events before the tree (see the shell's dispatch order).
@@ -107,8 +196,9 @@ public class Dropdown <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        let appearance = currentAppearance(ctx)
         if (handlePointerClick(ctx, event, frame, id, {=> openPopup(ctx)},
-            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor()))) {
+            inkRadius: appearance.focusRadius, inkColor: Some(appearance.ink))) {
             return true
         }
         claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
@@ -176,7 +266,7 @@ public class Dropdown <: Widget {
                             let pressId = popupRowPressId(index)
                             ctx.press(pressId)
                             ctx.startInkRipple(pressId, row, x, y, color: Some(ctx.theme.inkColor()),
-                                cornerRadius: ctx.theme.smallRadius)
+                                cornerRadius: ctx.theme.components.shape.resolvedSmall(ctx.theme))
                             return true
                         }
                     }
@@ -372,10 +462,12 @@ public class Dropdown <: Widget {
         while (i < items.size && y < list.bottom()) {
             let row = itemRectAt(popup, i)
             if (i == selected.value) {
-                ctx.renderer.fillRoundedRect(row, ctx.theme.smallRadius, ctx.theme.accent)
+                ctx.renderer.fillRoundedRect(row, ctx.theme.components.shape.resolvedSmall(ctx.theme),
+                    ctx.theme.accent)
                 drawRowLabel(ctx, items[i], row, ctx.theme.accentText)
             } else if (row.contains(ctx.mouseX, ctx.mouseY)) {
-                ctx.renderer.fillRoundedRect(row, ctx.theme.smallRadius, ctx.theme.fieldActive)
+                ctx.renderer.fillRoundedRect(row, ctx.theme.components.shape.resolvedSmall(ctx.theme),
+                    ctx.theme.fieldActive)
                 drawRowLabel(ctx, items[i], row, ctx.theme.text)
             } else {
                 drawRowLabel(ctx, items[i], row, ctx.theme.text)
@@ -391,10 +483,10 @@ public class Dropdown <: Widget {
     }
 
     // A down chevron drawn as two strokes, so it never depends on a font glyph.
-    private func drawChevron(ctx: UiContext, progress: Float32): Unit {
+    private func drawChevron(ctx: UiContext, progress: Float32, color: Color): Unit {
         let cx = frame.right() - 18.0
         let cy = frame.centerY()
-        let pen = Pen(width: 1.6, color: ctx.theme.mutedText)
+        let pen = Pen(width: 1.6, color: color)
         let tipY = cy + 2.5 - 5.0 * progress
         let edgeY = cy - 2.0 + 4.0 * progress
         ctx.renderer.strokeLine(cx - 4.0, edgeY, cx, tipY, pen)
@@ -402,12 +494,14 @@ public class Dropdown <: Widget {
     }
 
     private func drawRowLabel(ctx: UiContext, text: String, row: Rect, color: Color): Unit {
-        let textY = row.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0
-        ctx.renderer.text(text, row.x + 8.0, textY, color, pointSize: FontSizes.CONTROL)
+        let pointSize = max(1.0, ctx.resolve(ctx.theme.components.typography.control))
+        let textY = row.centerY() - ctx.renderer.textHeight(pointSize: pointSize) / 2.0
+        ctx.renderer.text(text, row.x + 8.0, textY, color, pointSize: pointSize)
     }
 
     private func popupSurface(ctx: UiContext): SurfaceStyle {
-        SurfaceStyle(ctx.theme.panelRaised, border: ctx.theme.panelEdge, radius: ctx.theme.controlRadius,
+        SurfaceStyle(ctx.theme.panelRaised, border: ctx.theme.panelEdge,
+            radius: ctx.theme.components.shape.resolvedControl(ctx.theme),
             borderWidth: 1.0, shadow: ctx.theme.shadow, shadowOffsetY: 4.0)
     }
 
@@ -431,6 +525,24 @@ public class Dropdown <: Widget {
 
     public func isFlexible(): Bool {
         false
+    }
+
+    private func labelArea(ctx: UiContext): Rect {
+        let insets = ctx.resolve(ctx.theme.components.spacing.controlPadding)
+        Rect(frame.x + insets.left, frame.y + insets.top,
+            max(0.0, frame.w - insets.horizontal() - 20.0),
+            max(0.0, frame.h - insets.vertical()))
+    }
+
+    private func currentAppearance(ctx: UiContext): ComponentControlAppearance {
+        resolveComponentControlAppearance(ctx.theme, ComponentControlKind.Dropdown,
+            ComponentControlState(
+                hover: if (ctx.isHovered(id)) { 1.0 } else { 0.0 },
+                press: if (ctx.isPressed(id)) { 1.0 } else { 0.0 },
+                focused: ctx.hasFocus(id),
+                selected: false,
+                expanded: open.value
+            ), styleOverride: customStyle)
     }
 }
 

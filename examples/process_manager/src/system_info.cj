@@ -2,9 +2,9 @@
  * 系统信息文案：把 CPU/显示器/电源查询结果压成概览页的一行行事实。
  * 除 systemFacts() 外全部是纯格式化函数，与渲染解耦，可独立替换或测试。
  */
-package cui_process_manager
+package chui_process_manager
 
-import cui.{DisplayInfo, DisplayMode, PowerInfo, PowerState, allDisplayInfos, cpuInfo, platformName, powerInfo}
+import chui.{DisplayInfo, DisplayMode, PowerInfo, PowerState, allDisplayInfos, cpuInfo, platformName, powerInfo}
 
 /* 概览页一张事实卡片的标题与内容。 */
 struct SystemFact {

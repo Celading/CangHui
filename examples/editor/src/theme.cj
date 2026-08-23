@@ -1,9 +1,9 @@
 /*
  * 编辑器主题：清爽的浅灰底 + 靛蓝强调色，菜单栏与选中项一致。令牌集中于此。
  */
-package cui_editor
+package chui_editor
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func editorTheme(): Theme {
     Theme(

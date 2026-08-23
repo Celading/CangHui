@@ -1,7 +1,7 @@
-package cui.core
+package chui.core
 
-import sdl.{Color, FontSizes, IconName, Key, Rect, Size, SurfaceStyle, UiEvent}
-import cui.symbol.{SymbolDirection, SymbolMissingPolicy, SymbolName, SymbolVariant, drawSymbol, symbolNameForIcon}
+import sdl.{Color, FontSizes, IconName, Rect, Size, SurfaceStyle, UiEvent}
+import chui.symbol.{SymbolDirection, SymbolMissingPolicy, SymbolName, SymbolVariant, drawSymbol, symbolNameForIcon}
 
 private let ICON_DEFAULT_SIZE: Float32 = 18.0
 private let ICON_BUTTON_PAD: Float32 = 10.0
@@ -73,7 +73,7 @@ public class Symbol <: Widget {
         let extent = max(1.0, ctx.resolve(symbolExtent))
         let color = match (symbolColorOverride) {
             case Some(value) => value
-            case None => ctx.theme.text
+            case None => ctx.contentForeground()
         }
         let _ = drawSymbol(ctx.renderer, symbolName, centeredIconRect(frame, extent), color,
             weight: symbolWeight, variant: symbolVariant, direction: symbolDirection,
@@ -149,7 +149,7 @@ public class Icon <: Widget {
     private func iconColor(ctx: UiContext): Color {
         match (iconColorOverride) {
             case Some(value) => value
-            case None => ctx.theme.text
+            case None => ctx.contentForeground()
         }
     }
 }
@@ -163,10 +163,14 @@ public class Icon <: Widget {
 public class IconButton <: Widget {
     private let symbolName: SymbolName
     private var labelText: ?String
+    private var semanticLabel: String
+    private var semanticLabelExplicit: Bool
     private var buttonRole: ButtonRole
     private var customStyle: ?SurfaceStyle
-    private let onClick: () -> Unit
+    private var customButtonStyle: ?ButtonStyle
     private var controlId: String
+    private let interactionSurface: InteractionSurface
+    private let interactionMaterial: ButtonInteractionMaterial
     private let interaction: InteractionAnimation
     private var animationSpec: AnimationSpec
     private var frame = Rect.zero()
@@ -180,13 +184,17 @@ public class IconButton <: Widget {
     ) {
         this.symbolName = symbolNameForIcon(icon)
         this.labelText = label
+        this.semanticLabel = match (label) { case Some(value) => value case None => "" }
+        this.semanticLabelExplicit = false
         this.buttonRole = role
         this.customStyle = style
-        this.onClick = onClick
+        this.customButtonStyle = None
         this.controlId = focusableControlIdentity(match (label) {
             case Some(value) => "IconButton:${value}"
             case None => "IconButton"
         })
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
         this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
             InteractionAnimation()
         }.value
@@ -204,15 +212,19 @@ public class IconButton <: Widget {
     ) {
         this.symbolName = name
         this.labelText = label
+        this.semanticLabel = match (label) { case Some(value) => value case None => "" }
+        this.semanticLabelExplicit = false
         this.buttonRole = role
         this.customStyle = style
-        this.onClick = onClick
+        this.customButtonStyle = None
         // The build-order identity keeps several icon-only buttons in one view distinct;
         // a shared id would let one button swallow the release meant for another.
         this.controlId = focusableControlIdentity(match (label) {
             case Some(value) => "IconButton:${value}"
             case None => "IconButton"
         })
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
         this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
             InteractionAnimation()
         }.value
@@ -227,7 +239,7 @@ public class IconButton <: Widget {
      */
     public func key(value: String): IconButton {
         requireControlId(value, "IconButton")
-        reregisterFocusable(controlId, value)
+        let _ = interactionSurface.key(value)
         controlId = value
         this
     }
@@ -235,6 +247,14 @@ public class IconButton <: Widget {
     /** Adds a text label beside the icon. */
     public func label(value: String): IconButton {
         labelText = Some(value)
+        if (!semanticLabelExplicit) { semanticLabel = value }
+        this
+    }
+
+    /** Names this button without changing its visible icon or optional text label. */
+    public func accessibilityLabel(value: String): IconButton {
+        semanticLabel = value
+        semanticLabelExplicit = true
         this
     }
 
@@ -247,6 +267,14 @@ public class IconButton <: Widget {
     /** Overrides the theme-derived button surface. */
     public func style(value: SurfaceStyle): IconButton {
         customStyle = Some(value)
+        customButtonStyle = None
+        this
+    }
+
+    /** Overrides the theme's state-aware button style for this icon button. */
+    public func buttonStyle(value: ButtonStyle): IconButton {
+        customButtonStyle = Some(value)
+        customStyle = None
         this
     }
 
@@ -273,15 +301,22 @@ public class IconButton <: Widget {
         Size(min(available.w, width), CUI_CONTROL_H)
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        interactionSurface.layout(ctx, rect)
     }
 
     public func draw(ctx: UiContext): Unit {
         let progress = interaction.animate(ctx, ctx.isHovered(controlId), ctx.isPressed(controlId), animationSpec)
+        let appearance = buttonAppearance(ctx, ButtonVisualState(hover: progress.hover, press: progress.press,
+            focused: ctx.hasFocus(controlId)))
         let visualFrame = animatedButtonFrame(frame, ctx.theme.motionLevel, progress)
-        drawSurface(ctx, visualFrame, buttonStyle(ctx, progress))
-        let color = contentColor(ctx)
+        drawSurface(ctx, visualFrame, appearance.surface)
+        recordControlSemantics(ctx, visualFrame, "IconButton", ControlSemantics(
+            "button", label: semanticLabel, action: "IconButton.activate()",
+            actionOwner: controlId
+        ))
+        let color = appearance.foreground
         let _ = drawSymbol(ctx.renderer, symbolName, iconFrame(visualFrame), color)
         match (labelText) {
             case Some(value) => ctx
@@ -292,37 +327,22 @@ public class IconButton <: Widget {
             case None => ()
         }
         if (ctx.showFocusRing(controlId)) {
-            drawFocusRing(ctx, visualFrame, ctx.theme.controlRadius)
+            drawFocusRing(ctx, visualFrame, appearance.focusRadius)
         }
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
-        if (handlePointerClick(ctx, event, frame, controlId, onClick,
-            inkRadius: ctx.theme.controlRadius, inkColor: Some(ctx.theme.inkColor(role: buttonRole)))) {
-            return true
-        }
-        match (event) {
-            case UiEvent.KeyDown(Key.Enter, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
-                    onClick()
-                    return true
-                }
-            case UiEvent.KeyDown(Key.Space, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(ctx.theme.inkColor(role: buttonRole)), cornerRadius: ctx.theme.controlRadius)
-                    onClick()
-                    return true
-                }
-            case _ => ()
-        }
-        false
+        let appearance = buttonAppearance(ctx, ButtonVisualState(
+            hover: if (ctx.isHovered(controlId)) { 1.0 } else { 0.0 },
+            press: if (ctx.isPressed(controlId)) { 1.0 } else { 0.0 },
+            focused: ctx.hasFocus(controlId)
+        ))
+        syncButtonInteractionSurface(interactionSurface, interactionMaterial, appearance)
+        interactionSurface.handle(ctx, event)
     }
 
     public func focusableId(): ?String {
-        Some(controlId)
+        interactionSurface.focusableId()
     }
 
     private func iconFrame(bounds: Rect): Rect {
@@ -337,19 +357,9 @@ public class IconButton <: Widget {
         }
     }
 
-    private func contentColor(ctx: UiContext): Color {
-        match (buttonRole) {
-            case ButtonRole.Normal => ctx.theme.text
-            case _ => ctx.theme.accentText
-        }
-    }
-
-    private func buttonStyle(ctx: UiContext, progress: InteractionProgress): SurfaceStyle {
-        let base = match (customStyle) {
-            case Some(value) => value
-            case None => ctx.theme.buttonSurface(buttonRole)
-        }
-        animatedButtonSurface(ctx, base, buttonRole, progress)
+    private func buttonAppearance(ctx: UiContext, state: ButtonVisualState): ButtonAppearance {
+        resolveButtonAppearance(ctx.theme, buttonRole, state,
+            styleOverride: customButtonStyle, surfaceOverride: customStyle)
     }
 }
 

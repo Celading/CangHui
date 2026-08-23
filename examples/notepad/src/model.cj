@@ -4,12 +4,12 @@
  * 行数/字节统计是 DerivedState —— 正文一变，统计随之刷新，视图直接读取，
  * 无需在每帧里手工重算，也不可能与文档内容脱节。
  */
-package cui_notepad
+package chui_notepad
 
-import cui.{DerivedState, FileDialogRequest, State}
+import chui.{DerivedState, FileDialogRequest, State}
 
 class NotepadModel {
-    let body = State<String>("欢迎使用 CUI 记事本。\n中文与 English 均使用系统 UI 字体清晰显示。")
+    let body = State<String>("欢迎使用 CangHui 记事本。\n中文与 English 均使用系统 UI 字体清晰显示。")
     /** 光标与选区锚点成对持有：任何外部改写光标的动作（载入、粘贴）必须同步移动锚点，否则残留锚点会形成幻影选区。 */
     let bodyCursor = State<Int64>(body.value.size)
     let bodyAnchor = State<Int64>(body.value.size)

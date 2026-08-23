@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 应用结构
+[CangHui 指南](../index.md) › 应用结构
 
 # 模型、动作与界面边界
 
@@ -12,7 +12,7 @@
 
 计数器可以把全部代码写在按钮回调里；记事本、任务看板或进程工具却不行。若打开文件、修改数组、校验、Toast 文案和控件声明挤在同一个构建闭包中，读者很快会遇到三类问题：同一动作被按钮和快捷键复制；错误路径没有恢复 busy 状态；纯业务规则只能启动窗口后测试。
 
-CUI 不要求特定目录模板，但真实示例反复体现同一职责分工。`model.cj` 保存事实和可测试规则，`views.cj` 声明控件，`file_actions.cj` 或 `worker.cj` 处理外部系统，`main.cj` 组装依赖和运行应用。文件名可以变化，依赖方向不应反转：模型不寻找按钮，文件层不直接操纵旧控件对象。
+CangHui 不要求特定目录模板，但真实示例反复体现同一职责分工。`model.cj` 保存事实和可测试规则，`views.cj` 声明控件，`file_actions.cj` 或 `worker.cj` 处理外部系统，`main.cj` 组装依赖和运行应用。文件名可以变化，依赖方向不应反转：模型不寻找按钮，文件层不直接操纵旧控件对象。
 
 ## 工作模型
 
@@ -88,9 +88,9 @@ FrameHandler(onFrame: {_ =>
 
 ## 相关 API
 
-- [`State`](../../api/cui/core/State.md) 与 [`DerivedState`](../../api/cui/core/DerivedState.md) — 模型事实和派生结果。
-- [`FrameHandler`](../../api/cui/core/FrameHandler.md) — UI 帧中的结果收取点。
-- [`DesktopApp`](../../api/cui/desktop/DesktopApp.md) — 应用与资源所有者。
+- [`State`](../../api/chui/core/State.md) 与 [`DerivedState`](../../api/chui/core/DerivedState.md) — 模型事实和派生结果。
+- [`FrameHandler`](../../api/chui/core/FrameHandler.md) — UI 帧中的结果收取点。
+- [`DesktopApp`](../../api/chui/desktop/DesktopApp.md) — 应用与资源所有者。
 
 ## 下一步
 

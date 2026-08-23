@@ -3,9 +3,9 @@
  *
  * 当前预设与合成的 Gradient 都由这两项派生；Stepper/SegmentedControl 直接绑定 State。
  */
-package cui_gradients
+package chui_gradients
 
-import cui.{Gradient, State}
+import chui.{Gradient, State}
 
 class GradientsModel {
     let presets: Array<GradientPreset> = PRESETS

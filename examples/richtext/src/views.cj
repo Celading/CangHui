@@ -5,9 +5,9 @@
  * 斜体导语、逐条说明。每条说明是一段 RichText：类别图标与软底标签、加粗主题词、常规描述、
  * 灰底内联代码、弃用旧写法划除、下划线议题链接（可点击、可 Tab 聚焦）；长句在卡宽内自动换行。
  */
-package cui_richtext
+package chui_richtext
 
-import cui.{CrossAxisAlignment, FontSizes, Label, LengthUnits, Panel, RichSpan, RichText, ScrollView,
+import chui.{CrossAxisAlignment, FontSizes, Label, LengthUnits, Panel, RichSpan, RichText, ScrollView,
     SegmentedControl, VStack}
 import std.collection.ArrayList
 

@@ -7,9 +7,9 @@
  *    行数/字节统计因此永远不会被长路径挤出窗口
  *  - 尺寸一律使用 vp/fp 单位；按钮与复选框依赖框架自动分配的构建期唯一标识
  */
-package cui_notepad
+package chui_notepad
 
-import cui.{Axis, Button, ButtonRole, Checkbox, DesktopApp, Divider, EventHandler, Flexible, FontSizes, HStack,
+import chui.{Axis, Button, ButtonRole, Checkbox, DesktopApp, Divider, EventHandler, Flexible, FontSizes, HStack,
     IconButton, IconName, Label, LengthUnits, Panel, Spacer, TextAlign, TextArea, Tooltip, VStack}
 
 func notepadView(model: NotepadModel, app: DesktopApp, documentPath: String): Unit {

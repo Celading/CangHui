@@ -27,7 +27,7 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("项目导航", 700, 440))
@@ -92,7 +92,7 @@ func nodeOf(entry: FileEntry): TreeNode {
 
 ## 相关 API
 
-[TreeView](../../api/cui/controls/TreeView.md)、[TreeNode](../../api/cui/controls/TreeNode.md)、[SplitView](../../api/cui/controls/SplitView.md)。
+[TreeView](../../api/chui/controls/TreeView.md)、[TreeNode](../../api/chui/controls/TreeNode.md)、[SplitView](../../api/chui/controls/SplitView.md)。
 
 ## 下一步
 

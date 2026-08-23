@@ -5,9 +5,13 @@ foreign {
 
     func TTF_OpenFont(file: CString, pointSize: Float32): CPointer<Unit>
 
+    func TTF_OpenFontWithProperties(properties: UInt32): CPointer<Unit>
+
     func TTF_SetFontStyle(font: CPointer<Unit>, style: Int32): Unit
 
     func TTF_GetFontFamilyName(font: CPointer<Unit>): CString
+
+    func TTF_GetFontStyleName(font: CPointer<Unit>): CString
 
     func TTF_FontHasGlyph(font: CPointer<Unit>, codepoint: UInt32): Bool
 
@@ -53,6 +57,16 @@ foreign {
     func TTF_CloseFont(font: CPointer<Unit>): Unit
 
     func TTF_Quit(): Unit
+
+    func SDL_CreateProperties(): UInt32
+
+    func SDL_SetStringProperty(properties: UInt32, name: CString, value: CString): Bool
+
+    func SDL_SetNumberProperty(properties: UInt32, name: CString, value: Int64): Bool
+
+    func SDL_SetFloatProperty(properties: UInt32, name: CString, value: Float32): Bool
+
+    func SDL_DestroyProperties(properties: UInt32): Unit
 
     func SDL_GetError(): CString
 }

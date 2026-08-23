@@ -4,9 +4,9 @@
  * 系统对话框是异步的：这里只负责“发起请求”，结果由 main.cj 的 FrameHandler
  * 每帧轮询 poll* 函数取回，事件循环全程不被阻塞。
  */
-package cui_notepad
+package chui_notepad
 
-import cui.{DesktopApp, FileDialogFilter, FileDialogOptions, FileDialogRequest, FileDialogResult, State}
+import chui.{DesktopApp, FileDialogFilter, FileDialogOptions, FileDialogRequest, FileDialogResult, State}
 
 func openFile(model: NotepadModel, app: DesktopApp): Unit {
     // 同一时刻只允许一个系统对话框，避免两份结果互相覆盖。

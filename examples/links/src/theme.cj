@@ -1,9 +1,9 @@
 /*
  * 链接示例主题：清爽浅色，靛蓝链接色。令牌集中于此。
  */
-package cui_links
+package chui_links
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func linksTheme(): Theme {
     Theme(

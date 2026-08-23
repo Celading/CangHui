@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 修饰器与单位
+[CangHui 指南](../index.md) › 修饰器与单位
 
 # 尺寸单位与修饰器顺序
 
@@ -73,9 +73,9 @@ HStack(spacing: 12.vp) {
 
 ## 相关 API
 
-- [`Widget`](../../api/cui/core/Widget.md) — 通用尺寸、内边距、表面和状态修饰器。
-- [`Length`](../../api/cui/core/Length.md) 与 [`LengthUnit`](../../api/cui/core/LengthUnit.md) — px/vp/fp 的精确契约。
-- [`Flexible`](../../api/cui/core/Flexible.md) — 栈中的剩余空间分配。
+- [`Widget`](../../api/chui/core/Widget.md) — 通用尺寸、内边距、表面和状态修饰器。
+- [`Length`](../../api/chui/core/Length.md) 与 [`LengthUnit`](../../api/chui/core/LengthUnit.md) — px/vp/fp 的精确契约。
+- [`Flexible`](../../api/chui/core/Flexible.md) — 栈中的剩余空间分配。
 
 ## 下一步
 

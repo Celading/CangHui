@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import std.math.sqrt
 import sdl.{Rect, Renderer, Texture}

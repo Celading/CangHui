@@ -1,4 +1,4 @@
-package cui.probe
+package chui.probe
 
 import std.collection.ArrayList
 import std.sync.Mutex

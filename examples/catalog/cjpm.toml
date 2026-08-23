@@ -1,9 +1,9 @@
 [package]
 cjc-version = "1.0.5"
-name = "cui_catalog"
+name = "chui_catalog"
 version = "0.1.0"
 output-type = "executable"
-description = "CUI Pagination product-catalog example."
+description = "CangHui Pagination product-catalog example."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

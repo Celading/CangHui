@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{State, Theme, UiContext, Widget, emit}
+import chui.core.{State, Theme, UiContext, Widget, emit}
 
 private func menuTestContext(w: Float32, h: Float32): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())
@@ -136,4 +136,16 @@ func contextMenuPaddingPressRunsNothing(): Unit {
     @Expect(ctx.dispatchOverlay(UiEvent.MouseDown(MouseButton.Left, 60.0, 42.0)))
     @Expect(ran.value, Int64(0))
     @Expect(!ctx.hasOverlay())
+}
+
+@Test
+func contextMenuPublishesOnlyRealActionOwnership(): Unit {
+    let active = ContextMenu(items: [MenuItem("复制", {=> ()})], key: "active") {
+        emit(SizedLayoutProbe(Size(120.0, 60.0)))
+    }
+    let empty = ContextMenu(items: [], key: "empty") {
+        emit(SizedLayoutProbe(Size(120.0, 60.0)))
+    }
+    @Expect(active.interactionOwnerIds(), ["ContextMenu:active"])
+    @Expect(empty.interactionOwnerIds(), [])
 }

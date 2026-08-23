@@ -1,4 +1,4 @@
-package cui_links
+package chui_links
 
 @Test
 func noticesCarryLinks(): Unit {

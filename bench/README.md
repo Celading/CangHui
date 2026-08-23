@@ -1,6 +1,6 @@
 # 性能基准（bench）
 
-CUI 的性能测试统一在此目录。基准分两档口径，可复用的工具与场景各自沉淀为独立包，并配跨平台的一键脚本
+CangHui 的性能测试统一在此目录。基准分两档口径，可复用的工具与场景各自沉淀为独立包，并配跨平台的一键脚本
 汇总为 HTML 报告。
 
 ## 一键运行
@@ -24,7 +24,7 @@ python bench/run_test.py             # 自测 --check 门禁逻辑（合成数�
 
 - `harness/`：可复用基准工具库（`bench_harness`，依赖 sdl）。计时循环 `timeit`、机器可读输出 `report`
   与 `reportCount`、滚动偏移发生器 `ScrollSweep`、帧率计 `FpsMeter`。
-- `scenes/`：可复用场景与数据构建库（`bench_scenes`，依赖 cui）。确定性数据生成器、组合内容页
+- `scenes/`：可复用场景与数据构建库（`bench_scenes`，依赖 chui）。确定性数据生成器、组合内容页
   `contentScrollScene`（无头与上机共用同一棵树），以及自终止驱动 `BenchDriver` / `BenchAccumulator`。
 - `micro/`：无头基准可执行程序（`bench_micro`）。逐用例打印并输出 `@@RESULT` / `@@COUNT` 行供报告解析。
   覆盖字符串、派生状态、表格排序（含边界）、长列表、文本区域、深层布局、控件密集表单、内容页滚动，以及

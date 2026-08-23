@@ -1,9 +1,9 @@
 /*
  * 渐变示例主题：深色画布，让明亮渐变更醒目。令牌集中于此。
  */
-package cui_gradients
+package chui_gradients
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func gradientsTheme(): Theme {
     Theme(

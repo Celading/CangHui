@@ -10,7 +10,7 @@
  */
 package bench_scenes
 
-import cui.{FlowRow, FontSizes, Grid, Label, LazyColumn, LengthUnits, Panel, ProgressBar, ScrollView, Size, State,
+import chui.{FlowRow, FontSizes, Grid, Label, LazyColumn, LengthUnits, Panel, ProgressBar, ScrollView, Size, State,
     UiContext, VStack, Widget}
 
 private let SCENE_HEADING: Float32 = 16.0

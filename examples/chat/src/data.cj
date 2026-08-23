@@ -9,7 +9,7 @@
  * 仿主流聊天软件：消息带时刻（自午夜起的分钟数），与上一条间隔到达 `TIME_SEP_GAP_MIN` 时在该条上方
  * 插入居中的时间分隔条；他人消息在气泡外上方显示发送者名，自己的消息不显示名字。
  */
-package cui_chat
+package chui_chat
 
 import std.collection.ArrayList
 

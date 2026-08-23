@@ -1,6 +1,6 @@
 package duplicate_probe_fixture
 
-import cui.kmode.macros.*
+import chui.kmode.macros.*
 
 @CuiProbe["fixture.duplicate"]
 func firstProbe(value: String): String { value }

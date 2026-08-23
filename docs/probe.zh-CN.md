@@ -2,7 +2,7 @@
 
 [English](probe.md) | **中文**
 
-`cui.probe.v0` 是 CangHui 的确定性、无设备插桩协议。它不创建 SDL 窗口，即可验证函数调用、组件结构、事件路由、动画采样和渲染命令形态。字体外观、裁切、平台集成与最终视觉检查仍应使用像素输出。
+`cui.probe.v0` 是 CangHui 的确定性、无设备插桩协议；该标识作为线协议兼容 token 保留，仓颉框架包名是 `chui`。它不创建 SDL 窗口，即可验证函数调用、组件结构、事件路由、动画采样和渲染命令形态。字体外观、裁切、平台集成与最终视觉检查仍应使用像素输出。
 
 终端优先的布局检查可以把 `ComponentProbe` 最后一帧 Draw IR 投影为有界 ASCII 网格。它保留逻辑位置与命令顺序，但不等同于像素证据，也不模拟栅格化、文字塑形、抗锯齿、视频帧或平台合成。
 
@@ -11,8 +11,8 @@
 导入 probe 宏，并标注一个顶层 `(String) -> String` 函数：
 
 ```cangjie
-import cui.*
-import cui.kmode.macros.*
+import chui.*
+import chui.kmode.macros.*
 
 @CuiProbe["settings.reset-preview"]
 func resetPreview(payload: String): String {

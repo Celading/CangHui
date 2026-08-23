@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{State, Theme, UiContext}
 
 private func bcTestContext(): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())
@@ -65,6 +65,14 @@ func breadcrumbDisplayOnlyIgnoresClicks(): Unit {
     let bc = Breadcrumb(["首页", "文档", "项目"]) // no onSelect → pure display
     bc.layout(ctx, Rect(20.0, 40.0, 400.0, 28.0))
     @Expect(!bc.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 24.0, 54.0)))
+}
+
+@Test
+func breadcrumbPublishesOnlyRealPointerOwnership(): Unit {
+    let interactive = Breadcrumb(["A", "B"], onSelect: {_ => ()}, key: "interactive")
+    let displayOnly = Breadcrumb(["A", "B"], key: "display")
+    @Expect(interactive.interactionOwnerIds(), ["interactive"])
+    @Expect(displayOnly.interactionOwnerIds(), [])
 }
 
 @Test

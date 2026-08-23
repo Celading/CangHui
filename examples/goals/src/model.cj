@@ -3,9 +3,9 @@
  *
  * 每个目标的完成度分数与总完成度都是当前值的纯函数派生；+/- 按步长增减、下限为 0。
  */
-package cui_goals
+package chui_goals
 
-import cui.State
+import chui.State
 
 class GoalsModel {
     let goals: Array<Goal> = GOALS

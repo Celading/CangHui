@@ -4,9 +4,9 @@
  * 两个 `DatePicker` 绑定到 `checkIn`/`checkOut`，其余展示项都是 `derive` 的结果，编辑即刻联动。
  * `today` 由入口传入（而非模型内部读时钟），使模型可在测试中以固定日期确定性地构造。
  */
-package cui_booking
+package chui_booking
 
-import cui.{CalendarDate, DerivedState, State, derive}
+import chui.{CalendarDate, DerivedState, State, derive}
 
 class BookingModel {
     let checkIn: State<CalendarDate>

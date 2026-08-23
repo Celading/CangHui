@@ -1,9 +1,9 @@
 /*
  * 折叠问答主题：清爽浅色，卡片式问答条目。令牌集中于此。
  */
-package cui_disclosure
+package chui_disclosure
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func disclosureTheme(): Theme {
     Theme(

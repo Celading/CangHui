@@ -2,9 +2,9 @@
  * 专注规划台的共享状态：页面切换、专注进度与偏好设置。
  * 进度百分比文本由 completed 派生，视图直接读取。
  */
-package cui_planner
+package chui_planner
 
-import cui.State
+import chui.State
 
 class PlannerModel {
     let page = State<Int64>(0)

@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{Axis, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
+import chui.core.{Axis, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
 
 private func splitTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

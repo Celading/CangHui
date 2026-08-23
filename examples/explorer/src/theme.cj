@@ -1,9 +1,9 @@
 /*
  * 浏览器主题：清爽浅色 + 蓝色强调（文件夹图标与面包屑链接用强调色）。令牌集中于此。
  */
-package cui_explorer
+package chui_explorer
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 // 文件夹图标色，视图直接引用。
 let EXPLORER_FOLDER: Color = Color.rgb(72, 120, 224)

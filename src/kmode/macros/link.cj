@@ -1,8 +1,8 @@
-macro package cui.kmode.macros
+macro package chui.kmode.macros
 
 import std.ast.*
-public import cui.kmode.{KModeCapability, KModeRegistration}
-public import cui.probe.ProbeRegistration
+public import chui.kmode.{KModeCapability, KModeRegistration}
+public import chui.probe.ProbeRegistration
 
 /**
  * Links one top-level (String) -> String function into the kMode registry.

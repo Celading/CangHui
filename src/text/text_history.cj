@@ -1,4 +1,4 @@
-package cui.text
+package chui.text
 
 import std.collection.ArrayList
 

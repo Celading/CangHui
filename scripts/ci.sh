@@ -27,20 +27,23 @@ export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-/opt/homebrew/lib}"
 echo "==> root cjpm test"
 cjpm test
 
-# 3. sdl package tests (best-effort; known env-dependent errors are recorded, not fatal here).
+# 3. sdl package tests.
 echo "==> sdl cjpm test"
-if (cd sdl && cjpm test); then
-  echo "sdl tests: pass"
-else
-  echo "sdl tests: non-fatal warnings/errors (record separately)" >&2
-fi
+(cd sdl && cjpm test)
 
 # 4. cuic build + test.
 echo "==> cuic build + test"
 (cd tools/cuic && cjpm test && cjpm build)
 
-# 5. Public-surface checks.
+# 5. Platform script tests.
+echo "==> iOS provisioning profile decoder"
+bash scripts/test-ios-provisioning-profile.sh
+
+# 6. Public-surface checks.
 echo "==> diff check"
 git diff --check
+
+echo "==> public surface audit"
+python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
 
 echo "==> CangHui CI complete"

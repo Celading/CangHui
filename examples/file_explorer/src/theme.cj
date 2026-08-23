@@ -1,9 +1,9 @@
 /*
  * 文件浏览器主题：中性冷灰配色 + 青蓝强调色，贴近代码编辑器的资源管理器观感。令牌集中于此。
  */
-package cui_file_explorer
+package chui_file_explorer
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 /** 应用主标题字号。 */
 let EXPLORER_TITLE: Length = 20.fp

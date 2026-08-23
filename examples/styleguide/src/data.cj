@@ -3,9 +3,9 @@
  *
  * 把各令牌尺度（间距/圆角/字号/动效时长/高度）列成可迭代的数据；毫秒文案是纯函数，便于单测。
  */
-package cui_styleguide
+package chui_styleguide
 
-import cui.{FontSizes, Length, LengthUnit, Motion, Radii, Spacing}
+import chui.{FontSizes, Length, LengthUnit, Motion, Radii, Spacing}
 
 // 间距尺度的一档：名称 + Length。
 struct SpacingStep {

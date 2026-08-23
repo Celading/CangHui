@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{Spacer, State, Theme, UiContext, Widget, emit}
+import chui.core.{Spacer, State, Theme, UiContext, Widget, emit}
 
 private func reorderTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

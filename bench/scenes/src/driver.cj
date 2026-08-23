@@ -14,7 +14,7 @@
  */
 package bench_scenes
 
-import cui.{PerformanceClock, Rect, Size, State, UiContext, UiEvent, Widget, emit}
+import chui.{PerformanceClock, Rect, Size, State, UiContext, UiEvent, Widget, emit}
 import bench_harness.{BenchResult, ScrollSweep, formatDuration, report}
 
 /** Persistent benchmark state: created once, survives the per-frame rebuild via capture. */

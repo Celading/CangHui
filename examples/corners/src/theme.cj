@@ -1,9 +1,9 @@
 /*
  * 逐角圆角示例主题：清爽浅色，靛蓝“我方”气泡。令牌集中于此。
  */
-package cui_corners
+package chui_corners
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func cornersTheme(): Theme {
     Theme(

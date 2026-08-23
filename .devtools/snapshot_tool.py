@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """示例快照的像素级工具：BMP 读取、逐像素对比、PNG 转换与基线看护。
 
-CUI 示例经 `cjpm run --run-args "--snapshot x.bmp"` 输出未压缩 BMP 快照；本工具用纯标准库
+CangHui 示例经 `cjpm run --run-args "--snapshot x.bmp"` 输出未压缩 BMP 快照；本工具用纯标准库
 处理它们，跨平台可用（Windows/macOS/Linux 均无需 Pillow/ImageMagick）。
 
 用法：
@@ -161,7 +161,7 @@ def cmd_update(args):
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    ap = argparse.ArgumentParser(description="CUI 快照像素工具")
+    ap = argparse.ArgumentParser(description="CangHui 快照像素工具")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     c = sub.add_parser("convert", help="BMP 转 PNG")

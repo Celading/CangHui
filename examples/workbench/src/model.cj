@@ -5,9 +5,9 @@
  * 大纲与统计经 `derive` 从正文与选中项派生，编辑即刻更新。两条分栏比例（侧栏／编辑区）作为可观察
  * 状态由模型持有并交给 `SplitView`，因此拖动分隔条得到的布局在切换文档、乃至保存/恢复时都可延续。
  */
-package cui_workbench
+package chui_workbench
 
-import cui.{Binding, DerivedState, State, derive}
+import chui.{Binding, DerivedState, State, derive}
 
 class WorkbenchModel {
     let docs = State<Array<Doc>>(seedDocs())

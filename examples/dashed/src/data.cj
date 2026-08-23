@@ -3,7 +3,7 @@
  *
  * 当前虚线参数（实线段/间隔/圆角）拼成一句描述，纯函数便于单测。
  */
-package cui_dashed
+package chui_dashed
 
 // 一句话描述当前虚线设置。
 func describeDash(dash: Int64, gap: Int64, radius: Int64): String {

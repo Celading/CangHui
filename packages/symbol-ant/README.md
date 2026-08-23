@@ -1,6 +1,6 @@
 # CangHui Ant Design Symbols
 
-Optional Ant Design Icons provider for `cui.Symbol`. Generate an application
+Optional Ant Design Icons provider for `chui.Symbol`. Generate an application
 registry with `cuic symbol generate` so only declared entries are registered.
 
 The current audited outlined inventory contains `plus`, `minus`, `close`,

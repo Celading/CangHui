@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Key, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, UiContext, Widget, resolveControlKey, drawFocusRing, emit, handlePointerClick,
-    registerFocusable}
+import chui.core.{Bindable, ControlSemantics, UiContext, Widget, resolveControlKey, drawFocusRing, emit,
+    handlePointerClick, recordControlSemantics, registerFocusable}
 
 private let RATING_RADIUS: Float32 = 8.0
 private let RATING_STEP: Float32 = 24.0
@@ -22,6 +22,7 @@ public class Rating <: Widget {
     private let count: Int64
     private let readonly: Bool
     private let id: String
+    private var semanticLabel: String
     private var frame = Rect.zero()
 
     public init(value: Bindable<Int64>, count!: Int64 = 5, readonly!: Bool = false, key!: ?String = None) {
@@ -29,10 +30,17 @@ public class Rating <: Widget {
         this.count = max(1, count)
         this.readonly = readonly
         this.id = resolveControlKey(key, "Rating")
+        this.semanticLabel = ""
         if (!readonly) {
             registerFocusable(this.id)
         }
         emit(this)
+    }
+
+    /** Overrides the semantic name without changing the visible dots. */
+    public func accessibilityLabel(value: String): Rating {
+        semanticLabel = value
+        this
     }
 
     public func measure(_: UiContext, _: Size): Size {
@@ -60,6 +68,12 @@ public class Rating <: Widget {
         let selectedTo = clampRating(value.get(), count)
         let previewTo = if (hovered >= 0) { hovered + 1 } else { -1 }
         let cy = frame.centerY()
+        recordControlSemantics(ctx, frame, "Rating", ControlSemantics(
+            "rating", label: semanticLabel, value: "${selectedTo}/${count}",
+            action: if (readonly) { "" } else { "Rating.set()" },
+            shortcut: if (readonly) { "" } else { "Left|Down|Right|Up|Home|End" },
+            actionOwner: id
+        ))
         for (i in 0..count) {
             let cx = frame.x + RATING_RADIUS + Float32(i) * RATING_STEP
             if (previewTo >= 0 && i < previewTo) {

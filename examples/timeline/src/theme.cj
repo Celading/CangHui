@@ -1,9 +1,9 @@
 /*
  * 时间轴主题：冷调浅底 + 蓝紫强调色。令牌集中于此。
  */
-package cui_timeline
+package chui_timeline
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 /** 应用主标题字号。 */
 let TIMELINE_TITLE: Length = 20.fp

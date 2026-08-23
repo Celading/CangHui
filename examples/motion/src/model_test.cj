@@ -1,4 +1,4 @@
-package cui_motion
+package chui_motion
 
 private func approxEq(a: Float32, b: Float32): Bool {
     let d = a - b

@@ -5,9 +5,9 @@
  *  - 分类过滤条用 `SegmentedControl` 绑定 `model.category`；网格用 `Grid(2)` 排布当前页 8 张商品卡片。
  *  - 底栏左侧显示当前区间（第 X–Y 项 / 共 N 项），右侧是 `Pagination` 页导航——两者都由同一份状态派生。
  */
-package cui_catalog
+package chui_catalog
 
-import cui.{CrossAxisAlignment, FontSizes, Grid, HStack, Label, LengthUnits, Pagination, Panel, SegmentedControl, Spacer,
+import chui.{CrossAxisAlignment, FontSizes, Grid, HStack, Label, LengthUnits, Pagination, Panel, SegmentedControl, Spacer,
     VStack}
 
 func catalogView(model: CatalogModel): Unit {

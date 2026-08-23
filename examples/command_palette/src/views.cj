@@ -5,9 +5,9 @@
  *  - 上/下/回车在应用根部拦截：即使焦点在搜索框，也能移动高亮并执行——这正是命令面板的交互
  *  - 结果列表由 query 派生，可点击/悬停；执行记录累积在下方
  */
-package cui_command_palette
+package chui_command_palette
 
-import cui.{Color, CrossAxisAlignment, EventHandler, FontSizes, Icon, IconName, Key, Label, LengthUnits, ListView,
+import chui.{Color, CrossAxisAlignment, EventHandler, FontSizes, Icon, IconName, Key, Label, LengthUnits, ListView,
     Panel, ScrollView, Spacer, TextField, UiEvent, VStack, HStack}
 
 func paletteView(model: PaletteModel): Unit {

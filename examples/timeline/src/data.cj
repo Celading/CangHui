@@ -1,9 +1,9 @@
 /*
  * 时间轴示例的星期名与日期文案（纯函数）。日期运算全部委托给框架的 `CalendarDate`。
  */
-package cui_timeline
+package chui_timeline
 
-import cui.CalendarDate
+import chui.CalendarDate
 
 // weekdayIndex 约定 0=周日..6=周六，与下表下标一致。
 let WEEKDAYS_SHORT: Array<String> = ["日", "一", "二", "三", "四", "五", "六"]

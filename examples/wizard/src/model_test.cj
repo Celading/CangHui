@@ -1,4 +1,4 @@
-package cui_wizard
+package chui_wizard
 
 @Test
 func startsAtFirstStepAndCannotAdvanceUntilValid(): Unit {

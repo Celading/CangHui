@@ -1,4 +1,4 @@
-package cui.media
+package chui.media
 
 import sdl.{Rect, Renderer}
 
@@ -42,18 +42,19 @@ public struct ExternalFrameSnapshot {
  * provider can render its latest frame into a CangHui Renderer rectangle and
  * expose playback/seek state without CangHui knowing the provider.
  *
- * Harmony providers implement this over the HarmonyHap `CangHUI_ExternalFrame*`
+ * Harmony providers implement this over their platform bridge and the
+ * `CangHUI_ExternalFrame*`
  * C ABI; desktop/media consumers can implement it over their own surface.
  */
 public interface ExternalFramePlane {
     /** Renders the current external frame into `frame`; returns true on success. */
-    public func render(target: Renderer, frame: Rect): Bool
+    func render(target: Renderer, frame: Rect): Bool
 
     /** Returns the latest external frame snapshot, or None when unavailable. */
-    public func snapshot(): ?ExternalFrameSnapshot
+    func snapshot(): ?ExternalFrameSnapshot
 
-    public func play(): Bool
-    public func pause(): Bool
-    public func seek(positionMs: Int64): Bool
-    public func close(): Unit
+    func play(): Bool
+    func pause(): Bool
+    func seek(positionMs: Int64): Bool
+    func close(): Unit
 }

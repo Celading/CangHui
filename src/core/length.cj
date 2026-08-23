@@ -1,9 +1,9 @@
-package cui.core
+package chui.core
 
 import sdl.Insets
 
 /**
- * The unit of a UI length. CUI lays widgets out in a logical coordinate space, so the
+ * The unit of a UI length. CangHui lays widgets out in a logical coordinate space, so the
  * three units describe how a value maps into that space:
  *  - `Px`: physical device pixels; resolved by dividing by the window display scale.
  *  - `Vp`: virtual (density-independent) pixels — the logical coordinate unit itself.
@@ -59,7 +59,7 @@ public struct Length <: ToString {
 
 /**
  * Integer and floating literal suffixes for building `Length` values: `100.px`,
- * `24.vp`, `15.fp`, `1.5.vp`. Import `LengthUnits` (re-exported by the `cui` root
+ * `24.vp`, `15.fp`, `1.5.vp`. Import `LengthUnits` (re-exported by the `chui` root
  * package) to enable the suffixes on `Int64` and `Float64`.
  */
 public interface LengthUnits {

@@ -1,4 +1,4 @@
-package cui.probe
+package chui.probe
 
 @Test
 func probeRegistrySortsAndRunsBoundedHandlers(): Unit {

@@ -4,9 +4,9 @@
  * 对比区两张完全相同的卡片，左边套单层 elevation、右边套 keyAmbient 双层，同层级下直接对照；
  * 阶梯区一排双层 e1..e6。阴影修饰符链在 background 之后、传同一圆角。
  */
-package cui_shadows
+package chui_shadows
 
-import cui.{CrossAxisAlignment, FontSizes, Grid, HStack, Label, LengthUnits, Panel, Shadow, Spacer, Stepper, VStack,
+import chui.{CrossAxisAlignment, FontSizes, Grid, HStack, Label, LengthUnits, Panel, Shadow, Spacer, Stepper, VStack,
     Widget}
 
 func shadowsView(model: ShadowsModel): Unit {

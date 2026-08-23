@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{State, Theme, UiContext}
 
 private func stepTestContext(): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())
@@ -72,6 +72,14 @@ func stepIndicatorWithoutCallbackIsDisplayOnly(): Unit {
     steps.layout(ctx, Rect(0.0, 0.0, 440.0, 60.0))
     // No onSelect: node presses are never consumed.
     @Expect(!steps.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 44.0, STEP_NODE_CY)))
+}
+
+@Test
+func stepIndicatorPublishesOnlyRealPointerOwnership(): Unit {
+    let interactive = StepIndicator(["A", "B"], 0, onSelect: {_ => ()}, key: "interactive")
+    let displayOnly = StepIndicator(["A", "B"], 0, key: "display")
+    @Expect(interactive.interactionOwnerIds(), ["interactive"])
+    @Expect(displayOnly.interactionOwnerIds(), [])
 }
 
 @Test

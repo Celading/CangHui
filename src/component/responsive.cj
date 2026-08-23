@@ -1,4 +1,4 @@
-package cui.component
+package chui.component
 
 public enum ViewportClass <: Equatable<ViewportClass> {
     | Compact

@@ -3,9 +3,9 @@
  *
  * 可见条目由过滤下标纯函数派生；点击链接只改状态，具体反馈由底部状态条渲染。
  */
-package cui_richtext
+package chui_richtext
 
-import cui.State
+import chui.State
 import std.collection.ArrayList
 
 class RichTextModel {

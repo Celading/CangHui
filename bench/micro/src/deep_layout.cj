@@ -6,7 +6,7 @@
  */
 package bench_micro
 
-import cui.{Label, LengthUnits, Panel, Rect, VStack, Widget, emit}
+import chui.{Label, LengthUnits, Panel, Rect, VStack, Widget, emit}
 import bench_harness.{printSection, report, timeit}
 
 private func leafRow(breadth: Int64): Widget {

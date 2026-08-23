@@ -1,7 +1,7 @@
-package cui.media
+package chui.media
 
 import sdl.{Rect, Renderer, Size, UiEvent}
-import cui.core.{UiContext, Widget, drawSurface, emit}
+import chui.core.{UiContext, Widget, drawSurface, emit}
 
 /*
  * A free-form drawing surface. It is flexible (fills the space it is offered), paints a themed field

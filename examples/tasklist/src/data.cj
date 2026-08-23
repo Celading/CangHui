@@ -1,7 +1,7 @@
 /*
  * 任务数据与纯函数辅助：不可变任务、整表替换更新、按 id 取/改完成态，以及通用的重排 `moveItem`。
  */
-package cui_tasklist
+package chui_tasklist
 
 import std.collection.ArrayList
 

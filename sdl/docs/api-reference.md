@@ -14,7 +14,7 @@
 
 ## 错误类型
 
-`CuiException <: Exception` 表示 SDL 初始化、原生调用、资源状态或输入校验失败。尽管名称沿用 CUI，
+`CuiException <: Exception` 表示 SDL 初始化、原生调用、资源状态或输入校验失败。尽管名称沿用 CangHui，
 该异常定义在独立 `sdl` 根包中，单独使用 SDL 模块时同样适用。
 
 ## 字号

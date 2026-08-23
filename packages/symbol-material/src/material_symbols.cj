@@ -1,7 +1,7 @@
 package canghui_symbol_material
 
 import std.collection.{ArrayList, HashSet}
-import cui.{Rect, Renderer, SymbolAdapter, SymbolDescriptor, SymbolGlyph, SymbolName, SymbolPaint,
+import chui.{Rect, Renderer, SymbolAdapter, SymbolDescriptor, SymbolGlyph, SymbolName, SymbolPaint,
     SymbolProvider, SymbolProviderSource, SymbolVariant, drawSymbolBar, drawSymbolLine}
 
 private let MATERIAL_PROVIDER_ID = "material"

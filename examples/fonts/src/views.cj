@@ -4,9 +4,9 @@
  * 样本册固定并列展示 CangHui 默认、衬线、等宽三种字体；选择器切换大样张所用字体，Chip 叠加粗体。
  * 字体状态（文件路径 / 回退提示）读全局 `Fonts` 注册表现算。
  */
-package cui_fonts
+package chui_fonts
 
-import cui.{Chip, CrossAxisAlignment, Divider, FontSizes, Fonts, HStack, Label, LengthUnits, Panel, ScrollView,
+import chui.{Chip, CrossAxisAlignment, Divider, FontSizes, Fonts, HStack, Label, LengthUnits, Panel, ScrollView,
     SegmentedControl, VStack}
 
 func fontsView(model: FontsModel): Unit {

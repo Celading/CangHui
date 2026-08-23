@@ -2,9 +2,9 @@
  * 剪贴板动作：整篇复制与光标处粘贴。
  * 系统剪贴板可能不可用（如无桌面环境），失败时只更新状态栏提示，不中断应用。
  */
-package cui_notepad
+package chui_notepad
 
-import cui.{Clipboard, CuiException, State, TextEditState}
+import chui.{Clipboard, CuiException, State, TextEditState}
 
 func copyAll(body: State<String>, status: State<String>): Unit {
     try {

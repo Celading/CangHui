@@ -4,9 +4,9 @@
  * 每条说明携带类别、主题词、描述与可选的内联代码片段、弃用旧写法、尾句、议题号；
  * 视图据非空与否决定拼装哪些富文本片段。类别的名称/颜色/图标映射是纯函数，便于单测。
  */
-package cui_richtext
+package chui_richtext
 
-import cui.{Color, IconName}
+import chui.{Color, IconName}
 
 // 类别下标：0 新增、1 修复、2 性能、3 弃用。
 let CATEGORY_NAMES: Array<String> = ["新增", "修复", "性能", "弃用"]

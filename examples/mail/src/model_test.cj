@@ -1,4 +1,4 @@
-package cui_mail
+package chui_mail
 
 @Test
 func inboxDataIsWellFormed(): Unit {

@@ -16,6 +16,8 @@ CangHui 随包提供未经修改的 HarmonyOS Sans SC，并将其作为默认跨
 
 前三层字体必须通过 `Fonts.register` 注册。无法识别或无法读取的文件会被跳过。使用真实 SDL_ttf 渲染器时，CangHui 会检查整段文本的字形覆盖；当前字体覆盖不完整时继续尝试下一层。
 
+对于 `.bold()`，CangHui 会先选择可变字体文件内部真实的 `Bold` 命名实例（随包 HarmonyOS Sans SC 已包含该实例），再尝试独立的粗体伴随文件；只有两者都不存在时，才在已选基础字体上合成粗体。改变字重不会改变字族回退顺序。
+
 ```cangjie
 Fonts.register("brand", "assets/fonts/Brand-Regular.ttf")
 let theme = Theme.light().withFontFamily(Some("brand"))

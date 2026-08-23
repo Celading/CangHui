@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Rect, Size, UiEvent, clampF32}
 
@@ -126,5 +126,10 @@ public class Reveal <: Widget {
             return Array<String>()
         }
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        if (isFullyCollapsed()) { return Array<String>() }
+        child.interactionOwnerIds()
     }
 }

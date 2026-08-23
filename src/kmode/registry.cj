@@ -1,8 +1,8 @@
-package cui.kmode
+package chui.kmode
 
 import std.collection.ArrayList
 import std.sync.Mutex
-import cui.probe.{describeProbeEndpoint, renderProbeEndpointList, runProbeEndpoint}
+import chui.probe.{describeProbeEndpoint, renderProbeEndpointList, runProbeEndpoint}
 
 private let PROBE_LIST_ENDPOINT = "cui.probe.list"
 private let PROBE_DESCRIBE_ENDPOINT = "cui.probe.describe"

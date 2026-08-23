@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{Button, FrameHandler, State, StateStore, Theme, UiContext, buildRoot}
+import chui.core.{Button, FrameHandler, InteractionSurface, Label, State, StateStore, Theme, UiContext, buildRoot}
 
 // A 400x300 viewport, matching the geometry the assertions below are written against.
 private func modalTestContext(): UiContext {
@@ -124,4 +124,17 @@ func modalTabCyclesDialogFocusOnly(): Unit {
     @Expect(ctx.hasFocus("m2"))
     @Expect(ctx.dispatchOverlay(UiEvent.KeyDown(Key.Tab, false)))
     @Expect(ctx.hasFocus("m1")) // wrapped inside the dialog; "bg" is never visited
+}
+
+@Test
+func modalPublishesOwnershipOnlyWhileItsBodyIsPresented(): Unit {
+    let open = Modal(State<Bool>(true)) { Label("Open") }
+    let hidden = Modal(State<Bool>(false)) { Label("Hidden") }
+    @Expect(open.interactionOwnerIds(), ["Modal"])
+    @Expect(hidden.interactionOwnerIds(), [])
+
+    let surface = InteractionSurface(action: {=> ()}, key: Some("outer")) {
+        Modal(State<Bool>(true)) { Label("Dialog") }
+    }
+    @Expect(surface.structuralDiagnostic(), Some("nested-interaction-owner: Modal"))
 }

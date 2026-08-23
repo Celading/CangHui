@@ -3,6 +3,7 @@
 - [cuic 工具链：构建、运行、调试、截图与 ASCII 布局](cuic-cli.md)
 - [桌面无边框窗口](frameless-window.md)
 - [外部帧平面与输入桥（开发者预览）](platform-interfaces.md)
+- [Surface、交互所有权与容器排版](surface-and-typography.md)
 
 ## cuic 新特性速览
 

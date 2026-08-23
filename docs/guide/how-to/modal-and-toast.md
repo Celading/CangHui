@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 模态与通知
+[CangHui 指南](../index.md) › 模态与通知
 
 # 使用模态确认和 Toast 反馈
 
@@ -34,7 +34,7 @@
 package docexample
 
 import std.collection.ArrayList
-import cui.*
+import chui.*
 
 class Project {
     let id: String
@@ -189,10 +189,10 @@ EventHandler(onEvent: {event =>
 
 ## 相关 API
 
-- [`Modal`](../../api/cui/controls/Modal.md) — 模态内容与背景交互边界。
-- [`Toaster`](../../api/cui/controls/Toaster.md) 与 [`ToastLayer`](../../api/cui/controls/ToastLayer.md) — 消息队列和显示层。
-- [`Button`](../../api/cui/core/Button.md) — 确认/取消动作。
-- [`State`](../../api/cui/core/State.md) — 待确认 id 与打开状态。
+- [`Modal`](../../api/chui/controls/Modal.md) — 模态内容与背景交互边界。
+- [`Toaster`](../../api/chui/controls/Toaster.md) 与 [`ToastLayer`](../../api/chui/controls/ToastLayer.md) — 消息队列和显示层。
+- [`Button`](../../api/chui/core/Button.md) — 确认/取消动作。
+- [`State`](../../api/chui/core/State.md) — 待确认 id 与打开状态。
 
 ## 下一步
 

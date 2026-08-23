@@ -2,9 +2,9 @@
  * 顶层事件处理：Ctrl 快捷键与拖放文件。
  * 只做“事件 -> 动作”的转发，具体行为全部委托给 file_actions / clipboard_actions。
  */
-package cui_notepad
+package chui_notepad
 
-import cui.{DesktopApp, Key, Keyboard, UiEvent}
+import chui.{DesktopApp, Key, Keyboard, UiEvent}
 
 // SDL 把字母键统一上报为大写字母的 ASCII 码；用命名常量代替裸数字，
 // 阅读时能直接对上“Ctrl+字母”的快捷键表。文件级快捷键在此处理；Ctrl+A/C/X/V

@@ -1,4 +1,4 @@
-package cui_disclosure
+package chui_disclosure
 
 @Test
 func faqCoversFrameworkTopics(): Unit {

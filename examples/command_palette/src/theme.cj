@@ -1,9 +1,9 @@
 /*
  * 命令面板主题：深色浮层观感，配色令牌集中于此。
  */
-package cui_command_palette
+package chui_command_palette
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 /** 面板主标题字号。 */
 let PALETTE_TITLE: Length = 20.fp

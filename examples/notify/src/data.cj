@@ -1,9 +1,9 @@
 /*
  * 通知示例的类型名称与文案（纯函数）。
  */
-package cui_notify
+package chui_notify
 
-import cui.ToastKind
+import chui.ToastKind
 
 func messageFor(kind: ToastKind, n: Int64): String {
     match (kind) {

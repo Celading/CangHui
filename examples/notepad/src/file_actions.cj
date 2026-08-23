@@ -5,11 +5,11 @@
  * 与打开/保存对话框“发起请求 -> 帧内轮询”的异步模式自相矛盾。
  * 改为置起 confirmingNew 状态，由视图层的应用内确认条完成交互。
  */
-package cui_notepad
+package chui_notepad
 
 import std.fs.File
 import std.fs.Path
-import cui.{FileSystem, FileSystemEntryType}
+import chui.{FileSystem, FileSystemEntryType}
 
 // “新建”入口：缓冲区已有内容时只亮出确认条，把决定权留给用户；为空则直接重置。
 func newFile(model: NotepadModel): Unit {

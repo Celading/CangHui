@@ -1,7 +1,8 @@
-package cui.controls
+package chui.controls
 
-import sdl.{Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{Button, Spacer, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
+import sdl.{IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
+import chui.core.{Button, ComponentProbe, IconButton, ProbeProperty, Spacer, State, StateStore, Theme,
+    UiContext, VStack, Widget, buildRoot, emit}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -333,6 +334,158 @@ func stepperConstructorBoundsClampInitialValue(): Unit {
     let stepper = Stepper(value, key: "age", lower: 0, upper: 100, step: 5)
     stepper.layout(ctx, Rect(0.0, 0.0, 120.0, 32.0))
     @Expect(value.value, Int64(100)) // clamped into [0, 100] by the constructor
+}
+
+@Test
+func primitiveControlsExposeStableHeadlessSemantics(): Unit {
+    let enabled = State<Bool>(true)
+    let mode = State<Int64>(2)
+    let volume = State<Float32>(0.75)
+    let density = State<Int64>(1)
+    let quantity = State<Int64>(4)
+    let report = ComponentProbe("test.primitive-control-semantics", width: 420.0, height: 300.0).run("") {
+        VStack {
+            IconButton(IconName.Save) {=> ()}
+                .key("semantic-save")
+                .accessibilityLabel("Save document")
+            Switch("Notifications", enabled).key("semantic-switch")
+            RadioButton("Detailed", mode, 2).key("semantic-radio")
+                .accessibilityLabel("Detailed layout")
+            Slider(volume, key: "semantic-slider").accessibilityLabel("Volume")
+            Picker(["Compact", "Comfortable"], density, key: "semantic-picker")
+                .accessibilityLabel("Density")
+            Stepper(quantity, key: "semantic-stepper", lower: 0, upper: 10)
+                .accessibilityLabel("Quantity")
+        }
+    }
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-save\""))
+    @Expect(report.contains("\"label\":\"Save document\""))
+    @Expect(report.contains("\"role\":\"switch\""))
+    @Expect(report.contains("\"value\":\"on\""))
+    @Expect(report.contains("\"label\":\"Detailed layout\""))
+    @Expect(report.contains("\"selected\":\"true\""))
+    @Expect(report.contains("\"label\":\"Volume\""))
+    @Expect(report.contains("\"value\":\"0.750000\""))
+    @Expect(report.contains("\"label\":\"Density\""))
+    @Expect(report.contains("\"value\":\"Comfortable\""))
+    @Expect(report.contains("\"label\":\"Quantity\""))
+    @Expect(report.contains("\"shortcut\":\"Left|Right|Up|Down\""))
+
+    let ascii = ComponentProbe("test.primitive-control-semantics-ascii", width: 240.0, height: 60.0)
+        .run("@cui-ascii 60 12") {
+            Slider(volume, key: "ascii-volume").accessibilityLabel("Volume")
+        }
+    @Expect(ascii.contains("Volume"))
+    @Expect(ascii.contains("Slider.adjust()"))
+    @Expect(ascii.contains("Left|Right"))
+}
+
+@Test
+func explicitPrimitiveControlProbeKeepsSameOwnerPrecedence(): Unit {
+    let report = ComponentProbe("test.explicit-primitive-probe", width: 120.0, height: 60.0).run("") {
+        IconButton(IconName.Save) {=> ()}
+            .key("explicit-icon")
+            .accessibilityLabel("Save")
+            .probe("explicit-icon", "IconButton", [
+                ProbeProperty("role", "button"),
+                ProbeProperty("label", "Explicit save"),
+                ProbeProperty("action", "document.save()")
+            ])
+    }
+    @Expect(report.contains("\"id\":\"explicit-icon\""))
+    @Expect(report.contains("\"action\":\"document.save()\""))
+    @Expect(!report.contains("control-semantic:explicit-icon"))
+}
+
+@Test
+func compoundControlsExposeStableHeadlessSemantics(): Unit {
+    let score = State<Int64>(3)
+    let page = State<Int64>(1)
+    let report = ComponentProbe("test.compound-control-semantics", width: 620.0, height: 300.0).run("") {
+        VStack {
+            Rating(score, count: 5, key: "semantic-rating").accessibilityLabel("Score")
+            Breadcrumb(["Home", "Docs", "Project"], onSelect: {_ => ()}, key: "semantic-crumbs")
+                .accessibilityLabel("Document path")
+            Pagination(5, page, key: "semantic-pages").accessibilityLabel("Results")
+            StepIndicator(["Account", "Configure", "Confirm"], 2, onSelect: {_ => ()}, key: "semantic-steps")
+                .accessibilityLabel("Checkout")
+        }
+    }
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-rating\""))
+    @Expect(report.contains("\"role\":\"rating\""))
+    @Expect(report.contains("\"label\":\"Score\""))
+    @Expect(report.contains("\"value\":\"3/5\""))
+    @Expect(report.contains("\"shortcut\":\"Left|Down|Right|Up|Home|End\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-crumbs\""))
+    @Expect(report.contains("\"role\":\"breadcrumb\""))
+    @Expect(report.contains("\"label\":\"Document path\""))
+    @Expect(report.contains("\"value\":\"Project\""))
+    @Expect(report.contains("\"action\":\"Breadcrumb.navigate()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-pages\""))
+    @Expect(report.contains("\"role\":\"pagination\""))
+    @Expect(report.contains("\"label\":\"Results\""))
+    @Expect(report.contains("\"value\":\"page 2 of 5\""))
+    @Expect(report.contains("\"action\":\"Pagination.setPage()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:semantic-steps\""))
+    @Expect(report.contains("\"role\":\"stepindicator\""))
+    @Expect(report.contains("\"label\":\"Checkout\""))
+    @Expect(report.contains("\"value\":\"step 3 of 3\""))
+    @Expect(report.contains("\"action\":\"StepIndicator.select()\""))
+
+    let ascii = ComponentProbe("test.compound-control-semantics-ascii", width: 360.0, height: 120.0)
+        .run("@cui-ascii 60 20") {
+            Rating(score, count: 5, key: "ascii-rating").accessibilityLabel("Score")
+            StepIndicator(["Account", "Configure", "Confirm"], 2, key: "ascii-steps")
+        }
+    @Expect(ascii.contains("Score"))
+    @Expect(ascii.contains("Rating.set()"))
+    @Expect(!ascii.contains("StepIndicator.select()"))
+}
+
+@Test
+func explicitCompoundControlProbeKeepsSameOwnerPrecedence(): Unit {
+    let score = State<Int64>(2)
+    let report = ComponentProbe("test.explicit-compound-probe", width: 160.0, height: 60.0).run("") {
+        Rating(score, count: 5, key: "explicit-rating")
+            .accessibilityLabel("Score")
+            .probe("explicit-rating", "Rating", [
+                ProbeProperty("role", "rating"),
+                ProbeProperty("label", "Explicit score"),
+                ProbeProperty("action", "score.set()")
+            ])
+    }
+    @Expect(report.contains("\"id\":\"explicit-rating\""))
+    @Expect(report.contains("\"action\":\"score.set()\""))
+    @Expect(!report.contains("control-semantic:explicit-rating"))
+}
+
+@Test
+func readonlyCompoundControlsExposeValueWithoutAction(): Unit {
+    let score = State<Int64>(4)
+    let report = ComponentProbe("test.readonly-compound-semantics", width: 420.0, height: 140.0).run("") {
+        VStack {
+            Rating(score, count: 5, readonly: true, key: "readonly-rating")
+            StepIndicator(["Account", "Configure", "Confirm"], 1, key: "display-steps")
+            Breadcrumb(["Home", "Docs", "Project"], key: "display-crumbs")
+        }
+    }
+    @Expect(report.contains("\"id\":\"control-semantic:readonly-rating\""))
+    @Expect(report.contains("\"role\":\"rating\""))
+    @Expect(report.contains("\"value\":\"4/5\""))
+    @Expect(!report.contains("\"action\":\"Rating.set()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:display-steps\""))
+    @Expect(report.contains("\"value\":\"step 2 of 3\""))
+    @Expect(!report.contains("\"action\":\"StepIndicator.select()\""))
+
+    @Expect(report.contains("\"id\":\"control-semantic:display-crumbs\""))
+    @Expect(report.contains("\"role\":\"breadcrumb\""))
+    @Expect(!report.contains("\"action\":\"Breadcrumb.navigate()\""))
 }
 
 private class ControlLayoutProbe <: Widget {

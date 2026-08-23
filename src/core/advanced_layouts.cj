@@ -1,9 +1,9 @@
-package cui.core
+package chui.core
 
 import sdl.{Rect, Size, UiEvent}
 
 // Effectively-infinite extent offered to a child during measure; shared by the scrolling and
-// collapsible containers (Accordion, in cui.controls) that size a child to its natural content.
+// collapsible containers (Accordion, in chui.controls) that size a child to its natural content.
 protected let LAYOUT_UNBOUNDED: Float32 = 999936.0
 
 /** Layers children back-to-front and aligns each child inside the same frame. */
@@ -83,6 +83,10 @@ public class ZStack <: Widget {
 
     public func focusableIds(): Array<String> {
         collectFocusableIds(children)
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        collectInteractionOwnerIds(children)
     }
 }
 
@@ -185,6 +189,10 @@ public class Grid <: Widget {
         collectFocusableIds(children)
     }
 
+    public func interactionOwnerIds(): Array<String> {
+        collectInteractionOwnerIds(children)
+    }
+
     private func gapH(ctx: UiContext): Float32 {
         max(0.0, ctx.resolve(horizontalGap))
     }
@@ -277,6 +285,10 @@ public class FlowRow <: Widget {
 
     public func focusableIds(): Array<String> {
         collectFocusableIds(children)
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        collectInteractionOwnerIds(children)
     }
 
     private func flowExtent(ctx: UiContext, available: Size, shouldLayout: Bool, frame: Rect): Size {
@@ -450,6 +462,10 @@ public class ScrollView <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
     }
 
     private func releaseDynamicAnchor(): Unit {

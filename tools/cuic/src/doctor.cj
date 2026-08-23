@@ -209,6 +209,8 @@ func collectDoctorResult(requestedTarget: String, framework: String, project!: S
     groups.add(doctorAndroidGroup(framework))
     groups.add(doctorFontGroup(framework))
     groups.add(doctorSymbolGroup(framework))
+    groups.add(doctorApplicationShellGroup(framework, project: project))
+    groups.add(doctorMobileApplicationHostGroup(framework))
     groups.add(doctorProbeGroup(framework))
     DoctorResult(host, architecture, requestedTarget, groups.toArray())
 }
@@ -226,7 +228,7 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
         "A Cangjie project manifest is available.", manifest))
     if (frameworkRootCandidate(project)) {
         checks.add(doctorReady("project.dependency", "Framework development checkout",
-            "The current project is the CangHui framework itself; no external cui dependency is required.", project))
+            "The current project is the CangHui framework itself; no external chui dependency is required.", project))
         checks.add(doctorReady("project.cache", "Resolved framework",
             "The integrated CLI uses the current framework checkout.", framework))
         return DoctorGroup("project", "Application dependency, lock, and CJPM cache", "all", checks.toArray())
@@ -245,7 +247,7 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
         checks.add(if (spec.commitId.isEmpty()) {
             doctorBlocked("project.dependency", "CangHui dependency",
                 "The public Git dependency is not pinned to an exact commitId.", DoctorActionKind.Manual,
-                "Pin [dependencies].cui to an exact commitId before updating the lock.", spec.git)
+                "Pin [dependencies].chui to an exact commitId before updating the lock.", spec.git)
         } else {
             doctorReady("project.dependency", "CangHui dependency",
                 "The application uses a pinned public Git dependency.", spec.git + "@" + shortCommit(spec.commitId))
@@ -272,7 +274,7 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
         })
     } else {
         checks.add(doctorBlocked("project.dependency", "CangHui dependency",
-            "The project does not declare a cui dependency.", DoctorActionKind.Manual,
+            "The project does not declare a chui dependency.", DoctorActionKind.Manual,
             "Run cuic init or add a pinned CangHui dependency under [dependencies].", manifest))
     }
     DoctorGroup("project", "Application dependency, lock, and CJPM cache", "all", checks.toArray())
@@ -305,7 +307,7 @@ func doctorRepositoryGroup(framework: String): DoctorGroup {
         "Restore the CangHui package manifest."
     ))
     checks.add(doctorFrameworkRequiredFile(framework,
-        "repository.umbrella", "CUI umbrella package", joinPath(framework, "src/cui.cj"),
+        "repository.umbrella", "CangHui umbrella package", joinPath(framework, "src/chui.cj"),
         "Restore the CangHui source package."
     ))
     let command = getCommandLine()[0]
@@ -603,6 +605,150 @@ func doctorSymbolGroup(framework: String): DoctorGroup {
             DoctorActionKind.Manual, "Use a CangHui build that includes cuic symbol generation.", generator)
     })
     DoctorGroup("symbol", "Configured Symbol providers and generated assets", "all", checks.toArray())
+}
+
+func doctorApplicationShellGroup(framework: String, project!: String = ""): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    for (check in applicationManifestDoctorChecks(project)) { checks.add(check) }
+    checks.add(doctorRequiredFile("application-shell.contract", "CangHui application shell contract",
+        joinPath(framework, "src/system/application_shell.cj"),
+        "Restore the CangHui system application-shell contract."))
+    checks.add(doctorRequiredFile("application-shell.schema", "Application shell manifest schema",
+        joinPath(framework, "contracts/canghui-application-shell-v0.json"),
+        "Restore the public application-shell contract schema."))
+    checks.add(doctorRequiredFile("application-shell.plan-schema", "Packaging plan schema",
+        joinPath(framework, "contracts/canghui-packaging-plan-v0.schema.json"),
+        "Restore the public packaging-plan schema."))
+    checks.add(doctorRequiredFile("application-shell.artifact-schema", "Packaging artifact schema",
+        joinPath(framework, "contracts/canghui-packaging-artifact-v0.schema.json"),
+        "Restore the public packaging-artifact schema."))
+    checks.add(if (exists(joinPath(framework, "docs/application-shell.md"))) {
+        doctorReady("application-shell.docs", "Application shell guide",
+            "The public application-shell contract guide is available.", joinPath(framework, "docs/application-shell.md"))
+    } else {
+        doctorDegraded("application-shell.docs", "Application shell guide",
+            "The application-shell contract exists but its public guide is missing.",
+            DoctorActionKind.Manual, "Restore docs/application-shell.md.", joinPath(framework, "docs/application-shell.md"))
+    })
+    DoctorGroup("application-shell", "Cangjie application identity, assets, settings and system surfaces", "all", checks.toArray())
+}
+
+func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
+    let checks = ArrayList<DoctorCheck>()
+    checks.add(doctorRequiredFile("mobile-host.contract", "Mobile application host contract",
+        joinPath(framework, "src/host/mobile_application_host.cj"),
+        "Restore the provider-neutral iOS, Android and HarmonyOS host contract."))
+    checks.add(doctorRequiredFile("mobile-host.schema", "Mobile host package receipt schema",
+        joinPath(framework, "contracts/canghui-mobile-host-package-v0.schema.json"),
+        "Restore the public mobile host package receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.signing-preparation", "Mobile signing preparation contract",
+        joinPath(framework, "src/host/mobile_signing_preparation.cj"),
+        "Restore the non-secret external-signer preparation contract."))
+    checks.add(doctorRequiredFile("mobile-host.signing-preparation-schema", "Mobile signing preparation schema",
+        joinPath(framework, "contracts/canghui-mobile-signing-preparation-v0.schema.json"),
+        "Restore the public mobile signing preparation receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.external-signer-receipt", "Mobile external signer receipt contract",
+        joinPath(framework, "src/host/mobile_external_signer_receipt.cj"),
+        "Restore the bounded external signer receipt binding contract."))
+    checks.add(doctorRequiredFile("mobile-host.external-signer-receipt-schema", "Mobile external signer receipt schema",
+        joinPath(framework, "contracts/canghui-mobile-external-signer-receipt-v0.schema.json"),
+        "Restore the public external signer receipt binding schema."))
+    checks.add(doctorRequiredFile("mobile-host.signed-package-evidence", "Mobile signed package evidence contract",
+        joinPath(framework, "src/host/mobile_signed_package_evidence.cj"),
+        "Restore the platform-owner signed package evidence gate."))
+    checks.add(doctorRequiredFile("mobile-host.signed-package-evidence-schema", "Mobile signed package evidence schema",
+        joinPath(framework, "contracts/canghui-mobile-signed-package-evidence-v0.schema.json"),
+        "Restore the public signed package evidence receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.installation-attempt", "Mobile installation attempt contract",
+        joinPath(framework, "src/host/mobile_installation_attempt.cj"),
+        "Restore the platform-owner installation attempt receipt gate."))
+    checks.add(doctorRequiredFile("mobile-host.installation-attempt-schema", "Mobile installation attempt schema",
+        joinPath(framework, "contracts/canghui-mobile-installation-attempt-v0.schema.json"),
+        "Restore the public installation attempt receipt schema."))
+    checks.add(doctorRequiredFile("mobile-host.replay-contract", "Mobile host semantic replay contract",
+        joinPath(framework, "src/host/mobile_host_replay.cj"),
+        "Restore the platform-neutral mobile host semantic replay contract."))
+    checks.add(doctorRequiredFile("mobile-host.replay-schema", "Mobile host semantic replay schema",
+        joinPath(framework, "contracts/canghui-mobile-host-replay-v0.schema.json"),
+        "Restore the public mobile host semantic replay schema."))
+    checks.add(doctorRequiredFile("mobile-host.kmode-adapter", "Mobile host kMode replay adapter",
+        joinPath(framework, "src/kmode/mobile_host_replay.cj"),
+        "Restore the kMode adapter for consumer-owned mobile host receipts."))
+    checks.add(doctorRequiredFile("mobile-host.consumer-fixture", "Mobile host replay consumer fixture",
+        joinPath(framework, "examples/mobile-host-replay/src/main.cj"),
+        "Restore the headless mobile host consumer fixture."))
+    checks.add(doctorRequiredFile("mobile-host.docs", "Mobile application host guide",
+        joinPath(framework, "docs/mobile-application-host.md"),
+        "Restore the public mobile application host guide."))
+
+    let iosAdapter = joinPath(framework, "platform/ios/runtime/CangHuiMetalSurfaceView.m")
+    let iosProvider = joinPath(framework, "src/host/ios_mobile_application_host.cj")
+    checks.add(if (exists(iosAdapter) && exists(iosProvider)) {
+        doctorReady("mobile-host.ios-provider", "iOS host provider boundary",
+            "The provider-owned iOS input-tree, signed-package evidence and installation-attempt gates are present; launch and device replay remain separate gates.",
+            iosProvider + " + " + iosAdapter)
+    } else {
+        doctorDegraded("mobile-host.ios-provider", "iOS host provider boundary",
+            "The common contract is present but the provider-owned iOS input-tree binding or UIKit native-surface adapter is missing.",
+            DoctorActionKind.Manual, "Restore the iOS provider and native-surface adapter before product-host integration.",
+            iosProvider + " + " + iosAdapter)
+    })
+
+    let iosInputTree = [
+        "platform/ios/probe/Info.plist",
+        "platform/ios/probe/AppDelegate.m",
+        "platform/ios/bootstrap/CangHuiRuntimeBootstrap.m",
+        "platform/ios/runtime/CangHuiUIKitHostView.m",
+        "platform/ios/runtime/CangHuiMetalSurfaceView.m",
+        "platform/ios/runtime/CangHuiDisplayLinkDriver.m",
+        "platform/ios/runtime/CangHuiNativeSceneSurfaceView.m",
+        "platform/ios/include/CangHuiHost.h",
+        "platform/ios/include/CangHuiNativeSurface.h",
+        "platform/ios/include/CangHuiRuntimeBootstrap.h",
+        "platform/ios/include/CangHuiUIKitHostView.h",
+        "platform/ios/include/CangHuiMetalSurfaceView.h",
+        "platform/ios/include/CangHuiNativeSceneSurfaceView.h",
+        "platform/ios/include/CangjieGUIHost.h"
+    ]
+    var missingIOSInputFiles = 0
+    if (!framework.isEmpty()) {
+        for (relativePath in iosInputTree) {
+            if (!exists(joinPath(framework, relativePath))) { missingIOSInputFiles += 1 }
+        }
+    }
+    checks.add(if (framework.isEmpty()) {
+        doctorDegraded("mobile-host.ios-input-tree", "iOS unsigned input tree",
+            "The CangHui dependency is not resolved, so the provider input tree cannot be inspected.",
+            DoctorActionKind.Automatic, "Run cuic build before inspecting the iOS provider input tree.", "")
+    } else if (missingIOSInputFiles == 0) {
+        doctorReady("mobile-host.ios-input-tree", "iOS unsigned input tree",
+            "The provider-owned iOS UIKit input tree is complete for unsigned headless replay.",
+            "14 checked-in iOS source and resource files")
+    } else {
+        doctorBlocked("mobile-host.ios-input-tree", "iOS unsigned input tree",
+            "The provider input tree is missing " + missingIOSInputFiles.toString() + " checked-in file(s).",
+            DoctorActionKind.Manual, "Restore the iOS probe, bootstrap, runtime and include files before replay.",
+            framework)
+    })
+
+    let androidAdapter = joinPath(framework,
+        "platform/android/src/main/java/dev/canghui/android/CangHuiNativeSurfaceHost.java")
+    checks.add(if (exists(androidAdapter)) {
+        doctorDegraded("mobile-host.android-provider", "Android host provider boundary",
+            "The common contract and Java/JNI native-surface bootstrap are present; Cangjie runtime linkage, product APK and device proof remain open.",
+            DoctorActionKind.Manual, "Complete the Android Cangjie host and advance receipts one evidence stage at a time.", androidAdapter)
+    } else {
+        doctorUnsupported("mobile-host.android-provider", "Android host provider boundary",
+            "The common contract exists without an Android native-surface bootstrap.",
+            "Add a bounded Android provider that consumes the public contract.", androidAdapter)
+    })
+
+    checks.add(doctorDegraded("mobile-host.harmony-provider", "HarmonyOS host provider boundary",
+        "The common contract defines OHNativeWindow/XComponent-style lifecycle, permission and package receipts, but this repository does not ship an ArkTS/HAP host.",
+        DoctorActionKind.Manual, "Implement or integrate a HarmonyOS provider without copying product policy into the framework.",
+        "framework contract only"))
+    DoctorGroup("mobile-application-host", "Mobile provider, lifecycle, signing and package proof boundaries", "all",
+        checks.toArray())
 }
 
 func doctorProbeGroup(framework: String): DoctorGroup {

@@ -9,7 +9,7 @@
  */
 package bench_micro
 
-import cui.{Rect, State, TextArea}
+import chui.{Rect, State, TextArea}
 import bench_scenes.makeDocument
 import bench_harness.{ScrollSweep, printSection, report, timeit}
 

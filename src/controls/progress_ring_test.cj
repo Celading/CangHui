@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Rect, Renderer, Size, UiEvent, MouseButton}
-import cui.core.{Theme, UiContext}
+import chui.core.{Theme, UiContext}
 
 private func approxEq(a: Float32, b: Float32): Bool {
     let d = a - b

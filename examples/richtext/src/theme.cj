@@ -1,9 +1,9 @@
 /*
  * 发布说明主题：纸白编辑排版风，墨色正文、蓝色链接；内联代码样式的墨色与底灰在此集中。
  */
-package cui_richtext
+package chui_richtext
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func richtextTheme(): Theme {
     Theme(

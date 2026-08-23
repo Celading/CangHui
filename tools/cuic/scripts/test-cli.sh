@@ -16,22 +16,61 @@ rm -f "${FAKE_LOCK_FILE}"
 
 "${ROOT_DIR}/bin/cuic" version | grep -Fq 'cuic 0.4.0 (development@unembedded)'
 "${ROOT_DIR}/bin/cuic" examples | grep -q '^notepad$'
-"${ROOT_DIR}/bin/cuic" doctor macos
-MACOS_DOCTOR_JSON="$("${ROOT_DIR}/bin/cuic" doctor macos --json)"
-printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"schema":"canghui.doctor.v0"'
-printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"requestedTarget":"macos"'
-printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"exitCode":0'
 "${ROOT_DIR}/bin/cuic" init "${FIXTURE_DIR}" --name canghui_cli_smoke --platform macos \
     --canghui-path "${FRAMEWORK_ROOT}"
 test -f "${FIXTURE_DIR}/assets/fonts/HarmonyOS_Sans_SC.ttf"
 test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_LICENSE.txt"
 test -f "${FIXTURE_DIR}/assets/fonts/HARMONYOS_SANS_SOURCE.txt"
 test -f "${FIXTURE_DIR}/canghui.toml"
+MACOS_DOCTOR_JSON="$("${ROOT_DIR}/bin/cuic" doctor macos --project "${FIXTURE_DIR}" --json)"
+printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"schema":"canghui.doctor.v0"'
+printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"requestedTarget":"macos"'
+printf '%s' "${MACOS_DOCTOR_JSON}" | grep -q '"exitCode":0'
 "${ROOT_DIR}/bin/cuic" scripts list "${FIXTURE_DIR}" | grep -q '^  check:'
 (
     cd "${FIXTURE_DIR}"
     "${ROOT_DIR}/bin/cuic" check
 )
+MAC_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" package build macos "${FIXTURE_DIR}" --json)"
+printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"schema":"canghui.packaging-artifact.v0"'
+printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"executableIncluded":true'
+test -x "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/MacOS/canghui_cli_smoke"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"
+plutil -lint "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist" >/dev/null
+if grep -q '/Users/' "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"; then
+    echo "error: macOS packaging receipt leaked an absolute project path" >&2
+    exit 1
+fi
+
+WINDOWS_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" package build windows "${FIXTURE_DIR}" --json)"
+printf '%s' "${WINDOWS_PACKAGE_JSON}" | grep -q '"artifactKind":"windows-unsigned-resource-input-tree"'
+printf '%s' "${WINDOWS_PACKAGE_JSON}" | grep -q '"executableIncluded":false'
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke/canghui_cli_smoke.exe.manifest"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke/canghui_cli_smoke.version.rc"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke/AppUserModelID.txt"
+
+LINUX_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" package build linux "${FIXTURE_DIR}" \
+    --output dist/linux-input --json)"
+printf '%s' "${LINUX_PACKAGE_JSON}" | grep -q '"artifactKind":"linux-unsigned-desktop-input-tree"'
+test -f "${FIXTURE_DIR}/dist/linux-input/canghui_cli_smoke.desktop"
+test -f "${FIXTURE_DIR}/dist/linux-input/share/applications/dev.canghui.canghui_cli_smoke.desktop"
+
+if "${ROOT_DIR}/bin/cuic" package build windows "${FIXTURE_DIR}" >/dev/null 2>&1; then
+    echo "error: package build unexpectedly replaced a non-empty output directory" >&2
+    exit 1
+fi
+if "${ROOT_DIR}/bin/cuic" package build linux "${FIXTURE_DIR}" --output ../escape >/dev/null 2>&1; then
+    echo "error: package build unexpectedly accepted an escaping output directory" >&2
+    exit 1
+fi
+mkdir -p "${FIXTURE_DIR}/recursive-resource"
+sed -i.bak 's/resources = \[\]/resources = ["recursive-resource"]/' "${FIXTURE_DIR}/canghui.toml"
+if "${ROOT_DIR}/bin/cuic" package build linux "${FIXTURE_DIR}" \
+    --output recursive-resource/package-output >/dev/null 2>&1; then
+    echo "error: package build unexpectedly nested its output inside a declared resource" >&2
+    exit 1
+fi
 "${ROOT_DIR}/bin/cuic" init "${REMOTE_FIXTURE_DIR}" --name canghui_cli_remote_smoke --platform macos
 grep -q 'git = "https://github.com/Celading/CangHui.git"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
 grep -q 'commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
@@ -84,7 +123,7 @@ fi
 mkdir -p "${FAKE_BIN_DIR}"
 printf '%s\n' \
     '[requires]' \
-    'cui = { git = "https://github.com/Celading/CangHui.git", commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02" }' \
+    'chui = { git = "https://github.com/Celading/CangHui.git", commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02" }' \
     > "${FAKE_LOCK_FILE}"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
@@ -122,6 +161,74 @@ printf '%s' "${PROBE_ASCII}" | grep -q 'CangHui headless Draw IR 320.000000x120.
 printf '%s' "${PROBE_ASCII}" | grep -q 'Run probe'
 printf '%s' "${PROBE_ASCII}" | grep -Fq 'Semantic map:'
 printf '%s' "${PROBE_ASCII}" | grep -Fq '$i1 - "Button#primary-button"'
+
+MOBILE_HOST_REPLAY_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.host.replay 'player.toggle|4|9')"
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"protocol":"canghui.mobile-host-replay.v0"'
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"stage":"input-tree"'
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"installable":false'
+printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"decision":"current"'
+
+IOS_PROVIDER_REPLAY_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.provider.replay 'player.toggle|4|9')"
+printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"platform":"ios"'
+printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"stage":"input-tree"'
+printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"signing":"unsigned"'
+printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"deviceProven":false'
+printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q 'platform/ios/probe/Info.plist'
+printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"decision":"current"'
+
+IOS_SIGNING_PREPARATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.prepare 'ios-signing-identity,ios-provisioning-profile')"
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"protocol":"canghui.mobile-signing-preparation.v0"'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"state":"requirements-satisfied"'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"missingCapabilities":\[\]'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"signedPackage":false'
+printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"installable":false'
+
+IOS_SIGNING_BINDING="input-tree-v0:ios:ios-application-bundle:id-31:4:9:14"
+IOS_SIGNING_RECEIPT_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.bind "CangHui.app|xcode|identity-ref|profile-ref|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|${IOS_SIGNING_BINDING}")"
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"protocol":"canghui.mobile-external-signer-receipt.v0"'
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"state":"accepted"'
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"signedPackage":false'
+printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"deviceProven":false'
+
+IOS_SIGNED_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.verify "CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-20260819-cli|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|passed")"
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"protocol":"canghui.mobile-signed-package-evidence.v0"'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"state":"applied"'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"signedPackage":true'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installable":true'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installationProven":false'
+printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"deviceProven":false'
+
+IOS_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|installed")"
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"protocol":"canghui.mobile-installation-attempt.v0"'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"state":"recorded"'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"sourceStage":"signed-package"'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"installed":true'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"installationProven":true'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"launchProven":false'
+printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"deviceProven":false'
+
+IOS_FAILED_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli-failed|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|failed")"
+printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"state":"recorded"'
+printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"outcome":"failed"'
+printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"installationProven":false'
+
+IOS_STALE_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli-stale|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|input-tree-v0:ios:ios-application-bundle:stale:4:9:14|installed")"
+printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"state":"rejected"'
+printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"installationProven":false'
+printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"deviceProven":false'
+
+IOS_STALE_SIGNED_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+    mobile.demo.ios.signing.verify "CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-20260819-stale|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|input-tree-v0:ios:ios-application-bundle:stale:4:9:14|passed")"
+printf '%s' "${IOS_STALE_SIGNED_PACKAGE_JSON}" | grep -q '"state":"rejected"'
+printf '%s' "${IOS_STALE_SIGNED_PACKAGE_JSON}" | grep -q '"signedPackage":false'
 
 SYMBOL_CATALOG_JSON="$("${ROOT_DIR}/bin/cuic" symbol list --json)"
 printf '%s' "${SYMBOL_CATALOG_JSON}" | grep -q '"schema":"canghui.symbol.catalog.v0"'

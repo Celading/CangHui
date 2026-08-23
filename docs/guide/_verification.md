@@ -18,7 +18,7 @@
 
 | 命令 | 结果 | 覆盖 |
 |---|---:|---|
-| `cjpm build` | 通过 | CUI 主包构建与链接 |
+| `cjpm build` | 通过 | CangHui 主包构建与链接 |
 | `cjpm test` | 473/473 | core、controls、text、media、desktop、host、kMode、probe、Symbol 与组件契约 |
 | `cd tools/cuic && cjpm test` | 30/30 | doctor、工程解析、缓存、脚本、kMode/probe 扫描与 Symbol 生成 |
 
@@ -34,7 +34,7 @@
 
 ## 仍需按平台验证
 
-- iOS 的完整 CUI 场景渲染、IME、无障碍、产品应用与正式打包；
+- iOS 的完整 CangHui 场景渲染、IME、无障碍、产品应用与正式打包；
 - HarmonyOS/OpenHarmony 的应用宿主、生命周期、打包与设备运行；
 - Windows 与 Linux 的当前宿主运行、动态库布置和发布包；
 - Android 的渲染后端、Activity/NDK 桥和 APK 流程。

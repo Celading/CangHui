@@ -1,4 +1,4 @@
-package cui.probe
+package chui.probe
 
 public let CUI_PROBE_PROTOCOL = "cui.probe.v0"
 public let CUI_PROBE_SCHEMA_REF = "canghui://schemas/cui-probe-v0"

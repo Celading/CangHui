@@ -7,7 +7,7 @@ description = "Reference platform-neutral component package for CangHui."
 license = "Apache-2.0"
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }
 canghui_symbol_material = { path = "../symbol-material" }
 canghui_symbol_ant = { path = "../symbol-ant" }
 canghui_symbol_arco = { path = "../symbol-arco" }

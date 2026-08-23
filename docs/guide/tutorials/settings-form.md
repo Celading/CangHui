@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 设置表单
+[CangHui 指南](../index.md) › 设置表单
 
 # 构建一个会校验的设置表单
 
@@ -43,7 +43,7 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("账户设置", 460, 320))
@@ -73,7 +73,7 @@ main(): Unit {
 
 ## 最后一步：交付真正的多文件应用
 
-上面的单文件程序是便于定位错误的检查点，不是这条初学路径的终点。确认三条校验路径都正确后，打开项目随附的 `cui/examples/settings`。它把同一个“状态归模型、操作改模型、界面只展示和发出操作”的边界落实为可直接构建的多文件应用：
+上面的单文件程序是便于定位错误的检查点，不是这条初学路径的终点。确认三条校验路径都正确后，打开项目随附的 `chui/examples/settings`。它把同一个“状态归模型、操作改模型、界面只展示和发出操作”的边界落实为可直接构建的多文件应用：
 
 ```text
 examples/settings/
@@ -83,7 +83,7 @@ examples/settings/
     ├── model.cj       # 设置事实、主题选择与业务操作
     ├── views.cj       # 外观、通知、隐私、关于四个分区
     ├── data.cj        # 界面所需的静态选项
-    ├── theme.cj       # 主题选择到 CUI Theme 的转换
+    ├── theme.cj       # 主题选择到 CangHui Theme 的转换
     └── model_test.cj  # 不启动窗口也能运行的模型检查
 ```
 
@@ -116,10 +116,10 @@ Label("姓名长度：${name.value.size}").muted()
 
 ## 相关 API
 
-- [`TextField`](../../api/cui/text/TextField.md) — 文本绑定、焦点和编辑行为。
-- [`Checkbox`](../../api/cui/controls/Checkbox.md) — 布尔绑定与键盘操作。
-- [`Button`](../../api/cui/core/Button.md) — 动作回调和语义角色。
-- [`State`](../../api/cui/core/State.md) 与 [`Bindable.project`](../../api/cui/core/Bindable.md#project) — 表单事实和字段的双向绑定。
+- [`TextField`](../../api/chui/text/TextField.md) — 文本绑定、焦点和编辑行为。
+- [`Checkbox`](../../api/chui/controls/Checkbox.md) — 布尔绑定与键盘操作。
+- [`Button`](../../api/chui/core/Button.md) — 动作回调和语义角色。
+- [`State`](../../api/chui/core/State.md) 与 [`Bindable.project`](../../api/chui/core/Bindable.md#project) — 表单事实和字段的双向绑定。
 
 ## 下一步
 

@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, Rect, Size, UiEvent, clampF32}
-import cui.core.{UiContext, Widget, emit}
+import chui.core.{UiContext, Widget, emit}
 
 private let TOAST_MARGIN: Float32 = 16.0
 private let TOAST_WIDTH: Float32 = 320.0

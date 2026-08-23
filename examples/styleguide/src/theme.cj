@@ -1,9 +1,9 @@
 /*
  * 样式指南主题：干净的浅色纸面，靛蓝强调。令牌集中于此。
  */
-package cui_styleguide
+package chui_styleguide
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func styleguideTheme(): Theme {
     Theme(

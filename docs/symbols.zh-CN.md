@@ -7,7 +7,7 @@ CangHui 通过 `SymbolName`、`Symbol`、`SymbolProvider`、`SymbolAdapter` 和 
 ## 核心用法
 
 ```cangjie
-import cui.*
+import chui.*
 
 Symbol(SymbolName("save", provider: "builtin"),
     size: 24.vp, weight: 500.0, accessibilityLabel: "保存")
@@ -21,7 +21,7 @@ Symbol(SymbolName("save", provider: "builtin"),
 
 ```toml
 [dependencies]
-cui = { path = "../CangHui" }
+chui = { path = "../CangHui" }
 canghui_symbol_material = { path = "../CangHui/packages/symbol-material" }
 canghui_symbol_ant = { path = "../CangHui/packages/symbol-ant" }
 canghui_symbol_arco = { path = "../CangHui/packages/symbol-arco" }

@@ -1,4 +1,4 @@
-package cui_corners
+package chui_corners
 
 @Test
 func bubbleCornersSquaresTheSenderSideTail(): Unit {

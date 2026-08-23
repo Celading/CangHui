@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.HashSet
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{ScrollOptions, ScrollView, Spacer, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
+import chui.core.{ScrollOptions, ScrollView, Spacer, State, StateStore, Theme, UiContext, Widget, buildRoot, emit}
 
 private func accordionTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

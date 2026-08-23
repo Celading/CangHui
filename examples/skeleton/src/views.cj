@@ -3,9 +3,9 @@
  *
  * 未加载时列出共享一个 Pulse 的骨架行（同步呼吸），加载后换成真实文章卡；两态行数一致，切换不跳高度。
  */
-package cui_skeleton
+package chui_skeleton
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Icon, Label, LengthUnits, Panel, ScrollView,
+import chui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Icon, Label, LengthUnits, Panel, ScrollView,
     Spacer, VStack}
 
 func skeletonView(model: SkeletonModel): Unit {

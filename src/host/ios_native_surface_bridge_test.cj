@@ -1,4 +1,4 @@
-package cui.host
+package chui.host
 
 @Test
 func iosNativeSurfaceBridgeRejectsStaleGenerations(): Unit {
@@ -69,4 +69,164 @@ func iosNativeSurfaceBridgeValidatesIntegerAbiInputs(): Unit {
     @Expect(bridge.pointer(0, 0, 0, 0, 0, 2, 1), -1)
     @Expect(bridge.updateTraits(3, 0, 0, 1000), -1)
     @Expect(bridge.updateTraits(0, 0, 0, 0), -1)
+}
+
+@Test
+func iosMobileApplicationProviderBindsReceiptToLifecycleAndSurface(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    let provider = IOSMobileApplicationHostProvider(
+        "dev.canghui.ios.provider",
+        bridge: bridge
+    )
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 4))
+    @Expect(provider.attachSurface(41, 1194000, 834000, 2388, 1668, 2000, 9), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let receipt = provider.packageReceipt()
+    @Expect(provider.platform(), MobileApplicationPlatform.IOS)
+    @Expect(provider.packageKind(), MobilePackageKind.IOSApplicationBundle)
+    @Expect(provider.packageStage(), MobilePackageStage.InputTree)
+    @Expect(receipt.signing, MobileSigningState.Unsigned)
+    @Expect(!receipt.installable())
+    @Expect(!receipt.deviceProven())
+    @Expect(receipt.lifecycleEpoch, 4)
+    @Expect(receipt.surfaceGeneration, 9)
+    @Expect(receipt.inputFiles.size, 14)
+    @Expect(provider.permissionState(HostCapability.NativeSurface), MobilePermissionState.Granted)
+}
+
+@Test
+func iosMobileApplicationProviderRejectsStaleReceiptRollback(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    let provider = IOSMobileApplicationHostProvider(
+        "dev.canghui.ios.rollback",
+        bridge: bridge
+    )
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 1))
+    @Expect(provider.attachSurface(43, 1194000, 834000, 2388, 1668, 2000, 1), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let stale = provider.packageReceipt()
+    @Expect(provider.applyLifecycle(AppLifecycleState.Background, 2))
+    @Expect(provider.detachSurface(1), 0)
+    @Expect(provider.attachSurface(47, 1194000, 834000, 2388, 1668, 2000, 2), 0)
+    @Expect(!provider.applyPackageReceipt(stale))
+    @Expect(provider.packageStage(), MobilePackageStage.InputTree)
+    @Expect(provider.lifecycleEpoch(), 2)
+    @Expect(provider.surfaceGeneration(), 2)
+}
+
+@Test
+func iosMobileApplicationProviderRejectsNonMonotonicLifecycle(): Unit {
+    let provider = IOSMobileApplicationHostProvider("dev.canghui.ios.lifecycle")
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 3))
+    @Expect(!provider.applyLifecycle(AppLifecycleState.Inactive, 2))
+    @Expect(!provider.applyLifecycle(AppLifecycleState.Inactive, 3))
+    @Expect(provider.lifecycleState(), AppLifecycleState.Active)
+    @Expect(provider.lifecycleEpoch(), 3)
+}
+
+@Test
+func iosMobileApplicationProviderPreparesButDoesNotSignPackage(): Unit {
+    let provider = IOSMobileApplicationHostProvider("dev.canghui.ios.prepare")
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 1))
+    @Expect(provider.attachSurface(59, 1194000, 834000, 2388, 1668, 2000, 1), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let prepared = provider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+    ))
+    @Expect(prepared.requirementsSatisfied())
+    @Expect(!prepared.signedPackage())
+    @Expect(!prepared.installable())
+    @Expect(provider.packageStage(), MobilePackageStage.InputTree)
+    @Expect(provider.packageReceipt().signing, MobileSigningState.Unsigned)
+}
+
+@Test
+func iosMobileApplicationProviderRequiresSignedEvidenceGate(): Unit {
+    let provider = IOSMobileApplicationHostProvider("dev.canghui.ios.evidence")
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 4))
+    @Expect(provider.attachSurface(61, 1194000, 834000, 2388, 1668, 2000, 9), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let source = provider.packageReceipt()
+    let direct = MobileHostPackageReceipt(
+        source.platform,
+        source.packageKind,
+        MobilePackageStage.SignedPackage,
+        source.applicationId,
+        source.lifecycleState,
+        source.lifecycleEpoch,
+        source.surfaceGeneration,
+        signing: MobileSigningState.Signed,
+        permissions: source.permissions,
+        inputFiles: source.inputFiles
+    )
+    @Expect(!provider.applyPackageReceipt(direct))
+    let preparation = provider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+    ))
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "CangHui.app", "xcode", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let evidence = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "CangHui.app", "ios-platform-owner", "codesign-verify", "strict-v1",
+            "verify-20260819-provider", digest, 4096, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    @Expect(provider.applySignedPackageEvidence(evidence))
+    @Expect(provider.packageStage(), MobilePackageStage.SignedPackage)
+    @Expect(provider.packageReceipt().installable())
+    @Expect(!provider.packageReceipt().deviceProven())
+}
+
+@Test
+func iosMobileApplicationProviderRecordsInstallationWithoutAdvancingStage(): Unit {
+    let provider = IOSMobileApplicationHostProvider("dev.canghui.ios.install")
+    @Expect(provider.applyLifecycle(AppLifecycleState.Active, 4))
+    @Expect(provider.attachSurface(67, 1194000, 834000, 2388, 1668, 2000, 9), 0)
+    @Expect(provider.stageUnsignedInputTree())
+    let source = provider.packageReceipt()
+    let preparation = provider.prepareSigning(MobileSigningPreparationRequest(
+        "CangHui.app",
+        declaredCapabilities: ["ios-signing-identity", "ios-provisioning-profile"]
+    ))
+    let digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    let signer = bindMobileExternalSignerReceipt(
+        preparation,
+        MobileExternalSignerReceiptRequest(
+            "CangHui.app", "xcode", "identity-ref", "profile-ref", digest,
+            preparation.sourceBinding
+        )
+    )
+    let evidence = verifyMobileSignedPackageEvidence(
+        source,
+        signer,
+        MobileSignedPackageEvidenceRequest(
+            "CangHui.app", "ios-platform-owner", "codesign-verify", "strict-v1",
+            "verify-20260819-provider-install", digest, 4096, preparation.sourceBinding,
+            MobileSignedPackageVerificationOutcome.Passed
+        )
+    )
+    @Expect(provider.applySignedPackageEvidence(evidence))
+    let installation = provider.recordInstallationAttempt(
+        evidence,
+        MobileInstallationAttemptRequest(
+            "CangHui.app", "ios-platform-owner", MobileInstallationTargetClass.PhysicalDevice,
+            "devicectl", "development-install-v1", "install-20260819-provider",
+            digest, 4096, MobileInstallationAttemptOutcome.Installed
+        )
+    )
+    @Expect(installation.installationProven())
+    @Expect(provider.packageStage(), MobilePackageStage.SignedPackage)
+    @Expect(provider.packageReceipt().deviceProof, MobileDeviceProofState.NotRun)
+    @Expect(!provider.packageReceipt().deviceProven())
 }

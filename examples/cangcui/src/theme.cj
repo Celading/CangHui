@@ -1,9 +1,9 @@
 /*
  * 画卷窗口主题：绢本底色与黛墨文字（画面自绘设色，主题只托底）。
  */
-package cui_cangcui
+package chui_cangcui
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func cangcuiTheme(): Theme {
     Theme(

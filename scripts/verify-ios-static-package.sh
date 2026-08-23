@@ -10,6 +10,9 @@ EXECUTABLE_NAME="CangHuiBootstrapProbe"
 EXPECTED_RESULT="CANGHUI_IOS_SURFACE result passed=1"
 COMPILED_APP_DIR=""
 
+# shellcheck source=scripts/lib/ios-provisioning-profile.sh
+source "${PROJECT_ROOT}/scripts/lib/ios-provisioning-profile.sh"
+
 if [[ -z "${CANGJIE_IOS_HOME}" ]]; then
     printf 'Set CANGJIE_IOS_HOME to a Cangjie SDK with iOS targets.\n' >&2
     exit 1
@@ -214,7 +217,10 @@ verify_device() {
         "${CANGHUI_IOS_BUNDLE_ID}"
     app_dir="${COMPILED_APP_DIR}"
 
-    security cms -D -i "${CANGHUI_IOS_PROVISIONING_PROFILE}" -o "${profile_plist}"
+    decode_ios_provisioning_profile \
+        "${CANGHUI_IOS_PROVISIONING_PROFILE}" "${profile_plist}"
+    printf 'CangHui provisioning profile decoder: %s\n' \
+        "${CANGHUI_IOS_PROFILE_DECODER_USED}"
     plutil -extract Entitlements xml1 -o "${entitlements}" "${profile_plist}"
     plutil -remove keychain-access-groups "${entitlements}" >/dev/null 2>&1 || true
     application_identifier="$(plutil -extract Entitlements.application-identifier raw -o - "${profile_plist}")"

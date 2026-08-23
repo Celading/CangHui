@@ -1,9 +1,9 @@
 /*
  * 预订主题：温暖的米色纸面 + 松绿强调色，贴近酒店预订的沉静观感。令牌集中于此。
  */
-package cui_booking
+package chui_booking
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 /** 应用主标题字号。 */
 let BOOKING_TITLE: Length = 20.fp

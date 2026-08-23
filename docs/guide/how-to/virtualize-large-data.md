@@ -29,7 +29,7 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("千行收件箱", 640, 420))
@@ -72,7 +72,7 @@ LazyColumn.of(messages, 52.0,
 
 ## 相关 API
 
-[LazyColumn](../../api/cui/core/LazyColumn.md)、[LazyList](../../api/cui/core/LazyList.md)、[LazyRow](../../api/cui/core/LazyRow.md)、[LazyGrid](../../api/cui/core/functions.md)。
+[LazyColumn](../../api/chui/core/LazyColumn.md)、[LazyList](../../api/chui/core/LazyList.md)、[LazyRow](../../api/chui/core/LazyRow.md)、[LazyGrid](../../api/chui/core/functions.md)。
 
 ## 下一步
 

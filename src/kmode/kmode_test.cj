@@ -1,4 +1,4 @@
-package cui.kmode
+package chui.kmode
 
 class FakeKModeChannelModule <: KModeChannelModule {
     public var connected = false

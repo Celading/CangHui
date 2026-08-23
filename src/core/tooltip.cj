@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{FontSizes, Rect, Size, UiEvent, clampF32}
 
@@ -83,6 +83,10 @@ public class Tooltip <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
     }
 }
 

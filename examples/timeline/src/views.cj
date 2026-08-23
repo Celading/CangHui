@@ -5,9 +5,9 @@
  *  - 每个日格上排星期（今天用强调色）、中间是可点选的日号按钮（选中用主色）、下排月份；点按钮即选中。
  *  - 详情面板由选中项派生：完整日期、星期与相对今天的天数，全部走 `CalendarDate` 运算。
  */
-package cui_timeline
+package chui_timeline
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LazyRow, LengthUnits, Panel, Spacer,
+import chui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LazyRow, LengthUnits, Panel, Spacer,
     TextAlign, VStack}
 
 func timelineView(model: TimelineModel): Unit {

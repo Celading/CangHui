@@ -4,9 +4,9 @@
  * 预览卡片始终链式套 background/shadow/border 三个修饰符；关闭阴影或边框时以透明色传入（自然不绘制），
  * 从而避免条件包装。阶梯参考固定展示各 elevation 预设的阴影，作对照。
  */
-package cui_cards
+package chui_cards
 
-import cui.{Color, CrossAxisAlignment, Divider, FlowRow, FontSizes, HStack, Label, LengthUnits, Shadow, Spacer,
+import chui.{Color, CrossAxisAlignment, Divider, FlowRow, FontSizes, HStack, Label, LengthUnits, Shadow, Spacer,
     Stepper, Switch, VStack}
 
 func cardsView(model: CardsModel): Unit {

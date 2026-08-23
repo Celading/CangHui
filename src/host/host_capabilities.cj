@@ -1,8 +1,8 @@
-package cui.host
+package chui.host
 
 import std.collection.ArrayList
 
-/** Platforms that may host the same common CUI component source. */
+/** Platforms that may host the same common CangHui component source. */
 public enum HostPlatform <: Equatable<HostPlatform> {
     | Desktop
     | Android

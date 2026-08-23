@@ -133,7 +133,7 @@ func kModeDependencyScannerStaysInsideDependencySections(): Unit {
         "[package]\n" +
         "description = \"path = not-a-dependency\"\n" +
         "[dependencies]\n" +
-        "cui = { path = \"../CangHui\" }\n" +
+        "chui = { path = \"../CangHui\" }\n" +
         "[profile]\n" +
         "output-path = \"ignored\"\n"
     )
@@ -187,11 +187,11 @@ func remoteDependencyRenderingPinsPublicCommitWithoutLocalPath(): Unit {
 
 @Test
 func inlineDependencyParserSeparatesGitCommitAndPathFields(): Unit {
-    let remote = "cui = { git = \"https://example/CangHui.git\", commitId = \"abc123\" }"
+    let remote = "chui = { git = \"https://example/CangHui.git\", commitId = \"abc123\" }"
     @Expect(extractInlineTomlString(remote, "git"), "https://example/CangHui.git")
     @Expect(extractInlineTomlString(remote, "commitId"), "abc123")
     @Expect(extractInlineTomlString(remote, "path"), "")
-    let local = "cui = { path = \"../CangHui\" }"
+    let local = "chui = { path = \"../CangHui\" }"
     @Expect(extractInlineTomlString(local, "path"), "../CangHui")
 }
 

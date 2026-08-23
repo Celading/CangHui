@@ -19,7 +19,7 @@
 package bench_planner_scroll
 
 import std.env.getCommandLine
-import cui.{DesktopApp, FontSizes, Label, LengthUnits, Panel, State, VStack, WindowSpec}
+import chui.{DesktopApp, FontSizes, Label, LengthUnits, Panel, State, VStack, WindowSpec}
 import bench_scenes.{BenchAccumulator, BenchDriver, lazyContentScrollScene}
 import bench_harness.ScrollSweep
 
@@ -38,7 +38,7 @@ main(): Int64 {
     // multiple — otherwise every result snaps to 60/30/20/15 fps and sub-refresh gains are invisible.
     // Pass `ss1`/`ss2` to isolate the supersample fill cost, `--profile` for a per-phase breakdown.
     let app = DesktopApp(
-        WindowSpec("CUI bench: planner scroll", 1120, 720, scale: 1.5, vsync: false, supersample: supersample),
+        WindowSpec("CangHui bench: planner scroll", 1120, 720, scale: 1.5, vsync: false, supersample: supersample),
         frameDelay: 0)
     app.setMinimumSize(760, 560)
     app.run {

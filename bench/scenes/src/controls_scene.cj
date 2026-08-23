@@ -7,7 +7,7 @@
  */
 package bench_scenes
 
-import cui.{Button, Dropdown, FlowRow, HStack, Label, LengthUnits, Panel, RadioButton, ScrollView, Slider, Spacer,
+import chui.{Button, Dropdown, FlowRow, HStack, Label, LengthUnits, Panel, RadioButton, ScrollView, Slider, Spacer,
     State, Stepper, Switch, VStack, Widget}
 
 /** Builds the scrollable settings page over `sections` repeated control groups, bound to `scroll`. */

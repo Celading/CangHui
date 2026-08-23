@@ -1,7 +1,7 @@
-package cui.component
+package chui.component
 
 import std.collection.ArrayList
-import cui.host.{HostCapability, HostPlatform, HostProfile}
+import chui.host.{HostCapability, HostPlatform, HostProfile}
 
 /** Compatibility result before a component package is mounted. */
 public enum ComponentCompatibility {

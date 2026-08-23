@@ -1,9 +1,9 @@
 /*
  * 专注规划台的紫罗兰主题、卡片表面与共享字号令牌。
  */
-package cui_planner
+package chui_planner
 
-import cui.{Color, Length, LengthUnits, SurfaceStyle, Theme}
+import chui.{Color, Length, LengthUnits, SurfaceStyle, Theme}
 
 /** 区块小标题字号：比正文醒目、比页面标题克制。 */
 let PLANNER_HEADING: Length = 17.fp

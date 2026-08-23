@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import std.collection.ArrayList
 import sdl.{Rect, Size, UiEvent}
@@ -225,6 +225,17 @@ public class LazyRow <: Widget {
             let (_, widget) = pair
             for (fid in widget.focusableIds()) {
                 ids.add(fid)
+            }
+        }
+        ids.toArray()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        let ids = ArrayList<String>()
+        for (pair in visibleItems) {
+            let (_, widget) = pair
+            for (id in widget.interactionOwnerIds()) {
+                if (!ids.contains(id)) { ids.add(id) }
             }
         }
         ids.toArray()

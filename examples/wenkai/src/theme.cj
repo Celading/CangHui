@@ -1,9 +1,9 @@
 /*
  * 样本册主题：米白纸感底、墨色文字、朱砂点缀——衬楷体的书卷气。令牌集中于此。
  */
-package cui_wenkai
+package chui_wenkai
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func wenkaiTheme(): Theme {
     Theme(

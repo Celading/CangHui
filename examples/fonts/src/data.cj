@@ -4,7 +4,7 @@
  * 每种字体列出跨平台的字体文件候选；解析（挑第一个存在的文件）与选中项到字体名的映射是纯函数，
  * 便于单测且与视图、文件系统无关（存在性判定以谓词注入）。
  */
-package cui_fonts
+package chui_fonts
 
 // 一种要加载的字体：显示名、注册名（None 表示 CangHui 默认链，不走 fontFamily）、跨平台字体文件候选。
 struct TypeFace {

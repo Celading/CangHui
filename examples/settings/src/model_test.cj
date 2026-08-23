@@ -1,4 +1,4 @@
-package cui_settings
+package chui_settings
 
 @Test
 func defaultsAreSensible(): Unit {

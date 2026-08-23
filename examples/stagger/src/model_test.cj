@@ -1,4 +1,4 @@
-package cui_stagger
+package chui_stagger
 
 @Test
 func staggerDelayScalesWithRowIndex(): Unit {

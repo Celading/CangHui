@@ -4,9 +4,9 @@
  * query 由 TextField 双向绑定、也可由预设标签填入；spansFor 依据当前 query 把一段文本切成带高亮的 RichSpan，
  * statusText 汇报命中总数。默认预填“高亮”，一进来就能看到跨卡片的高亮效果。
  */
-package cui_highlight
+package chui_highlight
 
-import cui.{RichSpan, State}
+import chui.{RichSpan, State}
 
 class SearchModel {
     let entries: Array<Entry> = ENTRIES

@@ -6,7 +6,7 @@
  */
 package bench_micro
 
-import cui.{ListView, Rect, State}
+import chui.{ListView, Rect, State}
 import bench_scenes.makeListItems
 import bench_harness.{ScrollSweep, printSection, report, timeit}
 

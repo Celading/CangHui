@@ -6,7 +6,7 @@
  */
 package bench_micro
 
-import cui.{Button, Dropdown, FlowRow, HStack, Label, LengthUnits, Panel, RadioButton, Rect, Spacer, State, Stepper,
+import chui.{Button, Dropdown, FlowRow, HStack, Label, LengthUnits, Panel, RadioButton, Rect, Spacer, State, Stepper,
     Switch, VStack, Widget}
 import bench_harness.{printSection, report, timeit}
 

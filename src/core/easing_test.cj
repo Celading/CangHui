@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 private func easeApproxEq(a: Float32, b: Float32): Bool {
     let d = a - b

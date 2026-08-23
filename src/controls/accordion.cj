@@ -1,9 +1,12 @@
-package cui.controls
+package chui.controls
 
 import std.collection.{ArrayList, HashSet}
-import sdl.{Color, FontSizes, Key, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, InteractionAnimation, LAYOUT_UNBOUNDED, Motion, State, UiContext, Widget,
-    resolveControlKey, buildKeyedChild, drawFocusRing, emit, focusableControlIdentity, handlePointerClick, localState}
+import sdl.{Color, Key, Pen, Rect, Size, UiEvent}
+import chui.core.{AnimationSpec, Animator, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
+    ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, LAYOUT_UNBOUNDED,
+    Motion, State, UiContext, Widget,
+    resolveControlKey, buildKeyedChild, drawFocusRing, drawSurface, emit, focusableControlIdentity,
+    handlePointerClick, localState, recordControlSemantics, resolveComponentControlAppearance}
 
 private let ACCORDION_HEADER_H: Float32 = 42.0
 
@@ -13,12 +16,24 @@ private let ACCORDION_HEADER_H: Float32 = 42.0
  * Per-body local state is therefore dropped after the close transition settles and recreated on reopen.
  */
 public struct AccordionSection {
-    let title: String
+    let title: ?String
+    let header: ?() -> Unit
     let body: () -> Unit
+    let semanticLabel: String
 
     public init(title: String, body: () -> Unit) {
-        this.title = title
+        this.title = Some(title)
+        this.header = None
         this.body = body
+        this.semanticLabel = title
+    }
+
+    /** Creates a section with arbitrary decorative header content. */
+    public init(accessibilityLabel!: String = "", header!: () -> Unit, body!: () -> Unit) {
+        this.title = None
+        this.header = Some(header)
+        this.body = body
+        this.semanticLabel = accessibilityLabel
     }
 }
 
@@ -34,7 +49,9 @@ public struct AccordionSection {
  * reaches zero; after that its local state resets, so hoist anything that must persist across reopen.
  */
 public class Accordion <: Widget {
-    private let titles: Array<String>
+    private let titles: Array<?String>
+    private let headers: Array<?Widget>
+    private let semanticLabels: Array<String>
     private let headerIds: Array<String>
     // The built body for each open section, or None while collapsed.
     private let bodies: Array<?Widget>
@@ -45,6 +62,7 @@ public class Accordion <: Widget {
     private let bodyAnimations: Array<Animator>
     private let headerAnimations: Array<InteractionAnimation>
     private var animationSpec: AnimationSpec
+    private var customStyle: ?ComponentControlStyle
 
     public init(
         sections: Array<AccordionSection>,
@@ -63,7 +81,9 @@ public class Accordion <: Widget {
             }
         }
         let count = sections.size
-        let builtTitles = ArrayList<String>()
+        let builtTitles = ArrayList<?String>()
+        let builtHeaders = ArrayList<?Widget>()
+        let builtSemanticLabels = ArrayList<String>()
         let builtIds = ArrayList<String>()
         let builtBodies = ArrayList<?Widget>()
         let builtBodyAnimations = ArrayList<Animator>()
@@ -72,8 +92,13 @@ public class Accordion <: Widget {
         // controls, next header, and so on.
         for (i in 0..count) {
             builtTitles.add(sections[i].title)
+            builtSemanticLabels.add(sections[i].semanticLabel)
             let headerId = focusableControlIdentity("Accordion:${ident}:header:${i}")
             builtIds.add(headerId)
+            match (sections[i].header) {
+                case Some(headerBody) => builtHeaders.add(Some(buildDecorativeControlChild(headerBody)))
+                case None => builtHeaders.add(None)
+            }
             let isOpen = this.expandedState.value.contains(i)
             let bodyAnimation = localState<Animator>("Accordion:${ident}:body-motion:${i}") {
                 Animator(if (isOpen) { 1.0 } else { 0.0 })
@@ -90,6 +115,8 @@ public class Accordion <: Widget {
             }
         }
         this.titles = builtTitles.toArray()
+        this.headers = builtHeaders.toArray()
+        this.semanticLabels = builtSemanticLabels.toArray()
         this.headerIds = builtIds.toArray()
         this.bodies = builtBodies.toArray()
         this.bodyAnimations = builtBodyAnimations.toArray()
@@ -97,6 +124,7 @@ public class Accordion <: Widget {
         this.headerRects = Array<Rect>(count, {_ => Rect.zero()})
         this.bodyRects = Array<Rect>(count, {_ => Rect.zero()})
         this.animationSpec = animation
+        this.customStyle = None
         emit(this)
     }
 
@@ -106,10 +134,16 @@ public class Accordion <: Widget {
         this
     }
 
+    /** Overrides the component theme's state-aware Accordion header style. */
+    public func controlStyle(value: ComponentControlStyle): Accordion {
+        customStyle = Some(value)
+        this
+    }
+
     public func measure(ctx: UiContext, available: Size): Size {
         var height: Float32 = 0.0
         for (i in 0..titles.size) {
-            height += ACCORDION_HEADER_H
+            height += headerHeight(ctx, i, available.w)
             match (bodies[i]) {
                 case Some(widget) =>
                     let fullHeight = widget.measure(ctx, Size(available.w, LAYOUT_UNBOUNDED)).h
@@ -123,8 +157,13 @@ public class Accordion <: Widget {
     public func layout(ctx: UiContext, rect: Rect): Unit {
         var y = rect.y
         for (i in 0..titles.size) {
-            headerRects[i] = Rect(rect.x, y, rect.w, ACCORDION_HEADER_H)
-            y += ACCORDION_HEADER_H
+            let height = headerHeight(ctx, i, rect.w)
+            headerRects[i] = Rect(rect.x, y, rect.w, height)
+            match (headers[i]) {
+                case Some(widget) => widget.layout(ctx, headerContentFrame(ctx, headerRects[i]))
+                case None => ()
+            }
+            y += height
             match (bodies[i]) {
                 case Some(widget) =>
                     let bodyHeight = widget.measure(ctx, Size(rect.w, LAYOUT_UNBOUNDED)).h
@@ -156,10 +195,11 @@ public class Accordion <: Widget {
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         for (i in 0..titles.size) {
+            let appearance = currentHeaderAppearance(ctx, i, bodyProgress(i))
             if (handlePointerClick(ctx, event, headerRects[i], headerIds[i], {=>
                 ctx.preserveScrollAnchor()
                 toggleSection(i)
-            }, inkRadius: ctx.theme.smallRadius, inkColor: Some(ctx.theme.inkColor()))) {
+            }, inkRadius: appearance.focusRadius, inkColor: Some(appearance.ink))) {
                 return true
             }
         }
@@ -216,9 +256,10 @@ public class Accordion <: Widget {
     private func toggleFocusedHeader(ctx: UiContext): Bool {
         for (i in 0..titles.size) {
             if (ctx.hasFocus(headerIds[i])) {
+                let appearance = currentHeaderAppearance(ctx, i, bodyProgress(i))
                 ctx.preserveScrollAnchor()
                 ctx.startInkRipple(headerIds[i], headerRects[i], headerRects[i].centerX(), headerRects[i].centerY(),
-                    color: Some(ctx.theme.inkColor()), cornerRadius: ctx.theme.smallRadius)
+                    color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
                 toggleSection(i)
                 return true
             }
@@ -252,20 +293,86 @@ public class Accordion <: Widget {
         let headerId = headerIds[index]
         let progress = headerAnimations[index].animate(ctx, ctx.isHovered(headerId), ctx.isPressed(headerId),
             AnimationSpec.automatic(duration: Motion.fast, easing: Motion.decelerate))
-        let surface = ctx.theme.field
-            .lerp(ctx.theme.fieldActive, max(reveal, progress.hover))
-            .lerp(ctx.theme.accentSoft, progress.press)
-        ctx.renderer.fillRoundedRect(rect, ctx.theme.smallRadius, surface)
+        let appearance = resolveComponentControlAppearance(ctx.theme, ComponentControlKind.AccordionHeader,
+            ComponentControlState(hover: progress.hover, press: progress.press,
+                focused: ctx.hasFocus(headerId), selected: expandedState.value.contains(index),
+                selection: Some(reveal), expanded: expandedState.value.contains(index)),
+            styleOverride: customStyle)
+        drawSurface(ctx, rect, appearance.surface)
+        recordControlSemantics(ctx, rect, "AccordionHeader", ControlSemantics(
+            "button",
+            label: semanticLabels[index],
+            value: if (expandedState.value.contains(index)) { "expanded" } else { "collapsed" },
+            action: "Accordion.toggle(" + index.toString() + ")",
+            actionOwner: headerId,
+            expanded: Some(expandedState.value.contains(index))
+        ))
         if (ctx.showFocusRing(headerId)) {
-            drawFocusRing(ctx, rect, ctx.theme.smallRadius)
+            drawFocusRing(ctx, rect, appearance.focusRadius)
         }
-        drawDisclosure(ctx, rect.x + 16.0, rect.centerY(), reveal, ctx.theme.mutedText)
-        let textY = rect.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0
-        ctx.renderer.text(titles[index], rect.x + 32.0, textY, ctx.theme.text, pointSize: FontSizes.CONTROL)
+        let insets = ctx.resolve(ctx.theme.components.spacing.controlPadding)
+        drawDisclosure(ctx, rect.x + insets.left + 6.0, rect.centerY(), reveal, appearance.indicator)
+        match (titles[index]) {
+            case Some(value) =>
+                let pointSize = max(1.0, ctx.resolve(ctx.theme.components.typography.control))
+                let textY = rect.centerY() - ctx.renderer.textHeight(pointSize: pointSize) / 2.0
+                ctx.renderer.text(value, headerContentFrame(ctx, rect).x, textY, appearance.foreground,
+                    pointSize: pointSize)
+            case None => match (headers[index]) {
+                case Some(widget) => ctx.withControlContentEnvironment(ControlContentEnvironment(
+                    appearance.foreground,
+                    role: "button",
+                    interactionOwner: headerId,
+                    selected: expandedState.value.contains(index),
+                    expanded: expandedState.value.contains(index),
+                    focused: ctx.hasFocus(headerId),
+                    hovered: progress.hover > 0.0,
+                    pressed: progress.press > 0.0
+                )) {=> widget.draw(ctx)}
+                case None => ()
+            }
+        }
     }
 
     private func bodyProgress(index: Int64): Float32 {
         max(0.0, min(1.0, bodyAnimations[index].value))
+    }
+
+    private func headerHeight(ctx: UiContext, index: Int64, availableWidth: Float32): Float32 {
+        let spacing = ctx.theme.components.spacing
+        let insets = ctx.resolve(spacing.controlPadding)
+        let contentHeight = match (headers[index]) {
+            case Some(widget) => widget.measure(ctx,
+                Size(max(0.0, availableWidth - insets.horizontal() - 22.0), LAYOUT_UNBOUNDED)).h
+            case None => ctx.renderer.textHeight(
+                pointSize: max(1.0, ctx.resolve(ctx.theme.components.typography.control)))
+        }
+        max(ACCORDION_HEADER_H, max(spacing.controlMinHeight, contentHeight + insets.vertical()))
+    }
+
+    private func headerContentFrame(ctx: UiContext, rect: Rect): Rect {
+        let insets = ctx.resolve(ctx.theme.components.spacing.controlPadding)
+        Rect(rect.x + insets.left + 22.0, rect.y + insets.top,
+            max(0.0, rect.w - insets.horizontal() - 22.0),
+            max(0.0, rect.h - insets.vertical()))
+    }
+
+    private func currentHeaderAppearance(
+        ctx: UiContext,
+        index: Int64,
+        reveal: Float32
+    ): ComponentControlAppearance {
+        let headerId = headerIds[index]
+        let expanded = expandedState.value.contains(index)
+        resolveComponentControlAppearance(ctx.theme, ComponentControlKind.AccordionHeader,
+            ComponentControlState(
+                hover: if (ctx.isHovered(headerId)) { 1.0 } else { 0.0 },
+                press: if (ctx.isPressed(headerId)) { 1.0 } else { 0.0 },
+                focused: ctx.hasFocus(headerId),
+                selected: expanded,
+                selection: Some(reveal),
+                expanded: expanded
+            ), styleOverride: customStyle)
     }
 }
 

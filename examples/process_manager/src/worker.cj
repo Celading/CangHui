@@ -4,11 +4,11 @@
  * 快照在 spawn 的工作线程上采集，结果放进互斥量保护的“信箱”，帧循环每帧收取
  * 一次，UI 线程永远不会等在子进程上。busy 标志保证同一时刻至多一份快照在跑。
  */
-package cui_process_manager
+package chui_process_manager
 
 import std.process.executeWithOutput
 import std.sync.Mutex
-import cui.FrameInfo
+import chui.FrameInfo
 
 class RefreshWorker {
     private let mutex = Mutex()

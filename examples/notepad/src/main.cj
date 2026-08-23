@@ -1,5 +1,5 @@
 /*
- * CUI 示例：纯文本记事本。
+ * CangHui 示例：纯文本记事本。
  *
  * 演示内容：
  *  - 编辑器外壳：分组工具栏、填满剩余空间的正文编辑区、内容全部由状态派生的状态栏
@@ -7,13 +7,13 @@
  *  - 应用内“新建”确认条：以异步状态驱动的警示条代替会阻塞事件循环的系统弹窗
  *  - 行数/字节统计由 DerivedState 从正文派生，永不与文档内容脱节
  */
-package cui_notepad
+package chui_notepad
 
-import cui.{ApplicationPaths, DesktopApp, FrameHandler, WindowSpec}
+import chui.{ApplicationPaths, DesktopApp, FrameHandler, WindowSpec}
 
 main(): Int64 {
     let model = NotepadModel()
-    let app = DesktopApp(WindowSpec("CUI 记事本", 900, 580, scale: 1.5), metadata: Some(notepadMetadata()),
+    let app = DesktopApp(WindowSpec("CangHui 记事本", 900, 580, scale: 1.5), metadata: Some(notepadMetadata()),
         hints: notepadHints(), theme: notepadTheme())
     // 布局按 640x460 的设计下限编写；限定窗口最小尺寸，避免工具栏与状态栏被挤出可视区。
     app.setMinimumSize(640, 460)

@@ -6,9 +6,9 @@
  *    →/← 展开折叠、空格切换，图标区分文件夹与文件。
  *  - 右栏详情由选中项 id 从索引查得，路径面包屑直接由 id 拆分得到。
  */
-package cui_file_explorer
+package chui_file_explorer
 
-import cui.{Axis, CrossAxisAlignment, Divider, FontSizes, HStack, Icon, IconName, Label, LengthUnits, Panel, Spacer,
+import chui.{Axis, CrossAxisAlignment, Divider, FontSizes, HStack, Icon, IconName, Label, LengthUnits, Panel, Spacer,
     SplitView, TextAlign, TreeView, VStack}
 
 func explorerView(model: ExplorerModel): Unit {

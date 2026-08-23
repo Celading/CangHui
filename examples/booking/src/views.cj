@@ -5,9 +5,9 @@
  *  - 房型 `SegmentedControl`、人数 `Stepper`；四项任一改变，晚数/单价/合计与有效性都由 `derive` 实时更新。
  *  - 退房不晚于入住时摘要转为警示，确认按钮随有效性启用；确认后显示回执，再次编辑即作废回执。
  */
-package cui_booking
+package chui_booking
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, DatePicker, FontSizes, HStack, Label, LengthUnits, Panel,
+import chui.{Button, ButtonRole, CrossAxisAlignment, DatePicker, FontSizes, HStack, Label, LengthUnits, Panel,
     SegmentedControl, Spacer, Stepper, VStack}
 
 func bookingView(model: BookingModel): Unit {

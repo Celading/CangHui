@@ -1,7 +1,7 @@
-package cui.media
+package chui.media
 
 import sdl.{Rect, Size, Texture, UiEvent}
-import cui.core.{Length, LengthUnit, UiContext, Widget, emit}
+import chui.core.{Length, LengthUnit, UiContext, Widget, emit}
 
 public enum ImageFit {
     | Stretch

@@ -3,9 +3,9 @@
  *
  * 当前合成样式是四个开关的纯函数派生；Chip 直接绑定各开关的 State（State 即 Bindable）。
  */
-package cui_typography
+package chui_typography
 
-import cui.{FontStyle, State}
+import chui.{FontStyle, State}
 
 class TypographyModel {
     let bold = State<Bool>(true)

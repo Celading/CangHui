@@ -1,4 +1,4 @@
-package cui.desktop
+package chui.desktop
 
 import std.collection.ArrayList
 import std.convert.*
@@ -11,10 +11,11 @@ import sdl.dialogs.FileDialogs
 import sdl.system.AppMetadata
 import sdl.system.ApplicationMetadata
 import sdl.system.SdlHintSetting
+import sdl.system.SdlHint
 import sdl.system.SdlHints
-import cui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot,
+import chui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot,
     UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip}
-import cui.kmode.kModeEnabled
+import chui.kmode.kModeEnabled
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
@@ -167,23 +168,23 @@ public class DesktopApp {
         uiOwnerQueue.currentEpoch()
     }
 
-    /** Queues a pointer click through the normal CUI hit-test and event route. */
+    /** Queues a pointer click through the normal CangHui hit-test and event route. */
     public func queuePointerClick(x: Float32, y: Float32): Unit {
         queuedEvents.add(UiEvent.MouseDown(MouseButton.Left, x, y))
         queuedEvents.add(UiEvent.MouseUp(MouseButton.Left, x, y))
     }
 
-    /** Queues a synthetic pointer down through the normal CUI hit-test and event route. */
+    /** Queues a synthetic pointer down through the normal CangHui hit-test and event route. */
     public func queuePointerDown(x: Float32, y: Float32): Unit {
         queuedEvents.add(UiEvent.MouseDown(MouseButton.Left, x, y))
     }
 
-    /** Queues a synthetic pointer move through the normal CUI hit-test and event route. */
+    /** Queues a synthetic pointer move through the normal CangHui hit-test and event route. */
     public func queuePointerMove(x: Float32, y: Float32): Unit {
         queuedEvents.add(UiEvent.MouseMove(x, y))
     }
 
-    /** Queues a synthetic pointer up through the normal CUI hit-test and event route. */
+    /** Queues a synthetic pointer up through the normal CangHui hit-test and event route. */
     public func queuePointerUp(x: Float32, y: Float32): Unit {
         queuedEvents.add(UiEvent.MouseUp(MouseButton.Left, x, y))
     }
@@ -769,6 +770,12 @@ private func configuredWindow(spec: WindowSpec, metadata: ?AppMetadata, hints: A
         case Some(value) => ApplicationMetadata.apply(value)
         case None => ()
     }
+    SdlHints.apply(defaultDesktopHints())
+    // Application hints are applied last so a host can explicitly restore the platform default.
     SdlHints.apply(hints)
     SdlWindow(spec)
+}
+
+internal func defaultDesktopHints(): Array<SdlHintSetting> {
+    [SdlHintSetting(SdlHint.MouseFocusClickthrough, "1")]
 }

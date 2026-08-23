@@ -23,7 +23,7 @@
 ```cangjie verify role=complete
 package docexample
 
-import cui.core.{Animator, Easing}
+import chui.core.{Animator, Easing}
 
 main(): Unit {
     let fade = Animator(0.0, duration: 250, easing: Easing.EaseInOutQuad)
@@ -69,7 +69,7 @@ if (!model.fade.settled()) {
 
 ## 相关 API
 
-[Animator](../../api/cui/core/Animator.md)、[Easing](../../api/cui/core/Easing.md)、[Spring](../../api/cui/core/Spring.md)、[Pulse](../../api/cui/core/Pulse.md)、[FrameHandler](../../api/cui/core/FrameHandler.md)。
+[Animator](../../api/chui/core/Animator.md)、[Easing](../../api/chui/core/Easing.md)、[Spring](../../api/chui/core/Spring.md)、[Pulse](../../api/chui/core/Pulse.md)、[FrameHandler](../../api/chui/core/FrameHandler.md)。
 
 ## 下一步
 

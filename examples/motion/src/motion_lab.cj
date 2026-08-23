@@ -5,9 +5,9 @@
  * 从而在即时模式 + 脏帧跳过下驱动连续动画（与 ProgressRing/Toaster 同路径）。标记点横坐标由缓动值决定，
  * 曲线不同则同一时刻位置不同，直观对比运动分布。
  */
-package cui_motion
+package chui_motion
 
-import cui.{FontSizes, Pen, Rect, Size, UiContext, UiEvent, Widget, emit}
+import chui.{FontSizes, Pen, Rect, Size, UiContext, UiEvent, Widget, emit}
 
 private let ROW_H: Float32 = 46.0
 private let LABEL_W: Float32 = 132.0

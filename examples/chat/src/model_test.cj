@@ -1,4 +1,4 @@
-package cui_chat
+package chui_chat
 
 @Test
 func seedProducesAConversationWithVaryingHeights(): Unit {

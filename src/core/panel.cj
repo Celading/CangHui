@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Insets, Rect, Size, SurfaceStyle, UiEvent}
 
@@ -108,5 +108,9 @@ public class Panel <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
     }
 }

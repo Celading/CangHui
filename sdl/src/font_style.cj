@@ -1,6 +1,6 @@
 package sdl
 
-/** Text weight, slant and line decorations used by CUI text components. */
+/** Text weight, slant and line decorations used by CangHui text components. */
 public struct FontStyle <: Equatable<FontStyle> {
     public let bold: Bool
     public let italic: Bool

@@ -9,9 +9,9 @@
  *  - 水线横贯（0.80 画高）：远三重山立于水后，近两重山的低谷沉入水下——江水由此**穿过群山**，
  *    山群成岛、岸线随山势弯转。
  */
-package cui_cangcui
+package chui_cangcui
 
-import cui.Color
+import chui.Color
 import std.math.{exp, pow, sin}
 
 // 一重山的形与色：基线/振幅（占画高比例）、两组正弦频相、聚散包络频相、峰形锐度、

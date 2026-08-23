@@ -4,9 +4,9 @@
  * 每个气泡是一个 Label 套 `.background(色, corners: 四角)`——四角来自 model.cornersFor，故调 Stepper 即刻改形。
  * 底部输入条用 `Corners.top(16)`：只圆上面两角，像自屏幕底部升起的抽屉。
  */
-package cui_corners
+package chui_corners
 
-import cui.{Button, ButtonRole, Corners, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, ScrollView,
+import chui.{Button, ButtonRole, Corners, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, ScrollView,
     Spacer, Stepper, TextField, VStack}
 
 func cornersView(model: CornersModel): Unit {

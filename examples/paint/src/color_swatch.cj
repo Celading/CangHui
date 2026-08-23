@@ -3,9 +3,9 @@
  * 应用层自定义 Widget 的最小样例——实现 measure/layout/draw/handle 四个钩子
  * 并 emit(this)，即可像内置控件一样参与声明式布局。
  */
-package cui_paint
+package chui_paint
 
-import cui.{Color, MouseButton, Rect, Size, State, UiContext, UiEvent, Widget, emit}
+import chui.{Color, MouseButton, Rect, Size, State, UiContext, UiEvent, Widget, emit}
 
 /** 色块边长与圆角（逻辑像素）。 */
 private let SWATCH_SIZE: Float32 = 26.0

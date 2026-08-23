@@ -7,9 +7,9 @@
  *    单击文件选中，悬停高亮（见 `EntryRow`）。
  *  - 底部状态栏展示条目计数与选中文件的详情，符合文件管理器惯例。
  */
-package cui_explorer
+package chui_explorer
 
-import cui.{Breadcrumb, CrossAxisAlignment, Divider, FontSizes, HStack, IconButton, IconName, Label, LengthUnits,
+import chui.{Breadcrumb, CrossAxisAlignment, Divider, FontSizes, HStack, IconButton, IconName, Label, LengthUnits,
     Panel, ScrollView, Spacer, VStack}
 
 func explorerView(model: ExplorerModel): Unit {

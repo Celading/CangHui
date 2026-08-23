@@ -5,9 +5,9 @@
  *  - 概览页与偏好页分别放进 ScrollView，超出高度时可滚动
  *  - 进度用 ProgressBar（自带居中动画百分比），尺寸一律使用 vp/fp 单位
  */
-package cui_planner
+package chui_planner
 
-import cui.{Button, ButtonRole, Color, ComboBox, CrossAxisAlignment, Dropdown, FlowRow, FontSizes, Grid, HStack, Icon,
+import chui.{Button, ButtonRole, Color, ComboBox, CrossAxisAlignment, Dropdown, FlowRow, FontSizes, Grid, HStack, Icon,
     IconName, Keyed, Label, LengthUnits, Panel, ProgressBar, RadioButton, ScrollView, Spacer, Stepper, Switch,
     TextField, VStack, rememberState}
 

@@ -5,9 +5,9 @@
  *  - 菜单动作作用于模型，`TextArea` 双向绑定正文，改动即刻可见；状态栏显示上次动作与实时行数/字数。
  *  - 菜单栏可点击展开、菜单间悬停切换，也可 Tab 聚焦后用方向键导航（← → 换菜单，↑ ↓ 选项，Enter 执行）。
  */
-package cui_editor
+package chui_editor
 
-import cui.{CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Menu, MenuBar, MenuItem, Panel, Spacer,
+import chui.{CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Menu, MenuBar, MenuItem, Panel, Spacer,
     TextArea, VStack}
 
 func editorView(model: EditorModel): Unit {

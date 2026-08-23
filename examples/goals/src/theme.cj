@@ -1,9 +1,9 @@
 /*
  * 目标主题：清爽浅色 + 青绿强调（进度环用强调色）。令牌集中于此。
  */
-package cui_goals
+package chui_goals
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func goalsTheme(): Theme {
     Theme(

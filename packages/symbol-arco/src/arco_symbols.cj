@@ -1,7 +1,7 @@
 package canghui_symbol_arco
 
 import std.collection.{ArrayList, HashSet}
-import cui.{Rect, Renderer, SymbolAdapter, SymbolDescriptor, SymbolGlyph, SymbolName, SymbolPaint,
+import chui.{Rect, Renderer, SymbolAdapter, SymbolDescriptor, SymbolGlyph, SymbolName, SymbolPaint,
     SymbolProvider, SymbolProviderSource, SymbolVariant, drawSymbolLine}
 
 private let ARCO_PROVIDER_ID = "arco"

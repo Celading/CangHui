@@ -4,10 +4,10 @@
  * 视图层只读取这里的 State/DerivedState：快照进度、字节数说明与“N 秒前刷新”
  * 全部由源状态派生，写入 output 或帧计数后无需手工同步任何展示字段。
  */
-package cui_process_manager
+package chui_process_manager
 
 import std.collection.ArrayList
-import cui.{DerivedState, State, derive}
+import chui.{DerivedState, State, derive}
 
 /* 自动刷新节奏。 */
 struct Refresh {

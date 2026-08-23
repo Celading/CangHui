@@ -1,9 +1,9 @@
 /*
  * 字体加载主题：素净的浅灰纸面 + 近墨文字 + 石青强调（选中的字体分段）。令牌集中于此。
  */
-package cui_fonts
+package chui_fonts
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func fontsTheme(): Theme {
     Theme(

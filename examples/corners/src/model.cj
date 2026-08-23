@@ -4,10 +4,10 @@
  * 消息用整表替换触发更新（发送即追加一条“我”的消息）；radius/tail 由 Stepper 绑定，改动即刻反映到每个气泡的
  * 四角造型上——这正是本示例要演示的：四角各自取值。
  */
-package cui_corners
+package chui_corners
 
 import std.collection.ArrayList
-import cui.{Corners, State}
+import chui.{Corners, State}
 
 class CornersModel {
     let messages: State<Array<Message>>

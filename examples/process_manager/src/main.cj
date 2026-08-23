@@ -1,5 +1,5 @@
 /*
- * CUI 示例：Windows 进程监视器。
+ * CangHui 示例：Windows 进程监视器。
  *
  * 演示内容：
  *  - 保持 UI 响应：tasklist 快照在 spawn 的工作线程上运行，结果经互斥量保护的
@@ -10,9 +10,9 @@
  * 文件分工：model.cj 状态与常量，worker.cj 后台刷新链路，views.cj 界面结构，
  * system_info.cj 系统信息文案，theme.cj 主题与桌面壳设置。
  */
-package cui_process_manager
+package chui_process_manager
 
-import cui.{DesktopApp, FrameHandler, WindowSpec}
+import chui.{DesktopApp, FrameHandler, WindowSpec}
 
 main(): Int64 {
     let model = ProcessModel()
@@ -21,7 +21,7 @@ main(): Int64 {
     worker.request()
     // 硬件与电源事实在应用生命周期内几乎不变，启动时查询一次即可。
     let facts = systemFacts()
-    let app = DesktopApp(WindowSpec("CUI 进程管理器", 940, 620, scale: 1.5), metadata: Some(processMetadata()),
+    let app = DesktopApp(WindowSpec("CangHui 进程管理器", 940, 620, scale: 1.5), metadata: Some(processMetadata()),
         hints: processHints(), theme: processTheme())
     // 布局没有为更小的窗口做回流设计，锁定最小尺寸防止内容被挤出屏幕。
     app.setMinimumSize(720, 520)

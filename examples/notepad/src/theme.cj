@@ -2,24 +2,24 @@
  * 记事本的应用元数据、SDL 提示项、青绿主题与表面样式。
  * 集中在一个文件里，视图层只管取用，不关心具体色值。
  */
-package cui_notepad
+package chui_notepad
 
-import cui.{AppMetadata, AppMetadataType, Color, SdlHint, SdlHintSetting, SurfaceStyle, Theme}
+import chui.{AppMetadata, AppMetadataType, Color, SdlHint, SdlHintSetting, SurfaceStyle, Theme}
 
 func notepadMetadata(): AppMetadata {
     var metadata = AppMetadata(
-        name: Some("CUI Notepad"),
+        name: Some("CangHui Notepad"),
         version: Some("0.1.0"),
         identifier: Some("dev.cui.examples.notepad")
     )
-    metadata.creator = Some("CUI Examples")
+    metadata.creator = Some("CangHui Examples")
     metadata.appType = Some(AppMetadataType.Application)
     metadata
 }
 
 func notepadHints(): Array<SdlHintSetting> {
     [
-        SdlHintSetting(SdlHint.AppName, "CUI Notepad"),
+        SdlHintSetting(SdlHint.AppName, "CangHui Notepad"),
         SdlHintSetting(SdlHint.AppId, "dev.cui.examples.notepad"),
         SdlHintSetting(SdlHint.WindowsCloseOnAltF4, "1")
     ]

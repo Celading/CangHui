@@ -1,9 +1,9 @@
 /*
  * 缓动示例主题：深色画布，青蓝强调（轨道标记与进度）。深色更凸显运动。令牌集中于此。
  */
-package cui_motion
+package chui_motion
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func motionTheme(): Theme {
     Theme(

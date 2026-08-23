@@ -1,6 +1,6 @@
-package cui_typography
+package chui_typography
 
-import cui.FontStyle
+import chui.FontStyle
 
 @Test
 func composeStyleMapsFlags(): Unit {

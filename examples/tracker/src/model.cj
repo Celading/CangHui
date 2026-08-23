@@ -4,9 +4,9 @@
  * 每个状态的过滤开关是开关数组在该下标上的镜头（`project`），`Chip` 双向读写它；可见问题是问题列表与
  * 开关数组的纯函数，每帧现算。
  */
-package cui_tracker
+package chui_tracker
 
-import cui.{Binding, State}
+import chui.{Binding, State}
 
 class TrackerModel {
     let issues: Array<Issue> = seedIssues()

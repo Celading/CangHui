@@ -1,9 +1,9 @@
-package cui.text
+package chui.text
 
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
-import cui.core.{Bindable, CUI_CONTROL_H, CursorShape, State, UiContext, Widget, claimHoverIfInside, emit, localState,
-    registerFocusable, resolveControlKey}
+import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, State, UiContext, Widget, claimHoverIfInside,
+    emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code, so the editing shortcuts read as
 // the familiar Ctrl+letter table.
@@ -26,6 +26,8 @@ private let LETTER_Z: UInt8 = 90
 public class TextField <: Widget {
     private let id: String
     private let text: Bindable<String>
+    private var placeholderText: String
+    private var semanticLabel: String
     private var cursorStateValue: State<Int64>
     private var anchorStateValue: State<Int64>
     private let history: UndoHistory
@@ -42,11 +44,14 @@ public class TextField <: Widget {
         key!: ?String = None,
         cursor!: ?State<Int64> = None,
         anchor!: ?State<Int64> = None,
-        editable!: Bool = true
+        editable!: Bool = true,
+        placeholder!: String = ""
     ) {
         let ident = resolveControlKey(key, "TextField")
         this.id = ident
         this.text = text
+        this.placeholderText = placeholder
+        this.semanticLabel = ""
         this.isEditable = editable
         this.cursorStateValue = match (cursor) {
             case Some(value) => value
@@ -73,6 +78,18 @@ public class TextField <: Widget {
     /** Claims keyboard focus the first time the field appears (e.g. a search box or dialog). */
     public func autofocus(): TextField {
         autofocusRequested = true
+        this
+    }
+
+    /** Sets the dim hint shown while the field is empty; does not change editing. */
+    public func placeholder(value: String): TextField {
+        placeholderText = value
+        this
+    }
+
+    /** Overrides the semantic name without changing the rendered value or hint. */
+    public func accessibilityLabel(value: String): TextField {
+        semanticLabel = value
         this
     }
 
@@ -103,6 +120,12 @@ public class TextField <: Widget {
     public func draw(ctx: UiContext): Unit {
         let edit = editState()
         edit.normalizeCursor()
+        recordControlSemantics(ctx, frame, "TextField", ControlSemantics(
+            "textfield", label: semanticLabel, value: text.value, placeholder: placeholderText,
+            action: if (isEditable) { "TextField.edit()" } else { "" },
+            shortcut: if (isEditable) { "TextInput" } else { "" },
+            actionOwner: id
+        ))
         drawTextBoxChrome(ctx, frame, id)
         // Values longer than the field must not paint past its surface; selection, text and
         // caret are clipped together, and all three share the same follow shift.
@@ -111,7 +134,11 @@ public class TextField <: Widget {
         if (ctx.hasFocus(id)) {
             drawTextFieldSelection(ctx, frame, text.value, edit.selectionStart(), edit.selectionEnd(), xShift: shift)
         }
-        drawTextFieldText(ctx, frame, text.value, shift)
+        if (text.value.isEmpty() && !placeholderText.isEmpty()) {
+            drawTextFieldPlaceholder(ctx, frame, placeholderText, shift)
+        } else {
+            drawTextFieldText(ctx, frame, text.value, shift)
+        }
         drawTextFieldCursor(ctx, frame, id, text.value, cursorStateValue.value, xShift: shift)
         ctx.renderer.popClip()
     }
@@ -312,4 +339,9 @@ private func flattenLines(value: String): String {
 private func drawTextFieldText(ctx: UiContext, frame: Rect, text: String, xShift: Float32): Unit {
     let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.BODY) / 2.0
     ctx.renderer.text(text, frame.x + 8.0 - xShift, textY, ctx.theme.text, pointSize: FontSizes.BODY)
+}
+
+private func drawTextFieldPlaceholder(ctx: UiContext, frame: Rect, text: String, xShift: Float32): Unit {
+    let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.BODY) / 2.0
+    ctx.renderer.text(text, frame.x + 8.0 - xShift, textY, ctx.theme.mutedText, pointSize: FontSizes.BODY)
 }

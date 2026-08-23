@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Rect, Size, UiEvent}
 
@@ -53,6 +53,10 @@ public class Keyed <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
     }
 }
 

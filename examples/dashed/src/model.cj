@@ -3,9 +3,9 @@
  *
  * 预览框由这三项现算；Stepper 直接绑定 State。
  */
-package cui_dashed
+package chui_dashed
 
-import cui.State
+import chui.State
 
 class DashedModel {
     let dash = State<Int64>(7)

@@ -1,4 +1,4 @@
-package cui.kmode
+package chui.kmode
 
 public let KMODE_PROTOCOL = "canghui.kmode.v0"
 public let KMODE_SCHEMA_REF = "canghui://schemas/kmode-call-v0"

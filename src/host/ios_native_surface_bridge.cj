@@ -1,6 +1,6 @@
-package cui.host
+package chui.host
 
-import cui.core.{UiOwnerQueue, UiOwnerTaskStatus}
+import chui.core.{UiOwnerQueue, UiOwnerTaskStatus}
 import std.sync.Mutex
 
 private let IOS_BRIDGE_ACCEPTED: Int64 = 0

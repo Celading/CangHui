@@ -1,6 +1,6 @@
-package cui_booking
+package chui_booking
 
-import cui.CalendarDate
+import chui.CalendarDate
 
 // 固定的“今天”使派生默认值在不同机器与时钟下保持确定。
 private let ANCHOR = CalendarDate(2026, 7, 16)

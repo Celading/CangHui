@@ -6,6 +6,11 @@ import std.math.abs
 
 private let DEFAULT_POINT_SIZE: Float32 = 15.0
 private let FONT_SIZE_EPSILON: Float32 = 0.01
+private let MAX_NAMED_FONT_INSTANCES: Int64 = 32
+private let FONT_INSTANCE_SHIFT: Int64 = 16
+private let FONT_CREATE_FILENAME_PROPERTY = "SDL_ttf.font.create.filename"
+private let FONT_CREATE_SIZE_PROPERTY = "SDL_ttf.font.create.size"
+private let FONT_CREATE_FACE_PROPERTY = "SDL_ttf.font.create.face"
 
 // TTF_STYLE_BOLD, and the mask of every other flag (italic/underline/strikethrough). Bold is the
 // one style worth a real companion face — synthetic emboldening thickens strokes unevenly and
@@ -288,6 +293,10 @@ private class FontFace {
     // shipped bold weight and bold must be synthesised.
     private var boldProbed: Bool = false
     private var boldCompanionPath: ?String = None
+    // Variable fonts can carry true named weights inside one file (HarmonyOS Sans SC does). Keep
+    // the encoded FreeType named-instance face index so bold does not degrade to faux emboldening.
+    private var boldInstanceProbed: Bool = false
+    private var boldInstanceFaceIndex: ?Int64 = None
 
     init(path: String, engine: CPointer<Unit>) {
         this.path = path
@@ -319,14 +328,22 @@ private class FontFace {
     }
 
     /*
-     * Opens the handle for (size, style), preferring a real bold face over a synthetic one: a bold
-     * request opens the face's true-bold companion file when one ships alongside (msyh.ttc ->
-     * msyhbd.ttc, segoeui.ttf -> segoeuib.ttf, X-Regular -> X-Bold), with only the remaining flags
-     * synthesised on top of it. A face without a companion — or a companion that fails to open
-     * mid-run — falls back to synthesising every flag from the base file.
+     * Opens the handle for (size, style), preferring real bold outlines over synthetic ones. A bold
+     * request first selects an in-file variable-font Bold instance, then a companion file when one
+     * ships alongside (msyh.ttc -> msyhbd.ttc, segoeui.ttf -> segoeuib.ttf, X-Regular -> X-Bold).
+     * Only the remaining flags are synthesised on a real bold face; if neither route opens, every
+     * requested flag is synthesised from the base face.
      */
     private func openStyled(pointSize: Float32, styleFlags: Int32): NativeFont {
         if ((styleFlags & STYLE_BOLD) != 0) {
+            if (let Some(faceIndex) <- boldInstance()) {
+                try {
+                    return openFontAtFace(path, pointSize, faceIndex, styleFlags,
+                        styleFlags & STYLE_NON_BOLD_MASK, path)
+                } catch (_: NativeTextException) {
+                    // The base face remains usable; continue to a separate companion or faux bold.
+                }
+            }
             if (let Some(boldFile) <- boldCompanion()) {
                 try {
                     return openFont(boldFile, pointSize, styleFlags, styleFlags & STYLE_NON_BOLD_MASK, path)
@@ -336,6 +353,14 @@ private class FontFace {
             }
         }
         openFont(path, pointSize, styleFlags, styleFlags, path)
+    }
+
+    private func boldInstance(): ?Int64 {
+        if (!boldInstanceProbed) {
+            boldInstanceProbed = true
+            boldInstanceFaceIndex = probeBoldNamedInstance(path)
+        }
+        boldInstanceFaceIndex
     }
 
     // The true-bold companion file's path, probed once per face and remembered (None when the face
@@ -564,6 +589,76 @@ private func openFont(
         }
     }
     NativeFont(font, pointSize, styleFlags, syntheticFlags, sourcePath)
+}
+
+private func openFontAtFace(
+    path: String,
+    pointSize: Float32,
+    faceIndex: Int64,
+    styleFlags: Int32,
+    syntheticFlags: Int32,
+    sourcePath: String
+): NativeFont {
+    let font = tryOpenFontAtFace(path, pointSize, faceIndex)
+    if (font.isNull()) {
+        throw NativeTextException("TTF_OpenFontWithProperties failed: ${lastNativeError()}")
+    }
+    NativeFont(font, pointSize, styleFlags, syntheticFlags, sourcePath)
+}
+
+// SDL_ttf exposes FreeType's encoded named-instance index through its face-number property. The
+// upper 16 bits select a variable-font named instance while face 0 remains the default Regular.
+private func tryOpenFontAtFace(path: String, pointSize: Float32, faceIndex: Int64): CPointer<Unit> {
+    let properties = unsafe { SDL_CreateProperties() }
+    if (properties == 0) { return CPointer<Unit>() }
+    let cPath = unsafe { LibC.mallocCString(path) }
+    let cFilenameProperty = unsafe { LibC.mallocCString(FONT_CREATE_FILENAME_PROPERTY) }
+    let cSizeProperty = unsafe { LibC.mallocCString(FONT_CREATE_SIZE_PROPERTY) }
+    let cFaceProperty = unsafe { LibC.mallocCString(FONT_CREATE_FACE_PROPERTY) }
+    var font = CPointer<Unit>()
+    try {
+        let hasPath = unsafe { SDL_SetStringProperty(properties, cFilenameProperty, cPath) }
+        let hasSize = unsafe { SDL_SetFloatProperty(properties, cSizeProperty, pointSize) }
+        let hasFace = unsafe { SDL_SetNumberProperty(properties, cFaceProperty, faceIndex) }
+        if (hasPath && hasSize && hasFace) {
+            font = unsafe { TTF_OpenFontWithProperties(properties) }
+        }
+    } finally {
+        unsafe {
+            SDL_DestroyProperties(properties)
+            LibC.free(cPath)
+            LibC.free(cFilenameProperty)
+            LibC.free(cSizeProperty)
+            LibC.free(cFaceProperty)
+        }
+    }
+    font
+}
+
+private func namedInstanceFaceIndex(instance: Int64): Int64 {
+    instance << FONT_INSTANCE_SHIFT
+}
+
+/*
+ * Returns a true Bold named instance carried inside `path`, preferring the exact style name and
+ * retaining a family-specific Bold spelling as fallback. Invalid successive indices fail open, so
+ * the bounded probe stops without requiring FreeType internals or a dependency change.
+ */
+protected func probeBoldNamedInstance(path: String): ?Int64 {
+    var fallback: ?Int64 = None
+    var instance: Int64 = 1
+    while (instance <= MAX_NAMED_FONT_INSTANCES) {
+        let faceIndex = namedInstanceFaceIndex(instance)
+        let font = tryOpenFontAtFace(path, DEFAULT_POINT_SIZE, faceIndex)
+        if (font.isNull()) { break }
+        let styleName = unsafe { TTF_GetFontStyleName(font) }
+        let style = if (styleName.isNull()) { "" } else { styleName.toString() }
+        unsafe { TTF_CloseFont(font) }
+        if (style == "Bold") { return Some(faceIndex) }
+        if (fallback.isNone() && style.contains("Bold")) { fallback = Some(faceIndex) }
+        instance += 1
+    }
+    fallback
 }
 
 // Splits a font path into stem and extension, recognising only real font-file extensions so a

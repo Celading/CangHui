@@ -1,4 +1,4 @@
-package cui.desktop
+package chui.desktop
 
 import sdl.system.PerformanceClock
 

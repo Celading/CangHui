@@ -5,9 +5,9 @@
  *  - 行内容是一个复选框（显示任务标题、切换完成态）：点手柄拖动、点手柄以外则命中复选框，二者互不干扰。
  *  - 完成态用 `project` 双向绑定到该任务的 done 字段；顺序由模型持有，列表只负责报告移动。
  */
-package cui_tasklist
+package chui_tasklist
 
-import cui.{Checkbox, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, ReorderableList, Spacer,
+import chui.{Checkbox, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, ReorderableList, Spacer,
     VStack}
 
 func tasklistView(model: TaskModel): Unit {
