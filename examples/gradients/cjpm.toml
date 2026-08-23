@@ -1,9 +1,9 @@
 [package]
 cjc-version = "1.0.5"
-name = "cui_gradients"
+name = "chui_gradients"
 version = "0.1.0"
 output-type = "executable"
-description = "CUI linear-gradient backgrounds (gradientBackground) showcase."
+description = "CangHui linear-gradient backgrounds (gradientBackground) showcase."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

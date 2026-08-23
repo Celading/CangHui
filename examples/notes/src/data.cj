@@ -4,7 +4,7 @@
  * 笔记是不可变值，更新通过整表替换触发状态通知（与看板示例一致）。标题从正文首行派生，
  * 因此编辑正文时侧栏标题会实时跟随。
  */
-package cui_notes
+package chui_notes
 
 struct Note {
     let id: Int64

@@ -3,9 +3,9 @@
  *
  * 页面自身用这些令牌排版（`Spacing` 作间距/内边距、`Radii` 作圆角、`Shadow.elevation` 作卡片高度），既是参考也是范例。
  */
-package cui_styleguide
+package chui_styleguide
 
-import cui.{CrossAxisAlignment, FlowRow, FontSizes, HStack, Label, Panel, Radii, ScrollView, Shadow, Spacer, Spacing,
+import chui.{CrossAxisAlignment, FlowRow, FontSizes, HStack, Label, Panel, Radii, ScrollView, Shadow, Spacer, Spacing,
     VStack}
 
 func styleguideView(): Unit {

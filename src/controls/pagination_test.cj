@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{State, Theme, UiContext}
 
 // Row centre-y for a 34px-tall control laid at y=0.
 private let PAGE_CY: Float32 = 17.0

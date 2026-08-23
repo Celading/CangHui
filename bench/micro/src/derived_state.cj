@@ -5,7 +5,7 @@
  */
 package bench_micro
 
-import cui.{State, derive}
+import chui.{State, derive}
 import bench_harness.{printSection, report, timeit}
 
 public func runDerivedBench(): Unit {

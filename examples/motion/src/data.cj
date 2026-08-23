@@ -4,9 +4,9 @@
  * 每条轨道绑定一种缓动曲线与一个 Animator（同一时长），播放时并排推进以对比曲线的运动分布。
  * 标记点的横坐标是缓动值与轨道两端的纯函数，便于单测且与绘制无关。
  */
-package cui_motion
+package chui_motion
 
-import cui.{Animator, Easing}
+import chui.{Animator, Easing}
 
 // 所有轨道共享的时长（毫秒），从而同时开始、同时到达，差别只在运动分布。
 let TRACK_DURATION: UInt64 = 900

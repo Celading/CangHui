@@ -1,4 +1,4 @@
-package cui_dashed
+package chui_dashed
 
 @Test
 func describeDashFormatsSettings(): Unit {

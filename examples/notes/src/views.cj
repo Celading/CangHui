@@ -5,9 +5,9 @@
  *  - 编辑器是绑定到选中笔记正文的 TextArea，自带选区/撤销；id 含笔记 id 故状态按笔记独立
  *  - 工具栏图标按钮用 Tooltip 补充说明
  */
-package cui_notes
+package chui_notes
 
-import cui.{Button, ButtonRole, ContextMenu, CrossAxisAlignment, FontSizes, HStack, IconButton, IconName, Label,
+import chui.{Button, ButtonRole, ContextMenu, CrossAxisAlignment, FontSizes, HStack, IconButton, IconName, Label,
     LengthUnits, ListView, MenuItem, Modal, Panel, Spacer, TextArea, Tooltip, VStack, ZStack}
 
 func notesView(model: NotesModel): Unit {

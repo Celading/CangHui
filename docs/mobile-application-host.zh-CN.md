@@ -43,7 +43,7 @@ generation 同时匹配当前 receipt，回调才可进入 Cangjie UI owner queu
   开发 profile 已通过一次真机 `devicectl` 安装。设备信任开启后，同一 probe 已成功
   启动并报告 Metal drawable 就绪、31 个 clear frame、detach/reattach generation 回放，
   以及合成 touch、pointer、trait 入口。该结论只证明 static-package probe；完整声明式
-  CUI 场景与产品验收仍未完成。验证脚本同时支持 macOS
+  CangHui 场景与产品验收仍未完成。验证脚本同时支持 macOS
   `security cms` 解码与 `openssl smime` 兼容回退，且不会把 profile 内容写入项目证据。
 - Android 已有 Java/JNI/NDK `SurfaceView` bootstrap；Cangjie Android runtime
   链接、产品 APK 和真机回放仍未完成。

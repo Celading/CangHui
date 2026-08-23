@@ -123,7 +123,7 @@ fi
 mkdir -p "${FAKE_BIN_DIR}"
 printf '%s\n' \
     '[requires]' \
-    'cui = { git = "https://github.com/Celading/CangHui.git", commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02" }' \
+    'chui = { git = "https://github.com/Celading/CangHui.git", commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02" }' \
     > "${FAKE_LOCK_FILE}"
 printf '%s\n' \
     '#!/usr/bin/env bash' \

@@ -1,4 +1,4 @@
-package cui_stats
+package chui_stats
 
 @Test
 func deltaTextSignsThePercent(): Unit {

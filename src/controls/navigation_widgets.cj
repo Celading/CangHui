@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Key, MouseButton, Rect, Size, UiEvent, clampF32}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_GAP, CursorShape, Spring, UiContext, Widget, buildChildren,
+import chui.core.{Bindable, CUI_CONTROL_H, CUI_GAP, CursorShape, Spring, UiContext, Widget, buildChildren,
     claimHoverIfInside, drawFocusRing, drawSurface, emit, focusableControlIdentity, localState, requireControlId,
     unregisterFocusable}
 

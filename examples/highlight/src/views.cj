@@ -4,9 +4,9 @@
  * 每张卡片的标题与正文都是一条 RichText，其片段由 model.spansFor 依当前 query 切分——命中处套 <mark> 高亮。
  * 搜索框与预设标签写同一个 query State，故键入或点标签都会即时重算高亮。
  */
-package cui_highlight
+package chui_highlight
 
-import cui.{Button, ButtonRole, Color, CrossAxisAlignment, FlowRow, FontSizes, HStack, Icon, IconName, Label,
+import chui.{Button, ButtonRole, Color, CrossAxisAlignment, FlowRow, FontSizes, HStack, Icon, IconName, Label,
     LengthUnits, Panel, RichText, ScrollView, TextField, VStack}
 
 func highlightView(model: SearchModel): Unit {

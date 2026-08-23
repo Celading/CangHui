@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 /**
  * The spacing scale — a consistent set of gaps and paddings on a 4-pixel grid, expressed as `Length`

@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{State, Theme, UiContext}
 
 private func menuBarTestContext(): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())

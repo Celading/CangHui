@@ -4,7 +4,7 @@
  * 目录树是不可变的 `FsNode` 结构，节点带列表展示用的元数据（文件大小、修改日期，演示数据为固定值）；
  * 沿路径查找、列目录、面包屑分段/导航、大小格式化都是纯函数，便于单测且与视图无关。
  */
-package cui_explorer
+package chui_explorer
 
 import std.collection.ArrayList
 

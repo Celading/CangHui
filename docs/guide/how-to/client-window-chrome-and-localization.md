@@ -60,4 +60,4 @@ let title = strings.resolve("window.title", activeLocale)
 
 本地化至少验证：精确命中、语言回退、默认语言回退和缺键回退；切换语言后同一业务状态不重置。窗口标题、主要导航、动作、状态和错误信息都不应残留硬编码的第二语言。
 
-相关 API：[`DesktopApp`](../../api/cui/desktop/DesktopApp.md)、[`CanvasWidget`](../../api/cui/media/CanvasWidget.md) 与 [`cui` 包入口](../../api/cui/index.md)。
+相关 API：[`DesktopApp`](../../api/chui/desktop/DesktopApp.md)、[`CanvasWidget`](../../api/chui/media/CanvasWidget.md) 与 [`chui` 包入口](../../api/chui/index.md)。

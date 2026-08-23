@@ -2,7 +2,7 @@
 
 [English](application-shell.md) | **中文**
 
-`cui.system` 是 CangHui 的系统级应用能力契约。应用身份、资源、Action、设置、
+`chui.system` 是 CangHui 的系统级应用能力契约。应用身份、资源、Action、设置、
 通知、菜单和状态项保留在同一个仓颉模型中；平台 Provider 明确报告对应能力是
 native、fallback、permission-required 还是 unsupported。
 

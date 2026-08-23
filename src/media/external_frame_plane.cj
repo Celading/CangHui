@@ -1,4 +1,4 @@
-package cui.media
+package chui.media
 
 import sdl.{Rect, Renderer}
 

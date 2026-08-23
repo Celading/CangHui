@@ -4,9 +4,9 @@
  * 播放开关翻转即让所有轨道的 Animator 同时朝 1（播放）或 0（复位）缓动；轨道对象在模型里持久存在，
  * 以便逐帧累积动画时间。
  */
-package cui_motion
+package chui_motion
 
-import cui.State
+import chui.State
 
 class MotionModel {
     let tracks: Array<EasingTrack> = buildTracks()

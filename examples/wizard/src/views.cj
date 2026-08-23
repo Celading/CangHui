@@ -5,9 +5,9 @@
  *  - 中部按当前步渲染不同表单；底部 上一步/下一步 驱动前进后退，未通过必填校验时“下一步”禁用。
  *  - 单一数据源：各步字段与当前步都在 model，步骤条、表单、导航皆由其派生。
  */
-package cui_wizard
+package chui_wizard
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, SegmentedControl,
+import chui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, SegmentedControl,
     Spacer, StepIndicator, Switch, TextField, VStack}
 
 func wizardView(model: WizardModel): Unit {

@@ -1,7 +1,7 @@
-package cui.core
+package chui.core
 
 import sdl.{Color, FontSizes, IconName, Rect, Size, SurfaceStyle, UiEvent}
-import cui.symbol.{SymbolDirection, SymbolMissingPolicy, SymbolName, SymbolVariant, drawSymbol, symbolNameForIcon}
+import chui.symbol.{SymbolDirection, SymbolMissingPolicy, SymbolName, SymbolVariant, drawSymbol, symbolNameForIcon}
 
 private let ICON_DEFAULT_SIZE: Float32 = 18.0
 private let ICON_BUTTON_PAD: Float32 = 10.0

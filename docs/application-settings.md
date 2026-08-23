@@ -2,7 +2,7 @@
 
 **English** | [中文](application-settings.zh-CN.md)
 
-The `cui.system` settings layer separates a typed application schema from the
+The `chui.system` settings layer separates a typed application schema from the
 storage provider. An ordinary provider may offer a framework fallback; a
 sensitive setting requires a provider that reports native `secure` storage.
 

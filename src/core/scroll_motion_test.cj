@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 private func scrollApproxEq(a: Float32, b: Float32): Bool {
     let delta = if (a >= b) { a - b } else { b - a }

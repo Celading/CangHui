@@ -1,9 +1,9 @@
 [package]
 cjc-version = "1.0.5"
-name = "cui_paint"
+name = "chui_paint"
 version = "0.1.0"
 output-type = "executable"
-description = "CUI paint example."
+description = "CangHui paint example."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

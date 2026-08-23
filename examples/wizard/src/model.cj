@@ -4,9 +4,9 @@
  * `StepIndicator` 展示进度，`step` 由 上一步/下一步 按钮驱动、也可点已完成的步节点跳回。每一步有各自的
  * 必填校验（`stepValid`），`canAdvance` 决定“下一步”是否可用；单一数据源，各步字段互不干扰。
  */
-package cui_wizard
+package chui_wizard
 
-import cui.State
+import chui.State
 
 class WizardModel {
     let steps = WIZARD_STEPS

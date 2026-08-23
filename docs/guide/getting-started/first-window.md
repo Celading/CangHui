@@ -1,6 +1,6 @@
-[CUI 指南](../index.md) › 第一个窗口
+[CangHui 指南](../index.md) › 第一个窗口
 
-# 创建第一个 CUI 窗口
+# 创建第一个 CangHui 窗口
 
 ## 你将完成
 
@@ -11,9 +11,9 @@
 ## 开始之前
 
 - 已安装仓颉 1.0.5，`cjpm --version` 可运行。
-- 已取得 `cui` 源码。本例假设新项目与 `cui` 目录同级。
+- 已取得 `chui` 源码。本例假设新项目与 `chui` 目录同级。
 - Windows 运行时需要让仓库 `sdl/.sdl3` 中的 SDL3 与 SDL3_ttf DLL 位于可执行文件目录或 `PATH`。其他系统同样需要可加载的对应动态库。
-- 你只需理解 `main`、lambda 和字符串插值；不需要先知道 CUI 包层次。
+- 你只需理解 `main`、lambda 和字符串插值；不需要先知道 CangHui 包层次。
 
 创建 `docexample` 可执行项目，并在 `cjpm.toml` 中写入：
 
@@ -25,7 +25,7 @@ version = "0.1.0"
 output-type = "executable"
 
 [dependencies]
-cui = { path = "../cui" }
+chui = { path = "../chui" }
 ```
 
 先执行 `cjpm build`。依赖路径错误会在构建阶段出现；动态库问题通常在启动阶段出现。把两类问题分开能减少无关修改。
@@ -59,7 +59,7 @@ cui = { path = "../cui" }
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("计数器", 360, 240))
@@ -96,7 +96,7 @@ HStack(spacing: 8.vp) {
 
 ## 如果没有成功
 
-- **构建找不到 cui**：依赖路径应指向 `cui` 项目根，不是 `src`。
+- **构建找不到 chui**：依赖路径应指向 `chui` 项目根，不是 `src`。
 - **启动时缺动态库**：把 SDL 运行库加入产物目录或系统搜索路径。
 - **点击无变化**：确认回调真的写入 `count.value`，而不是只计算表达式。
 - **每帧重置**：使用 `rememberState` 且键稳定唯一；不要在键中加入每次变化的文本。
@@ -104,10 +104,10 @@ HStack(spacing: 8.vp) {
 
 ## 相关 API
 
-- [`DesktopApp`](../../api/cui/desktop/DesktopApp.md) — 窗口、事件循环和运行生命周期。
-- [`cui` 伞包中的 WindowSpec](../../api/cui/index.md) — 窗口标题、逻辑尺寸和缩放选项。
-- [`VStack`](../../api/cui/core/VStack.md) 与 [`Button`](../../api/cui/core/Button.md) — 排列与用户动作。
-- [`rememberState`](../../api/cui/core/functions.md#rememberstate) 与 [`State`](../../api/cui/core/State.md) — 局部状态保留和读写。
+- [`DesktopApp`](../../api/chui/desktop/DesktopApp.md) — 窗口、事件循环和运行生命周期。
+- [`chui` 伞包中的 WindowSpec](../../api/chui/index.md) — 窗口标题、逻辑尺寸和缩放选项。
+- [`VStack`](../../api/chui/core/VStack.md) 与 [`Button`](../../api/chui/core/Button.md) — 排列与用户动作。
+- [`rememberState`](../../api/chui/core/functions.md#rememberstate) 与 [`State`](../../api/chui/core/State.md) — 局部状态保留和读写。
 
 ## 下一步
 

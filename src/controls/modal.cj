@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Color, Key, Rect, Size, SurfaceStyle, UiEvent}
 import sdl.input.Keyboard
-import cui.core.{Bindable, Overlay, UiContext, Widget, buildChild, controlIdentity, drawSurface, emit,
+import chui.core.{Bindable, Overlay, UiContext, Widget, buildChild, controlIdentity, drawSurface, emit,
     focusableCountNow, focusablesSince}
 
 private let MODAL_PADDING: Float32 = 22.0

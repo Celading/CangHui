@@ -1,7 +1,7 @@
-package cui.testkit
+package chui.testkit
 
-import cui.component.{ComponentContext, ViewportSpec}
-import cui.host.{HostCapability, HostPlatform, HostProfile}
+import chui.component.{ComponentContext, ViewportSpec}
+import chui.host.{HostCapability, HostPlatform, HostProfile}
 
 /** A desktop-rendered layout target, not a platform-runtime proof. */
 public struct PreviewCase {

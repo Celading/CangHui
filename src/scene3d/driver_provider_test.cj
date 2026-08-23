@@ -1,4 +1,4 @@
-package cui.scene3d
+package chui.scene3d
 
 private class RecordingScene3DDriver <: Scene3DDriver {
     var calls = ""

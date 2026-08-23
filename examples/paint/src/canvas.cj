@@ -5,9 +5,9 @@
  * 事件按绘制层级自顶向下分发（后绘制者先收到事件），画布在工具栏之后声明，
  * 因此总是先于工具栏拿到鼠标事件——决定“消费还是放行”时必须克制。
  */
-package cui_paint
+package chui_paint
 
-import cui.{FontSizes, MouseButton, Pen, Rect, Renderer, UiEvent}
+import chui.{FontSizes, MouseButton, Pen, Rect, Renderer, UiEvent}
 
 /** 空画布提示文字相对画布左上角的偏移。 */
 private let HINT_INSET: Float32 = 12.0

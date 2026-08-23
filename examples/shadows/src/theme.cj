@@ -1,9 +1,9 @@
 /*
  * 阴影对比示例主题：中性浅灰底——阴影在无彩底上最易读。令牌集中于此。
  */
-package cui_shadows
+package chui_shadows
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func shadowsTheme(): Theme {
     Theme(

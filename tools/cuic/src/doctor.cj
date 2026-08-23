@@ -228,7 +228,7 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
         "A Cangjie project manifest is available.", manifest))
     if (frameworkRootCandidate(project)) {
         checks.add(doctorReady("project.dependency", "Framework development checkout",
-            "The current project is the CangHui framework itself; no external cui dependency is required.", project))
+            "The current project is the CangHui framework itself; no external chui dependency is required.", project))
         checks.add(doctorReady("project.cache", "Resolved framework",
             "The integrated CLI uses the current framework checkout.", framework))
         return DoctorGroup("project", "Application dependency, lock, and CJPM cache", "all", checks.toArray())
@@ -247,7 +247,7 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
         checks.add(if (spec.commitId.isEmpty()) {
             doctorBlocked("project.dependency", "CangHui dependency",
                 "The public Git dependency is not pinned to an exact commitId.", DoctorActionKind.Manual,
-                "Pin [dependencies].cui to an exact commitId before updating the lock.", spec.git)
+                "Pin [dependencies].chui to an exact commitId before updating the lock.", spec.git)
         } else {
             doctorReady("project.dependency", "CangHui dependency",
                 "The application uses a pinned public Git dependency.", spec.git + "@" + shortCommit(spec.commitId))
@@ -274,7 +274,7 @@ func doctorConsumerProjectGroup(project: String, framework: String): DoctorGroup
         })
     } else {
         checks.add(doctorBlocked("project.dependency", "CangHui dependency",
-            "The project does not declare a cui dependency.", DoctorActionKind.Manual,
+            "The project does not declare a chui dependency.", DoctorActionKind.Manual,
             "Run cuic init or add a pinned CangHui dependency under [dependencies].", manifest))
     }
     DoctorGroup("project", "Application dependency, lock, and CJPM cache", "all", checks.toArray())
@@ -307,7 +307,7 @@ func doctorRepositoryGroup(framework: String): DoctorGroup {
         "Restore the CangHui package manifest."
     ))
     checks.add(doctorFrameworkRequiredFile(framework,
-        "repository.umbrella", "CUI umbrella package", joinPath(framework, "src/cui.cj"),
+        "repository.umbrella", "CangHui umbrella package", joinPath(framework, "src/chui.cj"),
         "Restore the CangHui source package."
     ))
     let command = getCommandLine()[0]

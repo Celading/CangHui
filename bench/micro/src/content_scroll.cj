@@ -12,7 +12,7 @@
  */
 package bench_micro
 
-import cui.{Rect, State, Widget}
+import chui.{Rect, State, Widget}
 import bench_scenes.{contentScrollScene, lazyContentScrollScene}
 import bench_harness.{ScrollSweep, printSection, report, timeit}
 

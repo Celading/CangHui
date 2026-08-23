@@ -1,4 +1,4 @@
-package cui.native_scene
+package chui.native_scene
 
 import std.collection.ArrayList
 

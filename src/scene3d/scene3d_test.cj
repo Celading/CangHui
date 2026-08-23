@@ -1,4 +1,4 @@
-package cui.scene3d
+package chui.scene3d
 
 @Test
 func scene3dNamesAndProtocolStayStable(): Unit {

@@ -4,9 +4,9 @@
  * 列表栏 = 搜索过滤后的 MailRow 竖排（未读加粗带圆点，点击选中）；阅读栏 = 主题、发件人
  * 元信息（RichText 混排）、未读徽标与操作按钮、逐段换行的正文。
  */
-package cui_mail
+package chui_mail
 
-import cui.{Axis, Badge, BadgeKind, Button, CrossAxisAlignment, Divider, FontSizes, HStack, Label, LengthUnits,
+import chui.{Axis, Badge, BadgeKind, Button, CrossAxisAlignment, Divider, FontSizes, HStack, Label, LengthUnits,
     Panel, RichSpan, RichText, ScrollView, Spacer, SplitView, TextAlign, TextField, VStack}
 
 func mailView(model: MailModel): Unit {

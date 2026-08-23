@@ -1,4 +1,4 @@
-package cui_cangcui
+package chui_cangcui
 
 // 山水几何为纯函数：同尺寸永远同画，快照因此可回归；这里钉住确定性、层次关系与
 // 「江水穿山」构图成立的结构条件。

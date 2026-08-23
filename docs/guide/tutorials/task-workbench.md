@@ -8,7 +8,7 @@
 
 ## 开始之前
 
-先完成[设置表单](settings-form.md)，并读过[应用结构](../concepts/app-architecture.md)。沿用首窗口教程的 `cjpm.toml`、CUI 路径依赖和 SDL 运行库。你需要会创建 `State`、用 `VStack`/`HStack` 排列控件，并能在普通运行方式下关闭窗口。
+先完成[设置表单](settings-form.md)，并读过[应用结构](../concepts/app-architecture.md)。沿用首窗口教程的 `cjpm.toml`、CangHui 路径依赖和 SDL 运行库。你需要会创建 `State`、用 `VStack`/`HStack` 排列控件，并能在普通运行方式下关闭窗口。
 
 ## 先建立一个模型
 
@@ -34,7 +34,7 @@
 package docexample
 
 import std.collection.ArrayList
-import cui.*
+import chui.*
 
 class WorkItem {
     let id: String
@@ -197,7 +197,7 @@ main(): Unit {
 
 ### 第四步：拆成多文件工程
 
-单文件运行成功后，进入项目随附的 `cui/examples/workbench`。它不是只有 `main` 片段的目录示意，而是一套已经配好包名、依赖和测试的真实工程：
+单文件运行成功后，进入项目随附的 `chui/examples/workbench`。它不是只有 `main` 片段的目录示意，而是一套已经配好包名、依赖和测试的真实工程：
 
 ```text
 examples/workbench/
@@ -246,7 +246,7 @@ func projectBindingReadsAndWritesSelectedDoc(): Unit {
 
 ## 相关 API
 
-[State](../../api/cui/core/State.md) 保存事实，[DerivedState](../../api/cui/core/DerivedState.md) 可表达只读统计，[TextArea](../../api/cui/text/TextArea.md) 编辑说明，[ForEach](../../api/cui/core/functions.md) 按 id 维护行身份。需要可拖动双栏时，可把当前 `HStack` 迁移到 [SplitView](../../api/cui/controls/SplitView.md)。
+[State](../../api/chui/core/State.md) 保存事实，[DerivedState](../../api/chui/core/DerivedState.md) 可表达只读统计，[TextArea](../../api/chui/text/TextArea.md) 编辑说明，[ForEach](../../api/chui/core/functions.md) 按 id 维护行身份。需要可拖动双栏时，可把当前 `HStack` 迁移到 [SplitView](../../api/chui/controls/SplitView.md)。
 
 ## 下一步
 

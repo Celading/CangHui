@@ -1,4 +1,4 @@
-package cui.system
+package chui.system
 
 class ApplicationShellTestCounter {
     var value: Int64 = 0

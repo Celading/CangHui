@@ -1,6 +1,6 @@
 [package]
 cjc-version = "1.0.5"
-name = "cui"
+name = "chui"
 version = "0.10.0"
 output-type = "static"
 description = "CangHui multiplatform declarative GUI framework for Cangjie"

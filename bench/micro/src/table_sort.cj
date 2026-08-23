@@ -7,7 +7,7 @@
  */
 package bench_micro
 
-import cui.{MouseButton, Rect, State, Table, TableColumn, UiContext, UiEvent}
+import chui.{MouseButton, Rect, State, Table, TableColumn, UiContext, UiEvent}
 import bench_scenes.{makeEqualKeyRows, makeTableRows}
 import bench_harness.{printSection, report, timeit}
 

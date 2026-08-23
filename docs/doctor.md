@@ -79,7 +79,7 @@ The iOS group reports the static-package bootstrap and native-surface adapter
 separately. The current adapter includes the integer-only C ABI, UIKit
 `CAMetalLayer`, lifecycle and safe-area ingress, touch forwarding,
 `CADisplayLink`, generation-gated detach/reattach replay, and a simulator/device
-verifier. Full CUI scene rendering, IME, accessibility, application
+verifier. Full CangHui scene rendering, IME, accessibility, application
 packaging and product acceptance remain separate platform work.
 
 Set `CANGHUI_IOS_HOME` or `CANGJIE_IOS_HOME` when the iOS SDK is installed outside

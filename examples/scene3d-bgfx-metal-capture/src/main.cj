@@ -1,8 +1,8 @@
 package canghui_scene3d_bgfx_metal_capture
 
 import canghui_scene3d_bgfx.*
-import cui.desktop.DesktopCaptureRequest
-import cui.scene3d.*
+import chui.desktop.DesktopCaptureRequest
+import chui.scene3d.*
 import std.fs.{exists, removeIfExists}
 
 main(): Int64 {

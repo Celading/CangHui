@@ -1,9 +1,9 @@
 /*
  * 虚线边框主题：清爽浅色。令牌集中于此。
  */
-package cui_dashed
+package chui_dashed
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func dashedTheme(): Theme {
     Theme(

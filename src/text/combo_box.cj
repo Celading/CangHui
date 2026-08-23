@@ -1,8 +1,8 @@
-package cui.text
+package chui.text
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State,
+import chui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State,
     UiContext, Widget, resolveControlKey, advanceScrollMotion, applyWheelScroll, buildChild, cancelScrollMotion,
     clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, scrollBarGutter}
 

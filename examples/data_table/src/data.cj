@@ -7,9 +7,9 @@
  * 生效，绘制则由回调接管——迷你负载条 + 右对齐数值，负载越高颜色越警示。表格先画好行底与选中高亮并
  * 把回调裁剪在单元格内，回调只负责内容。
  */
-package cui_data_table
+package chui_data_table
 
-import cui.{Color, DataColumn, FontSizes, Rect, UiContext, clampF32}
+import chui.{Color, DataColumn, FontSizes, Rect, UiContext, clampF32}
 
 /** 一台服务器的类型化行数据；表格列由此抽取字段。 */
 struct Server {

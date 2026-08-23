@@ -48,7 +48,7 @@ license = "Apache-2.0"
 link-option = "-L$BGFX_NATIVE_ROOT -lbgfx -lbimg -lbx -lc++ -lobjc -L$ROOT/sdl/.sdl3 -lSDL3 -lSDL3_ttf -framework Metal -framework QuartzCore -framework Cocoa -framework Foundation -framework IOKit"
 
 [dependencies]
-cui = { path = "$ROOT" }
+chui = { path = "$ROOT" }
 sdl = { path = "$ROOT/sdl" }
 bgfx4cj = { path = "$STAGE/bgfx4cj" }
 EOF
@@ -64,7 +64,7 @@ license = "Apache-2.0"
 link-option = "-L$BGFX_NATIVE_ROOT -lbgfx -lbimg -lbx -lc++ -lobjc -L$ROOT/sdl/.sdl3 -lSDL3 -lSDL3_ttf -framework Metal -framework QuartzCore -framework Cocoa -framework Foundation -framework IOKit"
 
 [dependencies]
-cui = { path = "$ROOT" }
+chui = { path = "$ROOT" }
 canghui_scene3d_bgfx = { path = "$STAGE/scene3d-bgfx" }
 EOF
 

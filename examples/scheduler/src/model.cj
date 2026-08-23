@@ -3,9 +3,9 @@
  *
  * 时长由开始/结束时间现算，`canAdd` 据此与主题非空决定“添加”是否可用；添加后按 (日期, 开始) 排序。
  */
-package cui_scheduler
+package chui_scheduler
 
-import cui.{CalendarDate, State, TimeOfDay}
+import chui.{CalendarDate, State, TimeOfDay}
 
 class SchedulerModel {
     let title = State<String>("团队周会")

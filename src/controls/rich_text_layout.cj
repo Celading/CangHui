@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontStyle, IconName}
-import cui.core.{maxRunesFitting, runeSlice}
+import chui.core.{maxRunesFitting, runeSlice}
 
 // A span fragment placed at a position during layout: a text slice or an icon at (x, y) in content space.
 enum PlacedKind {

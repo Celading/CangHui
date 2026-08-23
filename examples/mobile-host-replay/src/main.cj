@@ -1,8 +1,8 @@
 package canghui_mobile_host_replay
 
 import std.convert.*
-import cui.*
-import cui.kmode.macros.*
+import chui.*
+import chui.kmode.macros.*
 
 private let mobileReceipt = MobileHostPackageReceipt(
     MobileApplicationPlatform.Android,

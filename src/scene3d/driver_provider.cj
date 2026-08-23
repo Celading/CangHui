@@ -1,4 +1,4 @@
-package cui.scene3d
+package chui.scene3d
 
 /** Result returned by one native driver operation before CangHui shapes a receipt. */
 public struct Scene3DDriverResult {

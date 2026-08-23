@@ -1,4 +1,4 @@
-package cui_cards
+package chui_cards
 
 @Test
 func describeStyleReflectsSettings(): Unit {

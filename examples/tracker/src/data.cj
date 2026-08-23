@@ -3,7 +3,7 @@
  *
  * 状态过滤（按状态开关保留问题）与状态位更新都是纯函数，便于单测且与视图无关。
  */
-package cui_tracker
+package chui_tracker
 
 import std.collection.ArrayList
 

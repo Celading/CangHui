@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, UiEvent, clampF32}
-import cui.core.{CursorShape, Overlay, State, UiContext, Widget, claimHoverIfInside, drawFocusRing,
+import chui.core.{CursorShape, Overlay, State, UiContext, Widget, claimHoverIfInside, drawFocusRing,
     emit, focusableControlIdentity, localState, requireControlId}
 
 private let MENU_BAR_HEIGHT: Float32 = 34.0

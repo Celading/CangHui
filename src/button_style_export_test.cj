@@ -1,4 +1,4 @@
-package cui
+package chui
 
 @Test
 func umbrellaExportsComponentThemeAndButtonStyle(): Unit {

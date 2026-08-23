@@ -2,9 +2,9 @@
  * 键盘输入映射：把文本输入与功能键翻译成 CalcKey，与鼠标点击共用同一套逻辑。
  * Enter 求值、Backspace 逐位删除，数字/运算符直接键入。
  */
-package cui_calculator
+package chui_calculator
 
-import cui.{Key, UiEvent}
+import chui.{Key, UiEvent}
 
 func handleCalculatorEvent(model: CalcModel, event: UiEvent): Bool {
     match (event) {

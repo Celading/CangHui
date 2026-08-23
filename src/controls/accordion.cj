@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.{ArrayList, HashSet}
 import sdl.{Color, Key, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
+import chui.core.{AnimationSpec, Animator, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
     ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, LAYOUT_UNBOUNDED,
     Motion, State, UiContext, Widget,
     resolveControlKey, buildKeyedChild, drawFocusRing, drawSurface, emit, focusableControlIdentity,

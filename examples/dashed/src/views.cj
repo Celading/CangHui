@@ -3,9 +3,9 @@
  *
  * 预览框用当前 dash/gap/radius 画虚线边框；拖放区与占位卡是固定用法示例。
  */
-package cui_dashed
+package chui_dashed
 
-import cui.{CrossAxisAlignment, FlowRow, FontSizes, HStack, Label, LengthUnits, ScrollView, Spacer, Stepper, VStack}
+import chui.{CrossAxisAlignment, FlowRow, FontSizes, HStack, Label, LengthUnits, ScrollView, Spacer, Stepper, VStack}
 
 func dashedView(model: DashedModel): Unit {
     ScrollView {

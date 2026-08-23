@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.{ArrayList, HashMap}
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent, drawIcon}
-import cui.core.{CUI_SMALL_H, CursorShape, Length, LengthUnit, TextAlign, UiContext, Widget, drawFocusRing, emit,
+import chui.core.{CUI_SMALL_H, CursorShape, Length, LengthUnit, TextAlign, UiContext, Widget, drawFocusRing, emit,
     focusableControlIdentity, resolveControlKey}
 
 // Gap after an inline icon before the next span.

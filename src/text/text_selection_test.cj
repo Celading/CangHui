@@ -1,7 +1,7 @@
-package cui.text
+package chui.text
 
 import sdl.{MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{State, Theme, UiContext}
+import chui.core.{State, Theme, UiContext}
 
 /*
  * Selection lives in the shared TextEditState as a span between anchor and cursor. Held

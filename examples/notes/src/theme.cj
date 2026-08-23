@@ -1,9 +1,9 @@
 /*
  * 笔记主题：清爽的浅色纸面配色，令牌集中于此。
  */
-package cui_notes
+package chui_notes
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 /** 应用主标题字号。 */
 let NOTES_TITLE: Length = 20.fp

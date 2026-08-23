@@ -5,10 +5,10 @@
  *    工具栏的“N 条笔迹”文本由它派生，永不与画布脱节
  *  - 起笔/采样/收笔的状态迁移收拢在模型方法里，事件层只负责“消费还是放行”
  */
-package cui_paint
+package chui_paint
 
 import std.collection.ArrayList
-import cui.{Color, DerivedState, State}
+import chui.{Color, DerivedState, State}
 
 /** 画笔粗细的可调范围与初始值（逻辑像素），工具栏滑杆与新笔迹共用。 */
 let BRUSH_MIN: Float32 = 1.0

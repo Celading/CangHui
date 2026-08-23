@@ -1,6 +1,6 @@
-# CUI API 参考
+# CangHui API 参考
 
-本文记录 `cui` 根包重新导出的 GUI API。几何、渲染、窗口、事件、对话框、输入和系统能力见
+本文记录 `chui` 根包重新导出的 GUI API。几何、渲染、窗口、事件、对话框、输入和系统能力见
 [SDL API 参考](../sdl/docs/api-reference.md)。
 
 ## 1. 尺寸单位
@@ -229,7 +229,7 @@ interaction owner 与 selected/expanded/focus/hover/press 状态。作用域在�
 `maxLines` 参数必须大于 0。Button 与 IconButton 共用 move-in/hover/press/move-out 状态机：
 只有按下和释放都位于控件内才激活；按下后移出会立即取消 press 与 InkWell，随后在外部释放不会回调。
 二者支持取得焦点后的 Enter/Space，悬停与按压位移、颜色和 InkWell 强度由主题动效力度控制。
-slot Button 可组合任意装饰性 CUI 子树；外层 Button 独占焦点、点击和键盘激活，slot 内的可聚焦后代不会
+slot Button 可组合任意装饰性 CangHui 子树；外层 Button 独占焦点、点击和键盘激活，slot 内的可聚焦后代不会
 进入 Tab 环，也不会收到事件。slot 内未显式设色的 Label/Icon/Symbol 自动继承 `ButtonStyle` 解析出的
 前景色；显式颜色仍优先。`accessibilityLabel` 为无标题 slot 提供语义名称。
 
@@ -357,7 +357,7 @@ VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩
 
 ## 12. kMode 无界面控制面
 
-应用从 `cui.kmode.macros.*` 导入 `KModeLink`，把一个顶层 `(String) -> String` 函数注册为端点：
+应用从 `chui.kmode.macros.*` 导入 `KModeLink`，把一个顶层 `(String) -> String` 函数注册为端点：
 
 ```cangjie
 @KModeLink["app.echo"]

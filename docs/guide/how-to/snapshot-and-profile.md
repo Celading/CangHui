@@ -23,7 +23,7 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("快照基准", 520, 320))
@@ -80,7 +80,7 @@ Modal 背景屏蔽、Tab 顺序、菜单 Escape、画布拖动都应通过控件
 
 ## 相关 API
 
-[DesktopApp](../../api/cui/desktop/DesktopApp.md)、[ProgressBar](../../api/cui/controls/ProgressBar.md)、[Badge](../../api/cui/controls/Badge.md)。
+[DesktopApp](../../api/chui/desktop/DesktopApp.md)、[ProgressBar](../../api/chui/controls/ProgressBar.md)、[Badge](../../api/chui/controls/Badge.md)。
 
 ## 下一步
 

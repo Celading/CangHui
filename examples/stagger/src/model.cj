@@ -4,9 +4,9 @@
  * shown 翻转即整组入场/退场，每行按 delayFor(i) 依次错开；stepIndex 选交错步进档位。
  * 注意：Reveal 的 duration/easing/delay 在其 Animator 首次创建时读取，故换档要让 key 随步进变化（见 views）。
  */
-package cui_stagger
+package chui_stagger
 
-import cui.State
+import chui.State
 
 class StaggerModel {
     let items: Array<Item> = ITEMS

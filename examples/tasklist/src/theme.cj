@@ -1,9 +1,9 @@
 /*
  * 任务清单主题：清爽浅底 + 靛蓝强调。令牌集中于此。
  */
-package cui_tasklist
+package chui_tasklist
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func tasklistTheme(): Theme {
     Theme(

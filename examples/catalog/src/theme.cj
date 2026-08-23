@@ -1,9 +1,9 @@
 /*
  * 目录主题：清爽浅色 + 蓝色强调，另附每个分类的色签色。令牌集中于此。
  */
-package cui_catalog
+package chui_catalog
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 // 价格文字色，卡片直接引用。
 let CATALOG_PRICE: Color = Color.rgb(210, 96, 58)

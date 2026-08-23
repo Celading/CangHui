@@ -1,4 +1,4 @@
-package cui_pomodoro
+package chui_pomodoro
 
 @Test
 func clockFormatsAndCeils(): Unit {

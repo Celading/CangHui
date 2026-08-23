@@ -1,6 +1,6 @@
-package cui.text
+package chui.text
 
-import cui.core.{Bindable, State}
+import chui.core.{Bindable, State}
 
 /**
  * Shared text-editing model for cursor-aware text fields and text areas.

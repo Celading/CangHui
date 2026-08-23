@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 选择布局
+[CangHui 指南](../index.md) › 选择布局
 
 # 为界面选择布局容器
 
@@ -96,10 +96,10 @@ VStack(spacing: 12.vp) {
 
 ## 相关 API
 
-- [`VStack`](../../api/cui/core/VStack.md)、[`HStack`](../../api/cui/core/HStack.md)、[`Grid`](../../api/cui/core/Grid.md)、[`FlowRow`](../../api/cui/core/FlowRow.md) — 一维、二维与自动换行排列。
-- [`ZStack`](../../api/cui/core/ZStack.md) — 在同一框架内按前后顺序层叠。
-- [`ScrollView`](../../api/cui/core/ScrollView.md)、[`LazyColumn`](../../api/cui/core/LazyColumn.md) — 滚动和虚拟列表。
-- [`SplitView`](../../api/cui/controls/SplitView.md) — 可调主从/工作区布局。
+- [`VStack`](../../api/chui/core/VStack.md)、[`HStack`](../../api/chui/core/HStack.md)、[`Grid`](../../api/chui/core/Grid.md)、[`FlowRow`](../../api/chui/core/FlowRow.md) — 一维、二维与自动换行排列。
+- [`ZStack`](../../api/chui/core/ZStack.md) — 在同一框架内按前后顺序层叠。
+- [`ScrollView`](../../api/chui/core/ScrollView.md)、[`LazyColumn`](../../api/chui/core/LazyColumn.md) — 滚动和虚拟列表。
+- [`SplitView`](../../api/chui/controls/SplitView.md) — 可调主从/工作区布局。
 
 ## 下一步
 

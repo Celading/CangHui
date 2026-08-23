@@ -1,4 +1,4 @@
-package cui.host
+package chui.host
 
 import std.sync.Mutex
 

@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 动画与帧预算
+[CangHui 指南](../index.md) › 动画与帧预算
 
 # 动画状态与帧预算
 
@@ -12,7 +12,7 @@
 
 桌面动画需要同时满足流畅和空闲低开销。按钮滑块到达终点后不再需要帧，骨架屏的 Pulse 却必须持续循环，文件对话框轮询只在请求未完成期间需要 FrameHandler。把三者都写成永久每帧回调，会让“声明式”错误地等于持续刷新。
 
-CUI 提供三种不同的动画方式。`Spring` 根据当前位置、速度和物理参数逐渐到达目标；`Animator` 在指定时长内按 Easing 从当前值走到目标；`Pulse` 没有终点，适合呼吸灯或骨架屏。`FrameHandler` 只是每帧调用一次的入口，动画状态和“是否已经稳定”仍应交给相应动画器。组件级自动动效通过 `AnimationSpec` 与主题的 `MotionLevel.Basic / Standard / Full` 相连。
+CangHui 提供三种不同的动画方式。`Spring` 根据当前位置、速度和物理参数逐渐到达目标；`Animator` 在指定时长内按 Easing 从当前值走到目标；`Pulse` 没有终点，适合呼吸灯或骨架屏。`FrameHandler` 只是每帧调用一次的入口，动画状态和“是否已经稳定”仍应交给相应动画器。组件级自动动效通过 `AnimationSpec` 与主题的 `MotionLevel.Basic / Standard / Full` 相连。
 
 ## 工作模型
 
@@ -89,10 +89,10 @@ if (model.running.value) {
 
 ## 相关 API
 
-- [`Animator`](../../api/cui/core/Animator.md) 与 [`Easing`](../../api/cui/core/Easing.md) — 确定时长动效。
-- [`Spring`](../../api/cui/core/Spring.md) — 物理追随。
-- [`Pulse`](../../api/cui/core/Pulse.md) — 循环时间线。
-- [`FrameHandler`](../../api/cui/core/FrameHandler.md) — 条件帧钩子。
+- [`Animator`](../../api/chui/core/Animator.md) 与 [`Easing`](../../api/chui/core/Easing.md) — 确定时长动效。
+- [`Spring`](../../api/chui/core/Spring.md) — 物理追随。
+- [`Pulse`](../../api/chui/core/Pulse.md) — 循环时间线。
+- [`FrameHandler`](../../api/chui/core/FrameHandler.md) — 条件帧钩子。
 
 ## 下一步
 

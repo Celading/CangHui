@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{FontSizes, Rect, Size, UiEvent, clampF32}
 

@@ -10,7 +10,7 @@
  */
 package bench_large_table
 
-import cui.{DesktopApp, FontSizes, Label, LengthUnits, State, Table, TableColumn, VStack, WindowSpec}
+import chui.{DesktopApp, FontSizes, Label, LengthUnits, State, Table, TableColumn, VStack, WindowSpec}
 import bench_scenes.{BenchAccumulator, BenchDriver, makeTableRows}
 
 private let ROW_COUNT = 5000
@@ -30,7 +30,7 @@ main(): Int64 {
     let accumulator = BenchAccumulator(group: "大表绘制（上机实测）", name: "${ROW_COUNT} 行窗口化", frames: 150)
     // vsync off + frameDelay 0 so the measured frame period is true per-frame work (see note in
     // bench_planner_scroll): with vsync on, every result snaps to a refresh multiple.
-    let app = DesktopApp(WindowSpec("CUI bench: large sorted table", 720, 560, vsync: false), frameDelay: 0)
+    let app = DesktopApp(WindowSpec("CangHui bench: large sorted table", 720, 560, vsync: false), frameDelay: 0)
     app.setMinimumSize(560, 400)
     app.run {
         BenchDriver(accumulator)

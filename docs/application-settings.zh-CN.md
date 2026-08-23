@@ -2,7 +2,7 @@
 
 [English](application-settings.md) | **中文**
 
-`cui.system` 将类型化应用设置 schema 与存储 provider 分离。普通 provider
+`chui.system` 将类型化应用设置 schema 与存储 provider 分离。普通 provider
 可以提供框架 fallback；敏感设置必须使用报告为 native 的 secure provider。
 
 ```cangjie

@@ -5,9 +5,9 @@
  * key 里带上步进：Reveal 的时序在其 Animator 首次创建时读取，换档需要新身份才能生效（新 Animator 以当前
  * 展开态创建，故换档本身不闪动，再按开关即可用新节奏重播）。
  */
-package cui_stagger
+package chui_stagger
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, Easing, FontSizes, HStack, Icon, Label, LengthUnits, Panel,
+import chui.{Button, ButtonRole, CrossAxisAlignment, Easing, FontSizes, HStack, Icon, Label, LengthUnits, Panel,
     Reveal, ScrollView, SegmentedControl, Spacer, VStack}
 
 func staggerView(model: StaggerModel): Unit {

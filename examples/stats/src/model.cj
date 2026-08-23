@@ -3,9 +3,9 @@
  *
  * 当前指标集由时段派生；SegmentedControl 直接绑定 State。
  */
-package cui_stats
+package chui_stats
 
-import cui.State
+import chui.State
 
 class StatsModel {
     let period = State<Int64>(0)

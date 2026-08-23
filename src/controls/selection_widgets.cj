@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Bindable, CUI_SMALL_H, ComponentControlAppearance,
+import chui.core.{AnimationSpec, Bindable, CUI_SMALL_H, ComponentControlAppearance,
     ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
     CursorShape, InteractionAnimation, Motion, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset, Spring,
     State, UiContext, Widget, requireControlId,

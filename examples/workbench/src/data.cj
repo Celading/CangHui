@@ -4,7 +4,7 @@
  * 文档是不可变值，更新通过整表替换触发状态通知（与笔记、看板示例一致）。正文按 Markdown 风格
  * 书写，以 `#` 开头的行视为小节标题；大纲与统计都由正文实时派生，因此编辑即刻反映到右下信息面板。
  */
-package cui_workbench
+package chui_workbench
 
 import std.collection.ArrayList
 

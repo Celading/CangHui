@@ -4,9 +4,9 @@
  * 列表可见集 = 原序过滤（搜索命中且未归档）；选中即标已读；归档当前选中项时选中顺延到
  * 可见列表的相邻一封。集合更新沿用「复制 + 增删 + 整体重赋」惯例以触发重建。
  */
-package cui_mail
+package chui_mail
 
-import cui.State
+import chui.State
 import std.collection.{ArrayList, HashSet}
 
 class MailModel {

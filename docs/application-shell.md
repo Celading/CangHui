@@ -2,7 +2,7 @@
 
 **English** | [中文](application-shell.zh-CN.md)
 
-`cui.system` is the CangHui contract for system-level application behavior.
+`chui.system` is the CangHui contract for system-level application behavior.
 It keeps application identity, assets, actions, settings and notifications in
 one Cangjie model while platform providers decide whether a system surface is
 native, a framework fallback, permission-gated or unsupported.

@@ -7,5 +7,5 @@ description = "CangHui Scene3D bgfx Metal capture example"
 license = "Apache-2.0"
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }
 canghui_scene3d_bgfx = { path = "../../packages/scene3d-bgfx" }

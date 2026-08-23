@@ -1,6 +1,6 @@
-package cui.text
+package chui.text
 
-import cui.core.{ComponentProbe, ProbeProperty, State, VStack}
+import chui.core.{ComponentProbe, ProbeProperty, State, VStack}
 
 @Test
 func textFieldEmitsPlaceholderAndTextInputSemantics(): Unit {

@@ -466,7 +466,7 @@ func integratedFrameworkRoot(): String {
 }
 
 func frameworkRootCandidate(path: String): Bool {
-    exists(joinPath(path, "cjpm.toml")) && exists(joinPath(path, "sdl")) && exists(joinPath(path, "src/cui.cj"))
+    exists(joinPath(path, "cjpm.toml")) && exists(joinPath(path, "sdl")) && exists(joinPath(path, "src/chui.cj"))
 }
 
 func validateFramework(path: String): String {
@@ -827,7 +827,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
 
 func generatedMain(packageName: String): String {
     "package ${packageName}\n\n" +
-    "import cui.{Button, ButtonRole, DesktopApp, Label, LengthUnits, State, VStack, WindowSpec, runKModeStdioIfRequested}\n\n" +
+    "import chui.{Button, ButtonRole, DesktopApp, Label, LengthUnits, State, VStack, WindowSpec, runKModeStdioIfRequested}\n\n" +
     "main(): Unit {\n" +
     "    if (runKModeStdioIfRequested()) { return }\n" +
     "    let message = State<String>(\"你好，CangHui\")\n" +

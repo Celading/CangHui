@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Key, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Bindable, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
+import chui.core.{AnimationSpec, Bindable, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
     ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, Motion, UiContext,
     Widget, drawFocusRing, drawSurface, emit, handlePointerClick, localState, recordControlSemantics,
     registerFocusable, resolveComponentControlAppearance, resolveControlKey}

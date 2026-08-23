@@ -5,9 +5,9 @@
  * handle 里 claimHoverIfInside 认领悬停光标、点击或 Enter/空格切换，draw 里按 isHovered 画
  * 悬停底、按 showFocusRing 画焦点环——与内置控件同一套协议，无需任何框架内部权限。
  */
-package cui_disclosure
+package chui_disclosure
 
-import cui.{CursorShape, FontSizes, Key, MouseButton, Pen, Rect, Size, UiContext, UiEvent, Widget,
+import chui.{CursorShape, FontSizes, Key, MouseButton, Pen, Rect, Size, UiContext, UiEvent, Widget,
     claimHoverIfInside, drawFocusRing, emit, focusableControlIdentity}
 
 // 行高、chevron 中心距左缘、问题文本起点（答案区左缩进与文本起点对齐）。

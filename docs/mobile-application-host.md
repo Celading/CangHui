@@ -49,7 +49,7 @@ permission checks remain runtime validation.
   same probe launched and reported a ready Metal drawable, 31 clear frames,
   detach/reattach generation replay and synthetic touch, pointer and trait
   ingress. Those facts prove the static-package probe only; the full declarative
-  CUI scene and product acceptance remain open. The verification script accepts both the macOS
+  CangHui scene and product acceptance remain open. The verification script accepts both the macOS
   `security cms` decoder and an `openssl smime` compatibility fallback without
   copying profile contents into project evidence.
 - Android has a Java/JNI/NDK `SurfaceView` bootstrap. Cangjie Android runtime

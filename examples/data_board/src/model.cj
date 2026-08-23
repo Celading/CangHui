@@ -2,9 +2,9 @@
  * 看板状态：三列卡片、筛选、密度与在制上限。
  * 列头计数是 DerivedState —— 卡片或筛选一变，数字随之刷新，无需手工同步。
  */
-package cui_data_board
+package chui_data_board
 
-import cui.{DerivedState, State, derive}
+import chui.{DerivedState, State, derive}
 
 class BoardModel {
     let compact = State<Bool>(false)

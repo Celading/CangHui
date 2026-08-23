@@ -1,4 +1,4 @@
-package cui.desktop
+package chui.desktop
 
 import sdl.{MouseButton, UiEvent}
 import sdl.system.SdlHint

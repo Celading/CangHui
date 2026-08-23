@@ -1,9 +1,9 @@
 /*
  * 高亮示例主题：清爽浅色 + 琥珀色 <mark> 高亮。令牌集中于此。
  */
-package cui_highlight
+package chui_highlight
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func highlightTheme(): Theme {
     Theme(

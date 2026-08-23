@@ -6,7 +6,7 @@
  */
 package bench_micro
 
-import cui.{Renderer, Theme, UiContext}
+import chui.{Renderer, Theme, UiContext}
 
 /** A fresh headless context at the default 1.0 display and font scale. */
 func headlessContext(): UiContext {

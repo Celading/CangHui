@@ -41,7 +41,7 @@ description: CangHui 全量构建与验收 skill。用于在干净 checkout 上�
 cjpm test
 ```
 
-期望：`TOTAL` 全绿（当前约 521+）。包含 `cui.core/desktop/media/controls/text/...`。
+期望：`TOTAL` 全绿（当前约 521+）。包含 `chui.core/desktop/media/controls/text/...`。
 
 ### 2. sdl 包测试
 

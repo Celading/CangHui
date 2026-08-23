@@ -8,7 +8,7 @@
 
 ## 适用场景
 
-把开发机上已经通过构建、交互和快照检查的 CUI 程序交给测试人员或最终用户。这里讲最小可移植目录，不代替操作系统安装包、签名或自动更新方案。
+把开发机上已经通过构建、交互和快照检查的 CangHui 程序交给测试人员或最终用户。这里讲最小可移植目录，不代替操作系统安装包、签名或自动更新方案。
 
 ## 准备工作
 
@@ -22,7 +22,7 @@
 
 ```cangjie role=patch
 let app = DesktopApp(WindowSpec(
-    "CUI 计数器",
+    "CangHui 计数器",
     640,
     420,
     resizable: true
@@ -58,7 +58,7 @@ Windows 检查 DLL 架构与安全软件拦截；Linux 同时检查 SDL 及系�
 
 ## 确认结果
 
-源码目录不在 PATH 时，交付目录里的程序仍能打开、关闭并生成快照；缺少 SDL 时的失败可被明确复现，补回正确运行库后恢复。资源路径不依赖开发机绝对路径。交付清单记录操作系统、架构、构建类型、CUI 版本、运行库文件和人工交互结果。
+源码目录不在 PATH 时，交付目录里的程序仍能打开、关闭并生成快照；缺少 SDL 时的失败可被明确复现，补回正确运行库后恢复。资源路径不依赖开发机绝对路径。交付清单记录操作系统、架构、构建类型、CangHui 版本、运行库文件和人工交互结果。
 
 ## 常见错误
 
@@ -69,7 +69,7 @@ Windows 检查 DLL 架构与安全软件拦截；Linux 同时检查 SDL 及系�
 
 ## 相关 API
 
-[DesktopApp](../../api/cui/desktop/DesktopApp.md)、[CUI 包入口](../../api/cui/index.md)。
+[DesktopApp](../../api/chui/desktop/DesktopApp.md)、[CangHui 包入口](../../api/chui/index.md)。
 
 ## 下一步
 

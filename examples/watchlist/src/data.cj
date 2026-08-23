@@ -3,7 +3,7 @@
  *
  * 评分数组与电影列表按下标一一对应；更新/统计都是纯函数，便于单测且与视图无关。
  */
-package cui_watchlist
+package chui_watchlist
 
 import std.collection.ArrayList
 

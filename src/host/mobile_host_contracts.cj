@@ -1,4 +1,4 @@
-package cui.host
+package chui.host
 
 /** Application lifecycle states reported by a mobile or embedded host. */
 public enum AppLifecycleState <: Equatable<AppLifecycleState> {

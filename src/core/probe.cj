@@ -1,10 +1,10 @@
-package cui.core
+package chui.core
 
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
 import sdl.{DrawIrAsciiAnnotation, DrawIrAsciiAnnotationKind, DrawIrAsciiOptions, DrawIrCommand, FrameInfo,
     Key, MouseButton, Rect, Renderer, Size, UiEvent, drawIrAsciiAnnotationKindName, renderDrawIrAscii}
-import cui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
+import chui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
 
 /** A stable public property emitted by a probe-enabled widget. */
 public struct ProbeProperty {

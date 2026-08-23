@@ -3,7 +3,7 @@
  *
  * 目录由 词 × 系列 无重复组合而成，价格与评分用与下标相关的简单算式派生——确定性便于示例运行与快照复现。
  */
-package cui_catalog
+package chui_catalog
 
 import std.collection.ArrayList
 

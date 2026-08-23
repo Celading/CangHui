@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Color, FrameInfo, IconName, Key, MouseButton, Rect, Renderer, Size, SurfaceStyle, UiEvent}
 

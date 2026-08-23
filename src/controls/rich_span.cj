@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Color, FontStyle, IconName}
-import cui.core.{Length, LengthUnit}
+import chui.core.{Length, LengthUnit}
 
 // What a span carries: a run of text, or an inline icon.
 enum RichSpanKind {

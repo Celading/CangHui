@@ -4,9 +4,9 @@
  * 进度环显示剩余占比、随时间消退；到点自动切换阶段，ToastLayer 叠在最上层，
  * 通知从右下滑入。时长设置仅停表时可调（整卡 enabled 门控）。
  */
-package cui_pomodoro
+package chui_pomodoro
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, ProgressRing,
+import chui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, ProgressRing,
     RichSpan, RichText, Spacer, Stepper, ToastLayer, VStack, ZStack}
 
 func pomodoroView(model: PomodoroModel): Unit {

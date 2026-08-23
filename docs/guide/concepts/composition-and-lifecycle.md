@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 构建与生命周期
+[CangHui 指南](../index.md) › 构建与生命周期
 
 # 声明式构建与应用生命周期
 
@@ -105,10 +105,10 @@ FrameHandler(onFrame: {_ =>
 
 ## 相关 API
 
-- [`DesktopApp`](../../api/cui/desktop/DesktopApp.md) — 应用、窗口和帧循环所有权。
-- [`State`](../../api/cui/core/State.md) 与 [`rememberState`](../../api/cui/core/functions.md#rememberstate) — 跨构建数据。
-- [`Keyed`](../../api/cui/core/Keyed.md) — 稳定身份作用域。
-- [`FrameHandler`](../../api/cui/core/FrameHandler.md) — 需要按帧推进的公开入口。
+- [`DesktopApp`](../../api/chui/desktop/DesktopApp.md) — 应用、窗口和帧循环所有权。
+- [`State`](../../api/chui/core/State.md) 与 [`rememberState`](../../api/chui/core/functions.md#rememberstate) — 跨构建数据。
+- [`Keyed`](../../api/chui/core/Keyed.md) — 稳定身份作用域。
+- [`FrameHandler`](../../api/chui/core/FrameHandler.md) — 需要按帧推进的公开入口。
 
 ## 下一步
 

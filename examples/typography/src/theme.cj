@@ -1,9 +1,9 @@
 /*
  * 字体样式主题：编辑排版风的暖白纸面 + 近墨色文字 + 靛蓝强调（选中的样式 Chip）。令牌集中于此。
  */
-package cui_typography
+package chui_typography
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func typographyTheme(): Theme {
     Theme(

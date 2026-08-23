@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.convert.*
 import sdl.{Color, FontStyle, FrameInfo, IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{State, TextAlign, Theme, UiContext}
+import chui.core.{State, TextAlign, Theme, UiContext}
 
 private func richTextTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

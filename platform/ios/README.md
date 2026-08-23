@@ -121,7 +121,7 @@ against the requested bundle id before signing and installing the app.
 
 The probe intentionally renders only a Cangjie-selected Metal clear color. Its
 high-contrast diagnostic panel remains above the surface and explicitly says
-that the CUI scene is not mounted, so a successful native-surface probe cannot
+that the CangHui scene is not mounted, so a successful native-surface probe cannot
 be mistaken for a product application screen.
 
 ## Surface Proxy
@@ -139,12 +139,12 @@ The implemented iOS adapter follows an XComponent-like proxy model:
   Cangjie scheduler thread.
 
 The host still owns signing and packaging. This proof does not yet connect the
-full declarative CUI scene renderer, IME or accessibility to UIKit.
+full declarative CangHui scene renderer, IME or accessibility to UIKit.
 
 ## Native Scene Static Package
 
 Embedded iOS consumers that need Cangjie-owned product scenes without the
-desktop SDL dependency closure can build the focused `cui.native_scene`
+desktop SDL dependency closure can build the focused `chui.native_scene`
 package:
 
 ```bash
@@ -183,5 +183,5 @@ resources and correctly embedded or statically linked dependencies. Current
 device and simulator proof covers runtime, scheduler, static-package
 initialization, N2C task entry, ABI return, UIKit lifecycle and safe area,
 touch, frame clock, generation replay, drawable acquisition and a Metal clear
-pass. Full CUI scene rendering, IME, accessibility and product acceptance
+pass. Full CangHui scene rendering, IME, accessibility and product acceptance
 remain separate platform work.

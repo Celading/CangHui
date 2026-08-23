@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, ControlSemantics, UiContext, Widget, resolveControlKey, emit, handlePointerClick,
+import chui.core.{Bindable, ControlSemantics, UiContext, Widget, resolveControlKey, emit, handlePointerClick,
     localState, recordControlSemantics}
 
 private let BC_H: Float32 = 28.0

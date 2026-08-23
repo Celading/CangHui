@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{Color, Pen, Rect, Size, SurfaceStyle, UiEvent}
 

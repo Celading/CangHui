@@ -4,9 +4,9 @@
  *  - 表头点击排序（数值列按数值），行点击或 Tab 聚焦后方向键选择
  *  - 详情栏文本随选中行由 `State.map` 派生，右侧显示总台数
  */
-package cui_data_table
+package chui_data_table
 
-import cui.{CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Spacer, Table, VStack}
+import chui.{CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Spacer, Table, VStack}
 
 func fleetView(model: FleetModel): Unit {
     VStack {

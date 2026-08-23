@@ -4,9 +4,9 @@
  * 消息只区分“我”与“对方”；纯函数 bubbleCorners 依此产出气泡的四角半径——整体圆润，唯独发送者一侧的下角
  * 收成小尾角（经典不对称聊天气泡：我的尾角在右下，对方的在左下）。造型与视图分离，故可单测。
  */
-package cui_corners
+package chui_corners
 
-import cui.Corners
+import chui.Corners
 
 // 一条消息：文本 + 是否为“我”发出。
 struct Message {

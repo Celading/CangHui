@@ -1,7 +1,7 @@
-package cui.testkit
+package chui.testkit
 
-import cui.component.{ViewportClass, ViewportSpec, classifyViewport}
-import cui.host.HostPlatform
+import chui.component.{ViewportClass, ViewportSpec, classifyViewport}
+import chui.host.HostPlatform
 
 @Test
 func viewportClassificationUsesStableCommonBreakpoints(): Unit {

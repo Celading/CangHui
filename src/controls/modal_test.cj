@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{Button, FrameHandler, State, StateStore, Theme, UiContext, buildRoot}
+import chui.core.{Button, FrameHandler, State, StateStore, Theme, UiContext, buildRoot}
 
 // A 400x300 viewport, matching the geometry the assertions below are written against.
 private func modalTestContext(): UiContext {

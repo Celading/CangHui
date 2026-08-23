@@ -1,4 +1,4 @@
-# CUI 架构与设计说明
+# CangHui 架构与设计说明
 
 ## 模块关系
 
@@ -6,7 +6,7 @@
 应用
   │
   ▼
-cui ──► cui.core / cui.controls / cui.text / cui.media / cui.desktop
+chui ──► chui.core / chui.controls / chui.text / chui.media / chui.desktop
   │
   ▼
 sdl ──► sdl.dialogs / sdl.displays / sdl.input / sdl.system / sdl.text
@@ -15,18 +15,18 @@ sdl ──► sdl.dialogs / sdl.displays / sdl.input / sdl.system / sdl.text
 SDL3 + SDL3_ttf
 ```
 
-`cui` 对 `sdl` 是单向依赖。底层模块可以独立使用，不了解 GUI 控件或声明式构建机制。
+`chui` 对 `sdl` 是单向依赖。底层模块可以独立使用，不了解 GUI 控件或声明式构建机制。
 
-## CUI 包职责
+## CangHui 包职责
 
 | 包 | 职责 |
 |---|---|
-| `cui` | 应用入口门面，重新导出应用所需 API |
-| `cui.core` | Widget 协议、上下文、状态、主题、布局容器和基础控件 |
-| `cui.controls` | 选择、导航和数值控件 |
-| `cui.text` | UTF-8 文本编辑状态、单行输入和多行文本区 |
-| `cui.media` | 画布与图像视图 |
-| `cui.desktop` | 窗口生命周期、事件循环、资源托管和快照 |
+| `chui` | 应用入口门面，重新导出应用所需 API |
+| `chui.core` | Widget 协议、上下文、状态、主题、布局容器和基础控件 |
+| `chui.controls` | 选择、导航和数值控件 |
+| `chui.text` | UTF-8 文本编辑状态、单行输入和多行文本区 |
+| `chui.media` | 画布与图像视图 |
+| `chui.desktop` | 窗口生命周期、事件循环、资源托管和快照 |
 
 ## 声明式视图树
 
@@ -137,7 +137,7 @@ Shift 扩选、鼠标拖选（复用 `beginDrag`/`isDragging`）、`Ctrl+A/C/X/V
 
 ### 动画
 
-CUI 每帧无条件重绘，因此动画不需要独立的定时器或失效追踪：`Spring` 原语（弹簧-阻尼数值）由控件
+CangHui 每帧无条件重绘，因此动画不需要独立的定时器或失效追踪：`Spring` 原语（弹簧-阻尼数值）由控件
 在 `draw` 里按帧间隔 `tick` 推进、读取 `value`，渲染循环本身就是动画时钟。积分用半隐式欧拉并钳制
 步长，使一次帧卡顿（长间隔）不会注入巨大冲量导致发散；到达目标后精确停住，故空闲弹簧零开销。
 动画状态必须跨帧保留（`localState`），而 `localState` 仅在构建期可用、`draw` 阶段不可用——因此控件
@@ -304,7 +304,7 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 `close`。关闭操作均设计为可重复调用。
 
 图片纹理是例外中的常态：`ImageView` 的解码纹理由**按路径键控、以渲染器为作用域的共享缓存**持有
-（cui.media 模块态），控件本身无状态、可逐帧内联声明——这消除了“提升 + manage”的心智负担。缓存
+（chui.media 模块态），控件本身无状态、可逐帧内联声明——这消除了“提升 + manage”的心智负担。缓存
 不做自动淘汰（桌面应用图片集小而稳定），以 `invalidateImage`/`clearImageCache` 显式失效；加载失败
 按路径负缓存，避免缺失文件被逐帧重试。换用新渲染器（重建窗口）时旧条目直接丢弃而不 `close`——
 纹理已随其渲染器一并销毁，再关闭会触碰悬空句柄。
@@ -313,7 +313,7 @@ draw/事件全部转发给子控件），仅在 `draw` 里按保留的停留计�
 
 CangHui 把跨平台复用拆成三个稳定层次：
 
-1. 公共组件层只依赖 `ComponentContext`、CUI 控件和应用持有的状态；
+1. 公共组件层只依赖 `ComponentContext`、CangHui 控件和应用持有的状态；
 2. 宿主合同层以 `HostProfile` 和 `HostCapability` 描述平台事实，不暴露平台 SDK 类型；
 3. 平台适配层实现窗口、生命周期、IME、无障碍、原生表面、权限、打包和签名。
 
@@ -324,7 +324,7 @@ Component Gallery 可以覆盖公共布局和状态连续性，但不能替代�
 组件包可以附带符合 `contracts/canghui-component-package-v0.schema.json` 的元数据，供工具链
 发现资源与原生制品；运行时 API 仍以强类型 Cangjie 接口为准。
 
-移动宿主的第一层合同由 `cui.host` 提供：`AppLifecycleState`、`HostViewportMetrics`、
+移动宿主的第一层合同由 `chui.host` 提供：`AppLifecycleState`、`HostViewportMetrics`、
 `SafeAreaInsets`、`TouchEvent` 以及文件选择、应用存储、安全存储、系统主题、通知和后台任务 SPI。
 文件选择结果使用 `PlatformResourceRef`，其中 locator 由宿主解释，可以对应路径、安全域 URL、bookmark
 或其他不透明令牌。这样公共组件无需知道 UIKit、PhotoKit、Keychain 或 Harmony 平台类型。
@@ -404,7 +404,7 @@ payload 中继。ACK 只表示消息已被消费，业务成功由 kMode respons
 - [Elm: Concurrent FRP for Functional GUIs](https://elm-lang.org/assets/papers/concurrent-frp.pdf)：函数式 GUI 中显式状态与消息驱动视图的理论背景。
 - [A Consistent Semantics of Self-Adjusting Computation](https://arxiv.org/abs/1106.0478)：后续若引入依赖追踪和细粒度增量重建，需要保持变化传播语义一致。
 
-CUI 当前仍采用确定性的逐帧完整重建，尚未声称实现细粒度重组或自调整计算。未来若加入依赖追踪，
+CangHui 当前仍采用确定性的逐帧完整重建，尚未声称实现细粒度重组或自调整计算。未来若加入依赖追踪，
 必须先建立稳定身份、状态读取追踪、失效传播与一致性测试，不能仅用缓存 Widget 实例替代正确模型。
 
 ### 静态检查基线

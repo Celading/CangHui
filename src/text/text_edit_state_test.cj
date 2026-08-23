@@ -1,7 +1,7 @@
-package cui.text
+package chui.text
 
 import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.core.{CursorShape, ScrollOptions, State, StateStore, Theme, UiContext, buildRoot}
+import chui.core.{CursorShape, ScrollOptions, State, StateStore, Theme, UiContext, buildRoot}
 
 private func textTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())

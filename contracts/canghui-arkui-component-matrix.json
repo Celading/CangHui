@@ -14,7 +14,7 @@
     "mainCommit": "c8b33dc15355bd90fef8d9d48d64ae7d3547c828"
   },
   "states": {
-    "aligned": "A platform-neutral CUI control exists with comparable core semantics and focused tests.",
+    "aligned": "A platform-neutral CangHui control exists with comparable core semantics and focused tests.",
     "partial": "Related primitives exist, but ArkUI-level composition or interaction semantics remain incomplete.",
     "missing": "No dedicated common control exists yet.",
     "platform-bound": "The feature requires a native host surface or platform service and is not a common control."

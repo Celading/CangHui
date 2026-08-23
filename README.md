@@ -1,14 +1,15 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
   <img src="https://img.shields.io/badge/version-0.10.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.10.0" />
-  <img src="https://img.shields.io/badge/package-cui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package cui" />
+  <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
   <img src="https://img.shields.io/badge/license-Apache--2.0-d69e2e?style=for-the-badge&labelColor=1f2430" alt="Apache License 2.0" />
 </p>
 <div align="center">
-<span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
-<span style="font-weight:100;font-size:24px">Cangjie Multiplatform Declarative GUI Framework</span>
+<span style="font-weight:300;font-size:38px">CangHui / 仓绘</span><br/>
+<span style="font-weight:100;font-size:24px">CangHui Multiplatform</span><br/>
+<span style="font-weight:100;font-size:18px">A multiplatform declarative GUI framework for Cangjie</span>
 <p align="center">
   <strong>A GUI runtime for turning Cangjie intent into native pixels</strong><br/>
   <sub>Declarative semantics · deterministic probes · self-rendered surfaces · native host contracts</sub>
@@ -28,7 +29,7 @@ CangHui is a self-rendered, declarative GUI framework written in the
 retains its upstream attribution and MIT notice. CangHui and its original
 contributions are distributed under Apache License 2.0; the upstream MIT terms
 remain preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The
-declarative core (`cui`) and the safe SDL3 wrapper (`sdl`) live in this
+declarative core (`chui`) and the safe SDL3 wrapper (`sdl`) live in this
 repository, together with the integrated `cuic` toolchain, component-package
 contracts, responsive layout primitives, and native host contracts.
 
@@ -38,6 +39,15 @@ viewport facts, while each platform adapter owns lifecycle, native surfaces,
 IME, accessibility, packaging, and signing. Platform-specific hosts can be
 implemented independently without changing common widgets or application
 state.
+
+The framework name is **CangHui**, its full positioning is **CangHui
+Multiplatform**, and its Cangjie package is **`chui`**. A few older identifiers
+remain deliberately stable at compatibility boundaries: `cui.probe.v0` and
+`@cui-ascii` are wire identifiers; `CUI_*` declarations are source-compatible
+names; `cuic` and `--cui-path` are tool-compatible names; existing
+`dev.cui.examples.*` application ids remain persisted example identities; and
+`cui-core` / `full-cui-scene-*` remain machine-readable capability-matrix keys.
+They are not package names or alternate CangHui branding.
 
 > CangHui is not a screenshot layer and not a bag of widgets. It is a small
 > language-facing runtime: application intent enters as Cangjie composition,
@@ -53,7 +63,7 @@ Application code
 cuic project lifecycle  ----  kMode / probe / Draw IR / prnt
         |
         v
-CUI declarative core  ----  state, identity, layout, controls, overlays
+CangHui declarative core  ----  state, identity, layout, controls, overlays
         |                    theme, motion, typography, Symbol providers
         v
 Host capability contracts  --  window, input, IME, files, clipboard, time
@@ -79,7 +89,7 @@ scene rendering or application acceptance.
 | Platform | Status | Notes |
 | --- | --- | --- |
 | macOS desktop | Available | Build, the full framework/SDL/CLI test suites, the interactive gallery, and deterministic snapshots pass on this host. |
-| iOS | Native-surface adapter proven | Simulator and physical-device proof covers static-package bootstrap, a UIKit `CAMetalLayer`, lifecycle, safe area, touch, `CADisplayLink`, detach/reattach generation replay and a Metal clear pass. Full CUI scene rendering, IME, accessibility and product application acceptance remain open. |
+| iOS | Native-surface adapter proven | Simulator and physical-device proof covers static-package bootstrap, a UIKit `CAMetalLayer`, lifecycle, safe area, touch, `CADisplayLink`, detach/reattach generation replay and a Metal clear pass. Full CangHui scene rendering, IME, accessibility and product application acceptance remain open. |
 | HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
 | Android | Native-surface bootstrap only | A minimal Activity owns the generation-safe `SurfaceView` to JNI to `ANativeWindow` lifecycle, and the slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, input/IME, APK packaging and device runtime proof remain open. |
@@ -88,7 +98,7 @@ scene rendering or application acceptance.
 
 | Layer | In the public tree | Boundary |
 | --- | --- | --- |
-| CUI core | Declarative composition, identity, state, layout, controls, overlays and text editing | Platform-neutral source API |
+| CangHui core | Declarative composition, identity, state, layout, controls, overlays and text editing | Platform-neutral source API |
 | Rendering | SDL3-backed desktop renderer, geometry, text, symbols, shadows and gradients | The renderer is a dependency-backed implementation, not a claim about every GPU backend |
 | Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
 | Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
@@ -126,11 +136,11 @@ copied into every project.
 A minimal window in `src/main.cj`:
 
 ```cangjie
-import cui.*
+import chui.*
 
 main() {
-    let message = State<String>("Hello, CUI")
-    let app = DesktopApp(WindowSpec("CUI Example", 640, 420))
+    let message = State<String>("Hello, CangHui")
+    let app = DesktopApp(WindowSpec("CangHui Example", 640, 420))
 
     app.run {
         VStack {
@@ -184,7 +194,7 @@ their action owner, keyboard shortcut and current value/selection state;
 See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
 override rules.
 
-The intended consumer shape is small: depend on `cui`, install `cuic`, and let
+The intended consumer shape is small: depend on `chui`, install `cuic`, and let
 the tool create the project skeleton. A framework checkout is useful for
 framework development, but it is not the normal application layout.
 
@@ -299,7 +309,7 @@ into the CangHui implementation claim.
 | Role | Project or surface | Relationship to CangHui |
 | --- | --- | --- |
 | Language | [Cangjie](https://cangjie-lang.cn/) | Primary implementation and application language |
-| Declarative runtime | CUI (`cui`) | Framework-owned composition, state, layout and component surface |
+| Declarative runtime | CangHui (`chui`) | Framework-owned composition, state, layout and component surface |
 | Desktop substrate | [SDL3](https://www.libsdl.org/) / SDL3_ttf | Upstream runtime dependency wrapped by the public `sdl` package |
 | Native surface | UIKit, Metal, Android `SurfaceView` and `ANativeWindow` | Adapter targets and bounded bootstrap surfaces; platform proof is explicit in the matrix |
 | Design language | HarmonyOS Sans, Theme, Motion and Symbol contracts | Bundled fallback plus provider-neutral public APIs |
@@ -407,6 +417,6 @@ license; see the respective upstream projects. The upstream source attribution
 remains [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI).
 
 > [!IMPORTANT]
-> When distributing desktop software built with CUI, ensure the SDL and SDL_ttf
+> When distributing desktop software built with CangHui, ensure the SDL and SDL_ttf
 > dynamic libraries are placed beside the Cangjie executable or on the target
 > platform's dynamic-library search path.

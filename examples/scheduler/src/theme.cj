@@ -1,9 +1,9 @@
 /*
  * 排期主题：清爽浅色 + 青蓝强调。令牌集中于此。
  */
-package cui_scheduler
+package chui_scheduler
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 // 无效时长（结束早于开始）的警示文字色，视图直接引用。
 let SCHEDULER_DANGER: Color = Color.rgb(206, 74, 68)

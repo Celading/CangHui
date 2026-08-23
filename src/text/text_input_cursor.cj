@@ -1,7 +1,7 @@
-package cui.text
+package chui.text
 
 import sdl.{FontSizes, Point, Rect}
-import cui.core.{CUI_SMALL_H, UiContext, scrollLineIndex, scrollLineRemainder}
+import chui.core.{CUI_SMALL_H, UiContext, scrollLineIndex, scrollLineRemainder}
 
 private let TEXT_CURSOR_W: Float32 = 1.5
 private let TEXT_FIELD_PAD_X: Float32 = 8.0

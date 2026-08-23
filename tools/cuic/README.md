@@ -129,7 +129,7 @@ application. Outside a Cangjie project, the same command retains the built-in
 1. the repository that owns the integrated `tools/cuic` command
 2. `CANGHUI_FRAMEWORK_ROOT`, then the legacy `CANGUI_FRAMEWORK_ROOT`, as explicit development overrides
 3. the target project's local path dependency or pinned Git dependency frozen by a matching `cjpm.lock`
-4. the CJPM Git cache, normally `$HOME/.cjpm/git/cui/<commit>`
+4. the CJPM Git cache, normally `$HOME/.cjpm/git/chui/<commit>`
 5. a sibling `CangHui/`, then the legacy `CangjieGUI/` alias
 
 The application does not contain a framework copy. `cuic dependency update` is the explicit operation that

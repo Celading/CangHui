@@ -3,9 +3,9 @@
  *
  * 卡片的填充/边框/阴影色是固定令牌；样式描述（阴影层级、圆角、边框开关拼成一句）是纯函数，便于单测。
  */
-package cui_cards
+package chui_cards
 
-import cui.Color
+import chui.Color
 
 // elevation 阶梯参考展示的层级。
 let RAMP_LEVELS: Array<Int64> = [1, 2, 3, 4, 5, 6]

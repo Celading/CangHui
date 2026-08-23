@@ -1,9 +1,9 @@
 /*
  * 追踪器主题：清爽浅色 + 靛蓝强调。语义色（成功/警告/危险）由 Badge 自带，不在此。令牌集中于此。
  */
-package cui_tracker
+package chui_tracker
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func trackerTheme(): Theme {
     Theme(

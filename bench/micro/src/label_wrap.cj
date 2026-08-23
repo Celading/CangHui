@@ -6,7 +6,7 @@
  */
 package bench_micro
 
-import cui.{Label, Size}
+import chui.{Label, Size}
 import bench_harness.{printSection, report, timeit}
 
 public func runLabelWrapBench(): Unit {

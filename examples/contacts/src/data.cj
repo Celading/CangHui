@@ -2,9 +2,9 @@
  * 联系人数据模型与表格列定义。`Contact` 是不可变值；编辑通过用新值替换整个联系人完成，
  * 与框架“单一数据源、整体替换”的状态更新方式一致。
  */
-package cui_contacts
+package chui_contacts
 
-import cui.TableColumn
+import chui.TableColumn
 
 struct Contact {
     let id: Int64

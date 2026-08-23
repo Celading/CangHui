@@ -3,9 +3,9 @@
  *
  * 选中字体名是选中下标的纯函数派生；SegmentedControl/Chip 直接绑定 State（State 即 Bindable）。
  */
-package cui_fonts
+package chui_fonts
 
-import cui.State
+import chui.State
 
 class FontsModel {
     let faces: Array<TypeFace> = TYPEFACES

@@ -5,9 +5,9 @@
  *  - 每个分区体内是真实控件（分段/滑块/开关/复选/单选/按钮），只在展开时构建，绑定到模型字段。
  *  - 抬头的“单开模式”开关驱动 `Accordion` 的 `single`：开启后展开一个分区会自动收起其它分区。
  */
-package cui_settings
+package chui_settings
 
-import cui.{Accordion, AccordionSection, Button, ButtonRole, Checkbox, CrossAxisAlignment, FontSizes, HStack, Label,
+import chui.{Accordion, AccordionSection, Button, ButtonRole, Checkbox, CrossAxisAlignment, FontSizes, HStack, Label,
     LengthUnits, Panel, RadioButton, ScrollView, SegmentedControl, Slider, Spacer, Switch, VStack}
 
 func settingsView(model: SettingsModel): Unit {
@@ -85,7 +85,7 @@ func privacyBody(model: SettingsModel): Unit {
 func aboutBody(_: SettingsModel): Unit {
     sectionBody {
         =>
-        Label("CUI 桌面 GUI 框架")
+        Label("CangHui 桌面 GUI 框架")
         Label("版本 0.2.0 · 组件 52").muted().fontSize(FontSizes.CAPTION)
         Button("检查更新", {=> ()}).role(ButtonRole.Primary)
     }

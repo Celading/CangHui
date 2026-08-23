@@ -2,9 +2,9 @@
  * 画廊数据与视图。卡片是强类型的 `GalleryItem`，网格用 `LazyGrid(data, columns, itemHeight){ item => ... }`
  * 一行构建器搭出——数据保持类型化，行按视口窗口化，卡片可为任意控件（这里是色块＋标题＋副标题的面板）。
  */
-package cui_gallery
+package chui_gallery
 
-import cui.{Color, FontSizes, LazyGrid, Label, LengthUnits, Panel, Spacer, VStack}
+import chui.{Color, FontSizes, LazyGrid, Label, LengthUnits, Panel, Spacer, VStack}
 
 // 一张作品卡片的类型化数据。
 struct GalleryItem {

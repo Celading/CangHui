@@ -4,10 +4,10 @@
  * `TreeView` 的选中项是节点 id（此处即路径），详情面板据此从索引查得元信息、由 id 拆出面包屑，
  * 两侧数据单向流动、无冗余副本。初始展开集让 `src/core` 一路打开，使初始选中的文件可见。
  */
-package cui_file_explorer
+package chui_file_explorer
 
 import std.collection.HashMap
-import cui.{State, TreeNode}
+import chui.{State, TreeNode}
 
 class ExplorerModel {
     let roots: Array<TreeNode>

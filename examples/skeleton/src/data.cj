@@ -3,9 +3,9 @@
  *
  * 文章数据供「加载完成」态展示；占位条的宽度比例由行号决定（长短交错更像真实文字），为纯函数可测。
  */
-package cui_skeleton
+package chui_skeleton
 
-import cui.{Color, IconName}
+import chui.{Color, IconName}
 
 // 一篇文章：图标、图标色、标题、摘要。
 struct Article {

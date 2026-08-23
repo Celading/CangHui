@@ -3,9 +3,9 @@
  *
  * 每条通知由片段拼成 RichText：链接片段用链接色 + 下划线 + onTap（点击设为已选择），非链接片段为常规文字。
  */
-package cui_links
+package chui_links
 
-import cui.{CrossAxisAlignment, FontSizes, Label, LengthUnits, Panel, RichSpan, RichText, ScrollView, VStack}
+import chui.{CrossAxisAlignment, FontSizes, Label, LengthUnits, Panel, RichSpan, RichText, ScrollView, VStack}
 import std.collection.ArrayList
 
 func linksView(model: LinksModel): Unit {

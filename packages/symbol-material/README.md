@@ -1,6 +1,6 @@
 # CangHui Material Symbols
 
-Optional Material Symbols provider for `cui.Symbol`. Use
+Optional Material Symbols provider for `chui.Symbol`. Use
 `cuic symbol list material` to inspect the catalog and `cuic symbol generate`
 to create a declared-subset registry.
 

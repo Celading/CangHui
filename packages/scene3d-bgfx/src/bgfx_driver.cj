@@ -1,6 +1,6 @@
 package canghui_scene3d_bgfx
 
-import cui.scene3d.*
+import chui.scene3d.*
 import bgfx4cj.bgfx.*
 
 /**

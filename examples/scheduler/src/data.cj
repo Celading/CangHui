@@ -3,10 +3,10 @@
  *
  * 时长、排序键、时间段文案都是 `TimeOfDay`/`CalendarDate` 的纯函数，便于单测且与视图无关。
  */
-package cui_scheduler
+package chui_scheduler
 
 import std.collection.ArrayList
-import cui.{CalendarDate, TimeOfDay}
+import chui.{CalendarDate, TimeOfDay}
 
 // 一场排定的会议。
 struct Meeting {

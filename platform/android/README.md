@@ -6,7 +6,7 @@ multi-pointer/key/IME ingress, an explicit system-bars policy, a private JNI
 receipt boundary, a minimal NDK renderer, and a standalone probe APK assembled
 without Gradle.
 
-It does not contain a Cangjie Android runtime, a CUI scene renderer,
+It does not contain a Cangjie Android runtime, a CangHui scene renderer,
 accessibility integration, or production application packaging.
 
 ## Host Contract
@@ -53,7 +53,7 @@ the last pointer position. Rendering after attach and each ingress event proves
 that lifecycle, input and frame presentation share one live native owner.
 
 This renderer is deliberately a host proof. It does not consume CangHui Draw IR
-or claim CUI widget rendering.
+or claim CangHui widget rendering.
 
 ## Static Proof
 
@@ -102,7 +102,7 @@ runtime libraries. The verifier exits `2` when either side is missing.
 
 - Obtain and validate a Cangjie Android cross SDK and runtime.
 - Cross-compile the CangHui Cangjie package without changing the common ABI.
-- Bind the host to the real CUI renderer while preserving generation gates.
+- Bind the host to the real CangHui renderer while preserving generation gates.
 - Add accessibility and production application lifecycle integration.
 - Add release-owned application identity, resources, signing and distribution.
 

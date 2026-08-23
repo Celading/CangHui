@@ -1,6 +1,6 @@
-package cui_highlight
+package chui_highlight
 
-import cui.Color
+import chui.Color
 
 private let TEST_MARK = Color.rgb(255, 224, 130)
 private let TEST_TEXT = Color.rgb(60, 44, 12)

@@ -3,9 +3,9 @@
  *
  * 点任一链接片段即把它设为“已选择”，显示在底部详情条。
  */
-package cui_links
+package chui_links
 
-import cui.State
+import chui.State
 
 class LinksModel {
     let notices: Array<Notice> = NOTICES

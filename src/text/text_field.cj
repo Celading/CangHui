@@ -1,8 +1,8 @@
-package cui.text
+package chui.text
 
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
-import cui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, State, UiContext, Widget, claimHoverIfInside,
+import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, State, UiContext, Widget, claimHoverIfInside,
     emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code, so the editing shortcuts read as

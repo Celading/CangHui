@@ -1,6 +1,6 @@
 package canghui_gallery_components
 
-import cui.{ComponentCompatibility, HostPlatform, HostProfile, Symbols}
+import chui.{ComponentCompatibility, HostPlatform, HostProfile, Symbols}
 
 @Test
 func galleryPackageIsPlatformNeutral(): Unit {

@@ -56,7 +56,7 @@ func frameworkDependencyLine(line: String): Bool {
     let equals = indexOfText(line, "=")
     if (equals <= 0) { return false }
     let name = trimAscii(substringTo(line, equals))
-    name == "cui" || name == "\"cui\""
+    name == "chui" || name == "\"chui\""
 }
 
 func extractInlineTomlString(line: String, key: String): String {
@@ -98,7 +98,7 @@ func lockedFrameworkCommit(project: String): String {
 
 func frameworkDependencyLockProblem(spec: FrameworkDependencySpec, locked: String): String {
     if (spec.isLocal()) { return "" }
-    if (!spec.isGit()) { return "The project does not declare a cui dependency." }
+    if (!spec.isGit()) { return "The project does not declare a chui dependency." }
     if (spec.commitId.isEmpty()) {
         return "The CangHui Git dependency must declare an exact commitId."
     }
@@ -202,7 +202,7 @@ func cachedFrameworkRoot(project: String): String {
     }
     let cache = cjpmCacheRoot(project)
     if (commit.isEmpty() || cache.isEmpty()) { return "" }
-    let candidate = joinPath(joinPath(joinPath(cache, "git"), "cui"), commit)
+    let candidate = joinPath(joinPath(joinPath(cache, "git"), "chui"), commit)
     if (frameworkRootCandidate(candidate)) { trimTrailingSlash(candidate) } else { "" }
 }
 
@@ -216,7 +216,7 @@ func ensureFrameworkRoot(project: String): String {
             throw CuicError("The locked CangHui dependency is not available in the CJPM cache. " +
                 "Run 'cuic dependency update ${project}' explicitly.")
         }
-        throw CuicError("CangHui dependency is not resolved; configure [dependencies].cui or set CANGHUI_FRAMEWORK_ROOT")
+        throw CuicError("CangHui dependency is not resolved; configure [dependencies].chui or set CANGHUI_FRAMEWORK_ROOT")
     }
 }
 
@@ -236,7 +236,7 @@ func dependencyCommand(args: Array<String>, start: Int64): Int64 {
         println("CangHui uses a local path dependency; no lock update is required.")
         return 0
     }
-    if (!spec.isGit()) { throw CuicError("The project does not declare a cui Git dependency.") }
+    if (!spec.isGit()) { throw CuicError("The project does not declare a chui Git dependency.") }
     if (spec.commitId.isEmpty()) {
         throw CuicError("The CangHui Git dependency must declare an exact commitId before update.")
     }
@@ -258,13 +258,13 @@ func tryResolveFrameworkRoot(project: String): String {
 
 func renderFrameworkDependency(spec: FrameworkDependencySpec): String {
     if (spec.isLocal()) {
-        return "cui = { path = \"${spec.path}\" }"
+        return "chui = { path = \"${spec.path}\" }"
     }
     if (spec.isGit() && !spec.commitId.isEmpty()) {
-        return "cui = { git = \"${spec.git}\", commitId = \"${spec.commitId}\" }"
+        return "chui = { git = \"${spec.git}\", commitId = \"${spec.commitId}\" }"
     }
     if (spec.isGit()) {
-        return "cui = { git = \"${spec.git}\" }"
+        return "chui = { git = \"${spec.git}\" }"
     }
     throw CuicError("CangHui dependency is not configured")
 }

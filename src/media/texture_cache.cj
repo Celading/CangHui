@@ -1,4 +1,4 @@
-package cui.media
+package chui.media
 
 import std.collection.HashMap
 import sdl.{Renderer, Texture, TextureBlendMode}

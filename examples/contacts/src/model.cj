@@ -5,10 +5,10 @@
  * 避免选中项指向被过滤掉的行。表单不直接改联系人，而是编辑一组草稿 State，保存时整体写回，
  * 取消即丢弃——单一数据源、无需回滚。
  */
-package cui_contacts
+package chui_contacts
 
 import std.collection.ArrayList
-import cui.{State, StateObservation}
+import chui.{State, StateObservation}
 
 class ContactsModel {
     let contacts = State<Array<Contact>>(seedContacts())

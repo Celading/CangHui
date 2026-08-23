@@ -1,7 +1,7 @@
 /*
  * 向导示例的步骤名与选项文案（纯函数）。
  */
-package cui_wizard
+package chui_wizard
 
 let WIZARD_STEPS: Array<String> = ["账户", "资料", "偏好", "完成"]
 let THEME_LABELS: Array<String> = ["浅色", "深色", "跟随系统"]

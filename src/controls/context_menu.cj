@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Key, MouseButton, Rect, Size, UiEvent}
-import cui.core.{Axis, CursorShape, Overlay, State, UiContext, Widget, resolveControlKey, buildChild, emit,
+import chui.core.{Axis, CursorShape, Overlay, State, UiContext, Widget, resolveControlKey, buildChild, emit,
     localState}
 
 private let CONTEXT_MENU_MARGIN: Float32 = 4.0

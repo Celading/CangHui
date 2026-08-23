@@ -5,7 +5,7 @@
  * 相对路径中挑出第一个可用目录，registerWeights 把各字重登记进注入的注册函数——两者都是纯函数，可单测。
  * 找不到目录时示例仍可运行，正文回退系统字体并显示获取指引。
  */
-package cui_wenkai
+package chui_wenkai
 
 // 一个字重：注册名、界面标签、文件名。
 struct Weight {

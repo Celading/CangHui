@@ -1,6 +1,6 @@
-[CUI 指南](../index.md) › 常见问题
+[CangHui 指南](../index.md) › 常见问题
 
-# 按症状排查 CUI 问题
+# 按症状排查 CangHui 问题
 
 ## 先看现象
 
@@ -17,7 +17,7 @@
 
 ## 可能原因
 
-- **构建/运行边界**：依赖路径指向了 `src` 而不是 `cui` 根，或本机加载器找不到 SDL 动态库。
+- **构建/运行边界**：依赖路径指向了 `src` 而不是 `chui` 根，或本机加载器找不到 SDL 动态库。
 
 - **状态所有权**：把事实放在普通局部变量、每次构建重新赋初值、使用重复/变化的 `rememberState` 键，或让后台线程直接写 UI `State`。
 
@@ -43,7 +43,7 @@ cjpm run
 
 ### 症状二：状态不更新，或后台结果偶发丢失
 
-先搜索 `spawn`。下面的最小探针故意展示错误边界：工作线程直接写 UI `State`。它可能偶尔显示结果，却违反 CUI 的线程约束，不能作为修复：
+先搜索 `spawn`。下面的最小探针故意展示错误边界：工作线程直接写 UI `State`。它可能偶尔显示结果，却违反 CangHui 的线程约束，不能作为修复：
 
 ```cangjie role=probe
 let status = State<String>("等待中")
@@ -61,7 +61,7 @@ let _ = spawn {
 ```cangjie role=fix
 package docexample
 
-import cui.*
+import chui.*
 import std.sync.Mutex
 
 class UiMailbox {
@@ -173,7 +173,7 @@ main(): Unit {
 
 ## 修复方法
 
-- 先修正 `cui` 项目根依赖，再单独修复 SDL 运行库搜索路径。
+- 先修正 `chui` 项目根依赖，再单独修复 SDL 运行库搜索路径。
 - 把业务事实移到 `State`/模型，把可计算值改为派生值；状态键固定、唯一且类型稳定。
 - 后台线程只向 `Mutex` 保护的信箱发布普通数据；`FrameHandler` 在 UI 帧收取后才写 `State`。
 - 动态项目用业务 id；虚拟化后仍要保留的行状态提升到模型。
@@ -190,13 +190,13 @@ main(): Unit {
 
 ## 相关 API
 
-- [`ImageView`](../../api/cui/media/ImageView.md) — 图片空白和缓存问题的入口。
+- [`ImageView`](../../api/chui/media/ImageView.md) — 图片空白和缓存问题的入口。
 
-- [`DesktopApp`](../../api/cui/desktop/DesktopApp.md) — 启动与帧循环。
-- [`State`](../../api/cui/core/State.md)、[`Keyed`](../../api/cui/core/Keyed.md) — 状态与身份。
-- [`FrameHandler`](../../api/cui/core/FrameHandler.md) — 在 UI 帧收取后台信箱。
-- [`ScrollView`](../../api/cui/core/ScrollView.md)、[`LazyColumn`](../../api/cui/core/LazyColumn.md) — 滚动与虚拟化。
-- [`Modal`](../../api/cui/controls/Modal.md)、[`Toaster`](../../api/cui/controls/Toaster.md)、[`ToastLayer`](../../api/cui/controls/ToastLayer.md) — 浮层和通知。
+- [`DesktopApp`](../../api/chui/desktop/DesktopApp.md) — 启动与帧循环。
+- [`State`](../../api/chui/core/State.md)、[`Keyed`](../../api/chui/core/Keyed.md) — 状态与身份。
+- [`FrameHandler`](../../api/chui/core/FrameHandler.md) — 在 UI 帧收取后台信箱。
+- [`ScrollView`](../../api/chui/core/ScrollView.md)、[`LazyColumn`](../../api/chui/core/LazyColumn.md) — 滚动与虚拟化。
+- [`Modal`](../../api/chui/controls/Modal.md)、[`Toaster`](../../api/chui/controls/Toaster.md)、[`ToastLayer`](../../api/chui/controls/ToastLayer.md) — 浮层和通知。
 
 ## 下一步
 

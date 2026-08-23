@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, ControlSemantics, CursorShape, Motion, Spring,
+import chui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, ControlSemantics, CursorShape, Motion, Spring,
     UiContext, Widget, requireControlId, claimHoverIfInside, drawFocusRing, drawSurface, emit,
     focusableControlIdentity, handlePointerClick, localState, recordControlSemantics, reregisterFocusable,
     registerFocusable, resolveControlKey}

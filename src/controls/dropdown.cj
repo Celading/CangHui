@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Color, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
-import cui.core.{AnimationSpec, Animator, Bindable, CUI_SMALL_H, ComponentControlAppearance,
+import chui.core.{AnimationSpec, Animator, Bindable, CUI_SMALL_H, ComponentControlAppearance,
     ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
     CursorShape, Motion, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget, resolveControlKey,
     advanceScrollMotion,

@@ -3,9 +3,9 @@
  *
  * level 由 Stepper 绑定并钳到 1..6（与 elevation/keyAmbient 预设的定义域一致）；clampLevel 为纯函数可测。
  */
-package cui_shadows
+package chui_shadows
 
-import cui.State
+import chui.State
 
 // 层级钳到预设定义域 1..6。
 func clampLevel(value: Int64): Int64 {

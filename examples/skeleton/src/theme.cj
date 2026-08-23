@@ -1,9 +1,9 @@
 /*
  * 骨架屏示例主题：清爽浅色；field 与 fieldActive 兼作骨架呼吸的基色与亮色。令牌集中于此。
  */
-package cui_skeleton
+package chui_skeleton
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func skeletonTheme(): Theme {
     Theme(

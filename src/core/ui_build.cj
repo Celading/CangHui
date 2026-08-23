@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import std.collection.ArrayList
 import sdl.{Color, MouseButton, Point, Rect, Size, UiEvent}

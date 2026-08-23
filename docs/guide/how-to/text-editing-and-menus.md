@@ -29,7 +29,7 @@
 ```cangjie verify role=complete profile=gui-visual
 package docexample
 
-import cui.*
+import chui.*
 
 main(): Unit {
     let app = DesktopApp(WindowSpec("编辑器", 700, 460))
@@ -72,7 +72,7 @@ EventHandler(onEvent: {event =>
 }
 ```
 
-具体修饰键字段以项目使用的 CUI 版本为准；关键是只消费确认命中的组合键，其他事件返回 `false`。若 Modal 已打开，根级处理器还必须先检查模态状态，详见[键盘与焦点](keyboard-and-focus.md)。
+具体修饰键字段以项目使用的 CangHui 版本为准；关键是只消费确认命中的组合键，其他事件返回 `false`。若 Modal 已打开，根级处理器还必须先检查模态状态，详见[键盘与焦点](keyboard-and-focus.md)。
 
 ## 确认结果
 
@@ -89,7 +89,7 @@ EventHandler(onEvent: {event =>
 
 ## 相关 API
 
-[TextArea](../../api/cui/text/TextArea.md)、[MenuBar](../../api/cui/controls/MenuBar.md)、[MenuItem](../../api/cui/controls/MenuItem.md)、[EventHandler](../../api/cui/core/EventHandler.md)。
+[TextArea](../../api/chui/text/TextArea.md)、[MenuBar](../../api/chui/controls/MenuBar.md)、[MenuItem](../../api/chui/controls/MenuItem.md)、[EventHandler](../../api/chui/core/EventHandler.md)。
 
 ## 下一步
 

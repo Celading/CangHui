@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 数据列表
+[CangHui 指南](../index.md) › 数据列表
 
 # 构建有稳定身份的数据列表
 
@@ -12,7 +12,7 @@
 
 ## 准备工作
 
-沿用[第一个窗口](../getting-started/first-window.md)中的 `docexample` 项目、`cui` 依赖和 SDL 运行环境；本页给出完整 `main.cj`，不需要从计数器拼接未定义的模型。先理解[布局约束、滚动与虚拟化](../concepts/layout-and-scrolling.md)。为数据类型确定稳定 id：它在项目生命周期内不变，且不依赖当前数组索引。
+沿用[第一个窗口](../getting-started/first-window.md)中的 `docexample` 项目、`chui` 依赖和 SDL 运行环境；本页给出完整 `main.cj`，不需要从计数器拼接未定义的模型。先理解[布局约束、滚动与虚拟化](../concepts/layout-and-scrolling.md)。为数据类型确定稳定 id：它在项目生命周期内不变，且不依赖当前数组索引。
 
 ## 操作步骤
 
@@ -38,7 +38,7 @@
 package docexample
 
 import std.collection.ArrayList
-import cui.*
+import chui.*
 
 class Task {
     let id: String
@@ -196,10 +196,10 @@ func toggleOpenOnly(): Unit {
 
 ## 相关 API
 
-- [`ForEach`](../../api/cui/core/functions.md#foreach) 与 [`Keyed`](../../api/cui/core/Keyed.md) — 稳定身份子树。
-- [`LazyColumn`](../../api/cui/core/LazyColumn.md) — 固定高纵向虚拟列表。
-- [`ListView`](../../api/cui/controls/ListView.md) — 带选择和键盘导航的列表。
-- [`State`](../../api/cui/core/State.md) — 数据数组、筛选和选中 id。
+- [`ForEach`](../../api/chui/core/functions.md#foreach) 与 [`Keyed`](../../api/chui/core/Keyed.md) — 稳定身份子树。
+- [`LazyColumn`](../../api/chui/core/LazyColumn.md) — 固定高纵向虚拟列表。
+- [`ListView`](../../api/chui/controls/ListView.md) — 带选择和键盘导航的列表。
+- [`State`](../../api/chui/core/State.md) — 数据数组、筛选和选中 id。
 
 ## 下一步
 

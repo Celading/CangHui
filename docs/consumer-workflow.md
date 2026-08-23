@@ -7,7 +7,7 @@ framework into every project. The workflow has three independently versioned par
 
 - `cuic`: an installable command built from `tools/cuic`;
 - the application: a normal executable CJPM module;
-- `cui`: a public Git dependency pinned by `commitId` and frozen by `cjpm.lock`.
+- `chui`: a public Git dependency pinned by `commitId` and frozen by `cjpm.lock`.
 
 ## Install cuic
 
@@ -59,7 +59,7 @@ The generated dependency is shaped as follows:
 
 ```toml
 [dependencies]
-cui = { git = "https://github.com/Celading/CangHui.git", commitId = "<reviewed-commit>" }
+chui = { git = "https://github.com/Celading/CangHui.git", commitId = "<reviewed-commit>" }
 ```
 
 `cuic dependency update` is the explicit dependency mutation step. It asks CJPM to resolve the reviewed

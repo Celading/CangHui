@@ -1,4 +1,4 @@
-package cui_file_explorer
+package chui_file_explorer
 
 /*
  * 树的 id 即路径这一约定支撑了索引与面包屑：这里守护索引的正确性与路径派生的边界。

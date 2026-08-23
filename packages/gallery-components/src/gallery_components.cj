@@ -1,6 +1,6 @@
 package canghui_gallery_components
 
-import cui.*
+import chui.*
 
 public class GalleryComponentPackage <: ComponentPackage {
     public func descriptor(): ComponentPackageDescriptor {
@@ -126,23 +126,23 @@ private func galleryScroll(context: ComponentContext, state: GallerySurfaceState
 private func actionComponents(viewportClass: ViewportClass, state: GallerySurfaceState): Unit {
     VStack {
         categoryHeader("Actions", "Unified press, hover, cancellation and automatic motion")
-        specimen("Button", "cui.Button") {
+        specimen("Button", "chui.Button") {
             buttonSpecimen(viewportClass)
         }
-        specimen("IconButton", "cui.IconButton") {
+        specimen("IconButton", "chui.IconButton") {
             FlowRow {
                 IconButton(IconName.Save) {=> ()}
                 IconButton(IconName.Refresh, label: Some("Refresh")) {=> ()}
                 IconButton(IconName.Trash, label: Some("Delete"), role: ButtonRole.Danger) {=> ()}
             }.spacing(10.vp)
         }
-        specimen("Chip", "cui.Chip") {
+        specimen("Chip", "chui.Chip") {
             FlowRow {
                 Chip("Architecture", state.architectureChip, key: "gallery-chip-architecture")
                 Chip("Tooling", state.toolingChip, key: "gallery-chip-tooling")
             }.spacing(10.vp)
         }
-        specimen("Badge", "cui.Badge") {
+        specimen("Badge", "chui.Badge") {
             FlowRow {
                 Badge("stable", kind: BadgeKind.Success)
                 Badge("interactive", kind: BadgeKind.Accent)
@@ -179,26 +179,26 @@ private func buttonSpecimen(viewportClass: ViewportClass): Unit {
 private func selectionComponents(state: GallerySurfaceState): Unit {
     VStack {
         categoryHeader("Selection", "Bound state, keyboard focus and animated value changes")
-        specimen("Checkbox / Switch", "cui.Checkbox + cui.Switch") {
+        specimen("Checkbox / Switch", "chui.Checkbox + chui.Switch") {
             FlowRow {
                 Checkbox("Build checks", state.checkboxEnabled).key("gallery-checkbox")
                 Switch("Notifications", state.notificationsEnabled).key("gallery-switch")
             }.spacing(18.vp)
         }
-        specimen("RadioButton", "cui.RadioButton") {
+        specimen("RadioButton", "chui.RadioButton") {
             FlowRow {
                 RadioButton("Basic", state.selectedChoice, 0).key("gallery-radio-basic")
                 RadioButton("Standard", state.selectedChoice, 1).key("gallery-radio-standard")
                 RadioButton("Full", state.selectedChoice, 2).key("gallery-radio-full")
             }.spacing(14.vp)
         }
-        specimen("Slider / Stepper", "cui.Slider + cui.Stepper") {
+        specimen("Slider / Stepper", "chui.Slider + chui.Stepper") {
             HStack {
                 Slider(state.sliderValue, key: "gallery-slider").width(260.vp)
                 Stepper(state.stepperValue, key: "gallery-stepper", lower: 0, upper: 9)
             }.spacing(18.vp).hug()
         }
-        specimen("Picker / Rating", "cui.Picker + cui.Rating") {
+        specimen("Picker / Rating", "chui.Picker + chui.Rating") {
             FlowRow {
                 Picker(["Basic", "Standard", "Full"], state.pickerValue, key: "gallery-picker")
                 Rating(state.rating, key: "gallery-rating")
@@ -210,15 +210,15 @@ private func selectionComponents(state: GallerySurfaceState): Unit {
 private func navigationComponents(state: GallerySurfaceState): Unit {
     VStack {
         categoryHeader("Navigation", "Location, progress and disclosure components")
-        specimen("Breadcrumb", "cui.Breadcrumb") {
-            Breadcrumb(["CUI", "Navigation", "Motion", "Current"], maxItems: 4,
+        specimen("Breadcrumb", "chui.Breadcrumb") {
+            Breadcrumb(["CangHui", "Navigation", "Motion", "Current"], maxItems: 4,
                 clickable: true, historyShow: true, history: Some(state.breadcrumbIndex),
                 onSelect: {_ => ()}, key: "gallery-breadcrumb")
         }
-        specimen("Pagination", "cui.Pagination") {
+        specimen("Pagination", "chui.Pagination") {
             Pagination(8, state.page, key: "gallery-pagination")
         }
-        specimen("StepIndicator", "cui.StepIndicator") {
+        specimen("StepIndicator", "chui.StepIndicator") {
             VStack {
                 StepIndicator(["Pull", "Merge", "Prove", "Ship"], state.step.value,
                     onSelect: {index => state.step.value = index}, key: "gallery-steps")
@@ -231,7 +231,7 @@ private func navigationComponents(state: GallerySurfaceState): Unit {
                 }.spacing(10.vp).hug()
             }.spacing(10.vp).hug()
         }
-        specimen("Accordion", "cui.Accordion") {
+        specimen("Accordion", "chui.Accordion") {
             Accordion([
                 AccordionSection("Interaction contract") {=>
                     Label("Press inside, move-out cancellation, and release-inside activation share one route.",
@@ -252,7 +252,7 @@ private func navigationComponents(state: GallerySurfaceState): Unit {
 private func feedbackComponents(state: GallerySurfaceState): Unit {
     VStack {
         categoryHeader("Feedback", "Status, progress and editable value specimens")
-        specimen("ProgressBar / ProgressRing", "cui.ProgressBar + cui.ProgressRing") {
+        specimen("ProgressBar / ProgressRing", "chui.ProgressBar + chui.ProgressRing") {
             HStack {
                 ProgressRing(state.overviewProgress.value, diameter: 68.0, thickness: 7.0)
                 VStack {
@@ -261,14 +261,14 @@ private func feedbackComponents(state: GallerySurfaceState): Unit {
                 }.spacing(8.vp)
             }.spacing(18.vp).hug()
         }
-        specimen("TextField", "cui.TextField") {
+        specimen("TextField", "chui.TextField") {
             TextField(state.fieldText, key: "gallery-text-field").width(320.vp)
         }
-        specimen("Dropdown", "cui.Dropdown") {
+        specimen("Dropdown", "chui.Dropdown") {
             Dropdown(["Basic motion", "Standard motion", "Full motion"], state.dropdownValue,
                 key: "gallery-dropdown")
         }
-        specimen("Divider / Label", "cui.Divider + cui.Label") {
+        specimen("Divider / Label", "chui.Divider + chui.Label") {
             VStack {
                 Label("Primary label")
                 Divider()
@@ -281,7 +281,7 @@ private func feedbackComponents(state: GallerySurfaceState): Unit {
 private func symbolComponents(): Unit {
     VStack {
         categoryHeader("Symbols", "Provider-neutral names, declared subsets and deterministic fallback")
-        specimen("Symbol", "cui.Symbol") {
+        specimen("Symbol", "chui.Symbol") {
             FlowRow {
                 symbolSpecimen("Built-in", SymbolName("save", provider: "builtin"))
                 symbolSpecimen("Material", material_add, variant: SymbolVariant.Filled)
@@ -291,7 +291,7 @@ private func symbolComponents(): Unit {
                     detail: "missing -> builtin")
             }.spacing(14.vp)
         }
-        specimen("Icon compatibility", "cui.Icon + cui.IconButton") {
+        specimen("Icon compatibility", "chui.Icon + chui.IconButton") {
             FlowRow {
                 Icon(material_add, size: 24.vp)
                 Icon(ant_check, size: 24.vp)

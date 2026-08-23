@@ -1,9 +1,9 @@
 [package]
 cjc-version = "1.0.5"
-name = "cui_contacts"
+name = "chui_contacts"
 version = "0.1.0"
 output-type = "executable"
-description = "CUI contacts (CRM) example."
+description = "CangHui contacts (CRM) example."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

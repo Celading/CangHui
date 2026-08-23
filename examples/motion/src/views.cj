@@ -3,9 +3,9 @@
  *
  * MotionLab 逐帧推进各轨道的 Animator；播放按钮翻转目标，所有轨道随之朝 0 或 1 缓动。
  */
-package cui_motion
+package chui_motion
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Spacer, VStack}
+import chui.{Button, ButtonRole, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Spacer, VStack}
 
 func motionView(model: MotionModel): Unit {
     VStack {

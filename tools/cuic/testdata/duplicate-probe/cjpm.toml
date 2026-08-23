@@ -6,4 +6,4 @@ output-type = "executable"
 description = "Compile-fail fixture for duplicate CuiProbe names."
 
 [dependencies]
-cui = { path = "../../../.." }
+chui = { path = "../../../.." }

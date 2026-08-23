@@ -1,9 +1,9 @@
 /*
  * 通知示例主题：深色底衬托浮起的通知卡片。令牌集中于此。
  */
-package cui_notify
+package chui_notify
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func notifyTheme(): Theme {
     Theme(

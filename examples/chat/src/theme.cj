@@ -1,9 +1,9 @@
 /*
  * 聊天主题：柔和的浅蓝底 + 蓝色气泡。气泡、头像与文字色作为令牌供视图直接引用。
  */
-package cui_chat
+package chui_chat
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 /** 气泡背景与文字色：我方（右、蓝底白字）与对方（左、白底深字）。 */
 let CHAT_MINE_BG: Color = Color.rgb(64, 120, 240)

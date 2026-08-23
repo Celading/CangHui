@@ -1,6 +1,6 @@
-package cui.kmode
+package chui.kmode
 
-import cui.host.*
+import chui.host.*
 
 func repeatedReplayText(count: Int64): String {
     let out = StringBuilder()

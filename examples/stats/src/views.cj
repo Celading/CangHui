@@ -3,9 +3,9 @@
  *
  * 逐段字号使两种字号在行内居中对齐、行高随最大字号增长；环比变化按好坏着色。切时段即换整组指标。
  */
-package cui_stats
+package chui_stats
 
-import cui.{Color, CrossAxisAlignment, FontSizes, Grid, Label, LengthUnits, Panel, RichSpan, RichText, SegmentedControl,
+import chui.{Color, CrossAxisAlignment, FontSizes, Grid, Label, LengthUnits, Panel, RichSpan, RichText, SegmentedControl,
     VStack}
 
 func statsView(model: StatsModel): Unit {

@@ -1,6 +1,6 @@
 package canghui_scene3d_bgfx
 
-import cui.scene3d.{Scene3DBackend, Scene3DHostSurface}
+import chui.scene3d.{Scene3DBackend, Scene3DHostSurface}
 import sdl.sdlVersion
 
 private let SDL_INIT_VIDEO: UInt32 = UInt32(0x00000020)

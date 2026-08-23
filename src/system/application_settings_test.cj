@@ -1,4 +1,4 @@
-package cui.system
+package chui.system
 
 @Test
 func appSettingsRuntimeUsesDefaultsAndRejectsTypeOrSecureDowngrade(): Unit {

@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{FontSizes, Rect, SurfaceStyle}
-import cui.core.{CUI_SMALL_H, UiContext, drawSurface}
+import chui.core.{CUI_SMALL_H, UiContext, drawSurface}
 
 // Padding strips above and below the rows inside a menu popup.
 private let MENU_ROW_PAD: Float32 = 5.0

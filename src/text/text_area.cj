@@ -1,8 +1,8 @@
-package cui.text
+package chui.text
 
 import sdl.{FontSizes, Key, MouseButton, Point, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
-import cui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
+import chui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
     State, UiContext, Widget, advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside,
     clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, registerFocusable, resolveControlKey,
     scrollLineIndex, scrollLineRemainder}

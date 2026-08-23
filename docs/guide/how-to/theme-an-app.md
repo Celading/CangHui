@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 应用主题
+[CangHui 指南](../index.md) › 应用主题
 
 # 为应用建立一致主题
 
@@ -79,10 +79,10 @@ let app = DesktopApp(WindowSpec("账户设置（深色）", 460, 320), theme: Th
 
 ## 相关 API
 
-- [`Theme`](../../api/cui/core/Theme.md) — 应用视觉令牌与内建主题。
-- [`ButtonRole`](../../api/cui/core/ButtonRole.md) 与 [`Button`](../../api/cui/core/Button.md) — 动作语义和主题外观。
-- [`Panel`](../../api/cui/core/Panel.md) — 表面、边框和容器样式。
-- [`Label`](../../api/cui/core/Label.md) — 文字层级与主题颜色。
+- [`Theme`](../../api/chui/core/Theme.md) — 应用视觉令牌与内建主题。
+- [`ButtonRole`](../../api/chui/core/ButtonRole.md) 与 [`Button`](../../api/chui/core/Button.md) — 动作语义和主题外观。
+- [`Panel`](../../api/chui/core/Panel.md) — 表面、边框和容器样式。
+- [`Label`](../../api/chui/core/Label.md) — 文字层级与主题颜色。
 
 ## 下一步
 

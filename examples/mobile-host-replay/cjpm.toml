@@ -6,4 +6,4 @@ output-type = "executable"
 description = "Headless consumer fixture for CangHui mobile host receipts."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }

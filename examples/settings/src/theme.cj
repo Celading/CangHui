@@ -1,9 +1,9 @@
 /*
  * 设置主题：中性浅色 + 靛蓝强调。令牌集中于此。
  */
-package cui_settings
+package chui_settings
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func settingsTheme(): Theme {
     Theme(

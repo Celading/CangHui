@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 焦点与浮层
+[CangHui 指南](../index.md) › 焦点与浮层
 
 # 焦点、事件与浮层
 
@@ -16,7 +16,7 @@
 
 ## 工作模型
 
-应用从 SDL 收集输入并转换成 CUI 事件。布局完成后，指针事件按可见几何命中控件；键盘事件先考虑当前焦点，再由容器或应用级 `EventHandler` 处理快捷键。可聚焦控件按照构建顺序和容器协议参与 Tab 遍历。
+应用从 SDL 收集输入并转换成 CangHui 事件。布局完成后，指针事件按可见几何命中控件；键盘事件先考虑当前焦点，再由容器或应用级 `EventHandler` 处理快捷键。可聚焦控件按照构建顺序和容器协议参与 Tab 遍历。
 
 焦点是应用状态的一部分，却不等于业务选择。列表中“当前行”可以与键盘焦点有关，但排序或过滤后仍应由稳定数据 id 保持。`TextField.autofocus()` 可以正常写在声明式构建中：同一控件身份只请求一次焦点；控件卸载后以新身份重新出现时，才会再次执行这项首次聚焦意图。
 
@@ -78,10 +78,10 @@ ZStack {
 
 ## 相关 API
 
-- [`EventHandler`](../../api/cui/core/EventHandler.md) — 应用级事件处理入口。
-- [`Modal`](../../api/cui/controls/Modal.md) — 模态内容和确认/取消交互。
-- [`Toaster`](../../api/cui/controls/Toaster.md) 与 [`ToastLayer`](../../api/cui/controls/ToastLayer.md) — 消息状态与渲染层。
-- [`TextField`](../../api/cui/text/TextField.md) — 文本焦点和编辑。
+- [`EventHandler`](../../api/chui/core/EventHandler.md) — 应用级事件处理入口。
+- [`Modal`](../../api/chui/controls/Modal.md) — 模态内容和确认/取消交互。
+- [`Toaster`](../../api/chui/controls/Toaster.md) 与 [`ToastLayer`](../../api/chui/controls/ToastLayer.md) — 消息状态与渲染层。
+- [`TextField`](../../api/chui/text/TextField.md) — 文本焦点和编辑。
 
 ## 下一步
 

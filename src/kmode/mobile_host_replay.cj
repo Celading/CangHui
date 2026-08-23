@@ -1,8 +1,8 @@
-package cui.kmode
+package chui.kmode
 
 import std.collection.ArrayList
 import std.convert.*
-import cui.host.{MobileHostCallbackContext, MobileHostPackageReceipt, renderMobileHostSemanticReplay}
+import chui.host.{MobileHostCallbackContext, MobileHostPackageReceipt, renderMobileHostSemanticReplay}
 
 /**
  * Builds a kMode handler for one consumer-owned mobile receipt.

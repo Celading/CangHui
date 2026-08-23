@@ -3,9 +3,9 @@
  *
  * 字号阶梯、样式参考表都是不可变数据；样式合成与样式摘要是纯函数，便于单测且与视图无关。
  */
-package cui_typography
+package chui_typography
 
-import cui.{FontSizes, FontStyle}
+import chui.{FontSizes, FontStyle}
 import std.collection.ArrayList
 
 // 字号阶梯上的一档：展示名 + 字号（fp）。

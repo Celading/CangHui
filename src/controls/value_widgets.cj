@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent, clampF32}
-import cui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, ControlSemantics, CursorShape, Observable, Spring,
+import chui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, ControlSemantics, CursorShape, Observable, Spring,
     UiContext, Widget, claimHoverIfInside, controlIdentity, drawSurface, emit, localState,
     recordControlSemantics, registerFocusable, resolveControlKey}
 

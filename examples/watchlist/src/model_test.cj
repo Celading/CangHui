@@ -1,4 +1,4 @@
-package cui_watchlist
+package chui_watchlist
 
 @Test
 func updatingRatingReplacesOne(): Unit {

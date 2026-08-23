@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-click CUI benchmark runner (cross-platform).
+"""One-click CangHui benchmark runner (cross-platform).
 
 Builds and runs the headless benchmarks, parses their machine-readable @@RESULT lines, and renders
 a self-contained HTML report (bench/results/report.html) that lays each per-frame cost against the
@@ -391,7 +391,7 @@ def note_cheap_movers(pairs, gated, flag_factor, bound):
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="CUI benchmark runner + HTML report.")
+    ap = argparse.ArgumentParser(description="CangHui benchmark runner + HTML report.")
     ap.add_argument("--no-run", action="store_true", help="reuse the last capture instead of rebuilding")
     ap.add_argument("--open", action="store_true", help="open the report when finished")
     ap.add_argument("--display", action="store_true", help="also run the display benchmarks")

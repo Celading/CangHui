@@ -1,4 +1,4 @@
-package cui_workbench
+package chui_workbench
 
 /*
  * 大纲与统计是工作台的“活文档”核心：它们从正文实时派生，最容易出错的是标题前缀剥离与空正文边界。

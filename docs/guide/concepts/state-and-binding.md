@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 状态与绑定
+[CangHui 指南](../index.md) › 状态与绑定
 
 # 状态、绑定与派生值
 
@@ -67,9 +67,9 @@ let nameBinding = profile.project(
 
 ## 相关 API
 
-- [`State`](../../api/cui/core/State.md)、[`Binding`](../../api/cui/core/Binding.md)、[`DerivedState`](../../api/cui/core/DerivedState.md) — 三类数据角色。
-- [`Bindable.project`](../../api/cui/core/Bindable.md#project) — 从整体模型创建字段双向绑定。
-- [`rememberState`](../../api/cui/core/functions.md#rememberstate) 与 [`derive`](../../api/cui/core/functions.md#derive) — 声明式构建中的局部与派生状态。
+- [`State`](../../api/chui/core/State.md)、[`Binding`](../../api/chui/core/Binding.md)、[`DerivedState`](../../api/chui/core/DerivedState.md) — 三类数据角色。
+- [`Bindable.project`](../../api/chui/core/Bindable.md#project) — 从整体模型创建字段双向绑定。
+- [`rememberState`](../../api/chui/core/functions.md#rememberstate) 与 [`derive`](../../api/chui/core/functions.md#derive) — 声明式构建中的局部与派生状态。
 
 ## 下一步
 

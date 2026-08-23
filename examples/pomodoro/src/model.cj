@@ -4,9 +4,9 @@
  * tick 只在运行中扣减时间，扣到零自动切换阶段并弹通知；跳过与重置是同一套阶段机的
  * 手动入口。时长设置在空闲的阶段起点被修改时，剩余时间同步跟进（观察者模式）。
  */
-package cui_pomodoro
+package chui_pomodoro
 
-import cui.{State, StateObservation, ToastKind, Toaster}
+import chui.{State, StateObservation, ToastKind, Toaster}
 
 let MS_PER_MINUTE: Int64 = 60_000
 

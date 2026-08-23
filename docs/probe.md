@@ -3,7 +3,8 @@
 **English** | [中文](probe.zh-CN.md)
 
 `cui.probe.v0` is CangHui's deterministic, device-free instrumentation
-protocol. It verifies callable behavior, component structure, event routing,
+protocol. The identifier remains a wire-compatibility token; the Cangjie
+framework package is `chui`. The protocol verifies callable behavior, component structure, event routing,
 animation samples, and renderer command shape without creating an SDL window.
 Pixel output remains the appropriate proof for font appearance, clipping,
 platform integration, and final visual review.
@@ -18,8 +19,8 @@ shaping, antialiasing, video frames, or platform composition.
 Import the probe macro and annotate a top-level `(String) -> String` function:
 
 ```cangjie
-import cui.*
-import cui.kmode.macros.*
+import chui.*
+import chui.kmode.macros.*
 
 @CuiProbe["settings.reset-preview"]
 func resetPreview(payload: String): String {

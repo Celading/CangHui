@@ -15,7 +15,7 @@
 package bench_controls_form
 
 import std.env.getCommandLine
-import cui.{DesktopApp, State, WindowSpec}
+import chui.{DesktopApp, State, WindowSpec}
 import bench_scenes.{BenchAccumulator, BenchDriver, controlsFormScene}
 import bench_harness.ScrollSweep
 
@@ -32,7 +32,7 @@ main(): Int64 {
         scroll: scroll, sweep: sweep, frames: 150)
     // vsync off + frameDelay 0 so the measured frame period is true per-frame work.
     let app = DesktopApp(
-        WindowSpec("CUI bench: controls form", 640, 720, vsync: false, supersample: supersample),
+        WindowSpec("CangHui bench: controls form", 640, 720, vsync: false, supersample: supersample),
         frameDelay: 0)
     app.setMinimumSize(480, 480)
     app.run {

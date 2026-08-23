@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.HashSet
 import sdl.{Color, Key, MouseButton, Rect, Renderer, Size, SurfaceStyle, UiEvent}
-import cui.core.{Button, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
+import chui.core.{Button, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
     ComponentControlStyle, ComponentProbe, ComponentShape, ComponentSpacing, ComponentTheme, ComponentTypography,
     ControlContentEnvironment, Label, LengthInsets, LengthUnits, State, StateStore, Theme, UiContext, VStack,
     Widget, buildRoot, emit}

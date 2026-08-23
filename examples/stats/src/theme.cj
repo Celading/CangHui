@@ -1,9 +1,9 @@
 /*
  * 数据看板主题：深色仪表盘，青蓝强调。令牌集中于此。
  */
-package cui_stats
+package chui_stats
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func statsTheme(): Theme {
     Theme(

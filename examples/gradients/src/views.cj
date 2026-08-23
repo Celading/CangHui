@@ -3,9 +3,9 @@
  *
  * 预览与控件都由模型现算；点 Stepper 换预设、切 Switch 换方向，大预览实时更新。样本墙固定展示各预设的纵向渐变。
  */
-package cui_gradients
+package chui_gradients
 
-import cui.{Color, CrossAxisAlignment, FlowRow, FontSizes, Gradient, HStack, Label, LengthUnits, ScrollView, Spacer,
+import chui.{Color, CrossAxisAlignment, FlowRow, FontSizes, Gradient, HStack, Label, LengthUnits, ScrollView, Spacer,
     Stepper, Switch, VStack}
 
 private let ON_GRADIENT = Color.rgb(255, 255, 255)

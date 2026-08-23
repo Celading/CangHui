@@ -1,9 +1,9 @@
 /*
  * 计算器的暗色主题与三类键面样式。
  */
-package cui_calculator
+package chui_calculator
 
-import cui.{Color, SurfaceStyle, Theme}
+import chui.{Color, SurfaceStyle, Theme}
 
 func calculatorTheme(): Theme {
     Theme(

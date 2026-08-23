@@ -16,7 +16,7 @@ CangHui 是 Cangjie 多平台声明式 GUI 框架。本手册是公开面入口�
 
 ## 当前公开能力速览
 
-- 声明式 CUI 核心 + 组件族 + 无头验收（kMode/probe/pview）。
+- 声明式 CangHui 核心 + 组件族 + 无头验收（kMode/probe/pview）。
 - 桌面 SDL 后端：macOS/Windows/Linux 构建路径，支持 `WindowSpec(frameless: true)`。
 - cuic 工具链：
   - `cuic build/test/run/debug/prnt/pview/device list`
@@ -28,4 +28,4 @@ CangHui 是 Cangjie 多平台声明式 GUI 框架。本手册是公开面入口�
 
 ## 版本
 
-当前 `cui` 版本线：`0.10.0`（见 [CHANGELOG](CHANGELOG.md)）。
+当前 `chui` 版本线：`0.10.0`（见 [CHANGELOG](CHANGELOG.md)）。

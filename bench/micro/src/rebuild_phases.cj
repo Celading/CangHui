@@ -11,7 +11,7 @@
  */
 package bench_micro
 
-import cui.{Rect, State, UiContext, Widget}
+import chui.{Rect, State, UiContext, Widget}
 import bench_scenes.{contentScrollScene, controlsFormScene}
 import bench_harness.{BenchResult, ScrollSweep, nowNanos, printSection, report, spanNs}
 

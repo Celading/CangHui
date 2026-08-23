@@ -4,9 +4,9 @@
  * 菜单动作都作用于这里的模型：新建/清空改写正文，追加日期/分隔线在正文末尾追加，打开/保存/退出/关于
  * 仅更新状态栏文案（示例不做真实文件与退出）。正文由 `TextArea` 双向绑定，菜单改动即刻反映到编辑区。
  */
-package cui_editor
+package chui_editor
 
-import cui.{CalendarDate, DerivedState, State}
+import chui.{CalendarDate, DerivedState, State}
 
 class EditorModel {
     let text = State<String>(seedText())
@@ -50,7 +50,7 @@ class EditorModel {
     }
 
     func about(): Unit {
-        status.value = "CUI 菜单栏示例 · v0.1"
+        status.value = "CangHui 菜单栏示例 · v0.1"
     }
 
     /** 判空供菜单项的动态禁用使用（空文档时保存/清空禁用）。 */

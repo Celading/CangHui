@@ -4,9 +4,9 @@
  * Pulse 由模型持有（普通对象即可跨帧存活，同 Spring 的用法），全部骨架行共享一个脉冲同步呼吸；
  * loaded 翻转即在骨架与真实内容间切换。
  */
-package cui_skeleton
+package chui_skeleton
 
-import cui.{Easing, Pulse, State}
+import chui.{Easing, Pulse, State}
 
 class SkeletonModel {
     let loaded = State<Bool>(false)

@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 /**
  * The semantic pointer shape a control asks for while the pointer is over it. The shell

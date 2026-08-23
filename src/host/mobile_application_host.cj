@@ -1,4 +1,4 @@
-package cui.host
+package chui.host
 
 /** Stable protocol shared by iOS, Android and HarmonyOS application hosts. */
 public const CANGHUI_MOBILE_APPLICATION_HOST_PROTOCOL = "canghui.mobile-application-host.v0"

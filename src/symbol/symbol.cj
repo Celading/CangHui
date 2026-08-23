@@ -1,4 +1,4 @@
-package cui.symbol
+package chui.symbol
 
 import std.collection.{ArrayList, HashSet}
 import std.sync.Mutex

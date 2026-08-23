@@ -1,4 +1,4 @@
-package cui.host
+package chui.host
 
 /** Stable ABI version for the minimal iOS host bootstrap surface. */
 public func iosHostAbiVersion(): Int64 {

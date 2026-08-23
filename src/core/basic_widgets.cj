@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import sdl.{FontSizes, Rect, Size, SurfaceStyle, UiEvent}
 
@@ -81,7 +81,7 @@ public class Button <: Widget {
     }
 
     /**
-     * Creates a button whose face is arbitrary decorative CUI content. The outer button remains the
+     * Creates a button whose face is arbitrary decorative CangHui content. The outer button remains the
      * sole focus and activation owner; focusable descendants are removed from the Tab ring and do not
      * receive events. Use this for icon/text/badge composition, not for nested interactive controls.
      */

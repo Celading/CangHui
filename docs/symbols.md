@@ -10,7 +10,7 @@ Icons, and Arco Design Icons remain separate optional packages.
 ## Core Use
 
 ```cangjie
-import cui.*
+import chui.*
 
 Symbol(SymbolName("save", provider: "builtin"),
     size: 24.vp, weight: 500.0, accessibilityLabel: "Save")
@@ -25,7 +25,7 @@ Add only the providers used by the application:
 
 ```toml
 [dependencies]
-cui = { path = "../CangHui" }
+chui = { path = "../CangHui" }
 canghui_symbol_material = { path = "../CangHui/packages/symbol-material" }
 canghui_symbol_ant = { path = "../CangHui/packages/symbol-ant" }
 canghui_symbol_arco = { path = "../CangHui/packages/symbol-arco" }

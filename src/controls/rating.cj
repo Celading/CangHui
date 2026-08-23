@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Key, Pen, Rect, Size, UiEvent}
-import cui.core.{Bindable, ControlSemantics, UiContext, Widget, resolveControlKey, drawFocusRing, emit,
+import chui.core.{Bindable, ControlSemantics, UiContext, Widget, resolveControlKey, drawFocusRing, emit,
     handlePointerClick, recordControlSemantics, registerFocusable}
 
 private let RATING_RADIUS: Float32 = 8.0

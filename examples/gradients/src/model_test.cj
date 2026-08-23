@@ -1,4 +1,4 @@
-package cui_gradients
+package chui_gradients
 
 @Test
 func clampPresetKeepsIndexInRange(): Unit {

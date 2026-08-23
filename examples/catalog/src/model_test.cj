@@ -1,4 +1,4 @@
-package cui_catalog
+package chui_catalog
 
 @Test
 func catalogHasFullCatalog(): Unit {

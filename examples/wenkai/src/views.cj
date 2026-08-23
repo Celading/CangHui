@@ -4,9 +4,9 @@
  * 样张卡整卡随切换器换字重（fontFamily 按名引用）；对比卡三行同文案各绑一个字重名，并排看粗细；
  * 等宽卡固定 wenkai-mono。字体缺失时同样的名字会整页回退系统字体，页面结构不变。
  */
-package cui_wenkai
+package chui_wenkai
 
-import cui.{CrossAxisAlignment, FontSizes, Label, LengthUnits, Panel, ScrollView, SegmentedControl, VStack}
+import chui.{CrossAxisAlignment, FontSizes, Label, LengthUnits, Panel, ScrollView, SegmentedControl, VStack}
 
 func wenkaiView(model: WenkaiModel): Unit {
     VStack {

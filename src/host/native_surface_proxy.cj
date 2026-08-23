@@ -1,4 +1,4 @@
-package cui.host
+package chui.host
 
 /** Graphics backend exposed by a host-owned native surface. */
 public enum NativeSurfaceBackend <: Equatable<NativeSurfaceBackend> {

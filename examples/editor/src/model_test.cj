@@ -1,4 +1,4 @@
-package cui_editor
+package chui_editor
 
 @Test
 func seedDocumentHasTextAndStats(): Unit {

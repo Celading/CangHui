@@ -6,9 +6,9 @@
  *    与上一条间隔较远时在消息上方插入居中时间分隔条——各可选段都计入该条的预估高度。
  *  - 输入栏贴底：回车或点“发送”追加消息并滚到底部（`LazyList` 会把超出偏移钳到底），最新消息始终可见。
  */
-package cui_chat
+package chui_chat
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, Divider, EventHandler, FontSizes, HStack, Key, Label, LazyList,
+import chui.{Button, ButtonRole, CrossAxisAlignment, Divider, EventHandler, FontSizes, HStack, Key, Label, LazyList,
     LengthUnits, Spacer, SurfaceStyle, TextField, UiEvent, VStack}
 
 func chatView(model: ChatModel): Unit {

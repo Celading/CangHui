@@ -3,9 +3,9 @@
  * 应用层自定义 Widget（同 paint 示例的 ColorSwatch）：实现 measure/layout/draw/handle 并 emit(this)，
  * 即可像内置控件一样参与声明式布局。
  */
-package cui_chat
+package chui_chat
 
-import cui.{Color, FontSizes, Rect, Size, UiContext, UiEvent, Widget, emit}
+import chui.{Color, FontSizes, Rect, Size, UiContext, UiEvent, Widget, emit}
 
 /** 头像直径（逻辑像素）。 */
 let AVATAR_SIZE: Float32 = 36.0

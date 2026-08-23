@@ -5,10 +5,10 @@
  * 读取取选中笔记，写入整表替换该笔记，单一数据源、无需手工同步缓冲区。切换笔记只改 `selected`，
  * 绑定即读到新笔记；编辑器的 id 含笔记 id，故光标与撤销历史按笔记独立、切换时自然重置。
  */
-package cui_notes
+package chui_notes
 
 import std.collection.ArrayList
-import cui.{Binding, DerivedState, State, derive}
+import chui.{Binding, DerivedState, State, derive}
 
 class NotesModel {
     let notes = State<Array<Note>>(seedNotes())

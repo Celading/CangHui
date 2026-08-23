@@ -1,14 +1,15 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="仓颉" />
   <img src="https://img.shields.io/badge/version-0.10.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.10.0" />
-  <img src="https://img.shields.io/badge/package-cui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 cui" />
+  <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
   <img src="https://img.shields.io/badge/license-Apache--2.0-d69e2e?style=for-the-badge&labelColor=1f2430" alt="Apache 2.0 许可证" />
 </p>
 <div align="center">
-<span style="font-weight:300;font-size:38px">CangHui / CUI</span><br/>
-<span style="font-weight:100;font-size:24px">仓颉多平台声明式 GUI 框架</span>
+<span style="font-weight:300;font-size:38px">CangHui / 仓绘</span><br/>
+<span style="font-weight:100;font-size:24px">CangHui Multiplatform</span><br/>
+<span style="font-weight:100;font-size:18px">面向仓颉的多平台声明式 GUI 框架</span>
 <p align="center">
   <strong>让仓颉意图抵达原生像素的 GUI 运行时</strong><br/>
   <sub>声明式语义 · 确定性探针 · 自渲染表面 · 原生宿主契约</sub>
@@ -26,12 +27,18 @@ CangHui 是用[仓颉编程语言](https://cangjie-lang.cn/)实现的自渲染�
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI) 演进而来，
 持续保留其上游归属与 MIT 许可告知。CangHui 及其原创贡献以 Apache 2.0
 许可证发布，上游 MIT 条款完整保留在
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。声明式核心 `cui`、安全的
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。声明式核心 `chui`、安全的
 SDL3 封装 `sdl`、集成工具链 `cuic`、组件包契约、响应式布局原语与原生宿主契约都维护在本仓库。
 
 框架在源码层保持平台中立：公共组件只依赖类型化的宿主能力（`HostCapability`）与
 视口事实（`ViewportSpec`），各平台适配层负责生命周期、原生 surface、IME、无障碍、
 打包与签名。平台宿主可以独立实现，不需要修改公共组件或应用状态。
+
+框架正式名称是 **CangHui（仓绘）**，完整定位是 **CangHui Multiplatform**，仓颉包名是
+**`chui`**。少量旧标识仅在兼容边界保留：`cui.probe.v0` 与 `@cui-ascii` 是线协议标识，
+`CUI_*` 是源码兼容名称，`cuic` 与 `--cui-path` 是工具兼容名称，现有
+`dev.cui.examples.*` 是示例应用的持久化标识，`cui-core` / `full-cui-scene-*` 是能力矩阵的
+机器可读兼容键。它们不是包名，也不是 CangHui 的替代品牌。
 
 > CangHui 不是截图层，也不是一袋组件。它是面向语言的轻量运行时：
 > 应用意图以仓颉组合进入，经过布局、状态、动效、Symbol 与宿主能力，
@@ -46,7 +53,7 @@ SDL3 封装 `sdl`、集成工具链 `cuic`、组件包契约、响应式布局�
 cuic 工程生命周期  ----  kMode / probe / Draw IR / prnt
         |
         v
-CUI 声明式核心  ----  状态、身份、布局、控件、覆盖层
+CangHui 声明式核心  ----  状态、身份、布局、控件、覆盖层
         |               主题、动效、字体、Symbol provider
         v
 宿主能力契约  ----  窗口、输入、IME、文件、剪贴板、时间
@@ -70,7 +77,7 @@ CUI 声明式核心  ----  状态、身份、布局、控件、覆盖层
 | 平台 | 状态 | 说明 |
 | --- | --- | --- |
 | macOS 桌面 | 可用 | 本机通过构建、框架/SDL/CLI 全量测试套件、交互式 Gallery 与确定性截图。 |
-| iOS | native-surface 适配器已证明 | 模拟器与真机证明覆盖静态包 bootstrap、UIKit `CAMetalLayer`、生命周期、安全区、触摸、`CADisplayLink`、detach/reattach generation 回放与 Metal clear pass。完整 CUI 场景渲染、IME、无障碍和产品应用验收仍未完成。 |
+| iOS | native-surface 适配器已证明 | 模拟器与真机证明覆盖静态包 bootstrap、UIKit `CAMetalLayer`、生命周期、安全区、触摸、`CADisplayLink`、detach/reattach generation 回放与 Metal clear pass。完整 CangHui 场景渲染、IME、无障碍和产品应用验收仍未完成。 |
 | HarmonyOS / HarmonyPC | 本仓库未提供应用宿主 | 公共契约覆盖原生 surface 与宿主能力，但本仓库不包含 ArkTS/HAP 应用宿主，也不声明独立的设备运行验收。 |
 | Windows / Linux | 仅有代码路径 | `cuic` 提供 bootstrap、doctor 与构建代码路径；本仓库不声称这两个平台的主机级运行时证明。 |
 | Android | 仅 native-surface bootstrap | 最小 Activity 已经管理 generation-safe 的 `SurfaceView` 到 JNI 再到 `ANativeWindow` 生命周期，并通过 `arm64-v8a` 与 `x86_64` 构建。仓颉 Android SDK、渲染器桥、输入/IME、APK 打包和真机运行证明仍未完成。 |
@@ -79,7 +86,7 @@ CUI 声明式核心  ----  状态、身份、布局、控件、覆盖层
 
 | 层 | 公开代码中已有 | 边界 |
 | --- | --- | --- |
-| CUI 核心 | 声明式组合、身份、状态、布局、控件、覆盖层与文本编辑 | 平台无关的源代码 API |
+| CangHui 核心 | 声明式组合、身份、状态、布局、控件、覆盖层与文本编辑 | 平台无关的源代码 API |
 | 渲染 | 基于 SDL3 的桌面渲染器、几何、文本、Symbol、阴影与渐变 | 这是依赖上游底座的实现，不代表所有 GPU 后端都已完成 |
 | 交互 | 指针捕获、hover/click 取消、焦点、键盘路由、缓动滚动与动效力度 | 未证明的平台仍由原生宿主负责 IME 与无障碍 |
 | 检查 | `kMode`、`cuic probe`、组件/函数/事件报告、Draw IR 与确定性 `prnt` | 无头报告证明语义与几何，不等于完整设备 UI 验收 |
@@ -114,11 +121,11 @@ lock/缓存的步骤；构建类命令要求 `cjpm.lock` 与 manifest 一致，�
 `src/main.cj` 中的最小窗口：
 
 ```cangjie
-import cui.*
+import chui.*
 
 main() {
-    let message = State<String>("你好，CUI")
-    let app = DesktopApp(WindowSpec("CUI 示例", 640, 420))
+    let message = State<String>("你好，CangHui")
+    let app = DesktopApp(WindowSpec("CangHui 示例", 640, 420))
 
     app.run {
         VStack {
@@ -135,7 +142,7 @@ main() {
 
 完整的缓存、锁定与本地覆盖规则见[轻量消费工作流](docs/consumer-workflow.zh-CN.md)。
 
-对应用开发者而言，理想形态很小：依赖 `cui`、安装 `cuic`，再由工具生成
+对应用开发者而言，理想形态很小：依赖 `chui`、安装 `cuic`，再由工具生成
 工程骨架。完整框架 checkout 适合框架开发，但不应成为普通应用的目录结构。
 
 ## 核心能力
@@ -225,7 +232,7 @@ CangHui 使用分级词汇表达能力边界：
 | 角色 | 项目或表面 | 与 CangHui 的关系 |
 | --- | --- | --- |
 | 语言 | [仓颉](https://cangjie-lang.cn/) | 主实现语言与应用语言 |
-| 声明式运行时 | CUI（`cui`） | 框架自有的组合、状态、布局与组件表面 |
+| 声明式运行时 | CangHui（`chui`） | 框架自有的组合、状态、布局与组件表面 |
 | 桌面底座 | [SDL3](https://www.libsdl.org/) / SDL3_ttf | 由公开 `sdl` 包封装的上游运行时依赖 |
 | 原生表面 | UIKit、Metal、Android `SurfaceView` 与 `ANativeWindow` | 适配目标与有边界的启动切片；平台证据以能力矩阵为准 |
 | 设计语言 | HarmonyOS Sans、Theme、Motion 与 Symbol 契约 | 自带兜底资源与 provider-neutral 公共 API |
@@ -324,5 +331,5 @@ SDL3_ttf 运行库使用 Zlib 许可证，请参见对应上游项目。上游�
 [`SunriseSummer/CangjieGUI`](https://github.com/SunriseSummer/CangjieGUI)。
 
 > [!IMPORTANT]
-> 发布基于 CUI 的桌面软件时，请确保 SDL 与 SDL_ttf 动态库位于仓颉可执行文件目录，
+> 发布基于 CangHui 的桌面软件时，请确保 SDL 与 SDL_ttf 动态库位于仓颉可执行文件目录，
 > 或位于目标平台的动态库搜索路径中。

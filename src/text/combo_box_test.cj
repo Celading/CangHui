@@ -1,8 +1,8 @@
-package cui.text
+package chui.text
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import cui.controls.Modal
-import cui.core.{ScrollOptions, State, Theme, UiContext}
+import chui.controls.Modal
+import chui.core.{ScrollOptions, State, Theme, UiContext}
 
 private func comboTestContext(): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())

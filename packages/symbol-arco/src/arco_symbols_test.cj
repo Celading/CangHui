@@ -1,6 +1,6 @@
 package canghui_symbol_arco
 
-import cui.{Color, Rect, Renderer, SymbolDirection, SymbolName, SymbolPaint, SymbolRegistry, SymbolVariant}
+import chui.{Color, Rect, Renderer, SymbolDirection, SymbolName, SymbolPaint, SymbolRegistry, SymbolVariant}
 
 @Test
 func arcoProviderCarriesTaggedUpstreamAndAcroCompatibleCatalog(): Unit {

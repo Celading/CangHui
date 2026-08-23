@@ -1,9 +1,9 @@
 /*
  * 交错入场示例主题：清爽浅色。令牌集中于此。
  */
-package cui_stagger
+package chui_stagger
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func staggerTheme(): Theme {
     Theme(

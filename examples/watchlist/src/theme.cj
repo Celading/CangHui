@@ -1,9 +1,9 @@
 /*
  * 观影清单主题：清爽浅色 + 琥珀金强调（评分点用强调色填充）。令牌集中于此。
  */
-package cui_watchlist
+package chui_watchlist
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func watchlistTheme(): Theme {
     Theme(

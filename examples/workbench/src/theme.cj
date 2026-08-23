@@ -1,9 +1,9 @@
 /*
  * 工作台主题：冷调石板灰底 + 靛蓝强调色，凸显分栏边界与聚焦分隔条。令牌集中于此。
  */
-package cui_workbench
+package chui_workbench
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 /** 应用主标题字号。 */
 let WORKBENCH_TITLE: Length = 20.fp

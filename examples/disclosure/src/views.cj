@@ -4,9 +4,9 @@
  * 每张卡片 = FaqRow 自绘标题行 + Reveal 包裹的答案区。答案左缩进与问题文本对齐；
  * 点行或 Enter/空格切换，Reveal 缓动高度、其下卡片平滑让位。
  */
-package cui_disclosure
+package chui_disclosure
 
-import cui.{Button, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Reveal, ScrollView,
+import chui.{Button, CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Reveal, ScrollView,
     Spacer, VStack}
 
 func disclosureView(model: DisclosureModel): Unit {

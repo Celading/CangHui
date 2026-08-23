@@ -1,4 +1,4 @@
-package cui_contacts
+package chui_contacts
 
 // 搜索可命中任一字段（姓名、公司、职务、邮箱），空查询时显示全部联系人。
 @Test

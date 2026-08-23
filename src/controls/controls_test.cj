@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import cui.core.{Button, ComponentProbe, IconButton, ProbeProperty, Spacer, State, StateStore, Theme,
+import chui.core.{Button, ComponentProbe, IconButton, ProbeProperty, Spacer, State, StateStore, Theme,
     UiContext, VStack, Widget, buildRoot, emit}
 
 private func controlTestContext(): UiContext {

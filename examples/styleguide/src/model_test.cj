@@ -1,4 +1,4 @@
-package cui_styleguide
+package chui_styleguide
 
 @Test
 func spacingStepsAreOrdered(): Unit {

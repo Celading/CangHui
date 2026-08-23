@@ -107,7 +107,7 @@ static void *write_canghui_probe_traits(void *unused) {
             self.statusLabel.textColor = UIColor.systemRedColor;
             self.statusLabel.text = @"CangHui iOS native surface\n"
                 "Runtime bootstrap failed\n"
-                "Probe only - CUI scene not mounted";
+                "Probe only - CangHui scene not mounted";
             return;
         }
         [self installSurfaceView];
@@ -198,11 +198,11 @@ static void *write_canghui_probe_traits(void *unused) {
         ? [NSString stringWithFormat:
             @"CangHui iOS native surface\n"
              "PASS - Metal + lifecycle + frames (%lld)\n"
-             "Probe only - CUI scene not mounted",
+             "Probe only - CangHui scene not mounted",
             (long long)snapshot.frames]
         : @"CangHui iOS native surface\n"
            "Probe failed\n"
-           "CUI scene not mounted";
+           "CangHui scene not mounted";
 }
 
 - (BOOL)application:(UIApplication *)application
@@ -230,7 +230,7 @@ static void *write_canghui_probe_traits(void *unused) {
     label.textColor = UIColor.whiteColor;
     label.text = @"CangHui iOS native surface\n"
         "Starting runtime...\n"
-        "Probe only - CUI scene not mounted";
+        "Probe only - CangHui scene not mounted";
     label.accessibilityLabel = @"CangHui iOS native surface diagnostic probe";
     self.statusLabel = label;
     [panel addSubview:label];

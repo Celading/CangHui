@@ -4,7 +4,7 @@
  * 每条输入路径都先复位错误态（ERROR 后按任意键都能继续输入），除法有除零保护，
  * 整数显示有量级保护，数字解析交给标准库。
  */
-package cui_calculator
+package chui_calculator
 
 import std.convert.Parsable
 import std.math.abs

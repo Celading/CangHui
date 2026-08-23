@@ -5,9 +5,9 @@
  *  - 四个按钮各弹一种类型的通知；`ToastLayer` 负责渲染、计时、滑入/淡出，并在有通知时驱动帧刷新。
  *  - `ToastLayer` 不占布局空间、不吞事件，按钮点击照常。
  */
-package cui_notify
+package chui_notify
 
-import cui.{Button, ButtonRole, FontSizes, HStack, Label, LengthUnits, Panel, Spacer, ToastKind, ToastLayer, VStack,
+import chui.{Button, ButtonRole, FontSizes, HStack, Label, LengthUnits, Panel, Spacer, ToastKind, ToastLayer, VStack,
     ZStack}
 
 func notifyView(model: NotifyModel): Unit {

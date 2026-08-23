@@ -3,9 +3,9 @@
  *
  * 切换以“复制集合 + 增删 + 整体重赋”触发 State 通知；是否展开是集合的纯查询。
  */
-package cui_disclosure
+package chui_disclosure
 
-import cui.State
+import chui.State
 import std.collection.HashSet
 
 class DisclosureModel {

@@ -6,6 +6,6 @@ output-type = "executable"
 description = "End-to-end (display) frame-rate benchmark: a controls-dense settings page (switches, radios, sliders)."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }
 bench_harness = { path = "../harness" }
 bench_scenes = { path = "../scenes" }

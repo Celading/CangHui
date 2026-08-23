@@ -4,9 +4,9 @@
  * 每个字段是单一数据源，被折叠面板各分区里的控件双向绑定；摘要由若干字段 `derive` 得到，改动即刻反映。
  * `singleMode` 控制折叠面板是否“单开”（手风琴模式），传给 `Accordion` 的 `single` 参数。
  */
-package cui_settings
+package chui_settings
 
-import cui.{DerivedState, State, derive}
+import chui.{DerivedState, State, derive}
 
 class SettingsModel {
     // 外观

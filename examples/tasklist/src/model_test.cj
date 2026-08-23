@@ -1,4 +1,4 @@
-package cui_tasklist
+package chui_tasklist
 
 @Test
 func moveReordersTasks(): Unit {

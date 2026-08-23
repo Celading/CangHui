@@ -4,10 +4,10 @@
  * 过滤结果与分页切片都是当前状态的纯函数（每帧现算，无需缓存）。切换分类会改变总页数，因此用
  * `State.observe` 在分类变化时把页码归零——这正是分页与过滤共存时必须处理的经典问题。
  */
-package cui_catalog
+package chui_catalog
 
 import std.collection.ArrayList
-import cui.{State, StateObservation}
+import chui.{State, StateObservation}
 
 // 每页商品数（2 列 × 4 行）。
 let PAGE_SIZE: Int64 = 8

@@ -1,4 +1,4 @@
-package cui_richtext
+package chui_richtext
 
 @Test
 func dataCoversEveryCategoryAndStaysWellFormed(): Unit {

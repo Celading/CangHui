@@ -6,9 +6,9 @@
  *    截断，不会撑破卡片
  *  - 尺寸一律使用 vp 单位表达
  */
-package cui_process_manager
+package chui_process_manager
 
-import cui.{ButtonRole, FontSizes, ForEach, HStack, IconButton, IconName, Label, LengthUnits, Panel, ProgressBar,
+import chui.{ButtonRole, FontSizes, ForEach, HStack, IconButton, IconName, Label, LengthUnits, Panel, ProgressBar,
     Spacer, TabView, Table, TableColumn, VStack}
 
 func processView(model: ProcessModel, worker: RefreshWorker, facts: Array<SystemFact>): Unit {

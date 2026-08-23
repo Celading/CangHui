@@ -1,4 +1,4 @@
-package cui.core
+package chui.core
 
 import std.collection.ArrayList
 import sdl.{Rect, Size, UiEvent}
@@ -272,7 +272,7 @@ internal func lazyVisibleRange(
 // `scope:item:key(index)` so its local state follows it (across scrolls, and — with a data key —
 // across inserts/reorders); it is dropped when the item scrolls off, so hoist anything that must
 // persist. Shared by both axes: LazyColumn passes its rows, LazyRow its columns — and by
-// ReorderableList in cui.controls, which virtualizes its rows the same way.
+// ReorderableList in chui.controls, which virtualizes its rows the same way.
 protected func buildLazyChildren(
     scope: String,
     first: Int64,

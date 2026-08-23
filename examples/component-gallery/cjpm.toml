@@ -6,5 +6,5 @@ output-type = "executable"
 description = "Desktop preview gallery for CangHui common components."
 
 [dependencies]
-cui = { path = "../.." }
+chui = { path = "../.." }
 canghui_gallery_components = { path = "../../packages/gallery-components" }

@@ -1,4 +1,4 @@
-[CUI 指南](../index.md) › 布局与滚动
+[CangHui 指南](../index.md) › 布局与滚动
 
 # 布局约束、滚动与虚拟化
 
@@ -76,10 +76,10 @@ LazyColumn.of(tasks.value, 44.0, key: {task => task.id}) {
 
 ## 相关 API
 
-- [`VStack`](../../api/cui/core/VStack.md)、[`HStack`](../../api/cui/core/HStack.md)、[`Grid`](../../api/cui/core/Grid.md) — 基础排列。
-- [`ScrollView`](../../api/cui/core/ScrollView.md) 与 [`LazyColumn`](../../api/cui/core/LazyColumn.md) — 普通滚动和虚拟列表。
-- [`SplitView`](../../api/cui/controls/SplitView.md) — 可调双区域工作区。
-- [`Keyed`](../../api/cui/core/Keyed.md) — 数据身份作用域。
+- [`VStack`](../../api/chui/core/VStack.md)、[`HStack`](../../api/chui/core/HStack.md)、[`Grid`](../../api/chui/core/Grid.md) — 基础排列。
+- [`ScrollView`](../../api/chui/core/ScrollView.md) 与 [`LazyColumn`](../../api/chui/core/LazyColumn.md) — 普通滚动和虚拟列表。
+- [`SplitView`](../../api/chui/controls/SplitView.md) — 可调双区域工作区。
+- [`Keyed`](../../api/chui/core/Keyed.md) — 数据身份作用域。
 
 ## 下一步
 

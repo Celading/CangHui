@@ -1,4 +1,4 @@
-package cui_fonts
+package chui_fonts
 
 @Test
 func firstExistingPicksFirstPresent(): Unit {

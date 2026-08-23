@@ -6,9 +6,9 @@
  * 乌篷小舟（只落在开阔江面）→ 山脊松簇（虬干平顶针冠）→ 天际飞鸟 → 引首题字与朱印。
  * 场景完全静态：不请求帧、不吞事件，首帧绘出后渲染循环即回到空闲。
  */
-package cui_cangcui
+package chui_cangcui
 
-import cui.{Color, Pen, Rect, Renderer, Size, UiContext, UiEvent, Widget, emit}
+import chui.{Color, Pen, Rect, Renderer, Size, UiContext, UiEvent, Widget, emit}
 import std.math.sin
 
 // 山体竖条宽（逻辑像素）：足够细以显山形，整幅约三千条渐变矩形，网格缓存轻松承载。

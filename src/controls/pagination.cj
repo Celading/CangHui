@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontSizes, MouseButton, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, Bindable, ControlSemantics, InteractionAnimation, Motion, State,
+import chui.core.{AnimationSpec, Animator, Bindable, ControlSemantics, InteractionAnimation, Motion, State,
     UiContext, Widget, resolveControlKey, emit, handlePointerClick, localState, recordControlSemantics}
 
 private let PAGE_BTN_W: Float32 = 34.0

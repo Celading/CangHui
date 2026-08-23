@@ -3,9 +3,9 @@
  *
  * 每行的 `Rating` 绑定该片评分的镜头；点圆点评分、再点当前分清除，汇总随之实时更新。
  */
-package cui_watchlist
+package chui_watchlist
 
-import cui.{CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Rating, ScrollView, Spacer, VStack}
+import chui.{CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Panel, Rating, ScrollView, Spacer, VStack}
 
 func watchlistView(model: WatchlistModel): Unit {
     VStack {

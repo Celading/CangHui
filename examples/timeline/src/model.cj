@@ -4,9 +4,9 @@
  * 日期带用 `LazyRow` 虚拟化——400 个日格只物化视口附近的十几个，滚动成本恒为一屏。每个格子的日期由
  * `start.addingDays(i)` 即时算出，无需预生成整表。今天由入口传入，使模型逻辑可确定性地测试。
  */
-package cui_timeline
+package chui_timeline
 
-import cui.{CalendarDate, State}
+import chui.{CalendarDate, State}
 
 let TIMELINE_DAYS: Int64 = 400
 let TIMELINE_LEAD: Int64 = 30 // 起点在今天之前的天数（今天的下标即 TIMELINE_LEAD）

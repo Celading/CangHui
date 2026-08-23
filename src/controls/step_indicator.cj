@@ -1,7 +1,7 @@
-package cui.controls
+package chui.controls
 
 import sdl.{Color, FontSizes, Pen, Rect, Size, UiEvent}
-import cui.core.{AnimationSpec, Animator, ControlSemantics, InteractionAnimation, InteractionProgress, Motion,
+import chui.core.{AnimationSpec, Animator, ControlSemantics, InteractionAnimation, InteractionProgress, Motion,
     UiContext, Widget, resolveControlKey, emit, handlePointerClick, localState, recordControlSemantics}
 
 private let STEP_CIRCLE_R: Float32 = 14.0

@@ -46,7 +46,7 @@ JSON 文档遵循 [`canghui.doctor.v0`](../contracts/canghui-doctor-v0.schema.js
 
 iOS 分组会分别报告静态包 bootstrap 与 native-surface 适配器。当前适配器包含整数 C ABI、
 UIKit `CAMetalLayer`、生命周期与安全区入口、触摸转发、`CADisplayLink`、generation 门控的
-detach/reattach 重放，以及模拟器/真机验证器。完整 CUI 场景渲染、IME、无障碍、应用打包
+detach/reattach 重放，以及模拟器/真机验证器。完整 CangHui 场景渲染、IME、无障碍、应用打包
 与产品验收仍属于后续平台工作。
 
 ## 检查分组

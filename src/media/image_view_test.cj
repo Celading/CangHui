@@ -1,7 +1,7 @@
-package cui.media
+package chui.media
 
 import sdl.{Renderer, Size}
-import cui.core.{LengthUnits, Theme, UiContext}
+import chui.core.{LengthUnits, Theme, UiContext}
 
 @Test
 func imageViewMeasuresAndClosesWithoutLoadingTexture(): Unit {

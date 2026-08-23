@@ -5,9 +5,9 @@
  *  - 键面角色与样式由 CalcKey 一处映射，新增按键时编译器强制补全
  *  - 尺寸一律使用 vp/fp 单位
  */
-package cui_calculator
+package chui_calculator
 
-import cui.{Button, ButtonRole, Color, FontSizes, HStack, Icon, IconName, Label, LengthUnits, Panel, SegmentedControl,
+import chui.{Button, ButtonRole, Color, FontSizes, HStack, Icon, IconName, Label, LengthUnits, Panel, SegmentedControl,
     Spacer, SurfaceStyle, TextAlign, VStack}
 
 func calculatorView(model: CalcModel): Unit {

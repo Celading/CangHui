@@ -1,9 +1,9 @@
 /*
  * 样式卡片主题：柔和浅灰背景，让白卡片的阴影、圆角与边框清晰可见。令牌集中于此。
  */
-package cui_cards
+package chui_cards
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 func cardsTheme(): Theme {
     Theme(

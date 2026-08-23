@@ -1,9 +1,9 @@
 /*
  * 苍翠画卷入口：约 3:1 的横卷窗口（1200 × 400 逻辑尺寸）。
  */
-package cui_cangcui
+package chui_cangcui
 
-import cui.{DesktopApp, Fonts, WindowSpec}
+import chui.{DesktopApp, Fonts, WindowSpec}
 
 // 题字与印文所用的系统安装字体（个人字体目录的霞鹜文楷）；文件缺失时自动回退平台 UI 字体，
 // 画面结构不受影响。

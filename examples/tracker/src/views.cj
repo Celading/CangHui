@@ -4,9 +4,9 @@
  *  - 顶部一排 `Chip` 按状态过滤，点选切换该状态是否显示；`Badge` 以语义色标注每条问题的状态与优先级。
  *  - 过滤开关是唯一数据源，可见列表由它与问题列表纯函数派生。
  */
-package cui_tracker
+package chui_tracker
 
-import cui.{Badge, BadgeKind, Chip, CrossAxisAlignment, FlowRow, FontSizes, HStack, Label, LengthUnits, Panel,
+import chui.{Badge, BadgeKind, Chip, CrossAxisAlignment, FlowRow, FontSizes, HStack, Label, LengthUnits, Panel,
     ScrollView, VStack}
 
 func trackerView(model: TrackerModel): Unit {

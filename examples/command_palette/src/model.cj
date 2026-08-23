@@ -4,9 +4,9 @@
  * 结果列表是查询的纯函数（filterCommands），因此无需缓存——每次读取都由 query 现算。
  * 高亮索引在查询变化时通过 State.observe 归零，保证键入后总是选中最匹配的首项。
  */
-package cui_command_palette
+package chui_command_palette
 
-import cui.{DerivedState, State, StateObservation}
+import chui.{DerivedState, State, StateObservation}
 
 class PaletteModel {
     let query = State<String>("")

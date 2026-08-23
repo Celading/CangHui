@@ -4,9 +4,9 @@
  *  - 开始/结束用两个 `TimePicker` 选时，日期用 `DatePicker`；时长由二者实时计算，无效时红字提示。
  *  - “添加到日程”仅在时长有效且主题非空时可用；已排会议按 (日期, 开始时间) 升序展示。
  */
-package cui_scheduler
+package chui_scheduler
 
-import cui.{Button, ButtonRole, CrossAxisAlignment, DatePicker, FontSizes, HStack, Label, LengthUnits, Panel,
+import chui.{Button, ButtonRole, CrossAxisAlignment, DatePicker, FontSizes, HStack, Label, LengthUnits, Panel,
     ScrollView, Spacer, TextField, TimePicker, VStack}
 
 func schedulerView(model: SchedulerModel): Unit {

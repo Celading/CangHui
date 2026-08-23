@@ -4,9 +4,9 @@
  * 选中行铺 accentSoft 底、悬停铺 fieldActive；整行可点选中。文本各自裁剪到自身列宽，
  * 长主题在行内截断而不挤走时间列。鼠标交互沿用 explorer 的 EntryRow 惯例。
  */
-package cui_mail
+package chui_mail
 
-import cui.{CursorShape, FontSizes, FontStyle, MouseButton, Rect, Size, UiContext, UiEvent, Widget,
+import chui.{CursorShape, FontSizes, FontStyle, MouseButton, Rect, Size, UiContext, UiEvent, Widget,
     claimHoverIfInside, emit}
 
 let MAIL_ROW_H: Float32 = 64.0

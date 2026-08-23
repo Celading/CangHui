@@ -1,9 +1,9 @@
 /*
  * 监控台主题：干净的浅色配色，蓝色强调，字号令牌集中于此。
  */
-package cui_data_table
+package chui_data_table
 
-import cui.{Color, Length, LengthUnits, Theme}
+import chui.{Color, Length, LengthUnits, Theme}
 
 /** 应用主标题字号。 */
 let TABLE_TITLE: Length = 20.fp

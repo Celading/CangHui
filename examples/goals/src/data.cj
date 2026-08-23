@@ -3,7 +3,7 @@
  *
  * 完成度分数、总完成度都是当前值与目标的纯函数，便于单测且与视图无关。
  */
-package cui_goals
+package chui_goals
 
 import std.collection.ArrayList
 

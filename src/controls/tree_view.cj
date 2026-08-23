@@ -1,8 +1,8 @@
-package cui.controls
+package chui.controls
 
 import std.collection.{ArrayList, HashSet}
 import sdl.{Color, FontSizes, IconName, Key, MouseButton, Pen, Rect, Size, UiEvent, drawIcon}
-import cui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
+import chui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
     State, UiContext, Widget, requireControlId, advanceScrollMotion, applyWheelScroll, cancelScrollMotion,
     claimHoverIfInside, clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity,
     localState, scrollLineIndex, scrollLineRemainder}

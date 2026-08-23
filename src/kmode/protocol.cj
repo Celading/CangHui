@@ -1,4 +1,4 @@
-package cui.kmode
+package chui.kmode
 
 import std.collection.ArrayList
 import std.convert.*

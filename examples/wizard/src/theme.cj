@@ -1,9 +1,9 @@
 /*
  * 向导主题：清爽浅色 + 靛蓝强调。令牌集中于此。
  */
-package cui_wizard
+package chui_wizard
 
-import cui.{Color, Theme}
+import chui.{Color, Theme}
 
 /** 校验提示的警示文字色，视图直接引用。 */
 let WIZARD_DANGER: Color = Color.rgb(206, 74, 68)
