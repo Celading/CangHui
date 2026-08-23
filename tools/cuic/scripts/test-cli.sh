@@ -36,9 +36,10 @@ printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"schema":"canghui.packaging-artifac
 printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"executableIncluded":true'
 test -x "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/MacOS/canghui_cli_smoke"
 test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist"
-test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Resources/canghui-packaging-receipt.json"
+test ! -e "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"
 plutil -lint "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist" >/dev/null
-if grep -q '/Users/' "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"; then
+if grep -q '/Users/' "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Resources/canghui-packaging-receipt.json"; then
     echo "error: macOS packaging receipt leaked an absolute project path" >&2
     exit 1
 fi

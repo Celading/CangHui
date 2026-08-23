@@ -64,7 +64,8 @@ cuic package build linux . --output dist/linux-input --json
 
 `package build` writes a bounded unsigned artifact and a
 `canghui-packaging-receipt.json` using the
-`canghui.packaging-artifact.v0` schema. The default destination is
+`canghui.packaging-artifact.v0` schema. On macOS the receipt is sealed inside
+`Contents/Resources`; Windows and Linux keep it at the artifact root. The default destination is
 `dist/<Name>.app` on macOS and `dist/<Name>` on Windows or Linux. `--output`
 accepts one project-relative directory. Traversal, absolute destinations and
 non-empty output directories are rejected, so the command never replaces an
@@ -75,7 +76,8 @@ copying itself into its own resource tree.
 On a macOS host, the macOS route first runs the normal locked `cuic build`
 pipeline and copies the resulting executable into `Contents/MacOS`. The bundle
 also contains `Info.plist`, `PkgInfo`, declared resources and logical icon-role
-assets. The receipt deliberately records that native runtime dependencies are
+assets. Keeping the receipt under `Contents/Resources` avoids adding unsealed
+files to the `.app` root when a downstream release gate signs the bundle. The receipt deliberately records that native runtime dependencies are
 still host-managed and that the unsigned bundle has not been launched.
 
 Windows and Linux routes are cross-host-safe input generators. They do not

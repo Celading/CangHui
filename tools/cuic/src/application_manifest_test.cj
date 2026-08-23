@@ -175,6 +175,8 @@ func packagingArtifactPreservesMacResourcesAndIconType(): Unit {
     @Expect(exists(joinPath(output, "Contents/Info.plist")))
     @Expect(exists(joinPath(output, "Contents/Resources/application.icns")))
     @Expect(exists(joinPath(output, "Contents/Resources/assets/assets/data/nested/value.txt")))
+    @Expect(receipt.generatedFiles.contains("Contents/Resources/canghui-packaging-receipt.json"))
+    @Expect(!receipt.generatedFiles.contains("canghui-packaging-receipt.json"))
     @Expect(String.fromUtf8(File.readFrom(joinPath(output, "Contents/Info.plist"))).contains("dev.example.demo"))
 }
 

@@ -62,7 +62,7 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     let receipt = writeApplicationPackagingArtifact(
         project, platform, manifest, output, executable, hostReplay, limitations.toArray()
     )
-    let receiptPath = joinPath(output, "canghui-packaging-receipt.json")
+    let receiptPath = joinPath(output, applicationPackagingReceiptPath(platform))
     File.writeTo(receiptPath, renderApplicationPackagingReceiptJson(receipt).toArray())
     if (json) {
         println(renderApplicationPackagingReceiptJson(receipt))
@@ -70,6 +70,14 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
         renderApplicationPackagingReceipt(receipt, output)
     }
     0
+}
+
+func applicationPackagingReceiptPath(platform: String): String {
+    if (platform == "macos") {
+        "Contents/Resources/canghui-packaging-receipt.json"
+    } else {
+        "canghui-packaging-receipt.json"
+    }
 }
 
 func runMacPackagingBuild(project: String, quiet: Bool): Int64 {
@@ -214,7 +222,7 @@ func writeApplicationPackagingArtifact(project: String, platform: String,
     } else {
         writeLinuxApplicationArtifact(project, manifest, output, generated, copied)
     }
-    generated.add("canghui-packaging-receipt.json")
+    generated.add(applicationPackagingReceiptPath(platform))
     ApplicationPackagingArtifactReceipt(
         platform, packagingArtifactKind(platform), manifest, generated.toArray(), copied.toArray(),
         executableIncluded, false, hostReplay, limitations

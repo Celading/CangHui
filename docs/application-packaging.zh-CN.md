@@ -53,6 +53,8 @@ cuic package build linux . --output dist/linux-input --json
 
 `package build` 会生成边界明确的无签名产物，并写入采用
 `canghui.packaging-artifact.v0` 结构的 `canghui-packaging-receipt.json`。
+macOS 将 receipt 放在可被签名封装的 `Contents/Resources` 内，Windows 与 Linux
+仍放在产物根目录。
 macOS 默认输出到 `dist/<Name>.app`，Windows 与 Linux 默认输出到
 `dist/<Name>`。`--output` 只接受工程内相对目录；绝对路径、越界路径和非空目录
 都会被拒绝，命令不会隐式覆盖既有产物。输出目录也不能位于已声明资源目录内部，
@@ -60,7 +62,8 @@ macOS 默认输出到 `dist/<Name>.app`，Windows 与 Linux 默认输出到
 
 在 macOS 宿主上，macOS 路由会先执行正常的锁定依赖 `cuic build`，再把真实
 可执行文件复制到 `Contents/MacOS`，同时生成 `Info.plist`、`PkgInfo`、资源树和
-逻辑图标角色文件。receipt 会明确记录原生运行时依赖仍由宿主管理，且该无签名
+逻辑图标角色文件。receipt 位于 `Contents/Resources`，避免下游签名时在 `.app`
+根目录出现未封装文件。receipt 会明确记录原生运行时依赖仍由宿主管理，且该无签名
 bundle 尚未完成启动验收。
 
 Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪装成已经跨平台编译：

@@ -107,6 +107,8 @@ read-only and does not create bundles, resources, signatures or publications.
 directory. macOS performs the normal locked build and writes a `.app` bundle;
 Windows writes manifest/version-resource inputs; Linux writes desktop-entry and
 resource inputs. Every result carries a `canghui.packaging-artifact.v0` receipt.
+The macOS receipt is stored under `Contents/Resources` so a downstream signer
+does not inherit an unsealed file at the bundle root.
 Existing non-empty output directories, absolute output paths and traversal are
 rejected. Signing, native runtime closure and publication remain separate gates.
 
