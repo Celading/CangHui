@@ -251,7 +251,8 @@ func validateApplicationManifest(manifest: ApplicationManifest, project: String)
                 throw CuicError("declared application asset is missing: ${path}")
             }
             let projectRoot = canonicalPackagingPath(project, "project")
-            ensurePackagingPathStaysInsideProject(projectRoot, asset, "declared application asset")
+            ensurePackagingInputTreeStaysInsideProject(
+                projectRoot, asset, "declared application asset")
         }
     }
 }

@@ -182,6 +182,22 @@ func ensurePackagingPathStaysInsideProject(projectRoot: String, path: String, ro
     }
 }
 
+func ensurePackagingInputTreeStaysInsideProject(
+    projectRoot: String,
+    path: String,
+    role: String
+): Unit {
+    if (FileInfo(path).isSymbolicLink()) {
+        throw CuicError("${role} must not contain symbolic links: ${path}")
+    }
+    ensurePackagingPathStaysInsideProject(projectRoot, path, role)
+    if (!packagingDirectoryExists(path)) { return }
+    for (entry in Directory.readFrom(path)) {
+        ensurePackagingInputTreeStaysInsideProject(
+            projectRoot, entry.path.toString(), role)
+    }
+}
+
 func writeApplicationPackagingArtifact(project: String, platform: String,
     manifest: ApplicationManifest, output: String, executable: String,
     hostReplay: String, limitations: Array<String>): ApplicationPackagingArtifactReceipt {
@@ -447,6 +463,9 @@ func packagingDirectoryExists(path: String): Bool {
 
 func copyPackagingFile(source: String, destination: String): Unit {
     if (!exists(source)) { throw CuicError("packaging input is missing: ${source}") }
+    if (FileInfo(source).isSymbolicLink()) {
+        throw CuicError("packaging input must not be a symbolic link: ${source}")
+    }
     if (exists(destination)) {
         throw CuicError("packaging destination already exists: ${destination}")
     }

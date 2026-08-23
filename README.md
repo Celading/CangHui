@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.10.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.10.0" />
+  <img src="https://img.shields.io/badge/version-0.11.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.11.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -395,6 +395,7 @@ visual acceptance; they simply stop carrying the entire testing burden.
 
 ## Documentation
 
+- [Public manual and release notes](manual/index.md)
 - [Examples](examples/)
 - [Getting started](docs/guide/index.md)
 - [API reference](docs/api/index.md)

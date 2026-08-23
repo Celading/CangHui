@@ -26,8 +26,10 @@ notifications = true
 settings = true
 ```
 
-Asset paths are project-relative. Absolute paths, `~`, `..` traversal and
-missing declared files are rejected. Logical asset roles are declared once;
+Asset paths are project-relative. Absolute paths, `~`, `..` traversal,
+symbolic links anywhere in a declared asset tree, and missing declared files
+are rejected. The recursive symbolic-link check prevents a resource directory
+from importing files outside the project during packaging. Logical asset roles are declared once;
 `cuic` does not guess a status or notification icon from the application icon.
 The application name must also be a portable artifact name: Windows-reserved
 characters, device names and leading or trailing spaces/dots are rejected.

@@ -17,13 +17,7 @@ jobs:
       - name: git diff check
         run: git diff --check
       - name: Public surface scan
-        run: |
-          if grep -RInE '/Users/|Cangku/_helper|ISSUE-2026|CK-CANGHUI' \
-              --include='*.md' --include='*.cj' --include='*.toml' . \
-              | grep -v '.git/' | grep -v 'manual/skills/canghui-full-build'; then
-            echo "public scan found internal terms" >&2
-            exit 1
-          fi
+        run: python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
       - name: Active file size guard (<4000 lines)
         run: |
           find src sdl/src tools/cuic/src -name '*.cj' -print0 2>/dev/null \

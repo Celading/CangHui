@@ -289,4 +289,28 @@ func packagingRejectsSymlinkEscapeForOutputAndAssets(): Unit {
         assetRejected = true
     }
     @Expect(assetRejected)
+
+    let nestedDirectory = joinPath(fixture, "assets")
+    Directory.create(nestedDirectory, recursive: true)
+    SymbolicLink.create(joinPath(nestedDirectory, "linked-secret.txt"),
+        to: joinPath(outside, "secret.txt"))
+    let nestedManifest = parseApplicationManifest(
+        "[application]\nname = \"Demo\"\nidentifier = \"dev.example.demo\"\nversion = \"1.0.0\"\n" +
+        "[assets]\nresources = [\"assets\"]\n"
+    )
+    var nestedAssetRejected = false
+    try {
+        validateApplicationManifest(nestedManifest, fixture)
+    } catch (_: CuicError) {
+        nestedAssetRejected = true
+    }
+    @Expect(nestedAssetRejected)
+
+    var nestedCopyRejected = false
+    try {
+        copyPackagingTree(nestedDirectory, joinPath(fixture, "copy-output"))
+    } catch (_: CuicError) {
+        nestedCopyRejected = true
+    }
+    @Expect(nestedCopyRejected)
 }

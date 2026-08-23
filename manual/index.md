@@ -17,15 +17,27 @@ CangHui 是 Cangjie 多平台声明式 GUI 框架。本手册是公开面入口�
 ## 当前公开能力速览
 
 - 声明式 CangHui 核心 + 组件族 + 无头验收（kMode/probe/pview）。
+- 装饰性 `Surface`、单动作所有者 `InteractionSurface`，以及可按字段继承的
+  容器排版环境（字族、字号、粗体、斜体与装饰线）。
+- 类型化应用身份、设置、菜单、状态项与通知契约；macOS 无签名 `.app` 和
+  Windows/Linux 打包输入树保持签名、安装与运行证明边界。
 - 桌面 SDL 后端：macOS/Windows/Linux 构建路径，支持 `WindowSpec(frameless: true)`。
 - cuic 工具链：
   - `cuic build/test/run/debug/prnt/pview/device list`
   - `cuic pview`：ASCII 布局输出
   - `cuic prnt --device --app`：设备界面获取（系统截屏 fallback；渲染面穿透待 Harmony 侧）
   - `cuic device list`：hdc 设备列表
-- Harmony 平台根由 `HarmonyHap/CangHUI` 承接；本母体提供平台无关接口
-  （`ExternalFramePlane`、`PointerInputBridge`、`BoundedMailbox<T>`）。
+- HarmonyOS 宿主不随本仓库交付；本仓库只提供平台无关接口与可独立核验的
+  host/package receipt 契约。
+
+公开面审计可直接运行：
+
+```bash
+python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
+```
+
+完整构建与验收顺序见[全量构建 Skill](skills/canghui-full-build/SKILL.md)。
 
 ## 版本
 
-当前 `chui` 版本线：`0.10.0`（见 [CHANGELOG](CHANGELOG.md)）。
+当前 `chui` 版本线：`0.11.0`（见 [CHANGELOG](CHANGELOG.md)）。
