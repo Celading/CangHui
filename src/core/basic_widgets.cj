@@ -1,6 +1,6 @@
 package cui.core
 
-import sdl.{FontSizes, Key, Rect, Size, SurfaceStyle, UiEvent}
+import sdl.{FontSizes, Rect, Size, SurfaceStyle, UiEvent}
 
 /**
  * An empty, flexible widget: it measures zero and absorbs a share of its stack's leftover space,
@@ -38,7 +38,6 @@ public class Spacer <: Widget {
 public class Button <: Widget {
     private let title: ?String
     private let child: ?Widget
-    private let onClick: () -> Unit
     private var buttonRole: ButtonRole
     private var customStyle: ?SurfaceStyle
     private var customButtonStyle: ?ButtonStyle
@@ -47,6 +46,8 @@ public class Button <: Widget {
     private var minWidthOverride: ?Float32
     private var minHeightOverride: ?Float32
     private var controlId: String
+    private let interactionSurface: InteractionSurface
+    private let interactionMaterial: ButtonInteractionMaterial
     private let interaction: InteractionAnimation
     private var animationSpec: AnimationSpec
     private var semanticLabel: String
@@ -61,7 +62,6 @@ public class Button <: Widget {
     ) {
         this.title = Some(title)
         this.child = None
-        this.onClick = onClick
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
@@ -70,6 +70,8 @@ public class Button <: Widget {
         this.minWidthOverride = None
         this.minHeightOverride = None
         this.controlId = focusableControlIdentity("Button:${title}")
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
         this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
             InteractionAnimation()
         }.value
@@ -95,7 +97,6 @@ public class Button <: Widget {
         for (id in focusablesSince(focusStart)) {
             unregisterFocusable(id)
         }
-        this.onClick = onClick
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
@@ -104,6 +105,8 @@ public class Button <: Widget {
         this.minWidthOverride = None
         this.minHeightOverride = None
         this.controlId = focusableControlIdentity("Button:content")
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
         this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
             InteractionAnimation()
         }.value
@@ -119,7 +122,7 @@ public class Button <: Widget {
      */
     public func key(value: String): Button {
         requireControlId(value, "Button")
-        reregisterFocusable(controlId, value)
+        let _ = interactionSurface.key(value)
         controlId = value
         this
     }
@@ -214,6 +217,7 @@ public class Button <: Widget {
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        interactionSurface.layout(ctx, rect)
         match (child) {
             case Some(value) => value.layout(ctx, frame.inset(ctx.resolve(match (contentPaddingOverride) {
                 case Some(padding) => padding
@@ -263,38 +267,65 @@ public class Button <: Widget {
             press: if (ctx.isPressed(controlId)) { 1.0 } else { 0.0 },
             focused: ctx.hasFocus(controlId)
         ))
-        if (handlePointerClick(ctx, event, frame, controlId, onClick,
-            inkRadius: appearance.focusRadius, inkColor: Some(appearance.ink))) {
-            return true
-        }
-        match (event) {
-            case UiEvent.KeyDown(Key.Enter, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
-                    onClick()
-                    return true
-                }
-            case UiEvent.KeyDown(Key.Space, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
-                    onClick()
-                    return true
-                }
-            case _ => ()
-        }
-        false
+        syncButtonInteractionSurface(interactionSurface, interactionMaterial, appearance)
+        interactionSurface.handle(ctx, event)
     }
 
     public func focusableId(): ?String {
-        Some(controlId)
+        interactionSurface.focusableId()
     }
 
     private func buttonAppearance(ctx: UiContext, state: ButtonVisualState): ButtonAppearance {
         resolveButtonAppearance(ctx.theme, buttonRole, state,
             styleOverride: customButtonStyle, surfaceOverride: customStyle)
     }
+}
+
+protected class ButtonInteractionMaterial <: MaterialProvider {
+    private var value: ?SurfaceMaterial = None
+
+    func update(appearance: ButtonAppearance): Unit {
+        value = Some(SurfaceMaterial(appearance.surface, appearance.foreground, ink: Some(appearance.ink)))
+    }
+
+    public func resolve(theme: Theme, _: SurfaceState): SurfaceMaterial {
+        match (value) {
+            case Some(current) => current
+            case None => SurfaceMaterial(theme.panelSurface(), theme.text, ink: Some(theme.inkColor()))
+        }
+    }
+}
+
+private class ButtonInteractionSurfaceCapture {
+    var value: ?InteractionSurface = None
+}
+
+/*
+ * Builds the interaction owner in an isolated declaration block so the delegate does not become a
+ * visible sibling of the Button recipe. Button and IconButton retain their existing rendering and
+ * semantics while sharing InteractionSurface's focus, release-inside, cancellation and Ink protocol.
+ */
+protected func buildButtonInteractionSurface(action: () -> Unit, id: String): InteractionSurface {
+    let captured = ButtonInteractionSurfaceCapture()
+    let _ = buildChild({=>
+        let value = InteractionSurface(action: action, key: Some(id)) { Spacer() }
+        captured.value = Some(value)
+    })
+    captured.value.getOrThrow()
+}
+
+/** Keeps the delegated Ink material and geometry equal to the current ButtonStyle appearance. */
+protected func syncButtonInteractionSurface(
+    interactionSurface: InteractionSurface,
+    interactionMaterial: ButtonInteractionMaterial,
+    appearance: ButtonAppearance
+): Unit {
+    interactionMaterial.update(appearance)
+    let _ = interactionSurface.surface(
+        Shape.rounded(appearance.focusRadius),
+        interactionMaterial,
+        clip: ClipPolicy.Shape
+    )
 }
 
 protected func animatedButtonFrame(frame: Rect, level: MotionLevel, progress: InteractionProgress): Rect {

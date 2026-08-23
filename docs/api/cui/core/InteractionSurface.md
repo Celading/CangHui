@@ -75,6 +75,8 @@ Row/Column/ZStack 的兄弟组合，而不是相互嵌套。
 
 ## 边界
 
-当前实现覆盖矩形/圆角矩形、solid/theme provider 与确定性 headless Draw IR。Button/IconButton 仍保留既有
-实现；迁移到该 primitive 属于后续独立提交。任意路径、Liquid Glass、平台 blur/native accessibility adapter
-均未在此 API 中声称完成。
+当前实现覆盖矩形/圆角矩形、solid/theme provider 与确定性 headless Draw IR。Button/IconButton 已把焦点、
+release-inside/cancel、键盘激活与 Ink 所有权委托给该 primitive；为保持 ButtonStyle 连续动画、既有自动语义
+名称和 Draw IR 兼容，两者仍由各自 recipe 绘制并记录 `Button.activate()` / `IconButton.activate()`，不调用
+delegate 的绘制面。其他控件迁移、任意路径、Liquid Glass、平台 blur/native accessibility adapter 均未在此
+API 中声称完成。

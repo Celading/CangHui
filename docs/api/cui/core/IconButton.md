@@ -4,7 +4,7 @@
 
 `cui.core` 包中的 public class
 
-以图标为面、可选带文字标签的按钮，激活方式与 [`Button`](Button.md) 完全相同。按钮内松开主键或聚焦时按 Enter/空格触发 `onClick`；`role` 与 `style` 以同样的方式为表面着色。
+以图标为面、可选带文字标签的按钮，激活方式与 [`Button`](Button.md) 完全相同。按钮内松开主键或聚焦时按 Enter/空格触发 `onClick`；`role` 与 `style` 以同样的方式为表面着色。焦点、release-inside/cancel、键盘激活与 Ink 所有权委托给 [`InteractionSurface`](InteractionSurface.md)，既有构造器、ButtonStyle 动画、自动语义与 Draw IR 配方不变。
 
 ## 声明
 
@@ -69,7 +69,7 @@ main(): Unit {
 
 ### init
 
-创建图标按钮：图标名、点击回调，以及可选的文字标签、角色与表面。构造时注册焦点项，并把自身注册进包围它的界面构建函数。
+创建图标按钮：图标名、点击回调，以及可选的文字标签、角色与表面。构造时通过内部 InteractionSurface delegate 注册唯一焦点项，并把 IconButton 配方自身注册进包围它的界面构建函数；delegate 不参与可见布局树。
 
 ```cangjie
 public init(
@@ -202,7 +202,7 @@ public func draw(ctx: UiContext): Unit
 
 ### handle
 
-实现与 Button 相同的按下-释放点击识别与键盘激活，并接收悬停。按钮内按下获得焦点与按压；随后在按钮内松开触发 `onClick`；聚焦状态下 Enter 或空格直接触发。
+通过内部 InteractionSurface delegate 实现与 Button 相同的按下-释放识别、永久 move-out 取消、键盘激活与 Ink 几何。按钮内按下获得焦点与按压；随后在按钮内松开触发 `onClick`；聚焦状态下 Enter 或空格直接触发。IconButton 自己继续负责既有 ButtonStyle 连续动画、图标布局与 `IconButton.activate()` 语义名称，不重复实现事件状态机。
 
 ```cangjie
 public func handle(ctx: UiContext, event: UiEvent): Bool
@@ -228,5 +228,6 @@ public func focusableId(): ?String
 ## 另请参阅
 
 - [Button](Button.md) — 文字标题按钮，同一套激活协议。
+- [InteractionSurface](InteractionSurface.md) — IconButton 复用的单一交互所有者协议。
 - [Icon](Icon.md) — 非交互的矢量图标。
 - [Tooltip](Tooltip.md) — 给纯图标按钮补充悬停说明的常用包装。

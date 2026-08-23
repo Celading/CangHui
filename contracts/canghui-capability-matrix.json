@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260823.24",
+  "matrixVersion": "CangHui.20260823.25",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -148,17 +148,22 @@
     },
     {
       "id": "surface-first-composition",
-      "version": "canghui.surface-interaction.v0",
-      "state": "source-build-test-headless-draw-ir-proven; rectangle-rounded-solid-theme-providers-proven; pineease-consumer-test-build-proven; arbitrary-path-liquid-glass-platform-blur-button-migration-open",
+      "version": "canghui.surface-interaction.v0.1",
+      "state": "source-build-test-headless-draw-ir-proven; rectangle-rounded-solid-theme-providers-proven; button-iconbutton-focus-release-cancel-keyboard-and-ink-delegation-with-legacy-visual-semantic-compatibility-proven; pineease-consumer-test-build-proven; arbitrary-path-liquid-glass-platform-blur-other-control-migration-open",
       "codeRefs": [
         "src/core/surface.cj",
         "src/core/interaction_surface.cj",
         "src/core/surface_test.cj",
         "src/core/interaction_surface_test.cj",
+        "src/core/basic_widgets.cj",
+        "src/core/icon_widgets.cj",
+        "src/core/button_surface_migration_test.cj",
         "src/core/control_content_environment.cj",
         "src/core/probe.cj",
         "docs/api/cui/core/Surface.md",
-        "docs/api/cui/core/InteractionSurface.md"
+        "docs/api/cui/core/InteractionSurface.md",
+        "docs/api/cui/core/Button.md",
+        "docs/api/cui/core/IconButton.md"
       ]
     },
     {

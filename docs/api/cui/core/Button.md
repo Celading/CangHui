@@ -4,7 +4,7 @@
 
 `cui.core` 包中的 public class
 
-带主题表面的按压按钮，可使用居中标题或任意装饰性内容 slot。在按钮内部按下并松开时触发 `onClick`；获得键盘焦点后 Enter 与空格同样触发。[`ButtonRole`](ButtonRole.md) 选择语义配色，`style` 覆盖表面，`buttonStyle` 覆盖完整的状态外观。
+带主题表面的按压按钮，可使用居中标题或任意装饰性内容 slot。在按钮内部按下并松开时触发 `onClick`；获得键盘焦点后 Enter 与空格同样触发。[`ButtonRole`](ButtonRole.md) 选择语义配色，`style` 覆盖表面，`buttonStyle` 覆盖完整的状态外观。焦点、release-inside/cancel、键盘激活与 Ink 所有权委托给 [`InteractionSurface`](InteractionSurface.md)，公开构造器、ButtonStyle 动画、自动语义与 Draw IR 绘制配方保持兼容。
 
 ## 声明
 
@@ -82,7 +82,7 @@ main(): Unit {
 
 ### init
 
-创建按钮：标题、点击回调，以及可选的角色、表面与字号。构造时注册焦点项，并把自身注册进包围它的界面构建函数。
+创建按钮：标题、点击回调，以及可选的角色、表面与字号。构造时通过内部 InteractionSurface delegate 注册唯一焦点项，并把 Button 配方自身注册进包围它的界面构建函数；delegate 不会作为可见兄弟节点泄漏进布局树。
 
 ```cangjie
 public init(
@@ -224,7 +224,7 @@ public func draw(ctx: UiContext): Unit
 
 ### handle
 
-实现按下-释放点击识别与键盘激活，并接收悬停。按钮内按下获得焦点与按压并消费事件；随后在按钮内松开触发 `onClick`（按钮外松开只结束按压）；聚焦状态下 Enter 或空格直接触发；悬停时请求交互光标（[`CursorShape`](CursorShape.md)）。
+把按下-释放识别、永久 move-out 取消、键盘激活和 Ink 几何同步到内部 InteractionSurface delegate。按钮内按下获得焦点与按压并消费事件；随后在按钮内松开触发 `onClick`（按钮外松开只结束按压）；聚焦状态下 Enter 或空格直接触发；悬停时请求交互光标（[`CursorShape`](CursorShape.md)）。Button 自己继续负责既有 ButtonStyle 连续动画、布局与 `Button.activate()` 语义名称，不重复实现事件状态机。
 
 ```cangjie
 public func handle(ctx: UiContext, event: UiEvent): Bool
@@ -250,5 +250,6 @@ public func focusableId(): ?String
 ## 另请参阅
 
 - [IconButton](IconButton.md) — 以图标为面的按钮，激活方式相同。
+- [InteractionSurface](InteractionSurface.md) — Button 复用的单一交互所有者协议。
 - [ButtonRole](ButtonRole.md) — 语义配色角色。
 - [Theme](Theme.md) — 按角色推导按钮表面的主题。

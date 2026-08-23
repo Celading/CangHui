@@ -1,6 +1,6 @@
 package cui.core
 
-import sdl.{Color, FontSizes, IconName, Key, Rect, Size, SurfaceStyle, UiEvent}
+import sdl.{Color, FontSizes, IconName, Rect, Size, SurfaceStyle, UiEvent}
 import cui.symbol.{SymbolDirection, SymbolMissingPolicy, SymbolName, SymbolVariant, drawSymbol, symbolNameForIcon}
 
 private let ICON_DEFAULT_SIZE: Float32 = 18.0
@@ -168,8 +168,9 @@ public class IconButton <: Widget {
     private var buttonRole: ButtonRole
     private var customStyle: ?SurfaceStyle
     private var customButtonStyle: ?ButtonStyle
-    private let onClick: () -> Unit
     private var controlId: String
+    private let interactionSurface: InteractionSurface
+    private let interactionMaterial: ButtonInteractionMaterial
     private let interaction: InteractionAnimation
     private var animationSpec: AnimationSpec
     private var frame = Rect.zero()
@@ -188,11 +189,12 @@ public class IconButton <: Widget {
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
-        this.onClick = onClick
         this.controlId = focusableControlIdentity(match (label) {
             case Some(value) => "IconButton:${value}"
             case None => "IconButton"
         })
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
         this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
             InteractionAnimation()
         }.value
@@ -215,13 +217,14 @@ public class IconButton <: Widget {
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
-        this.onClick = onClick
         // The build-order identity keeps several icon-only buttons in one view distinct;
         // a shared id would let one button swallow the release meant for another.
         this.controlId = focusableControlIdentity(match (label) {
             case Some(value) => "IconButton:${value}"
             case None => "IconButton"
         })
+        this.interactionMaterial = ButtonInteractionMaterial()
+        this.interactionSurface = buildButtonInteractionSurface(onClick, this.controlId)
         this.interaction = localState<InteractionAnimation>("${this.controlId}:interaction") {
             InteractionAnimation()
         }.value
@@ -236,7 +239,7 @@ public class IconButton <: Widget {
      */
     public func key(value: String): IconButton {
         requireControlId(value, "IconButton")
-        reregisterFocusable(controlId, value)
+        let _ = interactionSurface.key(value)
         controlId = value
         this
     }
@@ -298,8 +301,9 @@ public class IconButton <: Widget {
         Size(min(available.w, width), CUI_CONTROL_H)
     }
 
-    public func layout(_: UiContext, rect: Rect): Unit {
+    public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        interactionSurface.layout(ctx, rect)
     }
 
     public func draw(ctx: UiContext): Unit {
@@ -333,32 +337,12 @@ public class IconButton <: Widget {
             press: if (ctx.isPressed(controlId)) { 1.0 } else { 0.0 },
             focused: ctx.hasFocus(controlId)
         ))
-        if (handlePointerClick(ctx, event, frame, controlId, onClick,
-            inkRadius: appearance.focusRadius, inkColor: Some(appearance.ink))) {
-            return true
-        }
-        match (event) {
-            case UiEvent.KeyDown(Key.Enter, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
-                    onClick()
-                    return true
-                }
-            case UiEvent.KeyDown(Key.Space, _) =>
-                if (ctx.hasFocus(controlId)) {
-                    ctx.startInkRipple(controlId, frame, frame.centerX(), frame.centerY(),
-                        color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
-                    onClick()
-                    return true
-                }
-            case _ => ()
-        }
-        false
+        syncButtonInteractionSurface(interactionSurface, interactionMaterial, appearance)
+        interactionSurface.handle(ctx, event)
     }
 
     public func focusableId(): ?String {
-        Some(controlId)
+        interactionSurface.focusableId()
     }
 
     private func iconFrame(bounds: Rect): Rect {
