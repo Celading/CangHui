@@ -79,3 +79,19 @@ func explicitTextFieldProbeKeepsSameOwnerPrecedence(): Unit {
     @Expect(report.contains("\"action\":\"name.edit()\""))
     @Expect(!report.contains("control-semantic:explicit-name"))
 }
+
+@Test
+func secureTextFieldRedactsValueAndAdvertisesPasswordRole(): Unit {
+    let password = State<String>("päss秘密")
+    let report = ComponentProbe("test.secure-textfield-semantics", width: 360.0, height: 120.0).run("") {
+        VStack {
+            TextField(password, key: "secure-password", placeholder: "Password")
+                .accessibilityLabel("SSH password")
+                .secureEntry()
+        }
+    }
+
+    @Expect(report.contains("\"role\":\"password\""))
+    @Expect(report.contains("\"label\":\"SSH password\""))
+    @Expect(!report.contains("päss秘密"))
+}

@@ -136,6 +136,22 @@ func readOnlyTextFieldIgnoresEdits(): Unit {
 }
 
 @Test
+func secureTextFieldEditsButDoesNotRetainUndoHistory(): Unit {
+    let ctx = historyTestContext()
+    let password = State<String>("")
+    let field = TextField(password, key: "secure-history").secureEntry()
+    field.layout(ctx, Rect(0.0, 0.0, 200.0, 32.0))
+    ctx.focus("secure-history")
+
+    let _ = field.handle(ctx, UiEvent.TextInput("秘密"))
+    @Expect(password.value, "秘密")
+    field.undo()
+    @Expect(password.value, "秘密")
+    field.redo()
+    @Expect(password.value, "秘密")
+}
+
+@Test
 func undoWithNothingRecordedIsSafeNoOp(): Unit {
     let ctx = historyTestContext()
     let body = State<String>("keep")
