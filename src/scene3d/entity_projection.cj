@@ -6,6 +6,10 @@ public enum Scene3DEntityKind <: Equatable<Scene3DEntityKind> {
     | Route
     | Vehicle
     | UserMarker
+    | Structure
+    | Track
+    | Facility
+    | ExitMarker
 
     public operator func ==(other: Scene3DEntityKind): Bool {
         scene3dEntityKindName(this) == scene3dEntityKindName(other)
@@ -20,6 +24,10 @@ public func scene3dEntityKindName(kind: Scene3DEntityKind): String {
         case Scene3DEntityKind.Route => "route"
         case Scene3DEntityKind.Vehicle => "vehicle"
         case Scene3DEntityKind.UserMarker => "user-marker"
+        case Scene3DEntityKind.Structure => "structure"
+        case Scene3DEntityKind.Track => "track"
+        case Scene3DEntityKind.Facility => "facility"
+        case Scene3DEntityKind.ExitMarker => "exit-marker"
     }
 }
 
@@ -52,6 +60,10 @@ public enum Scene3DSemanticColor <: Equatable<Scene3DSemanticColor> {
     | RouteAccent
     | VehicleAccent
     | UserHighlight
+    | StructureNeutral
+    | TrackNeutral
+    | FacilityAccent
+    | ExitAccent
 
     public operator func ==(other: Scene3DSemanticColor): Bool {
         scene3dSemanticColorName(this) == scene3dSemanticColorName(other)
@@ -66,6 +78,10 @@ public func scene3dSemanticColorName(color: Scene3DSemanticColor): String {
         case Scene3DSemanticColor.RouteAccent => "route-accent"
         case Scene3DSemanticColor.VehicleAccent => "vehicle-accent"
         case Scene3DSemanticColor.UserHighlight => "user-highlight"
+        case Scene3DSemanticColor.StructureNeutral => "structure-neutral"
+        case Scene3DSemanticColor.TrackNeutral => "track-neutral"
+        case Scene3DSemanticColor.FacilityAccent => "facility-accent"
+        case Scene3DSemanticColor.ExitAccent => "exit-accent"
     }
 }
 
@@ -85,6 +101,9 @@ public struct Scene3DDebugEntityProjection {
     public let scaleX: Float32
     public let scaleY: Float32
     public let scaleZ: Float32
+    public let rotationX: Float32
+    public let rotationY: Float32
+    public let rotationZ: Float32
     public let red: Float32
     public let green: Float32
     public let blue: Float32
@@ -102,6 +121,9 @@ public struct Scene3DDebugEntityProjection {
         scaleX: Float32,
         scaleY: Float32,
         scaleZ: Float32,
+        rotationX: Float32,
+        rotationY: Float32,
+        rotationZ: Float32,
         red: Float32,
         green: Float32,
         blue: Float32,
@@ -128,6 +150,9 @@ public struct Scene3DDebugEntityProjection {
         this.scaleX = scaleX
         this.scaleY = scaleY
         this.scaleZ = scaleZ
+        this.rotationX = rotationX
+        this.rotationY = rotationY
+        this.rotationZ = rotationZ
         this.red = red
         this.green = green
         this.blue = blue
@@ -142,24 +167,64 @@ public func projectScene3DEntity(entity: Scene3DEntitySnapshot): Scene3DDebugEnt
         case Scene3DEntityKind.Floor => Scene3DDebugEntityProjection(
             entity.id, entity.kind, Scene3DDebugGeometryFamily.Slab,
             Scene3DSemanticColor.GroundNeutral, entity.x, entity.y, entity.z,
-            3.8, 0.12, 2.8, 0.36, 0.43, 0.46, 1.0, entity.visible
+            scene3dScale(entity.scaleX, 3.8), scene3dScale(entity.scaleY, 0.12),
+            scene3dScale(entity.scaleZ, 2.8), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.36, 0.43, 0.46, 1.0, entity.visible
         )
         case Scene3DEntityKind.Route => Scene3DDebugEntityProjection(
             entity.id, entity.kind, Scene3DDebugGeometryFamily.Ribbon,
             Scene3DSemanticColor.RouteAccent, entity.x, entity.y, entity.z,
-            2.8, 0.08, 0.22, 0.95, 0.63, 0.23, 1.0, entity.visible
+            scene3dScale(entity.scaleX, 2.8), scene3dScale(entity.scaleY, 0.08),
+            scene3dScale(entity.scaleZ, 0.22), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.95, 0.63, 0.23, 1.0, entity.visible
         )
         case Scene3DEntityKind.Vehicle => Scene3DDebugEntityProjection(
             entity.id, entity.kind, Scene3DDebugGeometryFamily.Box,
             Scene3DSemanticColor.VehicleAccent, entity.x, entity.y, entity.z,
-            0.72, 0.42, 0.46, 0.83, 0.32, 0.26, 1.0, entity.visible
+            scene3dScale(entity.scaleX, 0.72), scene3dScale(entity.scaleY, 0.42),
+            scene3dScale(entity.scaleZ, 0.46), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.83, 0.32, 0.26, 1.0, entity.visible
         )
         case Scene3DEntityKind.UserMarker => Scene3DDebugEntityProjection(
             entity.id, entity.kind, Scene3DDebugGeometryFamily.Marker,
             Scene3DSemanticColor.UserHighlight, entity.x, entity.y, entity.z,
-            0.20, 0.72, 0.20, 0.18, 0.64, 0.96, 1.0, entity.visible
+            scene3dScale(entity.scaleX, 0.20), scene3dScale(entity.scaleY, 0.72),
+            scene3dScale(entity.scaleZ, 0.20), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.18, 0.64, 0.96, 1.0, entity.visible
+        )
+        case Scene3DEntityKind.Structure => Scene3DDebugEntityProjection(
+            entity.id, entity.kind, Scene3DDebugGeometryFamily.Box,
+            Scene3DSemanticColor.StructureNeutral, entity.x, entity.y, entity.z,
+            scene3dScale(entity.scaleX, 0.9), scene3dScale(entity.scaleY, 0.42),
+            scene3dScale(entity.scaleZ, 0.9), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.19, 0.38, 0.39, 1.0, entity.visible
+        )
+        case Scene3DEntityKind.Track => Scene3DDebugEntityProjection(
+            entity.id, entity.kind, Scene3DDebugGeometryFamily.Ribbon,
+            Scene3DSemanticColor.TrackNeutral, entity.x, entity.y, entity.z,
+            scene3dScale(entity.scaleX, 3.2), scene3dScale(entity.scaleY, 0.06),
+            scene3dScale(entity.scaleZ, 0.12), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.16, 0.20, 0.22, 1.0, entity.visible
+        )
+        case Scene3DEntityKind.Facility => Scene3DDebugEntityProjection(
+            entity.id, entity.kind, Scene3DDebugGeometryFamily.Marker,
+            Scene3DSemanticColor.FacilityAccent, entity.x, entity.y, entity.z,
+            scene3dScale(entity.scaleX, 0.24), scene3dScale(entity.scaleY, 0.42),
+            scene3dScale(entity.scaleZ, 0.24), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.96, 0.77, 0.25, 1.0, entity.visible
+        )
+        case Scene3DEntityKind.ExitMarker => Scene3DDebugEntityProjection(
+            entity.id, entity.kind, Scene3DDebugGeometryFamily.Marker,
+            Scene3DSemanticColor.ExitAccent, entity.x, entity.y, entity.z,
+            scene3dScale(entity.scaleX, 0.28), scene3dScale(entity.scaleY, 0.68),
+            scene3dScale(entity.scaleZ, 0.28), entity.rotationX, entity.rotationY, entity.rotationZ,
+            0.21, 0.72, 0.43, 1.0, entity.visible
         )
     }
+}
+
+private func scene3dScale(value: Float32, fallback: Float32): Float32 {
+    if (value > 0.0) { value } else { fallback }
 }
 
 private func scene3dColorChannelIsValid(value: Float32): Bool {

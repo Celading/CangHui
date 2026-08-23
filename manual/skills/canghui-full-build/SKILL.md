@@ -82,10 +82,16 @@ For close-lifecycle changes, also replay a normal non-capture loop through an
 SDL quit request and require clean detach. A fixed-frame capture is not a
 substitute for the normal close path.
 
+When entity scale/rotation or `Scene3DCameraSnapshot` changes, the native capture
+must include at least one non-default transform and a non-default camera. A core
+unit test alone proves contract shaping, not that the optional driver consumes
+the frame values.
+
 Generic provider capture proves the CangHui provider only. A product-level 3D
 claim additionally requires a consumer-owned mapping, user entry, fallback,
-normal lifecycle, final artifact launch, and product visual review. Record the
-consumer revision and keep product types, meshes and policy out of CangHui.
+normal lifecycle, current-session transfer (when a companion window is used),
+final artifact launch, and product visual review. Record the consumer revision
+and keep product types, meshes and policy out of CangHui.
 
 ## Optional Platform Evidence
 

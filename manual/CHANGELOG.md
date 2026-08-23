@@ -2,6 +2,28 @@
 
 本 changelog 只记录开发者可观察的公开变化。
 
+## 0.13.0 (2026-08-24)
+
+### 新增
+
+- `chui.scene3d` 在既有 `Floor`、`Route`、`Vehicle` 与 `UserMarker` 基础上新增
+  `Structure`、`Track`、`Facility` 与 `ExitMarker`，并让封闭帧快照可携带通用实体
+  尺寸、旋转和 provider-neutral `Scene3DCameraSnapshot`；旧构造保持默认兼容。
+- 可选 `packages/scene3d-bgfx` provider 为八种语义类型维护独立资源，并在提交时
+  消费帧相机和实体 SRT 变换。
+
+### 修复与集成
+
+- Scene3D Metal 原生门禁加入非默认相机、缩放与旋转实帧，避免只以核心单测推断
+  可选驱动已经消费公开字段。
+- 公开 manual 与全量构建 skill 修正 PineEase 0.2.0 证据边界：旧证据不证明会话同步、
+  产品级视觉或商店上架就绪；产品级 3D 仍需消费者当前会话、制品启动与视觉复核。
+
+### 仍未声称
+
+- 语义调试几何不是产品网格、数字孪生、材质/模型导入、拾取或嵌入式 Scene3D
+  视图；其他宿主运行时、发布者签名、公证、商店发布、生产与 LTS 仍需独立证明。
+
 ## 0.12.0 (2026-08-24)
 
 ### 新增

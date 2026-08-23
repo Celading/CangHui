@@ -28,12 +28,19 @@ main(): Int64 {
         println("load=${load.code}")
         if (!load.ok) { return 11 }
 
-        let snapshot = Scene3DFrameSnapshot("metal-semantic-debug-scene")
+        let camera = Scene3DCameraSnapshot(
+            7.4, 6.2, 9.1,
+            0.1, -0.7, 0.0,
+            fieldOfViewY: 48.0
+        )
+        let snapshot = Scene3DFrameSnapshot("metal-semantic-debug-scene", camera: Some(camera))
         snapshot.add(Scene3DEntitySnapshot(
-            "floor", 0.0, -1.2, 0.0, kind: Scene3DEntityKind.Floor
+            "floor", 0.0, -1.2, 0.0, kind: Scene3DEntityKind.Floor,
+            scaleX: 3.2, scaleY: 0.16, scaleZ: 2.5, rotationY: 0.08
         ))
         snapshot.add(Scene3DEntitySnapshot(
-            "route", 0.0, -0.92, 0.25, kind: Scene3DEntityKind.Route
+            "route", 0.0, -0.92, 0.25, kind: Scene3DEntityKind.Route,
+            scaleX: 2.3, scaleY: 0.10, scaleZ: 0.18, rotationY: -0.20
         ))
         snapshot.add(Scene3DEntitySnapshot(
             "vehicle", -0.9, -0.62, 0.15, kind: Scene3DEntityKind.Vehicle
@@ -45,6 +52,7 @@ main(): Int64 {
             "hidden-sentinel", 0.0, 2.0, 0.0,
             visible: false, kind: Scene3DEntityKind.UserMarker
         ))
+        println("camera=non-default transform=non-default")
         var captureRequested = false
         var captured = false
         let totalFrames = capture.settleFrames + UInt64(24)

@@ -12,6 +12,7 @@ public class Bgfx4cjDriver <: Scene3DDriver {
     private let nativeWindow: CPointer<Unit>
     private let nativeWindowIdentity: UInt64
     private var initialized = false
+    private var metadataOnly = false
     private var surfaceId = ""
     private var generation: Int64 = 0
     private var resourceId = ""
@@ -27,6 +28,10 @@ public class Bgfx4cjDriver <: Scene3DDriver {
     private var routeVertexBuffer = VertexBufferHandle()
     private var vehicleVertexBuffer = VertexBufferHandle()
     private var userMarkerVertexBuffer = VertexBufferHandle()
+    private var structureVertexBuffer = VertexBufferHandle()
+    private var trackVertexBuffer = VertexBufferHandle()
+    private var facilityVertexBuffer = VertexBufferHandle()
+    private var exitMarkerVertexBuffer = VertexBufferHandle()
     private var indexBuffer = IndexBufferHandle()
     private var program = ProgramHandle()
     private var viewMatrix = CPointer<Float32>()
@@ -64,7 +69,8 @@ public class Bgfx4cjDriver <: Scene3DDriver {
                 "surface-handle-mismatch", "injected native window does not match the host surface identity"
             )
         }
-        if (surface.backend != shaders.backend) {
+        metadataOnly = surface.backend == Scene3DBackend.Software
+        if (!metadataOnly && surface.backend != shaders.backend) {
             return Scene3DDriverResult.rejected(
                 "shader-backend-mismatch", "shader resources do not support the requested backend"
             )
@@ -121,6 +127,10 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         if (!initialized) {
             return Scene3DDriverResult.rejected("not-attached", "bgfx is not initialized")
         }
+        if (metadataOnly) {
+            resourceId = resource.id
+            return Scene3DDriverResult(true, "metadata-staged", "software backend keeps scene metadata only")
+        }
         if (isGeometryReady()) {
             return Scene3DDriverResult.rejected("scene-already-loaded", "bgfx geometry is already uploaded")
         }
@@ -137,7 +147,12 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         sceneId = snapshot.sceneId
         lastFrameId = clock.frameId
         setViewRect()
-        setCamera()
+        if (metadataOnly) {
+            bgfx_touch_cj(0)
+            return Scene3DDriverResult(true, "clear-frame-only",
+                "software backend accepted sealed metadata without shader geometry")
+        }
+        setCamera(snapshot.camera)
         var submitted: Int64 = 0
         for (i in 0..snapshot.entityCount()) {
             let projection = projectScene3DEntity(snapshot.entityAt(i))
@@ -194,6 +209,7 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         freeMatrices()
         bgfx_shutdown_cj()
         initialized = false
+        metadataOnly = false
         this.surfaceId = ""
         this.generation = 0
         resourceId = ""
@@ -230,6 +246,10 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         routeVertexBuffer.idx != UInt16(0xffff) &&
         vehicleVertexBuffer.idx != UInt16(0xffff) &&
         userMarkerVertexBuffer.idx != UInt16(0xffff) &&
+        structureVertexBuffer.idx != UInt16(0xffff) &&
+        trackVertexBuffer.idx != UInt16(0xffff) &&
+        facilityVertexBuffer.idx != UInt16(0xffff) &&
+        exitMarkerVertexBuffer.idx != UInt16(0xffff) &&
         indexBuffer.idx != UInt16(0xffff) && program.idx != UInt16(0xffff)
     }
 
@@ -254,6 +274,10 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         routeVertexBuffer = createSemanticVertexBuffer(Scene3DEntityKind.Route, layout)
         vehicleVertexBuffer = createSemanticVertexBuffer(Scene3DEntityKind.Vehicle, layout)
         userMarkerVertexBuffer = createSemanticVertexBuffer(Scene3DEntityKind.UserMarker, layout)
+        structureVertexBuffer = createSemanticVertexBuffer(Scene3DEntityKind.Structure, layout)
+        trackVertexBuffer = createSemanticVertexBuffer(Scene3DEntityKind.Track, layout)
+        facilityVertexBuffer = createSemanticVertexBuffer(Scene3DEntityKind.Facility, layout)
+        exitMarkerVertexBuffer = createSemanticVertexBuffer(Scene3DEntityKind.ExitMarker, layout)
         unsafe { LibC.free(layout) }
 
         let indices = geometry.indices()
@@ -330,18 +354,23 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         modelMatrix = unsafe { LibC.malloc<Float32>(count: Int64(16)) }
     }
 
-    private func setCamera(): Unit {
+    private func setCamera(camera: ?Scene3DCameraSnapshot): Unit {
+        let resolved = match (camera) {
+            case Some(value) => value
+            case None => Scene3DCameraSnapshot(6.8, 5.0, 8.0, 0.0, -0.5, 0.0)
+        }
         let view = Array<Float32>(16, repeat: 0.0)
         mtxLookAt(
             view,
-            Vec3(6.8, 5.0, 8.0),
-            Vec3(0.0, -0.5, 0.0),
-            up: Vec3(0.0, 1.0, 0.0),
+            Vec3(resolved.eyeX, resolved.eyeY, resolved.eyeZ),
+            Vec3(resolved.targetX, resolved.targetY, resolved.targetZ),
+            up: Vec3(resolved.upX, resolved.upY, resolved.upZ),
             handedness: Handedness.Left
         )
         let projection = Array<Float32>(16, repeat: 0.0)
         let aspect = Float32(pixelWidth) / Float32(pixelHeight)
-        mtxProj(projection, 52.0, aspect, 0.1, 100.0, true, handedness: Handedness.Left)
+        mtxProj(projection, resolved.fieldOfViewY, aspect, resolved.nearPlane, resolved.farPlane,
+            true, handedness: Handedness.Left)
         unsafe {
             for (i in 0..16) {
                 (viewMatrix + i).write(view[i])
@@ -356,7 +385,7 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         mtxSRT(
             model,
             projection.scaleX, projection.scaleY, projection.scaleZ,
-            0.0, 0.0, 0.0,
+            projection.rotationX, projection.rotationY, projection.rotationZ,
             projection.x, projection.y, projection.z
         )
         unsafe {
@@ -371,6 +400,10 @@ public class Bgfx4cjDriver <: Scene3DDriver {
             case Scene3DEntityKind.Route => routeVertexBuffer
             case Scene3DEntityKind.Vehicle => vehicleVertexBuffer
             case Scene3DEntityKind.UserMarker => userMarkerVertexBuffer
+            case Scene3DEntityKind.Structure => structureVertexBuffer
+            case Scene3DEntityKind.Track => trackVertexBuffer
+            case Scene3DEntityKind.Facility => facilityVertexBuffer
+            case Scene3DEntityKind.ExitMarker => exitMarkerVertexBuffer
         }
     }
 
@@ -389,6 +422,18 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         if (userMarkerVertexBuffer.idx != UInt16(0xffff)) {
             bgfx_destroy_vertex_buffer_cj(userMarkerVertexBuffer)
         }
+        if (structureVertexBuffer.idx != UInt16(0xffff)) {
+            bgfx_destroy_vertex_buffer_cj(structureVertexBuffer)
+        }
+        if (trackVertexBuffer.idx != UInt16(0xffff)) {
+            bgfx_destroy_vertex_buffer_cj(trackVertexBuffer)
+        }
+        if (facilityVertexBuffer.idx != UInt16(0xffff)) {
+            bgfx_destroy_vertex_buffer_cj(facilityVertexBuffer)
+        }
+        if (exitMarkerVertexBuffer.idx != UInt16(0xffff)) {
+            bgfx_destroy_vertex_buffer_cj(exitMarkerVertexBuffer)
+        }
         if (vertexLayout.idx != UInt16(0xffff)) { bgfx_destroy_vertex_layout_cj(vertexLayout) }
         program = ProgramHandle()
         indexBuffer = IndexBufferHandle()
@@ -396,6 +441,10 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         routeVertexBuffer = VertexBufferHandle()
         vehicleVertexBuffer = VertexBufferHandle()
         userMarkerVertexBuffer = VertexBufferHandle()
+        structureVertexBuffer = VertexBufferHandle()
+        trackVertexBuffer = VertexBufferHandle()
+        facilityVertexBuffer = VertexBufferHandle()
+        exitMarkerVertexBuffer = VertexBufferHandle()
         vertexLayout = VertexLayoutHandle()
     }
 

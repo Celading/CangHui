@@ -117,11 +117,27 @@ func semanticEntityGeometryKeepsStableTopologyAndPalette(): Unit {
     let user = debugEntityGeometry(projectScene3DEntity(Scene3DEntitySnapshot(
         "user", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.UserMarker
     )))
+    let structure = debugEntityGeometry(projectScene3DEntity(Scene3DEntitySnapshot(
+        "structure", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Structure
+    )))
+    let track = debugEntityGeometry(projectScene3DEntity(Scene3DEntitySnapshot(
+        "track", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Track
+    )))
+    let facility = debugEntityGeometry(projectScene3DEntity(Scene3DEntitySnapshot(
+        "facility", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Facility
+    )))
+    let exit = debugEntityGeometry(projectScene3DEntity(Scene3DEntitySnapshot(
+        "exit", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.ExitMarker
+    )))
 
     @Expect(floor.id, "debug-floor")
     @Expect(route.id, "debug-route")
     @Expect(vehicle.id, "debug-vehicle")
     @Expect(user.id, "debug-user-marker")
+    @Expect(structure.id, "debug-structure")
+    @Expect(track.id, "debug-track")
+    @Expect(facility.id, "debug-facility")
+    @Expect(exit.id, "debug-exit-marker")
     @Expect(floor.vertexCount == 24 && route.vertexCount == 24 &&
         vehicle.vertexCount == 24 && user.vertexCount == 24)
     @Expect(floor.indexCount == 36 && route.indexCount == 36 &&
@@ -130,4 +146,8 @@ func semanticEntityGeometryKeepsStableTopologyAndPalette(): Unit {
     @Expect(route.vertices()[4] == 0.63)
     @Expect(vehicle.vertices()[5] == 0.26)
     @Expect(user.vertices()[3] == 0.18)
+    @Expect(structure.vertices()[3] == 0.19)
+    @Expect(track.vertices()[3] == 0.16)
+    @Expect(facility.vertices()[4] == 0.77)
+    @Expect(exit.vertices()[5] == 0.43)
 }

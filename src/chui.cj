@@ -451,6 +451,7 @@ public import chui.scene3d.CANGHUI_SCENE3D_PROTOCOL
 public import chui.scene3d.DriverScene3DProvider
 public import chui.scene3d.FakeScene3DProvider
 public import chui.scene3d.Scene3DBackend
+public import chui.scene3d.Scene3DCameraSnapshot
 public import chui.scene3d.Scene3DDebugEntityProjection
 public import chui.scene3d.Scene3DDebugGeometryFamily
 public import chui.scene3d.Scene3DDriver

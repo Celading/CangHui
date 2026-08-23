@@ -81,6 +81,8 @@ RUN_LOG="$STAGE/capture.log"
 test -s "$OUTPUT"
 grep -Fq 'submit=accepted detail=4 semantic debug entities submitted present=accepted' "$RUN_LOG" || \
     fail_capture "runtime did not submit exactly four visible semantic entities"
+grep -Fq 'camera=non-default transform=non-default' "$RUN_LOG" || \
+    fail_capture "runtime did not declare the non-default camera and transform fixture"
 grep -Fq 'renderer=Metal' "$RUN_LOG" || fail_capture "runtime did not report the Metal renderer"
 
 command -v magick >/dev/null 2>&1 || fail_capture "ImageMagick 'magick' is required for pixel proof"
@@ -111,14 +113,14 @@ FLOOR_PIXELS="$(color_pixels '#697D86')"
 ROUTE_PIXELS="$(color_pixels '#FFB743')"
 VEHICLE_PIXELS="$(color_pixels '#D45242')"
 USER_MARKER_PIXELS="$(color_pixels '#2EA3F5')"
-[[ "$BOUNDS" == "670x387+297+334" ]] || \
-    fail_capture "geometry bounds are '$BOUNDS', expected 670x387+297+334"
-[[ "$GEOMETRY_PIXELS" -ge 120000 && "$GEOMETRY_PIXELS" -le 150000 ]] || \
+[[ "$BOUNDS" == "553x329+362+323" ]] || \
+    fail_capture "geometry bounds are '$BOUNDS', expected 553x329+362+323"
+[[ "$GEOMETRY_PIXELS" -ge 85000 && "$GEOMETRY_PIXELS" -le 105000 ]] || \
     fail_capture "geometry pixel count $GEOMETRY_PIXELS is outside the bounded proof range"
-[[ "$FLOOR_PIXELS" -ge 90000 ]] || fail_capture "floor semantic color has only $FLOOR_PIXELS pixels"
-[[ "$ROUTE_PIXELS" -ge 4000 ]] || fail_capture "route semantic color has only $ROUTE_PIXELS pixels"
-[[ "$VEHICLE_PIXELS" -ge 3000 ]] || fail_capture "vehicle semantic color has only $VEHICLE_PIXELS pixels"
-[[ "$USER_MARKER_PIXELS" -ge 1800 ]] || \
+[[ "$FLOOR_PIXELS" -ge 60000 ]] || fail_capture "floor semantic color has only $FLOOR_PIXELS pixels"
+[[ "$ROUTE_PIXELS" -ge 2000 ]] || fail_capture "route semantic color has only $ROUTE_PIXELS pixels"
+[[ "$VEHICLE_PIXELS" -ge 2500 ]] || fail_capture "vehicle semantic color has only $VEHICLE_PIXELS pixels"
+[[ "$USER_MARKER_PIXELS" -ge 1500 ]] || \
     fail_capture "user-marker semantic color has only $USER_MARKER_PIXELS pixels"
 
 printf 'scene3d Metal capture: %s\n' "$OUTPUT"

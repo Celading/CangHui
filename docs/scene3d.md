@@ -8,8 +8,9 @@ CangHui Multiplatform 通过 `chui.scene3d` 提供 provider-neutral 的 3D 场�
 
 ## 语义实体
 
-`Scene3DEntitySnapshot` 保留实体身份、位置、可见性和一个通用类别。当前调试投影
-为四类实体提供稳定的几何和颜色语义：
+`Scene3DEntitySnapshot` 保留实体身份、位置、可见性和一个通用类别，并允许以零值
+保持类别默认尺寸，或显式提供 `scaleX/Y/Z` 与 `rotationX/Y/Z`。当前投影为八类实体
+提供稳定的低多边形几何和颜色语义：
 
 | `Scene3DEntityKind` | 几何家族 | 语义色角色 |
 |---|---|---|
@@ -17,17 +18,26 @@ CangHui Multiplatform 通过 `chui.scene3d` 提供 provider-neutral 的 3D 场�
 | `Route` | `Ribbon` | `RouteAccent` |
 | `Vehicle` | `Box` | `VehicleAccent` |
 | `UserMarker` | `Marker` | `UserHighlight` |
+| `Structure` | `Box` | `StructureNeutral` |
+| `Track` | `Ribbon` | `TrackNeutral` |
+| `Facility` | `Marker` | `FacilityAccent` |
+| `ExitMarker` | `Marker` | `ExitAccent` |
 
 ```cangjie
 import chui.*
 
-let frame = Scene3DFrameSnapshot("station-debug")
+let camera = Scene3DCameraSnapshot(7.2, 5.4, 8.8, 0.0, -0.5, 0.0,
+    fieldOfViewY: 48.0)
+let frame = Scene3DFrameSnapshot("station-debug", camera: Some(camera))
 frame.add(Scene3DEntitySnapshot(
     "floor",
     0.0,
     -0.35,
     0.0,
-    kind: Scene3DEntityKind.Floor
+    kind: Scene3DEntityKind.Floor,
+    scaleX: 4.8,
+    scaleY: 0.10,
+    scaleZ: 3.2
 ))
 frame.add(Scene3DEntitySnapshot(
     "route-main",
@@ -54,8 +64,9 @@ frame.seal()
 ```
 
 `projectScene3DEntity` 把单个快照转换为 `Scene3DDebugEntityProjection`，同时保留
-`entityId`、位置和 `visible`。不指定 `kind` 的旧构造调用仍按 `Vehicle` 处理，
-因此原有消费者不需要为新字段立即改写。
+`entityId`、位置、尺寸、旋转和 `visible`。`Scene3DFrameSnapshot.camera` 是可选的；未提供
+时 provider 保持原有默认相机。不指定 `kind`、相机或变换的旧构造调用仍按原有默认值
+处理，因此原有消费者不需要为新增字段立即改写。
 
 ## Provider 边界
 
@@ -92,5 +103,5 @@ host.close()
 
 这一通用投影不是产品场景模型、材质系统或美术规范。它不包含模型/纹理导入、
 文字标注、拾取、碰撞、导航算法、实时传输、嵌入式 Scene3D 视图或移动端渲染认证。
-产品可以把自身领域对象投影为上述四类通用调试实体，但领域类型不应进入 CangHui
+产品可以把自身领域对象投影为上述八类通用低多边形实体，但领域类型不应进入 CangHui
 公开合同。

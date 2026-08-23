@@ -11,11 +11,17 @@ does not match `Scene3DHostSurface.opaqueHandle`.
 
 Current scope includes provider lifecycle, immutable backend-bound shader and
 indexed-geometry resources, perspective/depth state, and a bounded semantic
-debug scene. `Scene3DEntityKind` maps floor, route, vehicle and user-marker
-snapshots onto slab, ribbon, box and marker families with stable provider-owned
-colors. Identity, position and visibility stay in the sealed frame snapshot;
-product models and styling do not enter this package. Model/texture ingestion,
+low-poly scene. `Scene3DEntityKind` maps floor, route, vehicle, user, structure,
+track, facility and exit snapshots onto slab, ribbon, box and marker families
+with stable provider-owned colors. Identity, position, optional scale/rotation,
+visibility and an optional frame camera stay in the sealed snapshot; product
+models and styling do not enter this package. Model/texture ingestion,
 picking and platform runtime certification remain separate work.
+
+`Scene3DBackend.Software` is an explicit metadata-only Noop verification lane:
+it accepts sealed scene metadata and advances a clear frame without uploading
+backend-specific shaders. Visible rendering still requires a matching native
+backend and shader program.
 
 On macOS, `MacOSSdlMetalHost` owns an SDL3 Metal window and extracts its native
 `NSWindow` for the provider. `Bgfx4cjDriver` selects bgfx single-thread mode
@@ -25,7 +31,7 @@ request. A normal consumer loop must then detach and close; a bounded capture
 proves pixels but does not by itself prove the user-close lifecycle.
 The `scene3d-bgfx-metal-capture` example accepts `DesktopCaptureRequest` from
 `cuic prnt`, uploads semantic vertex buffers plus one shared index topology and
-Metal shader program, renders the four generic entity classes, requests a
+Metal shader program, renders the eight generic entity classes, requests a
 renderer backbuffer screenshot, and converts bgfx's 32-bit TGA output to the
 BMP capture contract before `cuic` emits PNG. Verification checks both native
 API receipts and bounded non-background pixels, so an accepted but uniform

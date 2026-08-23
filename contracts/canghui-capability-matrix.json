@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "matrixVersion": "CangHui.20260824.29",
   "project": "CangHui",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
@@ -75,7 +75,7 @@
   "features": [
     {
       "id": "cui-core",
-      "version": "0.12.0",
+      "version": "0.13.0",
       "state": "source-test-proven",
       "codeRefs": [
         "src",

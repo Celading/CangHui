@@ -516,7 +516,7 @@ private class BuiltinSymbolProvider <: SymbolProvider {
     public func id(): String { "builtin" }
 
     public func source(): SymbolProviderSource {
-        SymbolProviderSource("CangHui", "built-in", "0.12.0", "MIT", "sdl/src/icon_draw.cj")
+        SymbolProviderSource("CangHui", "built-in", "0.13.0", "MIT", "sdl/src/icon_draw.cj")
     }
 
     public func descriptors(): Array<SymbolDescriptor> {
