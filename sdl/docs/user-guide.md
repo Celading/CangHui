@@ -63,6 +63,10 @@ while (let Some(event) <- current) {
 缓存字体和文本对象，`textWidth` 与绘制使用相同字形度量。若系统没有任何候选字体，窗口初始化会
 抛出 `CuiException`，而不是悄然使用低清位图字体。
 
+粗体解析优先使用字体文件内部的真实 `Bold` 命名实例（随包 HarmonyOS Sans SC 为可变字体），
+其次尝试独立的 Bold 伴随文件，最后才在基础字面上合成；因此 `.bold()` 不应从 HarmonyOS Sans
+静默切换到系统字体，也不应把 Regular 的合成增宽冒充真实 Bold 字重。
+
 ## 5. 表面与纹理
 
 `Surface` 是 CPU 侧像素表面：

@@ -45,3 +45,30 @@ func bundledFontIsDefaultAndCatchesMissingCjkGlyphs(): Unit {
         Fonts.clearBundledFallbackOverride()
     }
 }
+
+@Test
+func bundledVariableFontBoldUsesItsTrueNamedWeight(): Unit {
+    let bundled = bundledFontFixture()
+    @Expect(!bundled.isEmpty())
+    Fonts.clear()
+    Fonts.clearApplicationFamily()
+    Fonts.registerBundledFallback(bundled)
+    let window = SdlWindow(WindowSpec("Variable font weight test", 420, 140))
+    try {
+        let sample = "Harmony 鸿蒙 Bold 700"
+        let regular = window.renderer.textWidth(sample, pointSize: 32.0)
+        let bold = window.renderer.textWidth(sample, pointSize: 32.0, style: FontStyle(bold: true))
+        @Expect(window.renderer.fontResolutionForText(sample).path, bundled)
+        @Expect(window.renderer.fontResolutionForText(sample, style: FontStyle(bold: true)).path, bundled)
+        @Expect(bold > regular)
+        // The bundled HarmonyOS Sans file carries a real Bold named instance. Synthetic bold on
+        // Regular expands this fixture by about 16%; the real Bold outlines stay below 12% while
+        // still measuring wider than Regular.
+        @Expect(bold < regular * 1.12)
+    } finally {
+        window.close()
+        Fonts.clear()
+        Fonts.clearApplicationFamily()
+        Fonts.clearBundledFallbackOverride()
+    }
+}

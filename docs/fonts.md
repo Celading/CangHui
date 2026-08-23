@@ -21,6 +21,12 @@ Unknown or unreadable files are skipped. On a live SDL_ttf renderer, CangHui
 checks glyph coverage for the complete text run and advances to the next face
 when the current face is incomplete.
 
+For `.bold()`, CangHui first selects a real `Bold` named instance carried by a
+variable font (the bundled HarmonyOS Sans SC includes one), then tries a
+separate bold companion file, and only then synthesizes bold on the selected
+base face. The family/fallback order therefore stays unchanged when weight
+changes.
+
 ```cangjie
 Fonts.register("brand", "assets/fonts/Brand-Regular.ttf")
 let theme = Theme.light().withFontFamily(Some("brand"))
