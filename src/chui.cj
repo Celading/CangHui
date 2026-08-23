@@ -451,8 +451,11 @@ public import chui.scene3d.CANGHUI_SCENE3D_PROTOCOL
 public import chui.scene3d.DriverScene3DProvider
 public import chui.scene3d.FakeScene3DProvider
 public import chui.scene3d.Scene3DBackend
+public import chui.scene3d.Scene3DDebugEntityProjection
+public import chui.scene3d.Scene3DDebugGeometryFamily
 public import chui.scene3d.Scene3DDriver
 public import chui.scene3d.Scene3DDriverResult
+public import chui.scene3d.Scene3DEntityKind
 public import chui.scene3d.Scene3DEntitySnapshot
 public import chui.scene3d.Scene3DFrameClock
 public import chui.scene3d.Scene3DFrameSnapshot
@@ -462,7 +465,12 @@ public import chui.scene3d.Scene3DHostSurface
 public import chui.scene3d.Scene3DProvider
 public import chui.scene3d.Scene3DReceipt
 public import chui.scene3d.Scene3DResource
+public import chui.scene3d.Scene3DSemanticColor
+public import chui.scene3d.projectScene3DEntity
 public import chui.scene3d.scene3dBackendName
+public import chui.scene3d.scene3dDebugGeometryFamilyName
+public import chui.scene3d.scene3dEntityKindName
+public import chui.scene3d.scene3dSemanticColorName
 public import chui.media.ImageFit
 public import chui.media.ImageView
 public import chui.media.clearImageCache

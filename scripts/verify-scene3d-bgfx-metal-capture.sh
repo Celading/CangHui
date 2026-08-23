@@ -9,6 +9,11 @@ RECEIPT="${2:-${OUTPUT%.*}.native-supply.json}"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/canghui-scene3d-bgfx-metal.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 
+fail_capture() {
+    printf 'scene3d Metal capture rejected: %s\n' "$1" >&2
+    exit 1
+}
+
 for link_root in "$BGFX_NATIVE_ROOT" "$ROOT/sdl/.sdl3"; do
     if [[ "$link_root" == *[[:space:]]* || "$link_root" == *\"* || "$link_root" == *\\* ]]; then
         printf 'Native link roots contain unsupported characters: %s\n' "$link_root" >&2
@@ -68,10 +73,57 @@ chui = { path = "$ROOT" }
 canghui_scene3d_bgfx = { path = "$STAGE/scene3d-bgfx" }
 EOF
 
-(cd "$STAGE/scene3d-bgfx" && cjpm test)
+(cd "$STAGE/scene3d-bgfx" && cjpm test --no-progress)
 (cd "$STAGE/scene3d-bgfx-metal-capture" && cjpm build)
 (cd "$ROOT/tools/cuic" && cjpm build)
-"$ROOT/tools/cuic/bin/cuic" prnt macos "$STAGE/scene3d-bgfx-metal-capture" --output "$OUTPUT" --frames 12
+RUN_LOG="$STAGE/capture.log"
+"$ROOT/tools/cuic/bin/cuic" prnt macos "$STAGE/scene3d-bgfx-metal-capture" --output "$OUTPUT" --frames 12 | tee "$RUN_LOG"
 test -s "$OUTPUT"
+grep -Fq 'submit=accepted detail=4 semantic debug entities submitted present=accepted' "$RUN_LOG" || \
+    fail_capture "runtime did not submit exactly four visible semantic entities"
+grep -Fq 'renderer=Metal' "$RUN_LOG" || fail_capture "runtime did not report the Metal renderer"
+
+command -v magick >/dev/null 2>&1 || fail_capture "ImageMagick 'magick' is required for pixel proof"
+read -r WIDTH HEIGHT OPAQUE COLORS CORNER <<<"$(
+    magick identify -format '%w %h %[opaque] %k %[pixel:p{0,0}]' "$OUTPUT"
+)"
+[[ "$WIDTH" == "1280" && "$HEIGHT" == "840" ]] || \
+    fail_capture "dimensions are ${WIDTH}x${HEIGHT}, expected 1280x840"
+[[ "$OPAQUE" == "True" ]] || fail_capture "capture is not fully opaque"
+[[ "$COLORS" -ge 14 ]] || fail_capture "capture has only $COLORS colors"
+[[ "$CORNER" == "srgb(58,128,104)" ]] || \
+    fail_capture "corner background is '$CORNER', expected srgb(58,128,104)"
+
+BOUNDS="$(magick "$OUTPUT" -alpha off -trim -format '%wx%h%O' info:)"
+GEOMETRY_PIXELS="$(
+    magick "$OUTPUT" -alpha off \
+        -fill white +opaque '#3A8068' \
+        -fill black -opaque '#3A8068' \
+        -format '%[fx:round(mean*w*h)]' info:
+)"
+color_pixels() {
+    magick "$OUTPUT" -alpha off \
+        -fill black +opaque "$1" \
+        -fill white -opaque "$1" \
+        -format '%[fx:round(mean*w*h)]' info:
+}
+FLOOR_PIXELS="$(color_pixels '#697D86')"
+ROUTE_PIXELS="$(color_pixels '#FFB743')"
+VEHICLE_PIXELS="$(color_pixels '#D45242')"
+USER_MARKER_PIXELS="$(color_pixels '#2EA3F5')"
+[[ "$BOUNDS" == "670x387+297+334" ]] || \
+    fail_capture "geometry bounds are '$BOUNDS', expected 670x387+297+334"
+[[ "$GEOMETRY_PIXELS" -ge 120000 && "$GEOMETRY_PIXELS" -le 150000 ]] || \
+    fail_capture "geometry pixel count $GEOMETRY_PIXELS is outside the bounded proof range"
+[[ "$FLOOR_PIXELS" -ge 90000 ]] || fail_capture "floor semantic color has only $FLOOR_PIXELS pixels"
+[[ "$ROUTE_PIXELS" -ge 4000 ]] || fail_capture "route semantic color has only $ROUTE_PIXELS pixels"
+[[ "$VEHICLE_PIXELS" -ge 3000 ]] || fail_capture "vehicle semantic color has only $VEHICLE_PIXELS pixels"
+[[ "$USER_MARKER_PIXELS" -ge 1800 ]] || \
+    fail_capture "user-marker semantic color has only $USER_MARKER_PIXELS pixels"
+
 printf 'scene3d Metal capture: %s\n' "$OUTPUT"
 printf 'scene3d native supply receipt: %s\n' "$RECEIPT"
+printf 'scene3d pixel proof: %sx%s opaque=%s colors=%s background=#3A8068 bounds=%s geometryPixels=%s\n' \
+    "$WIDTH" "$HEIGHT" "$OPAQUE" "$COLORS" "$BOUNDS" "$GEOMETRY_PIXELS"
+printf 'scene3d semantic palette proof: floor=%s route=%s vehicle=%s userMarker=%s\n' \
+    "$FLOOR_PIXELS" "$ROUTE_PIXELS" "$VEHICLE_PIXELS" "$USER_MARKER_PIXELS"

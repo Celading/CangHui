@@ -5,6 +5,45 @@ func scene3dNamesAndProtocolStayStable(): Unit {
     @Expect(CANGHUI_SCENE3D_PROTOCOL, "canghui.scene3d.v0")
     @Expect(scene3dBackendName(Scene3DBackend.Metal), "metal")
     @Expect(scene3dBackendName(Scene3DBackend.D3D12), "d3d12")
+    @Expect(scene3dEntityKindName(Scene3DEntityKind.UserMarker), "user-marker")
+    @Expect(scene3dDebugGeometryFamilyName(Scene3DDebugGeometryFamily.Ribbon), "ribbon")
+    @Expect(scene3dSemanticColorName(Scene3DSemanticColor.RouteAccent), "route-accent")
+}
+
+@Test
+func scene3dDebugProjectionMapsAllGenericEntityKinds(): Unit {
+    let floor = projectScene3DEntity(Scene3DEntitySnapshot(
+        "floor", 0.0, -1.0, 0.0, kind: Scene3DEntityKind.Floor
+    ))
+    let route = projectScene3DEntity(Scene3DEntitySnapshot(
+        "route", 0.0, -0.8, 0.2, kind: Scene3DEntityKind.Route
+    ))
+    let vehicle = projectScene3DEntity(Scene3DEntitySnapshot(
+        "vehicle", -0.8, -0.3, 0.0, kind: Scene3DEntityKind.Vehicle
+    ))
+    let user = projectScene3DEntity(Scene3DEntitySnapshot(
+        "user", 1.0, -0.2, 0.0, visible: false, kind: Scene3DEntityKind.UserMarker
+    ))
+
+    @Expect(floor.geometryFamily == Scene3DDebugGeometryFamily.Slab)
+    @Expect(floor.semanticColor == Scene3DSemanticColor.GroundNeutral)
+    @Expect(floor.scaleX == 3.8)
+    @Expect(route.geometryFamily == Scene3DDebugGeometryFamily.Ribbon)
+    @Expect(route.semanticColor == Scene3DSemanticColor.RouteAccent)
+    @Expect(route.green == 0.63)
+    @Expect(vehicle.geometryFamily == Scene3DDebugGeometryFamily.Box)
+    @Expect(vehicle.entityId, "vehicle")
+    @Expect(vehicle.x == -0.8)
+    @Expect(user.geometryFamily == Scene3DDebugGeometryFamily.Marker)
+    @Expect(user.semanticColor == Scene3DSemanticColor.UserHighlight)
+    @Expect(!user.visible)
+}
+
+@Test
+func scene3dEntitySnapshotKeepsLegacyDefaultKind(): Unit {
+    let entity = Scene3DEntitySnapshot("legacy", 1.0, 2.0, 3.0)
+    @Expect(entity.kind == Scene3DEntityKind.Vehicle)
+    @Expect(entity.visible)
 }
 
 @Test

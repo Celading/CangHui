@@ -8,6 +8,7 @@ private class RecordingScene3DDriver <: Scene3DDriver {
     var observedSceneId = ""
     var observedFrameId: Int64 = -1
     var observedGeneration: Int64 = 0
+    var observedProjectionSummary = ""
 
     public func driverName(): String { "recording" }
 
@@ -35,6 +36,16 @@ private class RecordingScene3DDriver <: Scene3DDriver {
         calls += "submit|"
         observedSceneId = snapshot.sceneId
         observedFrameId = clock.frameId
+        observedProjectionSummary = ""
+        for (i in 0..snapshot.entityCount()) {
+            let projection = projectScene3DEntity(snapshot.entityAt(i))
+            if (!observedProjectionSummary.isEmpty()) { observedProjectionSummary += "|" }
+            observedProjectionSummary += projection.entityId + ":" +
+                scene3dEntityKindName(projection.kind) + ":" +
+                scene3dDebugGeometryFamilyName(projection.geometryFamily) + ":" +
+                scene3dSemanticColorName(projection.semanticColor) + ":" +
+                "${projection.visible}"
+        }
         Scene3DDriverResult.accepted()
     }
 
@@ -59,6 +70,34 @@ private class RecordingScene3DDriver <: Scene3DDriver {
         observedGeneration = generation
         Scene3DDriverResult.accepted()
     }
+}
+
+@Test
+func driverProviderPreservesGenericSemanticEntityProjection(): Unit {
+    let driver = RecordingScene3DDriver()
+    let provider = DriverScene3DProvider(driver)
+    let snapshot = Scene3DFrameSnapshot("semantic-debug-scene")
+    snapshot.add(Scene3DEntitySnapshot(
+        "floor-1", 0.0, -1.0, 0.0, kind: Scene3DEntityKind.Floor
+    ))
+    snapshot.add(Scene3DEntitySnapshot(
+        "route-1", 0.0, -0.8, 0.0, kind: Scene3DEntityKind.Route
+    ))
+    snapshot.add(Scene3DEntitySnapshot(
+        "vehicle-1", -0.8, -0.3, 0.0, kind: Scene3DEntityKind.Vehicle
+    ))
+    snapshot.add(Scene3DEntitySnapshot(
+        "user-1", 1.0, -0.2, 0.0, visible: false, kind: Scene3DEntityKind.UserMarker
+    ))
+
+    @Expect(provider.attach(driverSurface(), Scene3DFrameClock(1, 10, 20)).ok)
+    @Expect(provider.loadScene(Scene3DResource("pack", "pack", "sha256:test", 1)).ok)
+    @Expect(provider.submit(snapshot, Scene3DFrameClock(2, 20, 30)).ok)
+    @Expect(driver.observedProjectionSummary,
+        "floor-1:floor:slab:ground-neutral:true|" +
+        "route-1:route:ribbon:route-accent:true|" +
+        "vehicle-1:vehicle:box:vehicle-accent:true|" +
+        "user-1:user-marker:marker:user-highlight:false")
 }
 
 private func driverSurface(generation!: Int64 = 1): Scene3DHostSurface {

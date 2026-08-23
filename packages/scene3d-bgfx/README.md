@@ -9,17 +9,24 @@ surface identity when constructing `Bgfx4cjDriver`; applications use CangHui
 `Scene3DProvider` contracts. The driver rejects an attach when that identity
 does not match `Scene3DHostSurface.opaqueHandle`.
 
-Current scope is the provider lifecycle, resource-metadata staging, and a
-clear-frame submission path. Scene snapshots are sealed at submission;
-`loadScene` does not upload geometry, shaders, or textures yet. Picking and
-platform runtime certification remain separate work.
+Current scope includes provider lifecycle, immutable backend-bound shader and
+indexed-geometry resources, perspective/depth state, and a bounded semantic
+debug scene. `Scene3DEntityKind` maps floor, route, vehicle and user-marker
+snapshots onto slab, ribbon, box and marker families with stable provider-owned
+colors. Identity, position and visibility stay in the sealed frame snapshot;
+product models and styling do not enter this package. Model/texture ingestion,
+picking and platform runtime certification remain separate work.
 
 On macOS, `MacOSSdlMetalHost` owns an SDL3 Metal window and extracts its native
 `NSWindow` for the provider. `Bgfx4cjDriver` selects bgfx single-thread mode
 before Metal initialization, avoiding a main-runloop initialization deadlock.
 The `scene3d-bgfx-metal-capture` example accepts `DesktopCaptureRequest` from
-`cuic prnt`, requests a renderer backbuffer screenshot, and converts bgfx's
-32-bit TGA output to the BMP capture contract before `cuic` emits PNG.
+`cuic prnt`, uploads semantic vertex buffers plus one shared index topology and
+Metal shader program, renders the four generic entity classes, requests a
+renderer backbuffer screenshot, and converts bgfx's 32-bit TGA output to the
+BMP capture contract before `cuic` emits PNG. Verification checks both native
+API receipts and bounded non-background pixels, so an accepted but uniform
+frame is rejected.
 
 The bounded macOS verification expects external source and archive locations:
 

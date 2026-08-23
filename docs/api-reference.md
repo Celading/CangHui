@@ -1,7 +1,8 @@
 # CangHui API 参考
 
 本文记录 `chui` 根包重新导出的 GUI API。几何、渲染、窗口、事件、对话框、输入和系统能力见
-[SDL API 参考](../sdl/docs/api-reference.md)。
+[SDL API 参考](../sdl/docs/api-reference.md)。可选 3D provider 的中立合同、四类语义调试实体和边界见
+[Scene3D 语义投影](scene3d.md)。
 
 ## 1. 尺寸单位
 

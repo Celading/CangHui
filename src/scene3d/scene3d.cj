@@ -115,14 +115,23 @@ public struct Scene3DResource {
 /** Minimal immutable entity projection used by a provider for one frame. */
 public struct Scene3DEntitySnapshot {
     public let id: String
+    public let kind: Scene3DEntityKind
     public let x: Float32
     public let y: Float32
     public let z: Float32
     public let visible: Bool
 
-    public init(id: String, x: Float32, y: Float32, z: Float32, visible!: Bool = true) {
+    public init(
+        id: String,
+        x: Float32,
+        y: Float32,
+        z: Float32,
+        visible!: Bool = true,
+        kind!: Scene3DEntityKind = Scene3DEntityKind.Vehicle
+    ) {
         if (id.isEmpty()) { throw IllegalArgumentException("scene3d entity id must be present") }
         this.id = id
+        this.kind = kind
         this.x = x
         this.y = y
         this.z = z
