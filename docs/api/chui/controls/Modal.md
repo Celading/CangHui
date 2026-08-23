@@ -71,6 +71,7 @@ main(): Unit {
 | [`draw(ctx: UiContext)`](#draw) | `presented` 为真且内容已构建时，把对话框注册进浮层栈。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 只把 `Frame` 帧事件转发给对话框内容，其余输入经浮层进入；恒返回 `false`。 |
 | [`focusableIds()`](#focusableids) | 返回对话框 `body` 里声明的焦点项（隐藏时为空）——焦点陷阱循环的集合。 |
+| [`interactionOwnerIds()`](#interactionownerids) | 内容已呈现时声明模态浮层所有权，并合并 body 子树所有者；隐藏时为空。 |
 
 ## 构造函数
 
@@ -149,8 +150,19 @@ public func focusableIds(): Array<String>
 
 **返回值** `Array<String>` — 当前对话框焦点陷阱中的导航标识；对话框隐藏时为空。
 
+### interactionOwnerIds
+
+内容已呈现时声明 Modal 自身能够经浮层消费普通输入，并合并 `body` 子树的交互所有者；隐藏、尚未构建内容时返回空列表。该声明独立于焦点项，因此一个只含 Label 的已呈现 Modal 仍是交互所有者，不能作为 [`InteractionSurface`](../core/InteractionSurface.md) 的装饰内容。
+
+```cangjie
+public func interactionOwnerIds(): Array<String>
+```
+
+**返回值** `Array<String>` — 已呈现 Modal 的浮层标识与 body 子树交互所有者的去重列表；隐藏时为空。
+
 ## 另请参阅
 
 - [Overlay](../core/Overlay.md) — 对话框借以浮起的交互浮层。
 - [UiContext](../core/UiContext.md) — 浮层栈、焦点与事件路由的宿主。
 - [ZStack](../core/ZStack.md) — 挂载对话框的常用根容器。
+- [InteractionSurface](../core/InteractionSurface.md) — 要求装饰子树不再声明第二个交互所有者。

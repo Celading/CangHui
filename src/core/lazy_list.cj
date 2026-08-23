@@ -207,6 +207,17 @@ public class LazyList <: Widget {
         }
         ids.toArray()
     }
+
+    public func interactionOwnerIds(): Array<String> {
+        let ids = ArrayList<String>()
+        for (pair in visibleItems) {
+            let (_, widget) = pair
+            for (id in widget.interactionOwnerIds()) {
+                if (!ids.contains(id)) { ids.add(id) }
+            }
+        }
+        ids.toArray()
+    }
 }
 
 /*

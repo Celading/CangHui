@@ -25,7 +25,7 @@ Label("已保存").padding(8.0).background(Color.rgb(223, 240, 216), 6.0) // 背
 Label("已保存").background(Color.rgb(223, 240, 216), 6.0).padding(8.0) // 背景只垫在文本正后方
 ```
 
-**布局与焦点协议。**[`isFlexible`](#isflexible)/[`flexWeight`](#flexweight) 决定组件在 [`VStack`](VStack.md)/[`HStack`](HStack.md) 剩余空间分配中的角色，[`acceptsStretch`](#acceptsstretch) 回答交叉轴可否拉伸，[`participatesInLayout`](#participatesinlayout) 决定是否占位；[`focusableId`](#focusableid)/[`focusableIds`](#focusableids) 把子树的焦点项交给焦点遍历（Tab / Shift+Tab）。这六个方法都有默认实现，按需覆盖即可。
+**布局、焦点与交互所有权协议。**[`isFlexible`](#isflexible)/[`flexWeight`](#flexweight) 决定组件在 [`VStack`](VStack.md)/[`HStack`](HStack.md) 剩余空间分配中的角色，[`acceptsStretch`](#acceptsstretch) 回答交叉轴可否拉伸，[`participatesInLayout`](#participatesinlayout) 决定是否占位；[`focusableId`](#focusableid)/[`focusableIds`](#focusableids) 把子树的焦点项交给焦点遍历（Tab / Shift+Tab），[`interactionOwnerIds`](#interactionownerids) 则独立报告普通输入或辅助语义动作的所有者。焦点与交互所有权并不等价：无焦点的指针/事件组件必须覆盖后者，容器与包装器必须转发子树列表。
 
 ## 示例
 
@@ -67,6 +67,10 @@ class TapCounter <: Widget {
         }
         false
     }
+
+    public func interactionOwnerIds(): Array<String> {
+        ["TapCounter"] // 该组件消费普通输入，即使它没有键盘焦点
+    }
 }
 
 main(): Unit {
@@ -99,6 +103,7 @@ main(): Unit {
 | [`participatesInLayout()`](#participatesinlayout) | 报告该节点是否在父布局中占据位置。 |
 | [`focusableId()`](#focusableid) | 返回组件构建期注册的键盘焦点 id，不可聚焦时为 `None`。 |
 | [`focusableIds()`](#focusableids) | 返回组件子树按声明顺序注册的全部键盘焦点 id。 |
+| [`interactionOwnerIds()`](#interactionownerids) | 返回组件子树中普通输入或辅助语义动作的所有者 id。 |
 | [`width(...)`](#width) | 把组件约束到恰好 `value` 宽。 |
 | [`height(...)`](#height) | 把组件约束到恰好 `value` 高。 |
 | [`minWidth(...)`](#minwidth) | 阻止组件测量得比 `value` 更窄。 |
@@ -238,6 +243,18 @@ func focusableIds(): Array<String>
 ```
 
 **返回值** `Array<String>` — 声明顺序的焦点 id 列表，可为空。
+
+### interactionOwnerIds
+
+返回组件子树中能够消费普通输入或发布辅助语义动作的所有者 id，独立于键盘焦点。默认实现返回
+[`focusableIds`](#focusableids)，因此普通可聚焦控件无需重复声明；无焦点事件/指针组件必须覆盖此方法，
+单子包装器转发 child，容器按声明顺序合并 children。`InteractionSurface` 用它拒绝装饰 slot 中的第二个动作所有者。
+
+```cangjie
+func interactionOwnerIds(): Array<String>
+```
+
+**返回值** `Array<String>` — 子树交互所有者 id，可为空。
 
 ### width
 

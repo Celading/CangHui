@@ -71,6 +71,7 @@ main(): Unit {
 | [`participatesInLayout()`](#participatesinlayout) | 转发子树是否占据父布局中的位置。 |
 | [`focusableId()`](#focusableid) | 转发子树的单一焦点项 id。 |
 | [`focusableIds()`](#focusableids) | 转发子树注册的全部焦点项。 |
+| [`interactionOwnerIds()`](#interactionownerids) | 声明 EventHandler 自身的普通事件所有权，并合并子树所有者。 |
 
 ## 构造函数
 
@@ -207,6 +208,17 @@ public func focusableIds(): Array<String>
 ```
 
 **返回值** `Array<String>` — 子树内全部焦点项 id，按声明顺序。
+
+### interactionOwnerIds
+
+声明 `EventHandler` 自身能够消费普通事件，并合并 child 的交互所有者。该声明独立于焦点：即使 child 只是
+Label，EventHandler 仍是一个 owner，不能放进 [`InteractionSurface`](InteractionSurface.md) 的装饰 slot。
+
+```cangjie
+public func interactionOwnerIds(): Array<String>
+```
+
+**返回值** `Array<String>` — 以 `EventHandler` 开头的子树交互所有者列表。
 
 ## 另请参阅
 

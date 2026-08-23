@@ -1,5 +1,6 @@
 package chui.controls
 
+import std.collection.ArrayList
 import sdl.{Color, Key, Rect, Size, SurfaceStyle, UiEvent}
 import sdl.input.Keyboard
 import chui.core.{Bindable, Overlay, UiContext, Widget, buildChild, controlIdentity, drawSurface, emit,
@@ -98,6 +99,19 @@ public class Modal <: Widget {
 
     public func focusableIds(): Array<String> {
         contentFocusables // the stops the dialog's own focus trap cycles (empty while hidden)
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        let ids = ArrayList<String>()
+        match (content) {
+            case Some(body) =>
+                ids.add(overlayOwner)
+                for (id in body.interactionOwnerIds()) {
+                    if (!ids.contains(id)) { ids.add(id) }
+                }
+            case None => ()
+        }
+        ids.toArray()
     }
 
     private func handleModal(ctx: UiContext, event: UiEvent): Bool {

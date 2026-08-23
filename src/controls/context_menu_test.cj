@@ -137,3 +137,15 @@ func contextMenuPaddingPressRunsNothing(): Unit {
     @Expect(ran.value, Int64(0))
     @Expect(!ctx.hasOverlay())
 }
+
+@Test
+func contextMenuPublishesOnlyRealActionOwnership(): Unit {
+    let active = ContextMenu(items: [MenuItem("复制", {=> ()})], key: "active") {
+        emit(SizedLayoutProbe(Size(120.0, 60.0)))
+    }
+    let empty = ContextMenu(items: [], key: "empty") {
+        emit(SizedLayoutProbe(Size(120.0, 60.0)))
+    }
+    @Expect(active.interactionOwnerIds(), ["ContextMenu:active"])
+    @Expect(empty.interactionOwnerIds(), [])
+}

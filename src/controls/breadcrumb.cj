@@ -133,6 +133,13 @@ public class Breadcrumb <: Widget {
         false
     }
 
+    public func interactionOwnerIds(): Array<String> {
+        for (item in items) {
+            if (isSegmentClickable(item)) { return [id] }
+        }
+        []
+    }
+
     private func drawSegment(ctx: UiContext, r: Rect, idx: Int64): Unit {
         let active = activeIndex()
         let isCurrent = idx == active

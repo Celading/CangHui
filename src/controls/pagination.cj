@@ -152,6 +152,10 @@ public class Pagination <: Widget {
         false
     }
 
+    public func interactionOwnerIds(): Array<String> {
+        [id]
+    }
+
     private func drawPage(ctx: UiContext, rect: Rect, page: Int64, isCurrent: Bool,
         animation: InteractionAnimation, cellId: String): Unit {
         let progress = animation.animate(ctx, ctx.isHovered(cellId), ctx.isPressed(cellId),

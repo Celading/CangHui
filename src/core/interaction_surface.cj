@@ -24,8 +24,9 @@ public enum ControlRole {
 
 /**
  * A one-owner interaction primitive for arbitrary decorative content. It owns exactly one focus id,
- * pressed state, release-inside action and semantic region. Focusable descendants are invalid: they
- * are removed from the Tab ring, reported to ComponentProbe and both outer and nested actions fail closed.
+ * pressed state, release-inside action and semantic region. Interaction-owning descendants are invalid:
+ * their focus ids are removed from the Tab ring, they are reported to ComponentProbe and both outer and
+ * nested actions fail closed.
  */
 public class InteractionSurface <: Widget {
     private let child: Widget
@@ -37,6 +38,7 @@ public class InteractionSurface <: Widget {
     private let isExpanded: ?Bool
     private var controlId: String
     private let nestedFocusIds: Array<String>
+    private let nestedInteractionOwnerIds: Array<String>
     private var materialProvider: MaterialProvider
     private var surfaceShape: Shape
     private var clipPolicy: ClipPolicy
@@ -65,9 +67,10 @@ public class InteractionSurface <: Widget {
         this.child = buildChild(body)
         let registered = focusablesSince(focusStart)
         this.nestedFocusIds = collectNestedFocusIds(child, registered)
+        this.nestedInteractionOwnerIds = collectNestedInteractionOwnerIds(child, nestedFocusIds)
         for (id in nestedFocusIds) { unregisterFocusable(id) }
         this.controlId = resolveControlKey(key, "InteractionSurface")
-        if (!isReadOnly && nestedFocusIds.isEmpty()) { registerFocusable(controlId) }
+        if (!isReadOnly && nestedInteractionOwnerIds.isEmpty()) { registerFocusable(controlId) }
         this.materialProvider = Materials.themeSurface()
         this.surfaceShape = Shape.rectangle()
         this.clipPolicy = ClipPolicy.Unclipped
@@ -77,7 +80,7 @@ public class InteractionSurface <: Widget {
     /** Replaces the auto-derived interaction identity with a stable explicit key. */
     public func key(value: String): InteractionSurface {
         requireControlId(value, "InteractionSurface")
-        if (!isReadOnly && nestedFocusIds.isEmpty()) { reregisterFocusable(controlId, value) }
+        if (!isReadOnly && nestedInteractionOwnerIds.isEmpty()) { reregisterFocusable(controlId, value) }
         controlId = value
         this
     }
@@ -96,8 +99,8 @@ public class InteractionSurface <: Widget {
 
     /** Stable structural diagnostic, or `None` when the decorative slot has one owner. */
     public func structuralDiagnostic(): ?String {
-        if (nestedFocusIds.isEmpty()) { return None }
-        Some("nested-interaction-owner: " + joinFocusIds(nestedFocusIds))
+        if (nestedInteractionOwnerIds.isEmpty()) { return None }
+        Some("nested-interaction-owner: " + joinOwnerIds(nestedInteractionOwnerIds))
     }
 
     public func measure(ctx: UiContext, available: Size): Size { child.measure(ctx, available) }
@@ -136,7 +139,9 @@ public class InteractionSurface <: Widget {
             enabled: state.enabled,
             readOnly: state.readOnly
         )) {=>
-            withSurfaceClip(ctx, frame, clipPolicy) {=> child.draw(ctx)}
+            ctx.withInteractionsEnabled(state.enabled) {=>
+                withSurfaceClip(ctx, frame, clipPolicy) {=> child.draw(ctx)}
+            }
         }
         if (state.enabled && ctx.showFocusRing(controlId)) {
             drawFocusRing(ctx, frame, surfaceShape.cornerRadius())
@@ -168,7 +173,12 @@ public class InteractionSurface <: Widget {
     }
 
     public func focusableId(): ?String {
-        if (isReadOnly || !nestedFocusIds.isEmpty()) { None } else { Some(controlId) }
+        if (isReadOnly || !nestedInteractionOwnerIds.isEmpty()) { None } else { Some(controlId) }
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        if (!nestedInteractionOwnerIds.isEmpty()) { return nestedInteractionOwnerIds }
+        if (isReadOnly) { [] } else { [controlId] }
     }
 
     public func isFlexible(): Bool { child.isFlexible() }
@@ -177,7 +187,7 @@ public class InteractionSurface <: Widget {
     public func participatesInLayout(): Bool { child.participatesInLayout() }
 
     private func currentState(ctx: UiContext): SurfaceState {
-        let enabled = ctx.interactionsEnabled() && !isReadOnly && nestedFocusIds.isEmpty()
+        let enabled = ctx.interactionsEnabled() && !isReadOnly && nestedInteractionOwnerIds.isEmpty()
         SurfaceState(
             enabled: enabled,
             readOnly: isReadOnly,
@@ -196,10 +206,11 @@ public class InteractionSurface <: Widget {
     }
 
     private func recordNestedInteractionDiagnostic(): Unit {
-        if (nestedFocusIds.isEmpty()) { return }
-        let descendants = joinFocusIds(nestedFocusIds)
+        if (nestedInteractionOwnerIds.isEmpty()) { return }
+        let descendants = joinOwnerIds(nestedInteractionOwnerIds)
+        let descendantFocusIds = joinOwnerIds(nestedFocusIds)
         recordProbeStructuralError("nested-interaction-owner",
-            "InteractionSurface " + controlId + " contains focusable descendants: " + descendants)
+            "InteractionSurface " + controlId + " contains interaction-owning descendants: " + descendants)
         probeSemanticRegions {=> [
             ProbeSemanticRegion(
                 "interaction-diagnostic:" + controlId,
@@ -210,7 +221,8 @@ public class InteractionSurface <: Widget {
                     ProbeProperty("diagnostic", "nested-interaction-owner"),
                     ProbeProperty("severity", "error"),
                     ProbeProperty("actionOwner", controlId),
-                    ProbeProperty("descendantFocusIds", descendants)
+                    ProbeProperty("descendantInteractionOwnerIds", descendants),
+                    ProbeProperty("descendantFocusIds", descendantFocusIds)
                 ]
             )
         ]}
@@ -224,11 +236,22 @@ private func collectNestedFocusIds(child: Widget, registered: Array<String>): Ar
     result.toArray()
 }
 
+private func collectNestedInteractionOwnerIds(child: Widget, nestedFocusIds: Array<String>): Array<String> {
+    let result = ArrayList<String>()
+    for (id in nestedFocusIds) { addOwnerIdIfAbsent(result, id) }
+    for (id in child.interactionOwnerIds()) { addOwnerIdIfAbsent(result, id) }
+    result.toArray()
+}
+
 private func addFocusIdIfAbsent(values: ArrayList<String>, id: String): Unit {
     if (!values.contains(id)) { values.add(id) }
 }
 
-private func joinFocusIds(values: Array<String>): String {
+private func addOwnerIdIfAbsent(values: ArrayList<String>, id: String): Unit {
+    if (!values.contains(id)) { values.add(id) }
+}
+
+private func joinOwnerIds(values: Array<String>): String {
     let out = StringBuilder()
     var first = true
     for (value in values) {

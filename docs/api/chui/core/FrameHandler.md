@@ -66,6 +66,7 @@ main(): Unit {
 | [`participatesInLayout()`](#participatesinlayout) | 转发子树是否占据父布局中的位置。 |
 | [`focusableId()`](#focusableid) | 转发子树的单一焦点项 id。 |
 | [`focusableIds()`](#focusableids) | 转发子树注册的全部焦点项。 |
+| [`interactionOwnerIds()`](#interactionownerids) | 只转发子树交互所有者；逐帧回调本身不声明普通输入动作。 |
 
 ## 构造函数
 
@@ -202,6 +203,17 @@ public func focusableIds(): Array<String>
 ```
 
 **返回值** `Array<String>` — 子树内全部焦点项 id，按声明顺序。
+
+### interactionOwnerIds
+
+只转发 child 的交互所有者。FrameHandler 的逐帧观察/续帧回调不是普通输入或辅助语义动作，所以它自身不会让
+[`InteractionSurface`](InteractionSurface.md) 的装饰 slot 失效。
+
+```cangjie
+public func interactionOwnerIds(): Array<String>
+```
+
+**返回值** `Array<String>` — child 子树的交互所有者列表。
 
 ## 另请参阅
 

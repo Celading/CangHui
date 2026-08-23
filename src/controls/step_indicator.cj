@@ -124,6 +124,10 @@ public class StepIndicator <: Widget {
         false
     }
 
+    public func interactionOwnerIds(): Array<String> {
+        if (onSelect.isSome() && !steps.isEmpty()) { [id] } else { [] }
+    }
+
     private func nodeId(step: Int64): String {
         "${id}:node:${step}"
     }

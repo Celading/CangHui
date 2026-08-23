@@ -66,6 +66,16 @@ public interface Widget {
         }
     }
 
+    /*
+     * Every node in this subtree that can own ordinary input or an accessibility
+     * action, independently from keyboard focus. The default covers focusable
+     * controls; event-only nodes and containers must override and propagate it.
+     * `InteractionSurface` uses this to keep its decorative slot one-owner-only.
+     */
+    func interactionOwnerIds(): Array<String> {
+        focusableIds()
+    }
+
     /**
      * Whether generic widget modifiers leave this subtree interactive. Controls with an intrinsic
      * display-only/read-only mode should still express that through their own semantic action; this

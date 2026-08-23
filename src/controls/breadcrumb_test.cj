@@ -68,6 +68,14 @@ func breadcrumbDisplayOnlyIgnoresClicks(): Unit {
 }
 
 @Test
+func breadcrumbPublishesOnlyRealPointerOwnership(): Unit {
+    let interactive = Breadcrumb(["A", "B"], onSelect: {_ => ()}, key: "interactive")
+    let displayOnly = Breadcrumb(["A", "B"], key: "display")
+    @Expect(interactive.interactionOwnerIds(), ["interactive"])
+    @Expect(displayOnly.interactionOwnerIds(), [])
+}
+
+@Test
 func breadcrumbCollapsedClicksFirst(): Unit {
     let ctx = bcTestContext()
     let picked = State<Int64>(-1)

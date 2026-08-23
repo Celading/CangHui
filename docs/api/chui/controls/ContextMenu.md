@@ -70,6 +70,7 @@ main(): Unit {
 | [`participatesInLayout()`](#participatesinlayout) | 转发子组件是否占布局位置。 |
 | [`focusableId()`](#focusableid) | 转发子组件的焦点 id。 |
 | [`focusableIds()`](#focusableids) | 转发子组件子树的全部焦点 id。 |
+| [`interactionOwnerIds()`](#interactionownerids) | 菜单有内容时声明右键/浮层交互所有权，并合并子树所有者。 |
 
 ## 构造函数
 
@@ -208,8 +209,19 @@ public func focusableIds(): Array<String>
 
 **返回值** `Array<String>` — 子组件树中可参与键盘焦点导航的全部标识。
 
+### interactionOwnerIds
+
+菜单有内容时声明本包装器能够消费右键输入并打开交互浮层，同时合并子组件树的交互所有者；`items` 为空时只转发子树所有者。该协议独立于键盘焦点，因此即使 child 只是 Label，非空 ContextMenu 仍不能放进 [`InteractionSurface`](../core/InteractionSurface.md) 的装饰 slot。
+
+```cangjie
+public func interactionOwnerIds(): Array<String>
+```
+
+**返回值** `Array<String>` — 本菜单浮层标识（若有菜单内容）与子树交互所有者的去重列表。
+
 ## 另请参阅
 
 - [MenuItem](MenuItem.md) — 菜单行的描述类型。
 - [MenuBar](MenuBar.md) — 顶部应用菜单栏，共用同一套菜单行。
 - [UiContext](../core/UiContext.md) — 浮层栈的注册与分发。
+- [InteractionSurface](../core/InteractionSurface.md) — 要求装饰子树不再声明第二个交互所有者。

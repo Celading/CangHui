@@ -1,6 +1,7 @@
 package chui.core
 
 import sdl.{Key, Rect, UiEvent}
+import chui.symbol.SymbolName
 
 private func interactionSurfaceProbe(script: String, disabled!: Bool = false): String {
     let clicks = State<Int64>(0)
@@ -123,9 +124,60 @@ func invalidNestedInteractionFailsClosedAndReportsStableStructureError(): Unit {
     }
     @Expect(report.contains("\"ok\":false"))
     @Expect(report.contains("structural-nested-interaction-owner"))
-    @Expect(report.contains("InteractionSurface outer contains focusable descendants: nested"))
+    @Expect(report.contains("InteractionSurface outer contains interaction-owning descendants: nested"))
     @Expect(report.contains("\"diagnostic\":\"nested-interaction-owner\""))
+    @Expect(report.contains("\"descendantInteractionOwnerIds\":\"nested\""))
     @Expect(report.contains("\"descendantFocusIds\":\"nested\""))
+    @Expect(!report.contains("InteractionSurface.activate()"))
+    @Expect(!report.contains("Button.activate()"))
+    @Expect(!report.contains("\"shortcut\":\"Enter|Space\""))
+}
+
+@Test
+func pointerOnlyEventHandlerIsRejectedThroughDecorativeWrappers(): Unit {
+    let surface = InteractionSurface(action: {=> ()}, key: Some("outer")) {
+        Surface {
+            VStack {
+                EventHandler(onEvent: {_ => true}) { Label("Pointer owner") }
+                    .padding(2.0)
+            }
+        }
+    }
+    match (surface.structuralDiagnostic()) {
+        case Some(value) => @Expect(value, "nested-interaction-owner: EventHandler")
+        case None => @Fail("A pointer-only EventHandler must be an interaction owner.")
+    }
+
+    let handled = State<Int64>(0)
+    let report = ComponentProbe("test.pointer-owner", width: 180.0, height: 70.0).run(
+        "press 40 30\nrelease 40 30"
+    ) {
+        InteractionSurface(action: {=> ()}, key: Some("outer")) {
+            EventHandler(onEvent: {_ => handled.value += 1; true}) { Label("Pointer owner") }
+        }
+    }
+    @Expect(report.contains("\"ok\":false"))
+    @Expect(report.contains("InteractionSurface outer contains interaction-owning descendants: EventHandler"))
+    @Expect(report.contains("\"descendantInteractionOwnerIds\":\"EventHandler\""))
+    @Expect(report.contains("\"descendantFocusIds\":\"\""))
+    @Expect(!report.contains("InteractionSurface.activate()"))
+    @Expect(handled.value, Int64(0))
+}
+
+@Test
+func decorativeLabelSymbolLayoutSurfaceAndFrameHandlerStayValid(): Unit {
+    let surface = InteractionSurface(action: {=> ()}, key: Some("valid")) {
+        Surface {
+            FrameHandler(onFrame: {_ => ()}) {
+                VStack {
+                    Label("Decorative")
+                    Symbol(SymbolName("save", provider: "builtin"))
+                }
+            }
+        }
+    }
+    @Expect(surface.structuralDiagnostic().isNone())
+    @Expect(surface.focusableId(), Some("valid"))
 }
 
 @Test

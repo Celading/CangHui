@@ -1,5 +1,6 @@
 package chui.core
 
+import std.collection.ArrayList
 import sdl.{FrameInfo, Rect, Size, UiEvent}
 
 public class EventHandler <: Widget {
@@ -61,6 +62,15 @@ public class EventHandler <: Widget {
     public func focusableIds(): Array<String> {
         child.focusableIds()
     }
+
+    public func interactionOwnerIds(): Array<String> {
+        let ids = ArrayList<String>()
+        ids.add("EventHandler")
+        for (id in child.interactionOwnerIds()) {
+            if (!ids.contains(id)) { ids.add(id) }
+        }
+        ids.toArray()
+    }
 }
 
 public class FrameHandler <: Widget {
@@ -120,5 +130,9 @@ public class FrameHandler <: Widget {
 
     public func focusableIds(): Array<String> {
         child.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
     }
 }

@@ -249,6 +249,10 @@ class ModifiedWidget <: Widget {
         child.focusableIds()
     }
 
+    public func interactionOwnerIds(): Array<String> {
+        child.interactionOwnerIds()
+    }
+
     public func interactionsEnabled(): Bool {
         match (modifier) {
             case WidgetModifier.Enabled(isEnabled) => isEnabled && child.interactionsEnabled()

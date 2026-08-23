@@ -127,4 +127,9 @@ public class Reveal <: Widget {
         }
         child.focusableIds()
     }
+
+    public func interactionOwnerIds(): Array<String> {
+        if (isFullyCollapsed()) { return Array<String>() }
+        child.interactionOwnerIds()
+    }
 }

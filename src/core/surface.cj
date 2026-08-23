@@ -208,6 +208,7 @@ public class Surface <: Widget {
     public func participatesInLayout(): Bool { child.participatesInLayout() }
     public func focusableId(): ?String { child.focusableId() }
     public func focusableIds(): Array<String> { child.focusableIds() }
+    public func interactionOwnerIds(): Array<String> { child.interactionOwnerIds() }
     public func interactionsEnabled(): Bool { child.interactionsEnabled() }
 }
 

@@ -67,13 +67,17 @@ public init(
 
 ## 装饰 slot 与结构错误
 
-body 默认是装饰子树，不能嵌套 Button、Slider、TextField 或任何可聚焦 child。构建时若发现可聚焦后代：
+body 默认是装饰子树，不能嵌套 Button、Slider、TextField、EventHandler 或任何其他交互所有者。
+检测使用 [`Widget.interactionOwnerIds()`](Widget.md#interactionownerids)，不把键盘焦点误当作交互所有权的
+唯一来源；普通布局、Surface、纯装饰 Label/Symbol 与 FrameHandler 不会因此误报。构建时若发现交互 owner 后代：
 
 1. 后代焦点 id 从本帧 Tab 环移除；
 2. 外层也不注册焦点，且不向 child 派发动作事件；
 3. `structuralDiagnostic()` 返回稳定的 `nested-interaction-owner: ...`；
-4. ComponentProbe 报告 `structural-nested-interaction-owner`，并记录带 descendantFocusIds 的诊断 region；
-5. 外层与嵌套动作都失败关闭。
+4. ComponentProbe 报告 `structural-nested-interaction-owner`，并记录 `descendantInteractionOwnerIds`；
+   `descendantFocusIds` 继续单独记录真正的焦点后代；
+5. 子树仍正常绘制，但绘制期间的 interactions-enabled 上下文为 false，外层与嵌套输入、动作和快捷键语义
+   全部失败关闭。
 
 这条规则防止两个 action owner 覆盖同一命中面。需要多个独立动作时，应把多个 InteractionSurface 作为
 Row/Column/ZStack 的兄弟组合，而不是相互嵌套。

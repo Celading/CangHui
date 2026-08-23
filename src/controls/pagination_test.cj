@@ -1,7 +1,7 @@
 package chui.controls
 
 import sdl.{MouseButton, Rect, Renderer, Size, UiEvent}
-import chui.core.{State, Theme, UiContext}
+import chui.core.{InteractionSurface, State, Theme, UiContext}
 
 // Row centre-y for a 34px-tall control laid at y=0.
 private let PAGE_CY: Float32 = 17.0
@@ -103,6 +103,20 @@ func paginationKeepsStableWidthAcrossWindowChanges(): Unit {
     let first = Pagination(20, State<Int64>(0), window: 1, key: "first")
     let middle = Pagination(20, State<Int64>(10), window: 1, key: "middle")
     @Expect(first.measure(ctx, Size(800.0, 100.0)).w, middle.measure(ctx, Size(800.0, 100.0)).w)
+}
+
+@Test
+func paginationPublishesItsPointerOwner(): Unit {
+    let pagination = Pagination(5, State<Int64>(0), key: "pages")
+    @Expect(pagination.interactionOwnerIds(), ["pages"])
+}
+
+@Test
+func interactionSurfaceRejectsPointerOnlyBuiltInControl(): Unit {
+    let surface = InteractionSurface(action: {=> ()}, key: Some("outer")) {
+        Pagination(5, State<Int64>(0), key: "pages")
+    }
+    @Expect(surface.structuralDiagnostic(), Some("nested-interaction-owner: pages"))
 }
 
 @Test

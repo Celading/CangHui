@@ -75,6 +75,14 @@ func stepIndicatorWithoutCallbackIsDisplayOnly(): Unit {
 }
 
 @Test
+func stepIndicatorPublishesOnlyRealPointerOwnership(): Unit {
+    let interactive = StepIndicator(["A", "B"], 0, onSelect: {_ => ()}, key: "interactive")
+    let displayOnly = StepIndicator(["A", "B"], 0, key: "display")
+    @Expect(interactive.interactionOwnerIds(), ["interactive"])
+    @Expect(displayOnly.interactionOwnerIds(), [])
+}
+
+@Test
 func stepIndicatorIgnoresPressesAwayFromNodes(): Unit {
     let ctx = stepTestContext()
     let picked = State<Int64>(-1)

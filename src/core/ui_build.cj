@@ -254,6 +254,17 @@ protected func collectFocusableIds(children: Array<Widget>): Array<String> {
     ids.toArray()
 }
 
+/** Concatenates the interaction owners of `children` in declaration order. */
+protected func collectInteractionOwnerIds(children: Array<Widget>): Array<String> {
+    let ids = ArrayList<String>()
+    for (child in children) {
+        for (id in child.interactionOwnerIds()) {
+            if (!ids.contains(id)) { ids.add(id) }
+        }
+    }
+    ids.toArray()
+}
+
 /*
  * Claims the pointer shape for `id` when a MouseMove falls inside `frame`. Controls call
  * this at the top of `handle` without consuming the event, so hover propagates to every

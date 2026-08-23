@@ -206,6 +206,10 @@ class Stack <: Widget {
         collectFocusableIds(children)
     }
 
+    public func interactionOwnerIds(): Array<String> {
+        collectInteractionOwnerIds(children)
+    }
+
     /** Leading inset and per-gap step realising the configured main-axis alignment. */
     private func arrangementPlan(
         available: Float32,
