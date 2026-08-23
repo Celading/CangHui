@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.11.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.11.0" />
+  <img src="https://img.shields.io/badge/version-0.12.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.12.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -100,6 +100,7 @@ scene rendering or application acceptance.
 | --- | --- | --- |
 | CangHui core | Declarative composition, identity, state, layout, controls, overlays and text editing | Platform-neutral source API |
 | Rendering | SDL3-backed desktop renderer, geometry, text, symbols, shadows and gradients | The renderer is a dependency-backed implementation, not a claim about every GPU backend |
+| Scene3D | Provider-neutral sealed snapshots, four-class semantic debug projection, and an optional bgfx4cj driver with a macOS SDL/Metal host | Bounded debug geometry is proven; product models, meshes, materials, picking, an embedded view and other-host runtime proof remain separate gates |
 | Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
 | Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
 | Packaging | `cuic init`, manifest validation, deterministic plans, unsigned macOS `.app` generation, Windows resource inputs, Linux desktop inputs, dependency cache/lock discipline and doctor | Self-contained native runtime closure, signing, notarization, MSIX/store publication and non-macOS host launch remain platform gates |
@@ -404,6 +405,7 @@ visual acceptance; they simply stop carrying the entire testing burden.
 - [Multiplatform doctor](docs/doctor.md)
 - [Symbols and providers](docs/symbols.md)
 - [Fonts](docs/fonts.md)
+- [Scene3D semantic projection](docs/scene3d.md)
 - [Probe and kMode](docs/probe.md)
 - [SDL3 Apple host notes](docs/sdl3-apple-host.md)
 - [Modern GUI insights](docs/modern-GUI-insights-and-analysis.md)

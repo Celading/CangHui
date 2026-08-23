@@ -20,6 +20,9 @@ picking and platform runtime certification remain separate work.
 On macOS, `MacOSSdlMetalHost` owns an SDL3 Metal window and extracts its native
 `NSWindow` for the provider. `Bgfx4cjDriver` selects bgfx single-thread mode
 before Metal initialization, avoiding a main-runloop initialization deadlock.
+The host drains SDL events in `pump()` and exposes `shouldClose()` after a quit
+request. A normal consumer loop must then detach and close; a bounded capture
+proves pixels but does not by itself prove the user-close lifecycle.
 The `scene3d-bgfx-metal-capture` example accepts `DesktopCaptureRequest` from
 `cuic prnt`, uploads semantic vertex buffers plus one shared index topology and
 Metal shader program, renders the four generic entity classes, requests a
@@ -47,7 +50,8 @@ deployment metadata and renderer symbols. It emits a path-free
 All source and CJPM link settings are staged in a disposable directory. The
 verification does not rewrite CangHui or bgfx4cj manifests and lock files. The
 frozen receipt is current-host evidence, not a portable binary release or a
-complete macOS 12 application-runtime claim.
+complete macOS 12 application-runtime claim. It also does not prove a consumer's
+product mapping, entry point, fallback, lifecycle, meshes or listing artifact.
 
 To reproduce the current-host archives from the pinned source checkout, use a
 new empty output directory:

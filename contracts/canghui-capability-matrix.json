@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260823.28",
+  "matrixVersion": "CangHui.20260824.29",
   "project": "CangHui",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
@@ -60,25 +60,40 @@
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary",
       "surface-first decorative composition and one-owner interaction primitives with deterministic nested-owner diagnostics",
-      "fieldwise inherited container typography for semantic text leaves across measure, layout, draw, input geometry and deferred overlays"
+      "fieldwise inherited container typography for semantic text leaves across measure, layout, draw, input geometry and deferred overlays",
+      "provider-neutral sealed Scene3D snapshots with four-class semantic debug projection and an optional bgfx4cj driver boundary"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
       "ArkTS, Android or iOS product application host and store package",
       "non-iOS platform lifecycle, IME or accessibility implementation",
       "rollback-capable UI transactions or a complete immutable SceneDiff engine",
-      "code signing, notarization, MSIX/store publication or self-contained native runtime bundling"
+      "code signing, notarization, MSIX/store publication or self-contained native runtime bundling",
+      "product scene models, station meshes, materials, picking, embedded Scene3D views or other-host Scene3D runtime certification"
     ]
   },
   "features": [
     {
       "id": "cui-core",
-      "version": "0.11.0",
+      "version": "0.12.0",
       "state": "source-test-proven",
       "codeRefs": [
         "src",
         "sdl",
         "cjpm.toml"
+      ]
+    },
+    {
+      "id": "scene3d-semantic-debug-provider",
+      "version": "canghui.scene3d.semantic.v0",
+      "state": "source-test-and-generic-macos-arm64-metal-capture-proven; external PineEase receiver proves product mapping, fallback, packaged launch and listing-candidate artifact against the provider code; semantic-debug-geometry-only; embedded-product-mesh-picking-and-other-host-runtime-open",
+      "codeRefs": [
+        "src/scene3d",
+        "packages/scene3d-bgfx",
+        "examples/scene3d-bgfx-metal-capture",
+        "scripts/verify-scene3d-bgfx-native-supply.sh",
+        "scripts/verify-scene3d-bgfx-metal-capture.sh",
+        "docs/scene3d.md"
       ]
     },
     {

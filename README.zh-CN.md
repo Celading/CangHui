@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="仓颉" />
-  <img src="https://img.shields.io/badge/version-0.11.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.11.0" />
+  <img src="https://img.shields.io/badge/version-0.12.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.12.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
@@ -88,6 +88,7 @@ CangHui 声明式核心  ----  状态、身份、布局、控件、覆盖层
 | --- | --- | --- |
 | CangHui 核心 | 声明式组合、身份、状态、布局、控件、覆盖层与文本编辑 | 平台无关的源代码 API |
 | 渲染 | 基于 SDL3 的桌面渲染器、几何、文本、Symbol、阴影与渐变 | 这是依赖上游底座的实现，不代表所有 GPU 后端都已完成 |
+| Scene3D | provider-neutral 的封闭快照、四类语义调试投影，以及带 macOS SDL/Metal 宿主的可选 bgfx4cj driver | 已证明的是有界调试几何；产品模型、网格、材质、拾取、嵌入式视图与其他宿主运行时仍是独立门禁 |
 | 交互 | 指针捕获、hover/click 取消、焦点、键盘路由、缓动滚动与动效力度 | 未证明的平台仍由原生宿主负责 IME 与无障碍 |
 | 检查 | `kMode`、`cuic probe`、组件/函数/事件报告、Draw IR 与确定性 `prnt` | 无头报告证明语义与几何，不等于完整设备 UI 验收 |
 | 工具链 | `cuic init`、应用清单、依赖缓存/锁、doctor 与平台准备 | 平台签名、商店发布和未证明的原生运行时仍由平台门禁负责 |
@@ -320,6 +321,7 @@ CangHui 运行时能力声明。
 - [多平台 Doctor](docs/doctor.zh-CN.md)
 - [Symbol 与可选图标 Provider](docs/symbols.zh-CN.md)
 - [字体](docs/fonts.zh-CN.md)
+- [Scene3D 语义投影](docs/scene3d.md)
 - [Probe 与 kMode](docs/probe.zh-CN.md)
 - [SDL3 Apple 宿主说明](docs/sdl3-apple-host.zh-CN.md)
 - [现代 GUI 核心范式洞察辨析](docs/modern-GUI-insights-and-analysis.md)

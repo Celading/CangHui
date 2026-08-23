@@ -67,8 +67,30 @@ frame.seal()
 macOS arm64 Metal 的当前主机验证。普通 CangHui 构建和一般消费者不会因此下载、
 编译或链接 bgfx 原生库。
 
+## macOS 关闭生命周期
+
+可选 `MacOSSdlMetalHost` 在 `pump()` 中排空 SDL event 队列。收到
+`SDL_EVENT_QUIT` 后，`shouldClose()` 返回 `true`；消费者应结束自己的正常帧循环，
+随后调用 provider `detach` 并关闭宿主。`shouldClose()` 只是关闭请求，不会替产品
+决定路由状态、资源策略或退出文案。
+
+```cangjie
+while (!host.shouldClose()) {
+    host.pump()
+    let _ = provider.submit(frame, clock)
+    let _ = provider.present(clock)
+}
+let _ = provider.detach(surface.id, surface.generation)
+host.close()
+```
+
+确定性捕获可以按固定帧数退出，但一次捕获成功不能替代正常窗口关闭路径的证明。
+通用 provider 的 Metal 图也不能替代产品消费者证明：产品仍需拥有领域对象映射、
+用户入口、fallback、生命周期和最终制品验收。
+
 ## 非目标
 
 这一通用投影不是产品场景模型、材质系统或美术规范。它不包含模型/纹理导入、
-文字标注、拾取、碰撞、导航算法、实时传输或移动端渲染认证。产品可以把自身领域对象
-投影为上述四类通用调试实体，但领域类型不应进入 CangHui 公开合同。
+文字标注、拾取、碰撞、导航算法、实时传输、嵌入式 Scene3D 视图或移动端渲染认证。
+产品可以把自身领域对象投影为上述四类通用调试实体，但领域类型不应进入 CangHui
+公开合同。

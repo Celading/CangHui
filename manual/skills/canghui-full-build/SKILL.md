@@ -54,6 +54,39 @@ The CLI smoke creates a disposable application using a local
 create an equivalent disposable consumer outside the repository, build it, and
 remove or retain it only according to the caller's cleanup policy.
 
+## Conditional Scene3D Native Gate
+
+This gate is required when the change or public claim touches `src/scene3d`,
+`packages/scene3d-bgfx`, the native host, shader/geometry resources, or native
+3D behavior. It is not part of an ordinary framework build because bgfx4cj
+source and native archives remain external optional inputs.
+
+Use an exact bgfx4cj Git checkout and an archive directory accepted by the
+checked-in contract. Do not copy archives from an arbitrary build tree or edit
+CJPM manifests to make the proof pass. Record both external revisions and run:
+
+```bash
+BGFX4CJ_ROOT=/path/to/bgfx4cj \
+BGFX_NATIVE_ROOT=/path/to/accepted-native-archives \
+./scripts/verify-scene3d-bgfx-native-supply.sh \
+  /tmp/canghui-scene3d-native-supply.json
+
+BGFX4CJ_ROOT=/path/to/bgfx4cj \
+BGFX_NATIVE_ROOT=/path/to/accepted-native-archives \
+./scripts/verify-scene3d-bgfx-metal-capture.sh \
+  /tmp/canghui-scene3d-metal.png \
+  /tmp/canghui-scene3d-native-supply.json
+```
+
+For close-lifecycle changes, also replay a normal non-capture loop through an
+SDL quit request and require clean detach. A fixed-frame capture is not a
+substitute for the normal close path.
+
+Generic provider capture proves the CangHui provider only. A product-level 3D
+claim additionally requires a consumer-owned mapping, user entry, fallback,
+normal lifecycle, final artifact launch, and product visual review. Record the
+consumer revision and keep product types, meshes and policy out of CangHui.
+
 ## Optional Platform Evidence
 
 Only run platform or device steps when they are explicitly in scope and the
@@ -86,6 +119,8 @@ Return a compact receipt containing:
 - `cjc` and `cjpm` versions plus host target;
 - build and suite results with actual counts;
 - public-audit and CLI-smoke results;
+- conditional Scene3D native supply, Metal capture and consumer evidence when
+  the packet touches native 3D;
 - platform/device steps replayed or explicitly not replayed;
 - remaining release, signing, runtime, or consumer gaps.
 
