@@ -6,7 +6,7 @@
 import chui.core.*
 ```
 
-UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网格/流式/层叠/滚动/按需创建的布局容器、按钮与文本等基础控件、状态与双向绑定、动画、主题、每帧上下文 [`UiContext`](UiContext.md)、[`UiOwnerQueue`](UiOwnerQueue.md)，以及浮层和焦点处理。`chui.controls`、`chui.text`、`chui.media` 的控件都建立在本包之上。
+UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网格/流式/层叠/滚动/按需创建的布局容器、按钮与文本等基础控件、状态与双向绑定、动画、主题、容器 [`TypographyEnvironment`](TypographyEnvironment.md)、每帧上下文 [`UiContext`](UiContext.md)、[`UiOwnerQueue`](UiOwnerQueue.md)，以及浮层和焦点处理。`chui.controls`、`chui.text`、`chui.media` 的控件都建立在本包之上。
 
 ## 类型
 
@@ -85,6 +85,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`SurfaceMaterial`](Surface.md#surfacematerial) | MaterialProvider 返回的表面样式、前景、supporting 前景与 Ink 颜色。 |
 | [`SurfaceState`](Surface.md#surfacestate) | MaterialProvider 接收的 enabled/readonly/selection/focus/hover/press 只读状态。 |
 | [`Theme`](Theme.md) | 组件共用的语义调色板、动效设置与组件级覆盖层。 |
+| [`TypographyEnvironment`](TypographyEnvironment.md) | 容器传给 Label、RichText 与 RichSpan 的逐字段字族、字号和样式环境。 |
 
 **接口**
 
@@ -94,7 +95,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`LengthUnits`](LengthUnits.md) | 为数值字面量提供 `.px`/`.vp`/`.fp` 长度后缀的接口。 |
 | [`MaterialProvider`](Surface.md#materialprovider-与-materials) | 从 Theme 与 SurfaceState 解析 SurfaceMaterial，不拥有事件或焦点。 |
 | [`Observable`](Observable.md) | 可读、可观察值的抽象：读取当前值、暴露修订号、订阅变更，并可 map 出派生状态。 |
-| [`Widget`](Widget.md) | 所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、内边距、表面、阴影、弹性、可见性等整套链式修饰器。 |
+| [`Widget`](Widget.md) | 所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、内边距、表面、排版环境、阴影、弹性、可见性等整套链式修饰器。 |
 
 **枚举**
 

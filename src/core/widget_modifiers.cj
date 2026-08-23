@@ -29,6 +29,7 @@ protected enum WidgetModifier {
     | Flex(Float32)
     | Visible(Bool)
     | Enabled(Bool)
+    | Typography(TypographyEnvironment)
 }
 
 class ModifiedWidget <: Widget {
@@ -78,6 +79,8 @@ class ModifiedWidget <: Widget {
                 } else {
                     Size.zero()
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.measure(ctx, available) }
             case _ => child.measure(ctx, available)
         }
     }
@@ -98,6 +101,8 @@ class ModifiedWidget <: Widget {
                 if (isVisible) {
                     child.layout(ctx, rect)
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.layout(ctx, rect) }
             case _ => child.layout(ctx, rect)
         }
     }
@@ -168,6 +173,8 @@ class ModifiedWidget <: Widget {
                 if (!isEnabled) {
                     ctx.renderer.fill(frame, ctx.theme.bg.withAlpha(96))
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.draw(ctx) }
             case _ => child.draw(ctx)
         }
     }
@@ -182,6 +189,8 @@ class ModifiedWidget <: Widget {
                     case UiEvent.Frame(_) => child.handle(ctx, event)
                     case _ => isEnabled && child.handle(ctx, event)
                 }
+            case WidgetModifier.Typography(environment) =>
+                ctx.withTypographyEnvironment(environment) {=> child.handle(ctx, event) }
             case _ => child.handle(ctx, event)
         }
     }

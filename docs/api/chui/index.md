@@ -87,10 +87,11 @@ import chui.*
 | [`SurfaceState`](core/Surface.md#surfacestate) | 提供给 material resolver 的启用、只读、选择、展开、焦点、悬停与按压状态。 |
 | [`TextAlign`](core/TextAlign.md) | 文本在所分配框架内的水平对齐方式：行首、居中或行尾。 |
 | [`Theme`](core/Theme.md) | 组件共用的外观设置：按用途提供背景、面板、输入框、文字、强调色和危险色，并保存统一的圆角与描边宽度（逻辑像素）。 |
+| [`TypographyEnvironment`](core/TypographyEnvironment.md) | 容器传给 Label、RichText 与 RichSpan 的逐字段字族、字号和样式环境。 |
 | [`Tooltip`](core/Tooltip.md) | 为任意控件包上悬停提示：指针在子组件上驻留 500 毫秒后，提示文本被绘制在整棵组件树之上；其余时刻是完全透明的包装。 |
-| [`UiContext`](core/UiContext.md) | 每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。 |
+| [`UiContext`](core/UiContext.md) | 每帧传给全部组件回调的服务枢纽：渲染器与主题、继承排版、指针与帧状态，以及共享交互协议。 |
 | [`VStack`](core/VStack.md) | 沿垂直主轴排布子组件的弹性栈容器：以尾随 lambda 声明子组件，间距、主轴/交叉轴对齐与弹性参与可链式配置。 |
-| [`Widget`](core/Widget.md) | 所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、内边距、表面、阴影、弹性、可见性等整套链式修饰器。 |
+| [`Widget`](core/Widget.md) | 所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、表面、排版环境、弹性等链式修饰器。 |
 | [`ZStack`](core/ZStack.md) | 把子组件按声明顺序自底向顶叠放、并在同一框架内对齐的层叠容器。 |
 
 **来自 [`chui.controls`](controls/index.md)**

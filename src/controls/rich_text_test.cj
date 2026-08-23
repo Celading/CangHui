@@ -2,7 +2,7 @@ package chui.controls
 
 import std.convert.*
 import sdl.{Color, FontStyle, FrameInfo, IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import chui.core.{State, TextAlign, Theme, UiContext}
+import chui.core.{Length, LengthUnit, State, TextAlign, Theme, TypographyEnvironment, UiContext}
 
 private func richTextTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -22,6 +22,32 @@ private let BOLD_WIDENS: (String, FontStyle, ?String) -> Float32 = {text, style,
     } else {
         base
     }
+}
+
+// Keep the legacy test call shape out of production: it supplies each span's local style/font as the
+// already-resolved arrays expected by the container-typography-aware layout engine.
+private func layoutRichSpans(
+    spans: Array<RichSpan>,
+    spanSizes: Array<Float32>,
+    maxWidth: Float32,
+    iconSize: Float32,
+    spanGap: Float32,
+    widthOf: (String, Float32, FontStyle, ?String) -> Float32,
+    heightOf: (Float32, FontStyle, ?String) -> Float32,
+    lineGap!: Float32 = 0.0
+): RichLayout {
+    layoutResolvedRichSpans(
+        spans,
+        spanSizes,
+        Array<FontStyle>(spans.size, {i => spans[i].style}),
+        Array<?String>(spans.size, {i => spans[i].fontFace}),
+        maxWidth,
+        iconSize,
+        spanGap,
+        widthOf,
+        heightOf,
+        lineGap: lineGap
+    )
 }
 
 // Adapts the old uniform-size call shape to the size-aware engine — every span at one size, a constant
@@ -122,6 +148,17 @@ func richSpanBuildersComposeStyleAndFont(): Unit {
     @Expect(mono.style.bold)
     // muted keeps its muting through a style builder.
     @Expect(RichSpan.muted("y").italic().isMuted)
+}
+
+@Test
+func richSpanExplicitFieldsOverrideInheritedStyleFieldwise(): Unit {
+    let inherited = FontStyle(bold: true, italic: true, underline: true)
+    let onlyBoldCleared = RichSpan.text("x").bold(value: false).resolvedStyle(inherited)
+    @Expect(!onlyBoldCleared.bold)
+    @Expect(onlyBoldCleared.italic)
+    @Expect(onlyBoldCleared.underline)
+    let regular = RichSpan.text("x").fontStyle(FontStyle.regular).resolvedStyle(inherited)
+    @Expect(regular.isRegular)
 }
 
 @Test
@@ -253,6 +290,72 @@ func richTextWidgetGrowsWithLargerSpan(): Unit {
     let plainSize = plain.measure(ctx, Size(500.0, 500.0))
     let bigSize = big.measure(ctx, Size(500.0, 500.0))
     @Expect(bigSize.h > plainSize.h)
+}
+
+@Test
+func richTextInheritsContainerTypographyAndExplicitSpanClearsIt(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let rich = RichText([
+        RichSpan.text("Inherited"),
+        RichSpan.text("Explicit").fontStyle(FontStyle.regular).fontSize(12.0)
+    ], key: "inherited-rich").typography(TypographyEnvironment(
+        fontSize: Length(24.0, LengthUnit.Fp),
+        bold: true,
+        italic: true
+    ))
+    let size = rich.measure(ctx, Size(600.0, 200.0))
+    rich.layout(ctx, Rect(0.0, 0.0, 600.0, size.h))
+    rich.draw(ctx)
+    let commands = renderer.drawIr()
+    @Expect(commands.size, 2)
+    @Expect(commands[0].toJson().contains("\"pointSize\":24.000000"))
+    @Expect(commands[0].toJson().contains("\"bold\":true"))
+    @Expect(commands[0].toJson().contains("\"italic\":true"))
+    @Expect(commands[1].toJson().contains("\"pointSize\":12.000000"))
+    @Expect(commands[1].toJson().contains("\"bold\":false"))
+    @Expect(commands[1].toJson().contains("\"italic\":false"))
+}
+
+@Test
+func richTextInheritedTypographyKeepsMultilineMeasureAndDrawAligned(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let rich = RichText([
+        RichSpan.text("alpha beta gamma delta")
+    ], key: "inherited-multiline").typography(TypographyEnvironment(
+        fontSize: Length(24.0, LengthUnit.Fp),
+        bold: true
+    ))
+    let size = rich.measure(ctx, Size(96.0, 300.0))
+    @Expect(size.h > Float32(40.0))
+    rich.layout(ctx, Rect(0.0, 0.0, 96.0, size.h))
+    rich.draw(ctx)
+    let commands = renderer.drawIr()
+    @Expect(commands.size > 1)
+    for (command in commands) {
+        @Expect(command.toJson().contains("\"pointSize\":24.000000"))
+        @Expect(command.toJson().contains("\"bold\":true"))
+    }
+}
+
+@Test
+func richTextCacheKeysInheritedTypographyAndHandleUsesSameScope(): Unit {
+    let ctx = richTextTestContext()
+    let fired = State<Bool>(false)
+    let rich = RichText([RichSpan.text("open link").onTap({=> fired.value = true})], key: "scoped-link")
+    let small = rich.typography(TypographyEnvironment(fontSize: Length(12.0, LengthUnit.Fp), bold: false))
+    let large = rich.typography(TypographyEnvironment(fontSize: Length(30.0, LengthUnit.Fp), bold: true))
+    let smallSize = small.measure(ctx, Size(600.0, 200.0))
+    let largeSize = large.measure(ctx, Size(600.0, 200.0))
+    @Expect(largeSize.w > smallSize.w)
+    @Expect(largeSize.h > smallSize.h)
+    large.layout(ctx, Rect(0.0, 0.0, 600.0, largeSize.h))
+    let px: Float32 = 6.0
+    let py = largeSize.h / 2.0
+    @Expect(large.handle(ctx, UiEvent.MouseDown(MouseButton.Left, px, py)))
+    @Expect(large.handle(ctx, UiEvent.MouseUp(MouseButton.Left, px, py)))
+    @Expect(fired.value)
 }
 
 @Test

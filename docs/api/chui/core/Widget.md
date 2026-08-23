@@ -4,7 +4,7 @@
 
 `chui.core` 包中的 public interface
 
-所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、内边距、表面、阴影、弹性、可见性等整套链式修饰器。全部内置容器与控件都实现此接口；自定义组件实现 `measure`/`layout`/`draw`/`handle` 四个必选方法，即可与内置组件平起平坐地参与布局与焦点遍历。
+所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、内边距、表面、排版环境、阴影、弹性、可见性等整套链式修饰器。全部内置容器与控件都实现此接口；自定义组件实现 `measure`/`layout`/`draw`/`handle` 四个必选方法，即可与内置组件平起平坐地参与布局与焦点遍历。
 
 ## 声明
 
@@ -26,6 +26,8 @@ Label("已保存").background(Color.rgb(223, 240, 216), 6.0).padding(8.0) // 背
 ```
 
 **布局、焦点与交互所有权协议。**[`isFlexible`](#isflexible)/[`flexWeight`](#flexweight) 决定组件在 [`VStack`](VStack.md)/[`HStack`](HStack.md) 剩余空间分配中的角色，[`acceptsStretch`](#acceptsstretch) 回答交叉轴可否拉伸，[`participatesInLayout`](#participatesinlayout) 决定是否占位；[`focusableId`](#focusableid)/[`focusableIds`](#focusableids) 把子树的焦点项交给焦点遍历（Tab / Shift+Tab），[`interactionOwnerIds`](#interactionownerids) 则独立报告普通输入或辅助语义动作的所有者。焦点与交互所有权并不等价：无焦点的指针/事件组件必须覆盖后者，容器与包装器必须转发子树列表。
+
+**容器排版环境。**[`typography`](#typography) 及 `fontFamily` / `fontSize` / `fontStyle` / `bold` / `italic` / `underline` / `strikethrough` 把逐字段的排版值传给后代 [`Label`](Label.md)、[`RichText`](../controls/RichText.md) 与 `RichSpan`。最近内层只覆盖自己提供的字段，叶子显式值再逐字段覆盖环境；环境在测量、布局、绘制和事件四阶段一致生效。自绘控件的内部文字尚不自动消费这套环境。
 
 ## 示例
 
@@ -104,6 +106,14 @@ main(): Unit {
 | [`focusableId()`](#focusableid) | 返回组件构建期注册的键盘焦点 id，不可聚焦时为 `None`。 |
 | [`focusableIds()`](#focusableids) | 返回组件子树按声明顺序注册的全部键盘焦点 id。 |
 | [`interactionOwnerIds()`](#interactionownerids) | 返回组件子树中普通输入或辅助语义动作的所有者 id。 |
+| [`typography(value: TypographyEnvironment)`](#typography) | 给后代语义文本提供逐字段排版环境。 |
+| [`fontFamily(value: String)`](#fontfamily) | 给后代语义文本提供继承字族。 |
+| [`fontSize(...)`](#fontsize) | 给后代语义文本提供继承字号。 |
+| [`fontStyle(value: FontStyle)`](#fontstyle) | 给后代语义文本提供完整样式，可显式清除继承项。 |
+| [`bold(...)`](#bold) | 逐项提供继承粗体值。 |
+| [`italic(...)`](#italic) | 逐项提供继承斜体值。 |
+| [`underline(...)`](#underline) | 逐项提供继承下划线值。 |
+| [`strikethrough(...)`](#strikethrough) | 逐项提供继承删除线值。 |
 | [`width(...)`](#width) | 把组件约束到恰好 `value` 宽。 |
 | [`height(...)`](#height) | 把组件约束到恰好 `value` 高。 |
 | [`minWidth(...)`](#minwidth) | 阻止组件测量得比 `value` 更窄。 |
@@ -255,6 +265,81 @@ func interactionOwnerIds(): Array<String>
 ```
 
 **返回值** `Array<String>` — 子树交互所有者 id，可为空。
+
+### typography
+
+给整棵子树提供逐字段排版环境。内层环境只覆盖自己提供的字段；[`Label`](Label.md)、[`RichText`](../controls/RichText.md) 和 `RichSpan` 的显式配置优先。作用域贯穿四个组件阶段，浮层登记会捕获当前位置的有效环境。
+
+```cangjie
+func typography(value: TypographyEnvironment): Widget
+```
+
+**参数**
+
+- `value`: [`TypographyEnvironment`](TypographyEnvironment.md) — 本层提供的可选字族、字号和样式字段。
+
+**返回值** `Widget` — 包装后的新节点。
+
+### fontFamily
+
+给后代语义文本提供继承字族。字体名须先由 `Fonts.register` 注册。
+
+```cangjie
+func fontFamily(value: String): Widget
+```
+
+### fontSize
+
+给后代语义文本提供继承字号；`Float32` 重载按字体像素（fp）解释。
+
+```cangjie
+func fontSize(value: Length): Widget
+func fontSize(value: Float32): Widget
+```
+
+### fontStyle
+
+给后代语义文本提供完整继承样式。传入 `FontStyle.regular` 会显式清除外层继承的四项样式。
+
+```cangjie
+func fontStyle(value: FontStyle): Widget
+```
+
+### bold
+
+只覆盖继承粗体，不替换其他样式字段；无参形式等价于 `bold(value: true)`。
+
+```cangjie
+func bold(): Widget
+func bold(value!: Bool): Widget
+```
+
+### italic
+
+只覆盖继承斜体；无参形式设为 `true`，传 `false` 显式清除外层值。
+
+```cangjie
+func italic(): Widget
+func italic(value!: Bool): Widget
+```
+
+### underline
+
+只覆盖继承下划线；无参形式设为 `true`，传 `false` 显式清除外层值。
+
+```cangjie
+func underline(): Widget
+func underline(value!: Bool): Widget
+```
+
+### strikethrough
+
+只覆盖继承删除线；无参形式设为 `true`，传 `false` 显式清除外层值。
+
+```cangjie
+func strikethrough(): Widget
+func strikethrough(value!: Bool): Widget
+```
 
 ### width
 
@@ -624,5 +709,6 @@ func enabled(isEnabled: Bool): Widget
 
 - [emit](functions.md#emit) — 构造函数登记子组件的声明收集机制。
 - [UiContext](UiContext.md) — 四个核心方法共同的每帧服务枢纽。
+- [TypographyEnvironment](TypographyEnvironment.md) — 容器与语义文本叶子共享的逐字段排版契约。
 - [State](State.md) — 跨帧存活的状态容器。
 - [Flexible](Flexible.md) — 弹性协议的包装容器。

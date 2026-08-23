@@ -14,7 +14,7 @@ public struct RichSpan
 
 ## 说明
 
-`RichSpan` 是纯值：每个链式方法都返回应用该配置后的新片段，原值不变，可放心复用与组合。未调用 `fontSize` 的片段继承宿主 [`RichText`](RichText.md) 的基准字号；同一行内不同字号的片段相互居中，行高随最高者增长。粗体与 `Label` 遵循同一字体解析规则：优先使用可变字体文件内部真实的 `Bold` 命名实例，其次使用独立粗体伴随文件，最后才合成粗体。
+`RichSpan` 是纯值：每个链式方法都返回应用该配置后的新片段，原值不变，可放心复用与组合。未调用 `fontSize` / `fontFamily` 或样式方法的字段逐项继承宿主 [`RichText`](RichText.md) 的有效基准值，其中又可来自容器 [`TypographyEnvironment`](../core/TypographyEnvironment.md)。逐项方法只覆盖对应字段：`.bold(value: false)` 可清除继承粗体而保留继承斜体；`.fontStyle(FontStyle.regular)` 显式覆盖全部四项样式。同一行内不同字号的片段相互居中，行高随最高者增长。粗体与 `Label` 遵循同一字体解析规则：优先使用可变字体文件内部真实的 `Bold` 命名实例，其次使用独立粗体伴随文件，最后才合成粗体。
 
 [`highlight`](#highlight) 在片段身后垫一块 `<mark>` 式圆角底色，恰好覆盖片段的各个绘制盒——相邻两个各自加高亮的片段会在接缝处各自倒圆角，应当连成一体的标记要写进同一个片段。[`onTap`](#ontap) 把片段变成可点击链接：指针悬停变交互形状、可经 Tab 聚焦，命中与激活由宿主 `RichText` 处理。
 
@@ -107,7 +107,7 @@ public static func icon(icon: IconName, color!: ?Color = None): RichSpan
 
 ### bold
 
-本片段以粗体绘制（或把粗体设为 `value`）。
+本片段以粗体绘制（或只把继承粗体显式设为 `value`），其他样式字段继续继承。
 
 ```cangjie
 public func bold(value!: Bool = true): RichSpan
@@ -121,7 +121,7 @@ public func bold(value!: Bool = true): RichSpan
 
 ### italic
 
-本片段以斜体绘制（或把斜体设为 `value`）。
+本片段以斜体绘制（或只把继承斜体显式设为 `value`），其他样式字段继续继承。
 
 ```cangjie
 public func italic(value!: Bool = true): RichSpan
@@ -135,7 +135,7 @@ public func italic(value!: Bool = true): RichSpan
 
 ### underline
 
-本片段加下划线（或把下划线设为 `value`）。
+本片段加下划线（或只把继承下划线显式设为 `value`），其他样式字段继续继承。
 
 ```cangjie
 public func underline(value!: Bool = true): RichSpan
@@ -149,7 +149,7 @@ public func underline(value!: Bool = true): RichSpan
 
 ### strikethrough
 
-本片段加删除线（或把删除线设为 `value`）。
+本片段加删除线（或只把继承删除线显式设为 `value`），其他样式字段继续继承。
 
 ```cangjie
 public func strikethrough(value!: Bool = true): RichSpan
@@ -163,7 +163,7 @@ public func strikethrough(value!: Bool = true): RichSpan
 
 ### fontStyle
 
-整体替换本片段的文本样式。一次给齐粗体/斜体/下划线/删除线时比逐项链式更直接。
+整体替换本片段的文本样式。一次给齐粗体/斜体/下划线/删除线时比逐项链式更直接；`FontStyle.regular` 会显式清除全部继承样式。
 
 ```cangjie
 public func fontStyle(value: FontStyle): RichSpan
@@ -177,7 +177,7 @@ public func fontStyle(value: FontStyle): RichSpan
 
 ### fontFamily
 
-本片段改用已注册的应用字体绘制。字体须先经 `Fonts.register`（sdl 模块）注册。
+本片段显式改用已注册的应用字体绘制，覆盖宿主或容器字族。字体须先经 `Fonts.register`（sdl 模块）注册。
 
 ```cangjie
 public func fontFamily(name: String): RichSpan
@@ -191,7 +191,7 @@ public func fontFamily(name: String): RichSpan
 
 ### fontSize
 
-本片段以自有字号绘制，覆盖宿主 `RichText` 的基准字号。两个重载分别接受带单位的 [`Length`](../core/Length.md) 与字体像素（fp）数值。
+本片段以自有字号绘制，覆盖宿主 `RichText` 或容器的基准字号。两个重载分别接受带单位的 [`Length`](../core/Length.md) 与字体像素（fp）数值。
 
 ```cangjie
 public func fontSize(value: Length): RichSpan
@@ -238,4 +238,5 @@ public func highlight(background: Color): RichSpan
 ## 另请参阅
 
 - [RichText](RichText.md) — 排布并绘制片段序列的宿主组件。
+- [TypographyEnvironment](../core/TypographyEnvironment.md) — 宿主从容器取得并供片段逐字段覆盖的排版环境。
 - [Length](../core/Length.md) — 带单位的字号表达。

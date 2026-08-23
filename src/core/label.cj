@@ -16,8 +16,9 @@ public class Label <: Widget {
     private var isMuted: Bool
     private var alignment: TextAlign
     private var textColor: ?Color
-    private var pointSize: Length
+    private var pointSize: ?Length
     private var textStyle: FontStyle = FontStyle.regular
+    private var textStyleMask: Int32 = 0
     private var fontFace: ?String = None
     private var lineLimit: Int64 = 1
     private var lineGap: Float32 = LABEL_LINE_GAP
@@ -27,18 +28,22 @@ public class Label <: Widget {
     private var cachedLines: ?Array<String> = None
     private var cachedLinesWidth: Float32 = -1.0
     private var cachedLinesPointSize: Float32 = -1.0
+    private var cachedLinesStyleFlags: Int32 = -1
+    private var cachedLinesFontKey: String = ""
     // The widest wrapped line, cached with the lines it derives from so a warm multi-line measure
     // re-measures nothing instead of re-scanning every line each measure pass.
     private var cachedLinesWidest: Float32 = 0.0
     private var cachedTextWidth: Float32 = -1.0
     private var cachedTextWidthPointSize: Float32 = -1.0
+    private var cachedTextWidthStyleFlags: Int32 = -1
+    private var cachedTextWidthFontKey: String = ""
 
     public init(
         text: String,
         muted!: Bool = false,
         align!: TextAlign = TextAlign.Leading,
         color!: ?Color = None,
-        fontSize!: Length = Length(FontSizes.BODY, LengthUnit.Fp)
+        fontSize!: ?Length = None<Length>
     ) {
         this.text = text
         this.isMuted = muted
@@ -74,7 +79,7 @@ public class Label <: Widget {
 
     /** Sets the font size, e.g. `.fontSize(15.fp)`. */
     public func fontSize(value: Length): Label {
-        pointSize = value
+        pointSize = Some(value)
         this
     }
 
@@ -86,34 +91,55 @@ public class Label <: Widget {
     /** Replaces the whole text style (weight, slant, and decorations) at once. */
     public func fontStyle(value: FontStyle): Label {
         textStyle = value
+        textStyleMask = 0x0f
         dropMetricsCaches()
         this
     }
 
     /** Draws the text bold (or sets bold to `value`). */
-    public func bold(value!: Bool = true): Label {
+    public func bold(): Label {
+        bold(value: true)
+    }
+
+    public func bold(value!: Bool): Label {
         textStyle = textStyle.withBold(value: value)
+        textStyleMask |= 0x01
         dropMetricsCaches()
         this
     }
 
     /** Draws the text italic (or sets italic to `value`). */
-    public func italic(value!: Bool = true): Label {
+    public func italic(): Label {
+        italic(value: true)
+    }
+
+    public func italic(value!: Bool): Label {
         textStyle = textStyle.withItalic(value: value)
+        textStyleMask |= 0x02
         dropMetricsCaches()
         this
     }
 
     /** Underlines the text (or sets the underline to `value`). */
-    public func underline(value!: Bool = true): Label {
+    public func underline(): Label {
+        underline(value: true)
+    }
+
+    public func underline(value!: Bool): Label {
         textStyle = textStyle.withUnderline(value: value)
+        textStyleMask |= 0x04
         dropMetricsCaches()
         this
     }
 
     /** Strikes through the text (or sets the strikethrough to `value`). */
-    public func strikethrough(value!: Bool = true): Label {
+    public func strikethrough(): Label {
+        strikethrough(value: true)
+    }
+
+    public func strikethrough(value!: Bool): Label {
         textStyle = textStyle.withStrikethrough(value: value)
+        textStyleMask |= 0x08
         dropMetricsCaches()
         this
     }
@@ -172,11 +198,13 @@ public class Label <: Widget {
 
     public func measure(ctx: UiContext, available: Size): Size {
         let ps = resolvedPointSize(ctx)
-        let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: textStyle, font: fontFace)
+        let style = resolvedTextStyle(ctx)
+        let font = resolvedFontFace(ctx)
+        let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: style, font: font)
         if (lineLimit == 1) {
-            return Size(min(available.w, singleLineWidth(ctx, ps)), max(CUI_SMALL_H, lineHeight + 6.0))
+            return Size(min(available.w, singleLineWidth(ctx, ps, style, font)), max(CUI_SMALL_H, lineHeight + 6.0))
         }
-        let lines = linesFor(ctx, available.w, ps)
+        let lines = linesFor(ctx, available.w, ps, style, font)
         let count = max(1, lines.size)
         let textBlock = Float32(count) * lineHeight + Float32(count - 1) * lineGap
         // widest was measured when the lines were wrapped and cached; a warm pass reuses it.
@@ -189,32 +217,35 @@ public class Label <: Widget {
 
     public func draw(ctx: UiContext): Unit {
         let ps = resolvedPointSize(ctx)
+        let style = resolvedTextStyle(ctx)
+        let font = resolvedFontFace(ctx)
         let color = drawColor(ctx)
-        let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: textStyle, font: fontFace)
+        let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: style, font: font)
         if (lineLimit == 1) {
             // Reuse the cached full-text width for the fit test: ellipsize (a binary search) runs
             // only when the text overflows, so a fitting single-line label re-measures nothing.
-            let fitted = if (singleLineWidth(ctx, ps) <= frame.w) {
+            let fitted = if (singleLineWidth(ctx, ps, style, font) <= frame.w) {
                 text
             } else {
-                ellipsize(ctx, text, frame.w, ps, style: textStyle, font: fontFace)
+                ellipsize(ctx, text, frame.w, ps, style: style, font: font)
             }
             ctx.renderer.text(
                 fitted,
-                lineX(ctx, fitted, ps),
+                lineX(ctx, fitted, ps, style, font),
                 frame.centerY() - lineHeight / 2.0,
                 color,
                 pointSize: ps,
-                style: textStyle,
-                font: fontFace
+                style: style,
+                font: font
             )
             return
         }
-        let lines = linesFor(ctx, frame.w, ps)
+        let lines = linesFor(ctx, frame.w, ps, style, font)
         let textBlock = Float32(lines.size) * lineHeight + Float32(max(0, lines.size - 1)) * lineGap
         var y = frame.centerY() - textBlock / 2.0
         for (line in lines) {
-            ctx.renderer.text(line, lineX(ctx, line, ps), y, color, pointSize: ps, style: textStyle, font: fontFace)
+            ctx.renderer.text(line, lineX(ctx, line, ps, style, font), y, color, pointSize: ps, style: style,
+                font: font)
             y += lineHeight + lineGap
         }
     }
@@ -236,45 +267,74 @@ public class Label <: Widget {
     }
 
     private func resolvedPointSize(ctx: UiContext): Float32 {
-        max(1.0, ctx.resolve(pointSize))
+        let length = match (pointSize) {
+            case Some(value) => value
+            case None => match (ctx.typographyEnvironment().fontSize) {
+                case Some(value) => value
+                case None => Length(FontSizes.BODY, LengthUnit.Fp)
+            }
+        }
+        max(1.0, ctx.resolve(length))
+    }
+
+    private func resolvedTextStyle(ctx: UiContext): FontStyle {
+        resolveLocalFontStyle(ctx.typographyEnvironment().resolvedFontStyle(), textStyle, textStyleMask)
+    }
+
+    private func resolvedFontFace(ctx: UiContext): ?String {
+        match (fontFace) {
+            case Some(value) => Some(value)
+            case None => ctx.typographyEnvironment().fontFamily
+        }
     }
 
     // Exact float comparison is deliberate in both caches: the keys are reused values,
     // not computed approximations, so equality means "same inputs as last time".
-    private func singleLineWidth(ctx: UiContext, ps: Float32): Float32 {
-        if (cachedTextWidthPointSize != ps) {
-            cachedTextWidth = ctx.renderer.textWidth(text, pointSize: ps, style: textStyle, font: fontFace)
+    private func singleLineWidth(ctx: UiContext, ps: Float32, style: FontStyle, font: ?String): Float32 {
+        let styleFlags = style.ttfFlags()
+        let fontKey = typographyFontKey(font)
+        if (cachedTextWidthPointSize != ps || cachedTextWidthStyleFlags != styleFlags ||
+            cachedTextWidthFontKey != fontKey) {
+            cachedTextWidth = ctx.renderer.textWidth(text, pointSize: ps, style: style, font: font)
             cachedTextWidthPointSize = ps
+            cachedTextWidthStyleFlags = styleFlags
+            cachedTextWidthFontKey = fontKey
         }
         cachedTextWidth
     }
 
-    private func linesFor(ctx: UiContext, width: Float32, ps: Float32): Array<String> {
+    private func linesFor(ctx: UiContext, width: Float32, ps: Float32, style: FontStyle,
+        font: ?String): Array<String> {
+        let styleFlags = style.ttfFlags()
+        let fontKey = typographyFontKey(font)
         match (cachedLines) {
-            case Some(lines) where cachedLinesWidth == width && cachedLinesPointSize == ps => lines
+            case Some(lines) where cachedLinesWidth == width && cachedLinesPointSize == ps &&
+                cachedLinesStyleFlags == styleFlags && cachedLinesFontKey == fontKey => lines
             case _ =>
-                let lines = wrapText(ctx, text, width, ps, lineLimit, style: textStyle, font: fontFace)
+                let lines = wrapText(ctx, text, width, ps, lineLimit, style: style, font: font)
                 var widest: Float32 = 0.0
                 for (line in lines) {
-                    widest = max(widest, ctx.renderer.textWidth(line, pointSize: ps, style: textStyle, font: fontFace))
+                    widest = max(widest, ctx.renderer.textWidth(line, pointSize: ps, style: style, font: font))
                 }
                 cachedLines = Some(lines)
                 cachedLinesWidth = width
                 cachedLinesPointSize = ps
+                cachedLinesStyleFlags = styleFlags
+                cachedLinesFontKey = fontKey
                 cachedLinesWidest = widest
                 lines
         }
     }
 
-    private func lineX(ctx: UiContext, line: String, ps: Float32): Float32 {
+    private func lineX(ctx: UiContext, line: String, ps: Float32, style: FontStyle, font: ?String): Float32 {
         // Leading (the default) does not need the line width, so the common case skips the measure.
         match (alignment) {
             case TextAlign.Leading => frame.x
             case TextAlign.Center =>
-                let lineW = ctx.renderer.textWidth(line, pointSize: ps, style: textStyle, font: fontFace)
+                let lineW = ctx.renderer.textWidth(line, pointSize: ps, style: style, font: font)
                 frame.x + max(0.0, frame.w - lineW) / 2.0
             case TextAlign.Trailing =>
-                let lineW = ctx.renderer.textWidth(line, pointSize: ps, style: textStyle, font: fontFace)
+                let lineW = ctx.renderer.textWidth(line, pointSize: ps, style: style, font: font)
                 frame.right() - lineW
         }
     }

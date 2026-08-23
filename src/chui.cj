@@ -152,6 +152,7 @@ public import chui.core.StateStore
 public import chui.core.TextAlign
 public import chui.core.Theme
 public import chui.core.ThemeTransition
+public import chui.core.TypographyEnvironment
 public import chui.core.Tooltip
 public import chui.core.UiContext
 public import chui.core.UiOwnerQueue

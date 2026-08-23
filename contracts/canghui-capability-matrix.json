@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260823.26",
+  "matrixVersion": "CangHui.20260823.27",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -59,7 +59,8 @@
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary",
-      "surface-first decorative composition and one-owner interaction primitives with deterministic nested-owner diagnostics"
+      "surface-first decorative composition and one-owner interaction primitives with deterministic nested-owner diagnostics",
+      "fieldwise inherited container typography for semantic text leaves across measure, layout, draw, input geometry and deferred overlays"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
@@ -283,6 +284,25 @@
         "contracts/canghui-font-resolution-v0.json",
         "docs/fonts.md",
         "examples/fonts"
+      ]
+    },
+    {
+      "id": "container-typography-environment",
+      "version": "canghui.typography-environment.v0",
+      "state": "source-build-test-external-consumer-proven; Label-RichText-RichSpan-adopted; self-drawn-control-adoption-open",
+      "codeRefs": [
+        "src/core/typography_environment.cj",
+        "src/core/widget.cj",
+        "src/core/widget_modifiers.cj",
+        "src/core/ui_context.cj",
+        "src/core/overlay.cj",
+        "src/core/label.cj",
+        "src/controls/rich_span.cj",
+        "src/controls/rich_text.cj",
+        "src/controls/rich_text_layout.cj",
+        "docs/api/chui/core/TypographyEnvironment.md",
+        "docs/api/chui/core/Widget.md",
+        "docs/api/chui/controls/RichText.md"
       ]
     },
     {

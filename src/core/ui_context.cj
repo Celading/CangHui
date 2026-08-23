@@ -80,6 +80,7 @@ public class UiContext {
     private let overlays = ArrayList<Overlay>()
     private let inkRipples = ArrayList<InkRippleOverlay>()
     private let controlContentEnvironments = ArrayList<ControlContentEnvironment>()
+    private let typographyEnvironments = ArrayList<TypographyEnvironment>()
     private let interactionEnabledScopes = ArrayList<Bool>()
     private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
@@ -159,6 +160,23 @@ public class UiContext {
             body()
         } finally {
             controlContentEnvironments.remove(at: controlContentEnvironments.size - 1)
+        }
+    }
+
+    /** Returns the effective inherited typography values at the current tree position. */
+    public func typographyEnvironment(): TypographyEnvironment {
+        if (typographyEnvironments.isEmpty()) { return TypographyEnvironment() }
+        typographyEnvironments[typographyEnvironments.size - 1]
+    }
+
+    /** Runs one widget phase with fieldwise inherited typography and automatic restoration. */
+    public func withTypographyEnvironment<T>(environment: TypographyEnvironment, body: () -> T): T {
+        let effective = typographyEnvironment().merging(environment)
+        typographyEnvironments.add(effective)
+        try {
+            body()
+        } finally {
+            typographyEnvironments.remove(at: typographyEnvironments.size - 1)
         }
     }
 
@@ -481,6 +499,7 @@ public class UiContext {
      * that entry in place, keeping its z position.
      */
     public func setOverlay(overlay: Overlay): Unit {
+        overlay.captureTypography(typographyEnvironment())
         if (!overlay.owner.isEmpty()) {
             for (i in 0..overlays.size) {
                 if (overlays[i].owner == overlay.owner) {

@@ -1,7 +1,7 @@
 package chui.controls
 
 import std.collection.{ArrayList, HashMap}
-import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent, drawIcon}
+import sdl.{Color, FontSizes, FontStyle, Key, MouseButton, Rect, Size, UiEvent, drawIcon}
 import chui.core.{CUI_SMALL_H, CursorShape, Length, LengthUnit, TextAlign, UiContext, Widget, drawFocusRing, emit,
     focusableControlIdentity, resolveControlKey}
 
@@ -12,6 +12,13 @@ private let RICH_SPAN_GAP: Float32 = 3.0
 private let RICH_HIGHLIGHT_RADIUS: Float32 = 3.0
 
 private let RICH_LINE_GAP: Float32 = 2.0
+
+private func richTypographyFontKey(value: ?String): String {
+    match (value) {
+        case Some(font) => "1:${font}"
+        case None => "0:"
+    }
+}
 
 /**
  * Inline styled text: a sequence of `RichSpan`s (coloured, styled text runs and inline icons) laid out
@@ -31,7 +38,7 @@ private let RICH_LINE_GAP: Float32 = 2.0
  */
 public class RichText <: Widget {
     private let spans: Array<RichSpan>
-    private var pointSize: Length
+    private var pointSize: ?Length
     private var alignment: TextAlign
     private var lineGap: Float32 = RICH_LINE_GAP
     private let controlId: String
@@ -44,13 +51,15 @@ public class RichText <: Widget {
     private var cached: ?RichLayout = None
     private var cachedWidthKey: Float32 = -1.0
     private var cachedPointSize: Float32 = -1.0
+    private var cachedBaseStyleFlags: Int32 = -1
+    private var cachedBaseFontKey: String = ""
     // A 1vp probe folded into the cache key: per-span sizes resolve through the vp scale, which can
     // change (a DPI move) while the fp-resolved base size stays equal, so ps alone under-keys them.
     private var cachedVpProbe: Float32 = -1.0
 
     public init(
         spans: Array<RichSpan>,
-        fontSize!: Length = Length(FontSizes.BODY, LengthUnit.Fp),
+        fontSize!: ?Length = None<Length>,
         key!: ?String = None
     ) {
         this.spans = spans
@@ -80,7 +89,7 @@ public class RichText <: Widget {
 
     /** Sets the point size shared by all text runs. */
     public func fontSize(value: Length): RichText {
-        pointSize = value
+        pointSize = Some(value)
         this
     }
 
@@ -107,8 +116,10 @@ public class RichText <: Widget {
 
     public func measure(ctx: UiContext, available: Size): Size {
         let ps = resolvedPointSize(ctx)
-        let lineHeight = ctx.renderer.textHeight(pointSize: ps)
-        let layout = layoutFor(ctx, available.w, ps, lineHeight)
+        let baseStyle = ctx.typographyEnvironment().resolvedFontStyle()
+        let baseFont = ctx.typographyEnvironment().fontFamily
+        let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: baseStyle, font: baseFont)
+        let layout = layoutFor(ctx, available.w, ps, lineHeight, baseStyle, baseFont)
         // Hug a single line so inline use in a row sizes to its content; fill the width once it wraps.
         // Single-line is judged by the line count, not by height — a lone line holding a run bigger
         // than the base size is taller than the base line height yet must still hug (the stat-widget
@@ -127,8 +138,10 @@ public class RichText <: Widget {
 
     public func draw(ctx: UiContext): Unit {
         let ps = resolvedPointSize(ctx)
-        let lineHeight = ctx.renderer.textHeight(pointSize: ps)
-        let layout = layoutFor(ctx, frame.w, ps, lineHeight)
+        let baseStyle = ctx.typographyEnvironment().resolvedFontStyle()
+        let baseFont = ctx.typographyEnvironment().fontFamily
+        let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: baseStyle, font: baseFont)
+        let layout = layoutFor(ctx, frame.w, ps, lineHeight, baseStyle, baseFont)
         // Centre the content block vertically, matching Label, so a RichText and a Label in the same
         // row share a baseline instead of the RichText riding measure()'s extra headroom.
         let offsetY = max(0.0, (frame.h - layout.height) / 2.0)
@@ -269,8 +282,10 @@ public class RichText <: Widget {
     // layout, hit-testing each link fragment's box — the very rect draw paints it into.
     private func linkFragmentAt(ctx: UiContext, mx: Float32, my: Float32): ?PlacedItem {
         let ps = resolvedPointSize(ctx)
-        let lineHeight = ctx.renderer.textHeight(pointSize: ps)
-        let layout = layoutFor(ctx, frame.w, ps, lineHeight)
+        let baseStyle = ctx.typographyEnvironment().resolvedFontStyle()
+        let baseFont = ctx.typographyEnvironment().fontFamily
+        let lineHeight = ctx.renderer.textHeight(pointSize: ps, style: baseStyle, font: baseFont)
+        let layout = layoutFor(ctx, frame.w, ps, lineHeight, baseStyle, baseFont)
         let offsetY = max(0.0, (frame.h - layout.height) / 2.0)
         for (item in layout.items) {
             match (item.onTap) {
@@ -298,23 +313,38 @@ public class RichText <: Widget {
     }
 
     private func resolvedPointSize(ctx: UiContext): Float32 {
-        max(1.0, ctx.resolve(pointSize))
+        let length = match (pointSize) {
+            case Some(value) => value
+            case None => match (ctx.typographyEnvironment().fontSize) {
+                case Some(value) => value
+                case None => Length(FontSizes.BODY, LengthUnit.Fp)
+            }
+        }
+        max(1.0, ctx.resolve(length))
     }
 
     // Exact float comparison is deliberate: the keys are reused values, so equality means same inputs.
     // A cached single-line layout is also reused for any width it still fits in — measure() hugs a
     // single line to its content width, so draw() asks for exactly layout.width and would otherwise
     // miss the cache (and re-wrap) every frame in the inline-row case.
-    private func layoutFor(ctx: UiContext, width: Float32, ps: Float32, lineHeight: Float32): RichLayout {
+    private func layoutFor(ctx: UiContext, width: Float32, ps: Float32, lineHeight: Float32,
+        baseStyle: FontStyle, baseFont: ?String): RichLayout {
         let vpProbe = ctx.resolve(Length(1.0, LengthUnit.Vp))
+        let baseStyleFlags = baseStyle.ttfFlags()
+        let baseFontKey = richTypographyFontKey(baseFont)
         match (cached) {
             case Some(layout) where cachedPointSize == ps && cachedVpProbe == vpProbe &&
+                cachedBaseStyleFlags == baseStyleFlags && cachedBaseFontKey == baseFontKey &&
                 (cachedWidthKey == width || (layout.lines <= 1 && layout.width <= width)) => layout
             case _ =>
                 let sizes = resolveSpanSizes(ctx, ps)
-                let layout = layoutRichSpans(
+                let styles = Array<FontStyle>(spans.size, {i => spans[i].resolvedStyle(baseStyle)})
+                let fonts = Array<?String>(spans.size, {i => spans[i].resolvedFontFamily(baseFont)})
+                let layout = layoutResolvedRichSpans(
                     spans,
                     sizes,
+                    styles,
+                    fonts,
                     width,
                     richIconSize(lineHeight),
                     RICH_SPAN_GAP,
@@ -326,6 +356,8 @@ public class RichText <: Widget {
                 cachedWidthKey = width
                 cachedPointSize = ps
                 cachedVpProbe = vpProbe
+                cachedBaseStyleFlags = baseStyleFlags
+                cachedBaseFontKey = baseFontKey
                 layout
         }
     }

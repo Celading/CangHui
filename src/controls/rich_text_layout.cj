@@ -186,9 +186,11 @@ internal func asciiWordEnd(runes: Array<Rune>, start: Int64): Int64 {
  * size this is identical to top-of-line placement. `lineGap` is inserted only between consecutive
  * lines. Returns the placed items, total content height, widest line, and each line's measured width.
  */
-internal func layoutRichSpans(
+internal func layoutResolvedRichSpans(
     spans: Array<RichSpan>,
     spanSizes: Array<Float32>,
+    spanStyles: Array<FontStyle>,
+    spanFonts: Array<?String>,
     maxWidth: Float32,
     iconSize: Float32,
     spanGap: Float32,
@@ -207,12 +209,14 @@ internal func layoutRichSpans(
     for (si in 0..spans.size) {
         let span = spans[si]
         let size = spanSizes[si]
+        let style = spanStyles[si]
+        let font = spanFonts[si]
         match (span.kind) {
             case RichSpanKind.SpanText(text) =>
-                let fragHeight = heightOf(size, span.style, span.fontFace)
+                let fragHeight = heightOf(size, style, font)
                 // Bind this run's size, style, and font so widths reflect the actual metrics (a bigger
                 // or bolder run is wider) and wrapping breaks where the run really overflows.
-                let spanMeasure = {s: String => widthOf(s, size, span.style, span.fontFace)}
+                let spanMeasure = {s: String => widthOf(s, size, style, font)}
                 let runes = text.toRuneArray()
                 var i = 0
                 while (i < runes.size) {
@@ -264,7 +268,7 @@ internal func layoutRichSpans(
                     let segWidth = spanMeasure(segment)
                     frags.add(
                         LaidFrag(x: x, line: line, height: fragHeight, kind: PlacedKind.PlacedText(segment),
-                            color: span.color, muted: span.isMuted, style: span.style, font: span.fontFace,
+                            color: span.color, muted: span.isMuted, style: style, font: font,
                             size: size, width: segWidth, spanIndex: si, onTap: span.tapAction,
                             highlight: span.highlightColor))
                     if (fragHeight > lineHeights[line]) {
@@ -284,7 +288,7 @@ internal func layoutRichSpans(
                 }
                 frags.add(
                     LaidFrag(x: x, line: line, height: iconSize, kind: PlacedKind.PlacedIcon(icon),
-                        color: span.color, muted: false, style: span.style, font: span.fontFace, size: size,
+                        color: span.color, muted: false, style: style, font: font, size: size,
                         width: iconSize, spanIndex: si, onTap: span.tapAction, highlight: span.highlightColor))
                 if (iconSize > lineHeights[line]) {
                     lineHeights[line] = iconSize

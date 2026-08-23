@@ -18,7 +18,9 @@ Label <: [`Widget`](Widget.md)
 
 ## 说明
 
-粗体优先使用当前可变字体文件内部真实的 `Bold` 命名实例，其次使用独立的粗体伴随文件；仅在两者都不存在时才实时合成。斜体、下划线与删除线经 sdl 的 `FontStyle` 在文本渲染层合成，对字体覆盖的所有文字（拉丁与中日韩皆同）生效；`fontFamily` 切换到 `Fonts.register` 注册过的应用字体（语义权威：sdl 模块文档）。显式的 `foregroundColor` 优先于 `muted`。换行与宽度结果按"宽度 + 字号"缓存并在测量与绘制间共享；更改测量输入的构建器（样式、字族、行数上限）会丢弃缓存，重新折行。
+未显式设置字族、字号或样式字段时，`Label` 逐字段消费最近容器的 [`TypographyEnvironment`](TypographyEnvironment.md)；叶子的 `.bold(value: false)` 只清除继承粗体，`.fontStyle(FontStyle.regular)` 则显式清除继承的全部样式。环境也参与换行和宽度缓存键，因此测量与绘制不会错用外层字体结果。仍未指定的值回退到主题字族、15 fp 与 Regular。
+
+粗体优先使用当前可变字体文件内部真实的 `Bold` 命名实例，其次使用独立的粗体伴随文件；仅在两者都不存在时才实时合成。斜体、下划线与删除线经 sdl 的 `FontStyle` 在文本渲染层合成，对字体覆盖的所有文字（拉丁与中日韩皆同）生效；`fontFamily` 切换到 `Fonts.register` 注册过的应用字体（语义权威：sdl 模块文档）。显式的 `foregroundColor` 优先于 `muted`。
 
 ## 示例
 
@@ -60,10 +62,10 @@ main(): Unit {
 | [`fontSize(value: Length)`](#fontsize) | 设置字号。 |
 | [`fontSize(value: Float32)`](#fontsize) | 设置字号。 |
 | [`fontStyle(value: FontStyle)`](#fontstyle) | 一次替换整个文本样式（字重、倾斜与装饰线）。 |
-| [`bold(value!: Bool)`](#bold) | 加粗文本（或把粗体设为 `value`）。 |
-| [`italic(value!: Bool)`](#italic) | 倾斜文本（或把斜体设为 `value`）。 |
-| [`underline(value!: Bool)`](#underline) | 给文本加下划线（或把下划线设为 `value`）。 |
-| [`strikethrough(value!: Bool)`](#strikethrough) | 给文本加删除线（或把删除线设为 `value`）。 |
+| [`bold(...)`](#bold) | 加粗文本（或显式开关继承粗体）。 |
+| [`italic(...)`](#italic) | 倾斜文本（或显式开关继承斜体）。 |
+| [`underline(...)`](#underline) | 给文本加下划线（或显式开关继承下划线）。 |
+| [`strikethrough(...)`](#strikethrough) | 给文本加删除线（或显式开关继承删除线）。 |
 | [`fontFamily(name: String)`](#fontfamily) | 用已注册的应用字体绘制文本。 |
 | [`maxLines(value: Int64)`](#maxlines) | 允许文本换行至最多 `value` 行，仍有剩余文本时最后一行以省略号截断。 |
 | [`wrap()`](#wrap) | 取消行数上限，让文本按需换行。 |
@@ -85,7 +87,7 @@ public init(
     muted!: Bool = false,
     align!: TextAlign = TextAlign.Leading,
     color!: ?Color = None,
-    fontSize!: Length = Length(FontSizes.BODY, LengthUnit.Fp)
+    fontSize!: ?Length = None
 )
 ```
 
@@ -95,7 +97,7 @@ public init(
 - `muted!`: `Bool` — 是否用主题的次要文字色；默认 `false`。
 - `align!`: [`TextAlign`](TextAlign.md) — 帧内水平对齐；默认 `TextAlign.Leading`。
 - `color!`: `?Color` — 显式文字颜色，优先于 `muted`；默认 `None`，按 `muted` 从主题取色。
-- `fontSize!`: [`Length`](Length.md) — 字号；默认 `Length(FontSizes.BODY, LengthUnit.Fp)`（15 fp，随用户字体缩放）。
+- `fontSize!`: `?`[`Length`](Length.md) — 显式字号；默认 `None`，先继承容器字号，仍未提供时使用 15 fp。
 
 ## 方法
 
@@ -147,7 +149,7 @@ public func foregroundColor(value: Color): Label
 
 ### fontSize
 
-设置字号。`Float32` 重载按字体像素（fp）解释，随用户字体缩放；`Length` 形式可写 `.fontSize(15.fp)`。返回 `this` 便于链式调用。
+设置叶子的显式字号，覆盖容器继承值。`Float32` 重载按字体像素（fp）解释，随用户字体缩放；`Length` 形式可写 `.fontSize(15.fp)`。返回 `this` 便于链式调用。
 
 ```cangjie
 public func fontSize(value: Length): Label
@@ -165,7 +167,7 @@ public func fontSize(value: Float32): Label
 
 ### fontStyle
 
-一次替换整个文本样式（字重、倾斜与装饰线）。逐项开关用 [`bold`](#bold) / [`italic`](#italic) / [`underline`](#underline) / [`strikethrough`](#strikethrough)。返回 `this` 便于链式调用。
+一次显式替换整个文本样式（字重、倾斜与装饰线），覆盖全部继承样式；`FontStyle.regular` 因而能清除容器样式。逐项开关用 [`bold`](#bold) / [`italic`](#italic) / [`underline`](#underline) / [`strikethrough`](#strikethrough)。返回 `this` 便于链式调用。
 
 ```cangjie
 public func fontStyle(value: FontStyle): Label
@@ -179,63 +181,67 @@ public func fontStyle(value: FontStyle): Label
 
 ### bold
 
-加粗文本（或把粗体设为 `value`）。返回 `this` 便于链式调用。
+加粗文本（或只把继承粗体显式设为 `value`），不改变其他继承样式字段。返回 `this` 便于链式调用。
 
 ```cangjie
-public func bold(value!: Bool = true): Label
+public func bold(): Label
+public func bold(value!: Bool): Label
 ```
 
 **参数**
 
-- `value!`: `Bool` — 是否加粗；默认 `true`。
+- `value!`: `Bool` — 是否加粗；无参形式传入 `true`。
 
 **返回值** `Label` — `this`。
 
 ### italic
 
-倾斜文本（或把斜体设为 `value`）。返回 `this` 便于链式调用。
+倾斜文本（或只把继承斜体显式设为 `value`）。返回 `this` 便于链式调用。
 
 ```cangjie
-public func italic(value!: Bool = true): Label
+public func italic(): Label
+public func italic(value!: Bool): Label
 ```
 
 **参数**
 
-- `value!`: `Bool` — 是否倾斜；默认 `true`。
+- `value!`: `Bool` — 是否倾斜；无参形式传入 `true`。
 
 **返回值** `Label` — `this`。
 
 ### underline
 
-给文本加下划线（或把下划线设为 `value`）。返回 `this` 便于链式调用。
+给文本加下划线（或只把继承下划线显式设为 `value`）。返回 `this` 便于链式调用。
 
 ```cangjie
-public func underline(value!: Bool = true): Label
+public func underline(): Label
+public func underline(value!: Bool): Label
 ```
 
 **参数**
 
-- `value!`: `Bool` — 是否加下划线；默认 `true`。
+- `value!`: `Bool` — 是否加下划线；无参形式传入 `true`。
 
 **返回值** `Label` — `this`。
 
 ### strikethrough
 
-给文本加删除线（或把删除线设为 `value`）。返回 `this` 便于链式调用。
+给文本加删除线（或只把继承删除线显式设为 `value`）。返回 `this` 便于链式调用。
 
 ```cangjie
-public func strikethrough(value!: Bool = true): Label
+public func strikethrough(): Label
+public func strikethrough(value!: Bool): Label
 ```
 
 **参数**
 
-- `value!`: `Bool` — 是否加删除线；默认 `true`。
+- `value!`: `Bool` — 是否加删除线；无参形式传入 `true`。
 
 **返回值** `Label` — `this`。
 
 ### fontFamily
 
-用已注册的应用字体绘制文本。未知名称或字体文件加载失败时回退到平台 UI 字体；注册入口是 sdl 的 `Fonts.register`。返回 `this` 便于链式调用。
+显式用已注册的应用字体绘制文本，覆盖容器继承字族。未知名称或字体文件加载失败时回退到平台 UI 字体；注册入口是 sdl 的 `Fonts.register`。返回 `this` 便于链式调用。
 
 ```cangjie
 public func fontFamily(name: String): Label
@@ -337,5 +343,6 @@ public func handle(_: UiContext, _: UiEvent): Bool
 ## 另请参阅
 
 - [TextAlign](TextAlign.md) — 水平对齐枚举。
+- [TypographyEnvironment](TypographyEnvironment.md) — 未被叶子显式覆盖时消费的容器排版环境。
 - [RichText](../controls/RichText.md) — 一段内混排多种样式的富文本。
 - [Tooltip](Tooltip.md) — 完整文本放不下时的悬停补充。

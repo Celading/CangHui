@@ -4,7 +4,7 @@
 
 `chui.core` 包中的 public class
 
-每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。整个应用只有一个实例，跨帧存续——组件树每帧重建，需要活过重建的交互状态都保存在这里。
+每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态、继承排版环境，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。整个应用只有一个实例，跨帧存续——组件树每帧重建，需要活过重建的交互状态都保存在这里。
 
 ## 声明
 
@@ -19,6 +19,8 @@ public class UiContext
 这些交互统一使用字符串 `id` 标识控件；标识可按构建顺序自动生成，也可用显式键固定。每次指针移动只有一个控件获得悬停状态：事件从视觉最上层开始派发，第一个申请生效。焦点还区分“持有焦点”和“显示焦点环”：指针点击取得焦点时不画环，通过 Tab 或自动聚焦取得焦点时才画环，符合桌面端的 `:focus-visible` 惯例。
 
 [`resolve`](#resolve) 把带单位的长度（`vp`/`px`/`fp`）换算为逻辑像素；[`requestFrame`](#requestframe) 让按时间推进的动画在按需渲染模式下继续更新——如果不请求下一帧，空闲窗口会停止渲染，动画也会暂停。低层协议测试可用无窗口渲染器和默认主题构造上下文；普通 GUI 程序仍应由 [`DesktopApp`](../desktop/DesktopApp.md) 驱动。
+
+[`typographyEnvironment`](#typographyenvironment) 返回当前位置已逐字段合并的排版环境；[`withTypographyEnvironment`](#withtypographyenvironment) 在任意组件阶段建立自动恢复的嵌套作用域。应用通常不直接调用后者，而使用 [`Widget`](Widget.md) 的 `typography` / `fontSize` / `bold` 等声明式修饰器。
 
 ## 示例
 
@@ -80,6 +82,8 @@ main(): Unit {
 | [`contentForeground()`](#contentforeground) | 返回当前装饰内容前景色，没有活动环境时回退到主题正文色。 |
 | [`contentSupportingForeground()`](#contentsupportingforeground) | 返回当前装饰内容辅助前景色，没有活动环境时回退到主题弱化正文色。 |
 | [`withControlContentEnvironment(...)`](#withcontrolcontentenvironment) | 在一个绘制回调内压入环境，并在返回或抛错后自动恢复。 |
+| [`typographyEnvironment()`](#typographyenvironment) | 返回当前位置逐字段合并后的有效排版环境。 |
+| [`withTypographyEnvironment(...)`](#withtypographyenvironment) | 在回调期间压入一层排版覆盖，并在返回或抛错后自动恢复。 |
 | [`requestClose()`](#requestclose) | 请求退出应用：置位 `shouldClose`，宿主据此结束主循环。 |
 | [`requestFrame()`](#requestframe) | 请求在无输入、无状态变化时也渲染下一帧。 |
 | [`focusNext()`](#focusnext) | 把键盘焦点移到焦点环中的下一个控件，到末尾时回绕。 |
@@ -211,6 +215,29 @@ public func withControlContentEnvironment(
 
 - `environment`: [`ControlContentEnvironment`](ControlContentEnvironment.md) — 当前组合控件解析后的前景、角色、动作所有者和交互状态。
 - `body`: `() -> Unit` — 在该环境中绘制装饰内容的回调。
+
+### typographyEnvironment
+
+返回当前位置逐字段合并后的有效排版环境。没有活动作用域时返回所有字段均为 `None` 的环境；语义文本叶子再把未指定字段解析为主题字族、15 fp 与 Regular。
+
+```cangjie
+public func typographyEnvironment(): TypographyEnvironment
+```
+
+**返回值** [`TypographyEnvironment`](TypographyEnvironment.md) — 当前有效环境。
+
+### withTypographyEnvironment
+
+在 `body` 执行期间压入一层排版覆盖。内层只替换非 `None` 字段；正常返回或抛出异常后都自动恢复外层值。返回 `body` 的原始结果，因此测量、命中计算等非 `Unit` 阶段也可安全进入同一作用域。
+
+```cangjie
+public func withTypographyEnvironment<T>(
+    environment: TypographyEnvironment,
+    body: () -> T
+): T
+```
+
+普通应用优先使用 [`Widget.typography`](Widget.md#typography)；本方法主要服务自定义包装器与框架组件。
 
 ### requestClose
 
@@ -373,7 +400,7 @@ public func textInputAnchorRect(): ?Rect
 
 ### setOverlay
 
-登记一个交互浮层到已开浮层之上；同 `owner` 重复登记时原位替换。替换保持原有的 z 位置，打开中的控件因此每帧重复登记也不会越级。
+登记一个交互浮层到已开浮层之上；同 `owner` 重复登记时原位替换。替换保持原有的 z 位置，打开中的控件因此每帧重复登记也不会越级。登记时还会捕获当前位置的有效 [`TypographyEnvironment`](TypographyEnvironment.md)，供浮层稍后的事件派发和绘制使用。
 
 ```cangjie
 public func setOverlay(overlay: Overlay): Unit
@@ -681,6 +708,7 @@ public var clickCount: Int64 = 1
 ## 另请参阅
 
 - [Widget](Widget.md) — 消费上下文的组件协议（`measure`/`layout`/`draw`/`handle`）。
+- [TypographyEnvironment](TypographyEnvironment.md) — 容器与语义文本叶子的逐字段排版环境。
 - [Overlay](Overlay.md) — 浮层栈中登记的交互浮层。
 - [CursorShape](CursorShape.md) — 悬停申请携带的指针形状。
 - [Theme](Theme.md) — 构造时注入的配色主题。

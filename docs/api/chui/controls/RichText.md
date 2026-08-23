@@ -18,11 +18,13 @@ public class RichText <: Widget
 
 ## 说明
 
-未自带字号的片段继承本组件的基准字号；同一行内不同字号的片段相互居中，行高随最高片段增长。换行按文字习惯处理：CJK 逐字可断，空格分隔的文字回退到空格处断行，行中开始的 ASCII 词（标识符、议题号）放得进一行时整词移到下一行、绝不拦腰截断；图标作为方形盒随文字流动。
+`RichText` 先从最近容器的 [`TypographyEnvironment`](../core/TypographyEnvironment.md) 取得基准字族、字号和样式，再由组件显式字号以及各 [`RichSpan`](RichSpan.md) 显式字段逐项覆盖。未自带字号的片段继承有效基准字号；`.bold(value: false)` 只清除继承粗体，`.fontStyle(FontStyle.regular)` 显式清除四项继承样式。同一行内不同字号的片段相互居中，行高随最高片段增长。仍未指定的值回退到主题字族、15 fp 与 Regular。
+
+换行按文字习惯处理：CJK 逐字可断，空格分隔的文字回退到空格处断行，行中开始的 ASCII 词（标识符、议题号）放得进一行时整词移到下一行、绝不拦腰截断；图标作为方形盒随文字流动。
 
 带 [`onTap`](RichSpan.md#ontap) 的链接片段可交互：按下并在同一片段盒上松开触发动作、悬停显示交互指针；每个链接片段按声明序注册为键盘焦点项，Tab 依次走过、Enter/Space 激活，键盘聚焦的链接画焦点环。不含链接的 `RichText` 不注册、不分配任何交互结构，保持纯静态。
 
-测量语义：内容只占一行时贴合内容宽（行内嵌进横排容器时按内容收身），一旦换行即充满可用宽度。排版结果按宽度、字号与显示缩放缓存，测量与绘制共用，不逐帧重排。换行后的水平对齐由 [`textAlign(...)`](#textalign) 控制（默认 Leading），按行实测宽度逐行偏移；对齐只影响绘制与链接命中盒，不改变测量与换行。
+测量语义：内容只占一行时贴合内容宽（行内嵌进横排容器时按内容收身），一旦换行即充满可用宽度。排版结果按宽度、有效字号、样式、字族与显示缩放缓存，测量、绘制和链接命中共用，不逐帧重排。换行后的水平对齐由 [`textAlign(...)`](#textalign) 控制（默认 Leading），按行实测宽度逐行偏移；对齐只影响绘制与链接命中盒，不改变测量与换行。
 
 ## 示例
 
@@ -77,7 +79,7 @@ main(): Unit {
 ```cangjie
 public init(
     spans: Array<RichSpan>,
-    fontSize!: Length = Length(FontSizes.BODY, LengthUnit.Fp),
+    fontSize!: ?Length = None,
     key!: ?String = None
 )
 ```
@@ -85,7 +87,7 @@ public init(
 **参数**
 
 - `spans`: `Array<RichSpan>` — 按序排布的片段。
-- `fontSize!`: [`Length`](../core/Length.md) — 基准字号，未自带字号的片段继承；默认值为 `Length(FontSizes.BODY, LengthUnit.Fp)`，即正文字号 15 字体像素，并随用户字体缩放。
+- `fontSize!`: `?`[`Length`](../core/Length.md) — 显式基准字号；默认 `None`，先继承容器字号，仍未提供时使用 15 fp。
 - `key!`: `?String` — 显式标识，作链接片段焦点与按压追踪的作用域；默认 `None`，按构建顺序自动派生。
 
 **异常**
@@ -96,7 +98,7 @@ public init(
 
 ### fontSize
 
-设置未自带字号的片段共享的基准字号。两个重载分别接受带单位的 `Length` 与字体像素（fp）数值。
+设置组件的显式基准字号，覆盖容器继承字号；未自带字号的片段共享该值。两个重载分别接受带单位的 `Length` 与字体像素（fp）数值。
 
 ```cangjie
 public func fontSize(value: Length): RichText
@@ -204,3 +206,4 @@ public func focusableIds(): Array<String>
 
 - [RichSpan](RichSpan.md) — 片段的构建工厂与链式样式配置。
 - [Label](../core/Label.md) — 单一样式的普通文本。
+- [TypographyEnvironment](../core/TypographyEnvironment.md) — 容器提供的逐字段排版环境。

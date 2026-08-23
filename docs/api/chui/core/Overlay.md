@@ -18,6 +18,8 @@ public class Overlay
 
 `owner` 用于跨帧识别登记者（组件树每帧重建）：同 `owner` 重复登记原位替换、保持 z 位置，关闭中的控件用 [`removeOverlay`](UiContext.md#removeoverlay) 精确移除自己的登记。`owner` 为空串的浮层无法被替换或单独移除，只随每帧清空一起消失。
 
+[`setOverlay`](UiContext.md#setoverlay) 在登记时捕获当前位置已合并的 [`TypographyEnvironment`](TypographyEnvironment.md)。以后调用 `handleEvent` 与 `render` 时会先恢复该环境，所以对话框、菜单等延迟浮层中的 `Label` / `RichText` 与声明位置使用相同字族、字号和样式，而不依赖宿主何时执行浮层通道。
+
 与之对照，提示（[`Tooltip`](Tooltip.md)）是更简单的只绘制浮层，不参与事件派发。
 
 ## 示例
@@ -62,12 +64,13 @@ public init(handleEvent!: (UiContext, UiEvent) -> Bool, render!: (UiContext) -> 
 
 **参数**
 
-- `handleEvent!`: `(UiContext, UiEvent) -> Bool` — 浮层收到事件时调用，返回是否消费。返回 `false` 让事件落往下一层浮层，全部浮层都未消费时才轮到组件树；模态对话框对一切返回 `true`，事件因此永远不会穿透到背后的树。
-- `render!`: `(UiContext) -> Unit` — 每帧在树绘制之后调用，绘制浮层内容；绘制期间登记的新浮层会在同一帧内画在其上。
+- `handleEvent!`: `(UiContext, UiEvent) -> Bool` — 浮层收到事件时调用，返回是否消费。回调运行在登记时捕获的排版环境中；返回 `false` 让事件落往下一层浮层，全部浮层都未消费时才轮到组件树。
+- `render!`: `(UiContext) -> Unit` — 每帧在树绘制之后调用，绘制浮层内容；回调运行在登记时捕获的排版环境中，绘制期间登记的新浮层会在同一帧内画在其上。
 - `owner!`: `String` — 跨帧识别登记者的标识；默认空串（不可替换、不可单独移除）。
 
 ## 另请参阅
 
 - [UiContext](UiContext.md) — 浮层栈的登记、派发与绘制入口（`setOverlay`、`dispatchOverlay`、`drawActiveOverlay`）。
+- [TypographyEnvironment](TypographyEnvironment.md) — 登记时由浮层捕获的容器排版环境。
 - [Tooltip](Tooltip.md) — 不参与事件派发的只绘制提示浮层。
 - [Modal](../controls/Modal.md) — 基于浮层实现的模态对话框控件。
