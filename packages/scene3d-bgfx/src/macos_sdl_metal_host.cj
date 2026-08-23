@@ -7,7 +7,14 @@ private let SDL_INIT_VIDEO: UInt32 = UInt32(0x00000020)
 private let SDL_WINDOW_RESIZABLE: UInt64 = UInt64(0x0000000000000020)
 private let SDL_WINDOW_HIGH_PIXEL_DENSITY: UInt64 = UInt64(0x0000000000002000)
 private let SDL_WINDOW_METAL: UInt64 = UInt64(0x0000000020000000)
+private let SDL_EVENT_QUIT: UInt32 = UInt32(0x100)
 private let SDL_PROP_WINDOW_COCOA_WINDOW_POINTER = "SDL.window.cocoa.window"
+
+@C
+struct MacOSSdlMetalEvent {
+    var eventType: UInt32 = 0
+    var padding = VArray<UInt8, $124>(repeat: 0)
+}
 
 foreign {
     func SDL_Init(flags: UInt32): Bool
@@ -21,7 +28,7 @@ foreign {
     func SDL_GetWindowSizeInPixels(window: CPointer<Unit>, width: CPointer<Int32>, height: CPointer<Int32>): Bool
     func SDL_ShowWindow(window: CPointer<Unit>): Bool
     func SDL_RaiseWindow(window: CPointer<Unit>): Bool
-    func SDL_PumpEvents(): Unit
+    func SDL_PollEvent(event: CPointer<MacOSSdlMetalEvent>): Bool
     func SDL_Delay(milliseconds: UInt32): Unit
 }
 
@@ -30,6 +37,7 @@ public class MacOSSdlMetalHost <: Resource {
     private var window = CPointer<Unit>()
     private var nativeWindow = CPointer<Unit>()
     private var closed = false
+    private var closeRequested = false
     public let identity: UInt64
 
     public init(title: String, width: Int32, height: Int32, identity!: UInt64 = UInt64(1)) {
@@ -96,18 +104,33 @@ public class MacOSSdlMetalHost <: Resource {
         )
     }
 
-    public func pump(): Unit { unsafe { SDL_PumpEvents() } }
+    /** Drain host events and retain a close request for the product loop. */
+    public func pump(): Unit {
+        var event = MacOSSdlMetalEvent()
+        while (unsafe { SDL_PollEvent(inout event) }) {
+            if (macOSSdlMetalHostEventRequestsClose(event.eventType)) {
+                closeRequested = true
+            }
+            event = MacOSSdlMetalEvent()
+        }
+    }
     public func delay(milliseconds: UInt32): Unit { unsafe { SDL_Delay(milliseconds) } }
     public func isClosed(): Bool { closed }
+    public func shouldClose(): Bool { closeRequested }
 
     public func close(): Unit {
         if (closed) { return }
         closed = true
+        closeRequested = true
         if (!window.isNull()) { unsafe { SDL_DestroyWindow(window) } }
         unsafe { SDL_Quit() }
         window = CPointer<Unit>()
         nativeWindow = CPointer<Unit>()
     }
+}
+
+internal func macOSSdlMetalHostEventRequestsClose(eventType: UInt32): Bool {
+    eventType == SDL_EVENT_QUIT
 }
 
 private func sdlError(): String {
