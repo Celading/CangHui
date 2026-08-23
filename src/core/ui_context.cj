@@ -141,7 +141,20 @@ public class UiContext {
 
     /** Runs one draw callback with a scoped, automatically restored content environment. */
     public func withControlContentEnvironment(environment: ControlContentEnvironment, body: () -> Unit): Unit {
-        controlContentEnvironments.add(environment)
+        let effective = ControlContentEnvironment(
+            environment.foreground,
+            supportingForeground: Some(environment.supportingForeground),
+            role: environment.role,
+            interactionOwner: environment.interactionOwner,
+            selected: environment.selected,
+            expanded: environment.expanded,
+            focused: environment.focused,
+            hovered: environment.hovered,
+            pressed: environment.pressed,
+            enabled: environment.enabled && interactionsEnabled(),
+            readOnly: environment.readOnly
+        )
+        controlContentEnvironments.add(effective)
         try {
             body()
         } finally {

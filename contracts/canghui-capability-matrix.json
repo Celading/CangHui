@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260820.23",
+  "matrixVersion": "CangHui.20260823.24",
   "project": "CangHui",
   "version": "0.10.0",
   "surfaceTier": "mother-framework-incubating",
@@ -58,7 +58,8 @@
       "platform-owner installation-attempt receipts bound to the exact signed artifact and predecessor input tree",
       "platform-neutral mobile lifecycle, safe-area, touch, file-picker, storage, theme, notification and background-task contracts",
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
-      "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary"
+      "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary",
+      "surface-first decorative composition and one-owner interaction primitives with deterministic nested-owner diagnostics"
     ],
     "doesNotOwn": [
       "HarmonyOS OHNativeWindow, Vulkan or EGL backend",
@@ -143,6 +144,21 @@
         "src/core/ui_context.cj",
         "src/core/probe.cj",
         "docs/api/cui/core/ControlSemantics.md"
+      ]
+    },
+    {
+      "id": "surface-first-composition",
+      "version": "canghui.surface-interaction.v0",
+      "state": "source-build-test-headless-draw-ir-proven; rectangle-rounded-solid-theme-providers-proven; pineease-consumer-test-build-proven; arbitrary-path-liquid-glass-platform-blur-button-migration-open",
+      "codeRefs": [
+        "src/core/surface.cj",
+        "src/core/interaction_surface.cj",
+        "src/core/surface_test.cj",
+        "src/core/interaction_surface_test.cj",
+        "src/core/control_content_environment.cj",
+        "src/core/probe.cj",
+        "docs/api/cui/core/Surface.md",
+        "docs/api/cui/core/InteractionSurface.md"
       ]
     },
     {

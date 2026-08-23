@@ -30,6 +30,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`HStack`](HStack.md) | 沿水平主轴排布子组件的弹性栈容器：以尾随 lambda 声明子组件，间距、主轴/交叉轴对齐与弹性参与可链式配置。 |
 | [`Icon`](Icon.md) | 以方形边长绘制的非交互矢量图标，默认 18 vp、取主题文字色。 |
 | [`IconButton`](IconButton.md) | 以图标为面、可选带文字标签的按钮，激活方式与 [`Button`](Button.md) 完全相同。 |
+| [`InteractionSurface`](InteractionSurface.md) | 为任意装饰内容提供一个焦点、按压、release-inside 动作、Ink 与 semantic owner 的交互面。 |
 | [`Keyed`](Keyed.md) | 给子树赋予稳定声明式标识的透明包装组件：其下的局部状态键与控件交互标识都以该键为命名空间。 |
 | [`Label`](Label.md) | 单行或多行文本组件：默认单行、溢出以省略号截断，字体样式经链式构建器就地配置。 |
 | [`LazyColumn`](LazyColumn.md) | 只构建视口附近行的定行高垂直滚动列表，构建、布局与绘制均为 O(可见) 而非 O(行数)。 |
@@ -45,10 +46,12 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Spacing`](Spacing.md) | 4 像素栅格上的间距尺度：七档命名间隔，以虚拟像素的 Length 值表达。 |
 | [`Radii`](Radii.md) | 圆角半径尺度，虚拟像素：小档给标签与输入框、中档给卡片、大档给醒目表面，pill 收成全圆头。 |
 | [`Motion`](Motion.md) | 动效令牌：三档标准动画时长（毫秒）与四条角色化缓动曲线，与 Animator、Spring 搭配使用。 |
+| [`Materials`](Surface.md#materialprovider-与-materials) | 创建 solid、theme surface 与 theme primary material provider。 |
 | [`Spring`](Spring.md) | 跨帧把数值弹性逼近目标的弹簧-阻尼器。 |
 | [`State`](State.md) | 可写的单一数据源可观察状态：对 value 赋值会推进修订号，并在调用线程上同步通知全部观察者。 |
 | [`StateObservation`](StateObservation.md) | 由 Observable.observe 返回的可取消的观察句柄：持有它就持续收到回调，close() 后不再收到。 |
 | [`StateStore`](StateStore.md) | 跨声明式重建保留显式键控局部状态的容器：一次完整构建未访问的条目会被移除，与视图卸载语义一致。 |
+| [`Surface`](Surface.md) | 绘制 material 并发布前景环境、但不新增交互所有者的装饰组合面。 |
 | [`Tooltip`](Tooltip.md) | 为任意控件包上悬停提示：指针在子组件上驻留 500 毫秒后，提示文本被绘制在整棵组件树之上；其余时刻是完全透明的包装。 |
 | [`UiContext`](UiContext.md) | 每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。 |
 | [`UiOwnerQueue`](UiOwnerQueue.md) | 多 producer、单 UI owner 的顺序提交队列，提供 epoch/surface generation 门、取消、关闭和完成回执。 |
@@ -78,6 +81,9 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |
 | [`Shadow`](Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
 | [`ScrollOptions`](ScrollOptions.md) | 可滚动组件共享的滚轮策略：选择即时或平滑行为，并配置步长、播放时长与曲线。 |
+| [`Shape`](Surface.md#shape) | Surface 与 Ink 共用的矩形/圆角矩形几何。 |
+| [`SurfaceMaterial`](Surface.md#surfacematerial) | MaterialProvider 返回的表面样式、前景、supporting 前景与 Ink 颜色。 |
+| [`SurfaceState`](Surface.md#surfacestate) | MaterialProvider 接收的 enabled/readonly/selection/focus/hover/press 只读状态。 |
 | [`Theme`](Theme.md) | 组件共用的语义调色板、动效设置与组件级覆盖层。 |
 
 **接口**
@@ -86,6 +92,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 |---|---|
 | [`Bindable`](Bindable.md) | 可读、可写并能通知变化的值。 |
 | [`LengthUnits`](LengthUnits.md) | 为数值字面量提供 `.px`/`.vp`/`.fp` 长度后缀的接口。 |
+| [`MaterialProvider`](Surface.md#materialprovider-与-materials) | 从 Theme 与 SurfaceState 解析 SurfaceMaterial，不拥有事件或焦点。 |
 | [`Observable`](Observable.md) | 可读、可观察值的抽象：读取当前值、暴露修订号、订阅变更，并可 map 出派生状态。 |
 | [`Widget`](Widget.md) | 所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、内边距、表面、阴影、弹性、可见性等整套链式修饰器。 |
 
@@ -96,6 +103,8 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Alignment`](Alignment.md) | 九宫格式的二维对齐，供 [`ZStack`](ZStack.md) 这类把子组件放进同一框架的容器定位不拉伸的子组件。 |
 | [`Axis`](Axis.md) | 布局方向轴：水平或垂直。 |
 | [`ButtonRole`](ButtonRole.md) | 按钮的语义角色：常规、主要或危险，决定主题为按钮生成的表面配色。 |
+| [`ClipPolicy`](Surface.md#clippolicy) | 选择不裁剪 child，或按 Surface shape 的当前边界进行裁剪。 |
+| [`ControlRole`](InteractionSurface.md#构造函数) | InteractionSurface 的 button/link/checkbox/switch/custom 语义角色。 |
 | [`CrossAxisAlignment`](CrossAxisAlignment.md) | 栈在交叉轴上放置子组件的策略：靠端、居中或拉伸填满。 |
 | [`CursorShape`](CursorShape.md) | 控件在指针悬停期间申请的语义指针形状，由宿主映射为各平台的原生光标。 |
 | [`Easing`](Easing.md) | 把 `[0, 1]` 内的动画进度映射为缓动后进度的时序曲线。 |

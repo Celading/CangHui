@@ -14,6 +14,8 @@ public struct ControlContentEnvironment {
     public let focused: Bool
     public let hovered: Bool
     public let pressed: Bool
+    public let enabled: Bool
+    public let readOnly: Bool
 
     public init(
         foreground: Color,
@@ -24,7 +26,9 @@ public struct ControlContentEnvironment {
         expanded!: Bool = false,
         focused!: Bool = false,
         hovered!: Bool = false,
-        pressed!: Bool = false
+        pressed!: Bool = false,
+        enabled!: Bool = true,
+        readOnly!: Bool = false
     ) {
         this.foreground = foreground
         this.supportingForeground = match (supportingForeground) {
@@ -38,6 +42,8 @@ public struct ControlContentEnvironment {
         this.focused = focused
         this.hovered = hovered
         this.pressed = pressed
+        this.enabled = enabled
+        this.readOnly = readOnly
     }
 }
 
@@ -52,6 +58,8 @@ public struct ControlSemantics {
     public let actionOwner: String
     public let selected: ?Bool
     public let expanded: ?Bool
+    public let enabled: ?Bool
+    public let readOnly: ?Bool
 
     public init(
         role: String,
@@ -62,7 +70,9 @@ public struct ControlSemantics {
         shortcut!: String = "Enter|Space",
         actionOwner!: String,
         selected!: ?Bool = None,
-        expanded!: ?Bool = None
+        expanded!: ?Bool = None,
+        enabled!: ?Bool = None,
+        readOnly!: ?Bool = None
     ) {
         if (role.isEmpty()) { throw IllegalArgumentException("control semantic role must not be empty") }
         if (actionOwner.isEmpty()) { throw IllegalArgumentException("control semantic action owner must not be empty") }
@@ -75,6 +85,8 @@ public struct ControlSemantics {
         this.actionOwner = actionOwner
         this.selected = selected
         this.expanded = expanded
+        this.enabled = enabled
+        this.readOnly = readOnly
     }
 }
 
@@ -115,9 +127,18 @@ private func recordControlSemanticsResolved(
     if (!semantics.label.isEmpty()) { properties.add(ProbeProperty("label", semantics.label)) }
     if (!semantics.value.isEmpty()) { properties.add(ProbeProperty("value", semantics.value)) }
     if (!semantics.placeholder.isEmpty()) { properties.add(ProbeProperty("placeholder", semantics.placeholder)) }
-    if (interactionsEnabled) {
+    var semanticallyEnabled = interactionsEnabled
+    match (semantics.enabled) {
+        case Some(value) => semanticallyEnabled = semanticallyEnabled && value
+        case None => ()
+    }
+    if (semanticallyEnabled) {
         if (!semantics.action.isEmpty()) { properties.add(ProbeProperty("action", semantics.action)) }
         if (!semantics.shortcut.isEmpty()) { properties.add(ProbeProperty("shortcut", semantics.shortcut)) }
+        match (semantics.enabled) {
+            case Some(_) => properties.add(ProbeProperty("enabled", "true"))
+            case None => ()
+        }
     } else {
         properties.add(ProbeProperty("disabled", "true"))
         properties.add(ProbeProperty("enabled", "false"))
@@ -130,6 +151,10 @@ private func recordControlSemanticsResolved(
     }
     match (semantics.expanded) {
         case Some(value) => properties.add(ProbeProperty("expanded", value.toString()))
+        case None => ()
+    }
+    match (semantics.readOnly) {
+        case Some(value) => properties.add(ProbeProperty("readonly", value.toString()))
         case None => ()
     }
     probeSemanticRegions {=> [

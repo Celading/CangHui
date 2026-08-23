@@ -208,6 +208,14 @@ public func probedAction(name: String, action: () -> Unit): () -> Unit {
     }
 }
 
+/** Adds one stable structural error to the active component probe, if any. */
+protected func recordProbeStructuralError(code: String, message: String): Unit {
+    match (activeComponentProbeSession) {
+        case Some(session) => session.failUnique("structural-" + code, message)
+        case None => ()
+    }
+}
+
 /** Records semantic subcontrols only while a component probe is active. */
 public func probeSemanticRegions(provider: ProbeSemanticRegionProvider): Unit {
     match (activeComponentProbeSession) {
@@ -876,6 +884,11 @@ private class ComponentProbeSession {
 
     func fail(kind: String, message: String): Unit {
         failures.add(kind + ": " + message)
+    }
+
+    func failUnique(kind: String, message: String): Unit {
+        let value = kind + ": " + message
+        if (!failures.contains(value)) { failures.add(value) }
     }
 
     func reportJson(): String {

@@ -20,6 +20,8 @@ func controlContentEnvironmentNestsAndRestores(): Unit {
     let inner = ControlContentEnvironment(Color.rgb(90, 80, 70), role: "checkbox", interactionOwner: "inner",
         selected: true)
     @Expect(ctx.controlContentEnvironment().isNone())
+    @Expect(outer.enabled)
+    @Expect(!outer.readOnly)
     ctx.withControlContentEnvironment(outer) {=>
         @Expect(ctx.contentForeground().r, UInt8(10))
         ctx.withControlContentEnvironment(inner) {=>
@@ -42,6 +44,16 @@ func interactionEnabledScopesNestByConjunctionAndRestore(): Unit {
         @Expect(!ctx.interactionsEnabled())
     }
     @Expect(ctx.interactionsEnabled())
+}
+
+@Test
+func disabledScopeFlowsIntoExistingControlContentEnvironment(): Unit {
+    let capture = ContentEnvironmentCapture()
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+    let button = Button(onClick: {=> ()}) { emit(capture) }.enabled(false)
+    button.layout(ctx, Rect(0.0, 0.0, 120.0, 40.0))
+    button.draw(ctx)
+    @Expect(!capture.captured.getOrThrow().enabled)
 }
 
 @Test
