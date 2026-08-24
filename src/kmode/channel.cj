@@ -89,6 +89,7 @@ public class KModeChannelBatch {
 let kModeChannelMutex = Mutex()
 var kModeChannelOverride: ?KModeChannelModule = None
 
+@When[debug]
 public func overrideKModeChannelModule(
     module: KModeChannelModule,
     policy!: KModePolicy = KModePolicy()
@@ -101,6 +102,17 @@ public func overrideKModeChannelModule(
     }
 }
 
+@When[!debug]
+public func overrideKModeChannelModule(
+    _module: KModeChannelModule,
+    policy!: KModePolicy = KModePolicy()
+): Unit {
+    let _ = _module
+    if (policy.enabled) { () }
+    throw IllegalStateException("kMode channel override is unavailable in release builds")
+}
+
+@When[debug]
 public func currentKModeChannelModule(): ?KModeChannelModule {
     var current: ?KModeChannelModule = None
     synchronized(kModeChannelMutex) {
@@ -109,6 +121,12 @@ public func currentKModeChannelModule(): ?KModeChannelModule {
     current
 }
 
+@When[!debug]
+public func currentKModeChannelModule(): ?KModeChannelModule {
+    None
+}
+
+@When[debug]
 public func clearKModeChannelModule(
     policy!: KModePolicy = KModePolicy()
 ): Unit {
@@ -118,4 +136,12 @@ public func clearKModeChannelModule(
     synchronized(kModeChannelMutex) {
         kModeChannelOverride = None
     }
+}
+
+@When[!debug]
+public func clearKModeChannelModule(
+    policy!: KModePolicy = KModePolicy()
+): Unit {
+    if (policy.enabled) { () }
+    throw IllegalStateException("kMode channel clear is unavailable in release builds")
 }

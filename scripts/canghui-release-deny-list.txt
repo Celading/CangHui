@@ -1,0 +1,4 @@
+# Fixed strings that must not occur in release application executables.
+CANGHUI_PRIVILEGED_DEBUG_BUILD=1
+CANGHUI_KMODE_TRANSPORT
+CANGHUI_KMODE=1

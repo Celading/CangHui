@@ -59,10 +59,11 @@ class CuicKModeSession {
     private var closed = false
 
     init(project: String, framework: String) {
+        requireDebugChannelBuild("cuic kMode/probe runtime")
         let environment = kModeChildEnvironment(framework)
         this.process = launch(
             "cjpm",
-            ["run"],
+            ["run", "-g"],
             workingDirectory: Path(project),
             environment: environment,
             stdIn: ProcessRedirect.Pipe,
@@ -152,6 +153,7 @@ func kModeCommand(args: Array<String>, start: Int64): Int64 {
         if (start + 2 < args.size) { throw CuicError("kmode diff accepts one project") }
         return runKModeDiff(resolveProject(requested, ""))
     }
+    requireDebugChannelBuild("cuic kmode ${action}")
     if (action == "list") {
         let requested = if (start + 1 < args.size) { args[start + 1] } else { "" }
         if (start + 2 < args.size) { throw CuicError("kmode list accepts one project") }
@@ -183,6 +185,7 @@ func probeCommand(args: Array<String>, start: Int64): Int64 {
         if (start + 2 < args.size) { throw CuicError("probe diff accepts one project") }
         return runProbeDiff(resolveProject(requested, ""))
     }
+    requireDebugChannelBuild("cuic probe ${action}")
     if (action == "list") {
         var projectValue = ""
         var json = false
@@ -213,6 +216,7 @@ func probeCommand(args: Array<String>, start: Int64): Int64 {
 }
 
 func pviewCommand(args: Array<String>, start: Int64): Int64 {
+    requireDebugChannelBuild("cuic pview")
     return runProbeAscii(args, start, "pview")
 }
 
@@ -305,9 +309,9 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
     var buildCode = 0
     try {
         buildCode = if (json) {
-            executeCjpmQuiet(context, ["build"])
+            executeCjpmQuiet(context, ["build", "-g"])
         } else {
-            executeCjpm(context, ["build"])
+            executeCjpm(context, ["build", "-g"])
         }
     } finally {
         context.releaseLease(lease)
@@ -388,7 +392,7 @@ func runKModeExchange(projectValue: String, operation: String, endpoint: String,
     let lease = context.acquireLease()
     var buildCode = 0
     try {
-        buildCode = executeCjpm(context, ["build"])
+        buildCode = executeCjpm(context, ["build", "-g"])
     } finally {
         context.releaseLease(lease)
     }
@@ -415,7 +419,9 @@ func runKModeExchange(projectValue: String, operation: String, endpoint: String,
     }
 }
 
+@When[debug]
 func kModeChildEnvironment(framework: String): HashMap<String, String> {
+    requireDebugChannelBuild("cuic kMode/probe runtime")
     let environment = HashMap<String, String>()
     for ((key, value) in getVariables()) {
         environment.add(key, value)
@@ -432,6 +438,12 @@ func kModeChildEnvironment(framework: String): HashMap<String, String> {
         environment.add("PATH", sdl + ";" + readEnv("PATH"))
     }
     environment
+}
+
+@When[!debug]
+func kModeChildEnvironment(_framework: String): HashMap<String, String> {
+    requireDebugChannelBuild("cuic kMode/probe runtime")
+    HashMap<String, String>()
 }
 
 func runKModeDiff(projectValue: String, quiet!: Bool = false): Int64 {

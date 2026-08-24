@@ -373,19 +373,23 @@ kMode 是 CangHui 提供的 Debug 无窗口控制面，不依赖布局树。应�
 `@KModeLink["stable.endpoint"]` 把一个 `(String) -> String` 顶层函数注册为稳定端点；宏按端点名
 生成确定性符号，同包重名会在编译期报重复定义，注册表再对跨包重名做运行期拒绝。
 
-应用必须在创建 `DesktopApp` 之前调用 `runKModeStdioIfRequested()`。由 `cuic` 设置
-`CANGHUI_KMODE=1` 与 `CANGHUI_KMODE_TRANSPORT=stdio` 时，进程只运行 `health/list/describe/invoke/shutdown`
-协议循环并直接退出，不初始化 SDL 或窗口。编译器 `debug` 条件也会启用 kMode；普通运行仍需显式
-环境开关，发布构建不因 CLI 命令而隐式开放管理能力。
+应用必须在创建 `DesktopApp` 之前调用 `runKModeStdioIfRequested()`。kMode 只存在于编译器
+`debug` 条件（`cjpm -g`）中；调试版 `cuic` 以 `-g` 构建消费者并显式请求 stdio 后，进程只运行
+`health/list/describe/invoke/shutdown` 协议循环并直接退出，不初始化 SDL 或窗口。发布构建会忽略历史
+`CANGHUI_KMODE` / transport 环境变量与 `--kmode-stdio`，显式 `KModePolicy(enabled: true)` 也会被
+强制收敛为 disabled；发布版 `cuic` 只保留 `kmode diff` 静态冲突检查。
 
-`KModeChannelModule` 是可覆写的透明通道 SPI，只在启用且具备 Admin 能力时允许安装。外部适配器负责
+`KModeChannelModule` 是调试构建中可覆写的透明通道 SPI，只在启用且具备 Admin 能力时允许安装；
+发布构建拒绝安装并始终返回空 module。外部适配器负责
 connect/send/poll/cursor/ACK，并把 `contracts/canghui-kmode-v0.schema.json` 的 JSON 值作为 opaque
 payload 中继。ACK 只表示消息已被消费，业务成功由 kMode response 表达；cursor 仅在持久消费后推进，
 凭据不得写入日志、配置或仓库。`KModeChannelConfig.protocol` 默认使用
 `canghui.kmode.channel.v0` 通道协议，`payloadProtocol/schemaRef` 分别表示 `canghui.kmode.v0` 业务协议
 及其 schema；两类版本号互不替代。
 
-控制面只分派已注册函数，收到的 payload 不会被转换为任意 shell 命令或不受限文件系统操作。
+仓库不提供 socket、listener、远端 relay 或 channel module 实现。控制面只分派已注册函数，收到的
+payload 不会被转换为任意 shell 命令或不受限文件系统操作；未来远端 module 还必须独立完成认证、
+身份绑定、防重放与限速。完整发布边界见[安全边界与发布来源证明](security-and-release.zh-CN.md)。
 
 ## 设计依据与演进边界
 

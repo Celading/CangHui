@@ -64,7 +64,8 @@ macOS 默认输出到 `dist/<Name>.app`，Windows 与 Linux 默认输出到
 可执行文件复制到 `Contents/MacOS`，同时生成 `Info.plist`、`PkgInfo`、资源树和
 逻辑图标角色文件。receipt 位于 `Contents/Resources`，避免下游签名时在 `.app`
 根目录出现未封装文件。receipt 会明确记录原生运行时依赖仍由宿主管理，且该无签名
-bundle 尚未完成启动验收。
+bundle 尚未完成启动验收，同时记录 release trim/strip、发布安全审计、发布者签名
+与公证均未验证。
 
 Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪装成已经跨平台编译：
 
@@ -82,6 +83,10 @@ Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪�
 
 `cuic doctor` 会报告声明、引用资源和两份打包 schema 是否就绪，但就绪状态不等于
 运行时或发布证明。
+
+发布编译契约、特权通道负回放、Developer ID/Hardened Runtime 签名与公证门见
+[安全边界与发布来源证明](security-and-release.zh-CN.md)。无签名
+`package build` receipt 绝不是发布者或商店证据。
 
 移动宿主使用独立的分阶段 receipt，因为平台输入树、已签名安装包和真机回放是
 三类不同事实。参见[移动应用宿主](mobile-application-host.zh-CN.md)与

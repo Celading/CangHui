@@ -1,5 +1,6 @@
 package chui.kmode
 
+@When[debug]
 class FakeKModeChannelModule <: KModeChannelModule {
     public var connected = false
     public var sentPayload = ""
@@ -41,6 +42,28 @@ class FakeKModeChannelModule <: KModeChannelModule {
     public func resumeCursor(): Int64 { cursor }
 }
 
+@When[debug]
+@Test
+func kModeDebugTestBuildCarriesTheEnabledGate(): Unit {
+    @Expect(kModeDebugDefault())
+    @Expect(kModeEnabled())
+    @Expect(KModePolicy(enabled: true).enabled)
+}
+
+@When[!debug]
+@Test
+func kModeReleaseTestBuildFailsClosedEvenForExplicitPolicy(): Unit {
+    @Expect(!kModeDebugDefault())
+    @Expect(!kModeEnabled())
+    @Expect(!KModePolicy(enabled: true).enabled)
+    let response = dispatchKModeRequest(
+        KModeRequest(0, KModeOperation.Health),
+        policy: KModePolicy(enabled: true)
+    )
+    @Expect(!response.ok)
+    @Expect(response.status, "disabled")
+}
+
 @Test
 func kModeProtocolRoundTripsUtf8Payloads(): Unit {
     let request = KModeRequest(17, KModeOperation.Invoke, endpoint: "tests.echo", payload: "仓颉|GUI\nready")
@@ -64,14 +87,17 @@ func kModePolicyFailsClosedAndReportsForbidden(): Unit {
     @Expect(!disabled.ok)
     @Expect(disabled.status, "disabled")
 
-    let forbidden = dispatchKModeRequest(
-        KModeRequest(2, KModeOperation.List),
-        policy: KModePolicy(enabled: true, capabilities: [KModeCapability.Invoke])
-    )
-    @Expect(!forbidden.ok)
-    @Expect(forbidden.status, "forbidden")
+    if (kModeDebugDefault()) {
+        let forbidden = dispatchKModeRequest(
+            KModeRequest(2, KModeOperation.List),
+            policy: KModePolicy(enabled: true, capabilities: [KModeCapability.Invoke])
+        )
+        @Expect(!forbidden.ok)
+        @Expect(forbidden.status, "forbidden")
+    }
 }
 
+@When[debug]
 @Test
 func kModeRegistryDescribesInvokesAndRejectsDuplicates(): Unit {
     let name = "tests.runtime.echo"
@@ -122,6 +148,7 @@ func kModeRegistryDescribesInvokesAndRejectsDuplicates(): Unit {
     @Expect(rejected)
 }
 
+@When[debug]
 @Test
 func kModeChannelOverrideIsAdminGatedAndKeepsRelayOpaque(): Unit {
     @Expect(KMODE_CHANNEL_PROTOCOL, "canghui.kmode.channel.v0")

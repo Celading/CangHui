@@ -100,6 +100,11 @@ assert draw <kind> <minimum-count>
 
 ## CLI
 
+Probe 执行是仅限编译调试态的开发能力。cuic 与消费者都应使用 `-g` 构建；发布
+cuic 会拒绝 `list`、`describe`、`run`、`ascii` 与 `pview`，只保留
+`probe diff` 静态源码冲突检查。发布应用也会忽略旧 kMode 环境变量/argv 入口。
+详见[安全边界与发布来源证明](security-and-release.zh-CN.md)。
+
 ```bash
 ./tools/cuic/bin/cuic probe diff component-gallery
 ./tools/cuic/bin/cuic probe list component-gallery --json

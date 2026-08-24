@@ -15,6 +15,11 @@ cuic run [platform] [project|example]
 
 ## 调试渠道
 
+`kmode` / `probe` 执行、`pview`、`debug` 与设备截图属于特权开发面，必须使用
+`cjpm build -g` 构建的 cuic。发布 cuic 会显式拒绝这些路径，只保留
+`kmode diff` / `probe diff` 静态冲突检查；发布应用同样不会接受旧环境变量或
+`--kmode-stdio` 注入。
+
 ```bash
 cuic debug [platform] [project] [--device <alias>] [--app <bundle>] [-- <app args...>]
 ```
@@ -29,7 +34,7 @@ cuic prnt [platform] [project] --device <alias> --app <bundle> --output out.jpeg
 ```
 
 - 桌面：`prnt` 构建后直接启动产物，使用 `DesktopCaptureRequest`，不依赖 `cjpm run` 参数转发。
-- 设备：`--device <alias> --app <bundle>` 校验设备与包，当前使用系统截屏 fallback
+- 设备：仅调试 cuic 的 `--device <alias> --app <bundle>` 校验设备与包，当前使用系统截屏 fallback
   （输出标注为 fallback）；渲染面穿透通道待 Harmony 侧实现。
 
 ## ASCII 布局输出
@@ -59,3 +64,5 @@ cuic device list --json
 
 - `cuic help` 提供完整用法与 pview 教程。
 - `cuic doctor [target]` 检查各平台工具链就绪度。
+- 发布前运行 `scripts/verify-privileged-release-exclusion.sh`；macOS 来源、签名与
+  公证门见 `docs/security-and-release.zh-CN.md`。

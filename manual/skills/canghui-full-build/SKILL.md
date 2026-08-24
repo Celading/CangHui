@@ -42,12 +42,20 @@ cjpm test
 (cd sdl && cjpm test)
 (cd tools/cuic && cjpm test && cjpm build)
 bash tools/cuic/scripts/test-cli.sh
+bash scripts/audit-network-control-surface.sh
+bash scripts/verify-privileged-release-exclusion.sh
 python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
 git diff --check
 ```
 
 Record the actual `TOTAL` and `PASSED` counts from each suite; never copy a
 historical count into the receipt.
+
+The release-exclusion gate deliberately builds both release and debug cuic plus
+a dedicated CangHui consumer. Release must refuse kMode/probe execution, pview,
+debug and device capture even when historical environment/argv opt-ins are
+injected; debug must retain the explicit bounded stdio workflow. A source scan
+or a release-only green test is not a substitute for this dual proof.
 
 The CLI smoke creates a disposable application using a local
 `[dependencies].chui` path and `import chui.*`. If that step is not available,
@@ -104,6 +112,38 @@ fallback. It does not prove CangHui scene rendering, a complete HarmonyOS host,
 store packaging, signing, installation, or LTS readiness. Record those facts as
 separate gates.
 
+## Conditional Security And Publisher Gate
+
+When the packet touches kMode, probe execution, cuic debug/capture, channel SPI,
+packaging, signing, release scripts or security claims, also run the debug test
+variants so the positive developer path and the release refusal path are both
+covered:
+
+```bash
+cjpm test -g
+(cd tools/cuic && cjpm test -g)
+```
+
+For a macOS artifact, `cuic package build` remains an unsigned input and its
+receipt is not publisher evidence. Before any listing/publisher claim, build
+every source-owned Cangjie package with the current toolchain's
+`--trimpath <exact-absolute-source-prefix> --strip-all` contract, assemble the
+runtime closure, and run:
+
+```bash
+./scripts/audit-macos-release.sh --candidate /path/To.app
+./scripts/audit-macos-release.sh --publisher /path/To.app
+```
+
+The publisher gate must independently prove Developer ID authority, team id,
+Hardened Runtime, secure timestamp, safe entitlements, Gatekeeper acceptance
+and a stapled notarization ticket. The opt-in
+`scripts/sign-notarize-macos.sh` accepts a signing identity label and Keychain
+notary-profile reference, never raw credentials on argv. If those publisher
+inputs are unavailable, report `source-complete / publisher-incomplete`; do not
+weaken or skip the gate. App Store Connect submission/review remains a separate
+owner receipt.
+
 ## Public Surface Review
 
 The bundled audit script checks Markdown links, internal-path leakage, skill
@@ -125,8 +165,12 @@ Return a compact receipt containing:
 - `cjc` and `cjpm` versions plus host target;
 - build and suite results with actual counts;
 - public-audit and CLI-smoke results;
+- source network/control audit and release/debug privileged-channel replay;
+- release and debug test totals for security/control-plane packets;
 - conditional Scene3D native supply, Metal capture and consumer evidence when
   the packet touches native 3D;
+- macOS candidate/publisher audit results, or the exact external signing,
+  notarization and store gaps;
 - platform/device steps replayed or explicitly not replayed;
 - remaining release, signing, runtime, or consumer gaps.
 

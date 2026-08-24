@@ -1,8 +1,29 @@
 package cuic
 
+@When[debug]
+@Test
+func debugTestBuildCarriesPrivilegedDebugGate(): Unit {
+    @Expect(debugChannelBuildEnabled())
+    @Expect(debugChannelBuildMarker(), "CANGHUI_PRIVILEGED_DEBUG_BUILD=1")
+}
+
+@When[!debug]
+@Test
+func releaseTestBuildRefusesPrivilegedDebugGate(): Unit {
+    @Expect(!debugChannelBuildEnabled())
+    @Expect(debugChannelBuildMarker(), "")
+    var refused = false
+    try {
+        requireDebugChannelBuild("test operation")
+    } catch (error: CuicError) {
+        refused = containsText(error.message, "unavailable in release cuic")
+    }
+    @Expect(refused)
+}
+
 @Test
 func versionCarriesAnHonestBuildIdentity(): Unit {
-    @Expect(renderCuicVersion(), "cuic 0.4.0 (development@unembedded)")
+    @Expect(renderCuicVersion(), "cuic 0.5.0 (development@unembedded)")
 }
 
 @Test

@@ -57,6 +57,9 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
         limitations.add("platform-runtime-packaging-is-separate-from-this-input-tree")
         limitations.add("executable-and-native-runtime-not-included")
     }
+    limitations.add("release-trimpath-and-strip-not-verified")
+    limitations.add("release-security-audit-not-run")
+    limitations.add("publisher-signing-and-notarization-not-run")
     limitations.add("unsigned-artifact")
 
     let receipt = writeApplicationPackagingArtifact(

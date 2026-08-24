@@ -2,6 +2,35 @@
 
 本 changelog 只记录开发者可观察的公开变化。
 
+## 0.14.0 (2026-08-24)
+
+### 安全与发布
+
+- kMode 改为编译调试态专属能力：发布应用会忽略旧环境变量与 argv opt-in，
+  `KModePolicy(enabled: true)` 在发布态强制失效，channel override 与 stdio host
+  同样 fail closed。
+- cuic `0.5.0` 将 `kmode` / `probe` 执行、`pview`、`debug` 与设备捕获收进
+  `-g` 构建门；发布 cuic 只保留 `kmode diff` / `probe diff` 静态检查。
+- 新增源码网络/控制面审计与发布/调试 fixture 双态回放，防止用单一绿测推断
+  release 没有特权入口。
+- 新增 macOS candidate/publisher 审计和可选 Developer ID + Hardened Runtime +
+  安全时间戳 + Keychain-profile 公证流程；危险 entitlement、开发机绝对路径、
+  过大应用符号表、不安全依赖/rpath 与无效公证票据会被拒绝。
+- `cuic package build` receipt 现在明确列出 trim/strip、release security audit 与
+  publisher signing/notarization 尚未验证，避免把无签名输入包宣传成上架包。
+
+### 文档与方法
+
+- 新增中英文安全/发布来源手册，并把源码网络审计、双态控制面回放与 macOS
+  发布者证据链接入仓库全量构建 skill。
+- 修正中文公开面的 Scene3D 能力说明为八类 provider-neutral 语义投影；
+  CangHui Multiplatform / `chui` 是主推广身份，消费者只作为独立验收证据。
+
+### 仍未声称
+
+- 代码签名不能让第三方 fork 无法反编译或二次修改；它让真实发布者产物的替换与
+  注入可识别。App Store Connect 提交、审核、实际发布、生产与 LTS 仍需外部回执。
+
 ## 0.13.0 (2026-08-24)
 
 ### 新增

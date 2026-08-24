@@ -78,7 +78,9 @@ pipeline and copies the resulting executable into `Contents/MacOS`. The bundle
 also contains `Info.plist`, `PkgInfo`, declared resources and logical icon-role
 assets. Keeping the receipt under `Contents/Resources` avoids adding unsealed
 files to the `.app` root when a downstream release gate signs the bundle. The receipt deliberately records that native runtime dependencies are
-still host-managed and that the unsigned bundle has not been launched.
+still host-managed and that the unsigned bundle has not been launched. It also
+records that release trim/strip, the release security audit and publisher
+signing/notarization have not been verified.
 
 Windows and Linux routes are cross-host-safe input generators. They do not
 pretend to cross-compile an executable:
@@ -104,6 +106,11 @@ extension and remain visible as a conversion or provider gate.
 `cuic doctor` reports whether the declaration and all referenced assets are
 ready and whether both packaging schemas are present, but readiness is not
 runtime or release proof.
+
+For the release compiler contract, privileged-channel negative replay,
+Developer ID/Hardened Runtime signing and notarization gates, see
+[Security And Release Provenance](security-and-release.md). An unsigned
+`package build` receipt is never publisher or store evidence.
 
 Mobile hosts use a separate staged receipt because a platform input tree,
 signed package and device replay are different facts. See

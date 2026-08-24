@@ -6,7 +6,7 @@ import std.env.{getCommandLine, getVariable, getVariables}
 import std.fs.{Directory, File, Path, exists, removeIfExists}
 import std.process.{ProcessRedirect, executeWithOutput, launch}
 
-let VERSION = "0.4.0"
+let VERSION = "0.5.0"
 
 class CuicError <: Exception {
     init(message: String) {
@@ -342,7 +342,7 @@ func helpText(): String {
     "  cuic version\n\n" +
     "Project scripts: declare portable lifecycle pipelines in canghui.toml, then run cuic <name>.\n" +
     "prnt builds once, launches the executable directly, and uses DesktopCaptureRequest; it does not rely on cjpm run argument forwarding.\n" +
-    "debug is the explicit debug channel; production builds are the default and never embed the capture service.\n" +
+    "kmode/probe execution, pview, debug, and device capture require a cuic debug build (-g); release cuic refuses them.\n" +
     "pview prints the current CangHui layout as a deterministic ASCII projection from the\n" +
     "  recording-headless Draw IR, without opening a window. Tutorial:\n" +
     "  cuic pview <probe>                       # default 96x32 grid\n" +
@@ -871,7 +871,9 @@ func joinStrings(values: Array<String>, separator: String): String {
     out.toString()
 }
 
+@When[debug]
 func debugCommand(args: Array<String>, start: Int64): Int64 {
+    requireDebugChannelBuild("cuic debug")
     let options = parseDebugOptions(args, start)
     if (options.device.size > 0 || options.app.size > 0) {
         let targets = listHdcTargets()
@@ -894,6 +896,12 @@ func debugCommand(args: Array<String>, start: Int64): Int64 {
     2
 }
 
+@When[!debug]
+func debugCommand(_args: Array<String>, _start: Int64): Int64 {
+    requireDebugChannelBuild("cuic debug")
+    1
+}
+
 func printWindow(args: Array<String>, start: Int64): Int64 {
     let options = parsePrntOptions(args, start)
     if (options.device.size > 0 || options.app.size > 0) {
@@ -902,7 +910,9 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     return printDesktopWindow(options)
 }
 
+@When[debug]
 func printDeviceWindow(options: PrntOptions): Int64 {
+    requireDebugChannelBuild("cuic prnt --device/--app")
     let targets = listHdcTargets()
     if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
         println("cuic prnt: device '${options.device}' is not visible")
@@ -951,6 +961,12 @@ func printDeviceWindow(options: PrntOptions): Int64 {
     }
     println("snapshot (system fallback): ${output}")
     0
+}
+
+@When[!debug]
+func printDeviceWindow(_options: PrntOptions): Int64 {
+    requireDebugChannelBuild("cuic prnt --device/--app")
+    1
 }
 
 func printDesktopWindow(options: PrntOptions): Int64 {

@@ -1,7 +1,7 @@
 # CangHui API 参考
 
 本文记录 `chui` 根包重新导出的 GUI API。几何、渲染、窗口、事件、对话框、输入和系统能力见
-[SDL API 参考](../sdl/docs/api-reference.md)。可选 3D provider 的中立合同、四类语义调试实体和边界见
+[SDL API 参考](../sdl/docs/api-reference.md)。可选 3D provider 的中立合同、八类语义调试实体和边界见
 [Scene3D 语义投影](scene3d.md)。
 
 ## 1. 尺寸单位
@@ -371,4 +371,7 @@ func echo(payload: String): String { payload }
 只接受字符串并返回字符串，应用可在字符串内承载自己的 JSON schema。
 
 `KModeChannelModule` 提供 `connect/send/poll/ack/resumeCursor`。覆写只允许在启用且具有 Admin 能力
-的策略下发生；框架不提供中继 URL、凭据或默认网络实现。
+的策略下发生；框架不提供中继 URL、凭据或默认网络实现。以上执行面仅存在于 `cjpm -g` 调试构建：
+发布构建忽略历史环境变量与 argv opt-in，强制禁用显式 policy，拒绝 channel override，且注册表不
+保存或分派端点。发布版 `cuic` 仍可运行 `kmode diff` 静态重名检查。发布边界与二进制验收命令见
+[安全边界与发布来源证明](security-and-release.zh-CN.md)。

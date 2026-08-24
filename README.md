@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.13.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.13.0" />
+  <img src="https://img.shields.io/badge/version-0.14.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.14.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -102,9 +102,9 @@ scene rendering or application acceptance.
 | Rendering | SDL3-backed desktop renderer, geometry, text, symbols, shadows and gradients | The renderer is a dependency-backed implementation, not a claim about every GPU backend |
 | Scene3D | Provider-neutral sealed snapshots, eight semantic classes, optional entity scale/rotation and a frame camera, plus an optional bgfx4cj driver with a macOS SDL/Metal host | Bounded low-poly geometry is proven; product models, meshes, materials, picking, an embedded view and other-host runtime proof remain separate gates |
 | Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
-| Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
-| Packaging | `cuic init`, manifest validation, deterministic plans, unsigned macOS `.app` generation, Windows resource inputs, Linux desktop inputs, dependency cache/lock discipline and doctor | Self-contained native runtime closure, signing, notarization, MSIX/store publication and non-macOS host launch remain platform gates |
-| Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, signed-package evidence, installation-attempt receipts and kMode callback replay | CangHui does not execute signers, verifiers or installers; installation receipts remain platform-owner attestations, while launch, rendering, device replay and consumer acceptance stay separate gates |
+| Inspection | debug-build-only `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Release applications and release cuic refuse privileged inspection; reports prove semantics and geometry, not a full device UI acceptance |
+| Packaging | `cuic init`, manifest validation, deterministic unsigned inputs, release-exclusion and network audits, plus opt-in macOS Developer ID/notarization gates | Runtime closure and publisher credentials remain owner inputs; App Store/MSIX publication and non-macOS host launch remain separate gates |
+| Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, signed-package evidence, installation-attempt receipts and debug-only kMode callback replay | Platform signers/installers are never run implicitly; installation receipts remain platform-owner attestations, while launch, rendering, device replay and consumer acceptance stay separate gates |
 
 ## Quick Start
 
@@ -260,9 +260,10 @@ framework development, but it is not the normal application layout.
 - `cuic init` / `build` / `test` / `run` with per-platform preparation
 - `cuic doctor` for grouped Cangjie, repository, SDL, macOS, Windows, Linux,
   iOS, HarmonyOS, Android, font, Symbol, kMode, and probe readiness
-- `cuic kmode` for debug/supervised headless invocation without opening a window
-- `cuic probe` for deterministic component/function/event/animation and Draw IR
-  reports without a window
+- debug-built `cuic kmode` for supervised headless invocation without opening a
+  window; release cuic keeps only `kmode diff` and refuses execution
+- debug-built `cuic probe` / `pview` for deterministic component/function/event/
+  animation and Draw IR reports; release cuic keeps only `probe diff`
 - `cuic symbol` for declared provider subsets and generation
 - `cuic font` for font preparation and registration
 - `cuic prnt` for deterministic settled-frame screenshots
@@ -271,6 +272,10 @@ framework development, but it is not the normal application layout.
 
 Doctor status model and JSON contract:
 [`docs/doctor.md`](docs/doctor.md).
+
+The release/debug control-plane boundary, reverse-engineering limits, compiler
+trim/strip contract and macOS Developer ID/notarization evidence chain are in
+[`docs/security-and-release.md`](docs/security-and-release.md).
 
 ## Components, Gallery, and Packages
 

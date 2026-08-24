@@ -118,6 +118,12 @@ return a nonzero status.
 
 ## CLI
 
+Probe execution is a compiler-debug-only developer surface. Build cuic and the
+consumer with `-g`; release cuic refuses `list`, `describe`, `run`, `ascii` and
+`pview`, while `probe diff` remains available as a static source collision
+check. Release applications ignore the historical kMode environment/argv
+entry. See [Security And Release Provenance](security-and-release.md).
+
 ```bash
 ./tools/cuic/bin/cuic probe diff component-gallery
 ./tools/cuic/bin/cuic probe list component-gallery --json
