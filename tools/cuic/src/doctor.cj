@@ -1136,10 +1136,36 @@ func renderDoctorJson(result: DoctorResult, verbose: Bool): String {
 
 func doctorSafeEvidence(value: String): String {
     var safe = value
-    for (name in ["TOKEN", "PASSWORD", "SECRET", "CREDENTIAL", "AUTHORIZATION"]) {
+    for (name in [
+        "TOKEN", "PASSWORD", "PASSWD", "SECRET", "CREDENTIAL",
+        "AUTHORIZATION", "API_KEY", "ACCESS_KEY", "PRIVATE_KEY", "BEARER",
+        "COOKIE"
+    ]) {
         if (containsText(asciiUpperText(safe), name)) { return "redacted" }
     }
+    if (containsText(safe, "://") && containsText(safe, "@")) {
+        return "redacted"
+    }
+    if (doctorEvidenceContainsAbsolutePath(safe)) { return "redacted" }
+    for (name in ["USER", "USERNAME", "LOGNAME", "HOME", "USERPROFILE"]) {
+        match (getVariable(name)) {
+            case Some(identity) where identity.size >= 3 && containsText(safe, identity) =>
+                return "redacted"
+            case _ => ()
+        }
+    }
     safe
+}
+
+func doctorEvidenceContainsAbsolutePath(value: String): Bool {
+    for (part in value.split(" ")) {
+        let candidate = trimAscii(part)
+        if (startsWithText(candidate, "/") || isWindowsAbsolute(candidate) ||
+            containsText(candidate, "=/") || containsText(candidate, "=\\")) {
+            return true
+        }
+    }
+    false
 }
 
 func asciiLowerText(value: String): String {

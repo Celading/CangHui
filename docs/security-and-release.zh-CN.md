@@ -21,6 +21,11 @@ channel interface 是传输中立 SPI，不是隐藏隧道。未来远端 module
 claim 校验、身份绑定、防重放、能力分域、限速/缓冲与敏感信息脱敏，并重新通过
 平台安全审查。local、loopback 或设备转发都不能充当认证。
 
+cuic 也把宿主执行和诊断信息移出 shell 文本边界。Windows 构建会把 `cjpm` 参数
+和环境分开传给进程 API，项目输入中的 `cmd.exe` 元字符不会被展开成第二条命令；
+verbose doctor 证据会保守遮盖绝对宿主路径、带凭据 URL、secret/key/token/cookie
+形态和本机身份值。
+
 源码与二进制门必须同时执行：
 
 ```bash

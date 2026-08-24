@@ -94,6 +94,26 @@ func windowsAbsolutePathsAreRecognized(): Unit {
 }
 
 @Test
+func windowsCjpmUsesLiteralArgvAndEnvironmentWithoutCmdExpansion(): Unit {
+    let environment = windowsCjpmEnvironment(
+        "C:\\sdk&echo injected\\sdl",
+        "C:\\fonts\\Harmony%PATH%.ttf"
+    )
+    let pathValue = environment.get("PATH") ?? ""
+    let fontValue = environment.get("CANGHUI_HARMONYOS_SANS") ?? ""
+    @Expect(startsWithText(pathValue, "C:\\sdk&echo injected\\sdl;"))
+    @Expect(fontValue, "C:\\fonts\\Harmony%PATH%.ttf")
+
+    let args = cjpmArgsWithTarget(
+        ["build", "--name", "demo & echo injected", "%UNTRUSTED%"],
+        "C:\\target|next"
+    )
+    @Expect(args[2], "demo & echo injected")
+    @Expect(args[3], "%UNTRUSTED%")
+    @Expect(args[5], "C:\\target|next")
+}
+
+@Test
 func harmonyFontCandidatesPreferInstalledMacFont(): Unit {
     let candidates = installedHarmonyFontCandidates("macos", "/Users/demo")
     @Expect(candidates[0], "/Users/demo/Library/Fonts/HarmonyOS_Sans_SC.ttf")

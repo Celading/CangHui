@@ -43,6 +43,22 @@ func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
 }
 
 @Test
+func doctorVerboseEvidenceRedactsPathsCredentialsAndIdentity(): Unit {
+    @Expect(doctorSafeEvidence("cjc 1.1.3"), "cjc 1.1.3")
+    @Expect(doctorSafeEvidence("/Users/alice/sdk/bin/cjc | 1.1.3"), "redacted")
+    @Expect(doctorSafeEvidence("C:\\Users\\alice\\sdk\\cjc.exe | 1.1.3"), "redacted")
+    @Expect(doctorSafeEvidence("https://alice:password@example.invalid/sdk"), "redacted")
+    @Expect(doctorSafeEvidence("Authorization: Bearer exposed"), "redacted")
+
+    let group = DoctorGroup("safe", "Safe", "all", [
+        doctorReady("safe.path", "Path", "ok", "/home/alice/private/tool")
+    ])
+    let json = renderDoctorJson(DoctorResult("macos", "arm64", "macos", [group]), true)
+    @Expect(json.contains("\"evidence\":\"redacted\""))
+    @Expect(!json.contains("alice"))
+}
+
+@Test
 func doctorIosReportsBootstrapAndNativeSurfaceAdapter(): Unit {
     let framework = tryResolveFrameworkRoot(currentDirectory())
     let checks = doctorIosFrameworkChecks(framework)

@@ -3,7 +3,7 @@ package cuic
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
 import std.env.{getCommandLine, getVariable, getVariables}
-import std.fs.{Directory, File, Path, exists, removeIfExists}
+import std.fs.{Directory, File, Path, canonicalize, exists, removeIfExists}
 import std.process.{ProcessRedirect, executeWithOutput, launch}
 
 let VERSION = "0.5.0"
@@ -381,14 +381,11 @@ func normalizePlatform(value: String): String {
 }
 
 func currentDirectory(): String {
-    if (hostPlatform() == "windows") {
-        let (code, out, _) = executeWithOutput("cmd", ["/D", "/C", "cd"])
-        if (code == 0) { return trimAscii(String.fromUtf8(out)) }
-    } else {
-        let (code, out, _) = executeWithOutput("pwd", [])
-        if (code == 0) { return trimAscii(String.fromUtf8(out)) }
+    try {
+        return canonicalize(".").toString()
+    } catch (_: Exception) {
+        throw CuicError("cannot resolve current directory")
     }
-    throw CuicError("cannot resolve current directory")
 }
 
 func frameworkForCurrentCommand(): String {
@@ -577,8 +574,12 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
     let font = runtimeHarmonyFont(context.framework)
     let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, font, targetArgs)
-        return executeCommand("cmd", ["/D", "/C", command], context.project)
+        return executeCommandWithEnvironment(
+            "cjpm",
+            targetArgs,
+            context.project,
+            windowsCjpmEnvironment(sdl, font)
+        )
     }
     let args = ArrayList<String>()
     if (hostPlatform() == "macos") {
@@ -597,8 +598,13 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
     let font = runtimeHarmonyFont(context.framework)
     let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, font, targetArgs)
-        return executeCommandQuiet("cmd", ["/D", "/C", command], context.project)
+        return executeCommandWithEnvironment(
+            "cjpm",
+            targetArgs,
+            context.project,
+            windowsCjpmEnvironment(sdl, font),
+            quiet: true
+        )
     }
     let args = ArrayList<String>()
     if (hostPlatform() == "macos") {
@@ -640,6 +646,39 @@ func executeCommandQuiet(program: String, args: Array<String>, workingDirectory:
         println("error: failed to execute ${program}: ${e.message}")
         127
     }
+}
+
+func executeCommandWithEnvironment(
+    program: String,
+    args: Array<String>,
+    workingDirectory: String,
+    environment: HashMap<String, String>,
+    quiet!: Bool = false
+): Int64 {
+    try {
+        let output = if (quiet) { ProcessRedirect.Discard } else { ProcessRedirect.Inherit }
+        let process = launch(
+            program,
+            args,
+            workingDirectory: Path(workingDirectory),
+            environment: environment,
+            stdIn: ProcessRedirect.Inherit,
+            stdOut: output,
+            stdErr: output
+        )
+        process.wait()
+    } catch (e: Exception) {
+        println("error: failed to execute ${program}: ${e.message}")
+        127
+    }
+}
+
+func windowsCjpmEnvironment(sdl: String, font: String): HashMap<String, String> {
+    let environment = HashMap<String, String>()
+    for ((key, value) in getVariables()) { environment.add(key, value) }
+    environment.add("PATH", "${sdl};${readEnv("PATH")}")
+    environment.add("CANGHUI_HARMONYOS_SANS", font)
+    environment
 }
 
 func resolveHarmonyFont(platform: String): String {
@@ -1165,13 +1204,6 @@ func convertToBmp(source: String, output: String): Int64 {
     if (programAvailable("magick")) { return executeCommand("magick", [source, output], currentDirectory()) }
     if (programAvailable("convert")) { return executeCommand("convert", [source, output], currentDirectory()) }
     throw CuicError("BMP output requires magick or convert; request .jpeg or .png instead")
-}
-
-func windowsCjpmCommand(sdl: String, font: String, args: Array<String>): String {
-    let out = StringBuilder()
-    out.append("set \"PATH=${sdl};%PATH%\" && set \"CANGHUI_HARMONYOS_SANS=${font}\" && cjpm")
-    for (arg in args) { out.append(" \"${arg}\"") }
-    out.toString()
 }
 
 func runtimeHarmonyFont(framework: String): String {

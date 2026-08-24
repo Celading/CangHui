@@ -26,6 +26,12 @@ rate/buffer limits and secret redaction, then pass a separate native-platform
 security review. Locality, loopback and a device forward are not
 authentication.
 
+cuic also keeps host execution and diagnostics out of the shell-text boundary.
+Windows build arguments and environment are passed separately to `cjpm`, so
+project-controlled `cmd.exe` metacharacters are not expanded as a second
+command. Verbose doctor evidence conservatively redacts absolute host paths,
+credential-bearing URLs, secret/key/token/cookie shapes and local identities.
+
 Run both source and binary gates:
 
 ```bash

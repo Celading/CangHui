@@ -18,6 +18,9 @@
   过大应用符号表、不安全依赖/rpath 与无效公证票据会被拒绝。
 - `cuic package build` receipt 现在明确列出 trim/strip、release security audit 与
   publisher signing/notarization 尚未验证，避免把无签名输入包宣传成上架包。
+- Windows 构建不再拼接 `cmd.exe` 命令字符串；`cjpm`、参数和环境通过进程 API
+  分离传递，`&|%` 等元字符保持字面量。`doctor --verbose` 会保守遮盖绝对路径、
+  凭据 URL、secret/key/token/cookie 形态与本机身份值。
 
 ### 文档与方法
 
