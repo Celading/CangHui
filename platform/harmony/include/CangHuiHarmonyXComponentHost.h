@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define CANGHUI_HARMONY_XCOMPONENT_HOST_ABI_VERSION 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
