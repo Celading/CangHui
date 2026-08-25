@@ -19,6 +19,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Button`](Button.md) | 带主题表面的按压按钮，既可使用居中标题，也可承载任意装饰性内容 slot。 |
 | [`ButtonStyle`](ButtonStyle.md) | 按 hover、press、focus 与语义角色解析 Button/IconButton 外观的状态样式。 |
 | [`ComponentControlStyle`](ComponentControlStyle.md) | 按选择/展开、hover、press 与 focus 解析 Chip、Checkbox、Dropdown 和 Accordion header 外观。 |
+| [`ContentRow`](ContentRow.md) | 三槽信息行：两端按内容收缩，中间内容获得剩余宽度，并提供可用的默认 padding 与最小高度。 |
 | [`DerivedState`](DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
 | [`Divider`](Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
 | [`EventHandler`](EventHandler.md) | 在子树收到事件之前先把每个事件交给回调的透明包装组件，回调返回 `true` 即消费该事件。 |

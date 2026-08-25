@@ -65,4 +65,4 @@ cuic device list --json
 - `cuic help` 提供完整用法与 pview 教程。
 - `cuic doctor [target]` 检查各平台工具链就绪度。
 - 发布前运行 `scripts/verify-privileged-release-exclusion.sh`；macOS 来源、签名与
-  公证门见 `docs/security-and-release.zh-CN.md`。
+  公证门见 [`manual/reference/security-and-release.zh-CN.md`](../reference/security-and-release.zh-CN.md)。

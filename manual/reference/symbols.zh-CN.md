@@ -49,7 +49,7 @@ canghui_symbol_arco = { path = "../CangHui/packages/symbol-arco" }
 
 在第一次解析 `Symbol` 之前，于应用启动阶段调用一次 `registerCangHuiSymbols()`。生成文件只包含声明过的注册项，也只导入选中的 Provider 包。标准名重复或跨 Provider 导出名冲突会在写入源码前失败。
 
-Provider 目录必须通过校验，才能向生成的仓颉源码提供 import 或类型名。Symbol 名、变体与源码路径也使用受限语法。机器可读目录与生成回执由 [`canghui-symbol-v0.schema.json`](../contracts/canghui-symbol-v0.schema.json) 定义。
+Provider 目录必须通过校验，才能向生成的仓颉源码提供 import 或类型名。Symbol 名、变体与源码路径也使用受限语法。机器可读目录与生成回执由 [`canghui-symbol-v0.schema.json`](../../contracts/canghui-symbol-v0.schema.json) 定义。
 
 ## 解析规则
 

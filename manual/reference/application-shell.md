@@ -82,7 +82,7 @@ actions fail closed.
 | `unsupported` | The current host/provider cannot provide the surface. |
 
 The public contract is recorded in
-[`canghui-application-shell-v0.json`](../contracts/canghui-application-shell-v0.json).
+[`canghui-application-shell-v0.json`](../../contracts/canghui-application-shell-v0.json).
 Project-side identity and logical assets are declared in `canghui.toml`; see
 the [application packaging guide](application-packaging.md) for validation,
 deterministic planning and unsigned macOS, Windows and Linux artifact inputs.

@@ -63,7 +63,7 @@ written.
 Provider catalogs are validated before they can contribute generated Cangjie
 imports or type names. Symbol names, variants, and source paths also use a
 restricted grammar. The machine-readable catalog and generation receipts are
-defined by [`canghui-symbol-v0.schema.json`](../contracts/canghui-symbol-v0.schema.json).
+defined by [`canghui-symbol-v0.schema.json`](../../contracts/canghui-symbol-v0.schema.json).
 
 ## Resolution
 

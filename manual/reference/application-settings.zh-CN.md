@@ -36,4 +36,4 @@ secure 存储状态。`HeadlessSettingsProvider` 用于 kMode、CI 和不支持�
 storage 或其他原生持久化后端。
 
 公开契约见
-[`canghui-application-settings-v0.schema.json`](../contracts/canghui-application-settings-v0.schema.json)。
+[`canghui-application-settings-v0.schema.json`](../../contracts/canghui-application-settings-v0.schema.json)。

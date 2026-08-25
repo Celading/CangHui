@@ -47,7 +47,7 @@ This makes the following pattern suitable for CI:
 ```
 
 The JSON document follows
-[`canghui.doctor.v0`](../contracts/canghui-doctor-v0.schema.json). Without
+[`canghui.doctor.v0`](../../contracts/canghui-doctor-v0.schema.json). Without
 `--verbose`, every `evidence` field is an empty string. Verbose mode may include
 tool versions and filesystem locations, but signing identities and connected
 device identities are summarized rather than emitted.

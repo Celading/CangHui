@@ -56,7 +56,7 @@ chui = { git = "https://github.com/Celading/CangHui.git", commitId = "<reviewed-
 
 `cuic dependency update` 是显式的依赖状态修改步骤：它让 CJPM 按经过检查的 manifest pin 解析依赖，把 Git 源码保存在配置的用户缓存中（通常是 `$HOME/.cjpm/git`），并把解析结果写入 `cjpm.lock`。后续构建类命令只复用该缓存；缺少 lock 或 CangHui commit 与 manifest 不一致时会直接失败，不会隐式运行 `cjpm update`。应用应提交 `cjpm.lock`，只有在有意刷新依赖解析结果时才重新执行该显式命令。
 
-在 macOS 上，`cuic` 会在编译前把已安装的 Homebrew SDL3 与 SDL3_ttf 动态库复制到解析后的 CangHui 缓存，并在应用运行时提供匹配的动态库搜索路径和随包 HarmonyOS Sans 路径。Linux 使用 `pkg-config`，Windows 使用框架声明的 DLL 接口。适配尚未完成时，以平台 doctor 输出为准。
+在 macOS 上，`cuic` 会把已安装的 Homebrew SDL3 与 SDL3_ttf 动态库复制到按“已解析 CangHui 根”隔离的暂存缓存，并同时提供编译期 `LIBRARY_PATH` 与运行期动态库路径，不修改 CJPM 源码 checkout。Linux 使用 `pkg-config`，Windows 使用框架声明的 DLL 接口。适配尚未完成时，以平台 doctor 输出为准。
 
 ## 本地开发框架
 
@@ -66,7 +66,7 @@ chui = { git = "https://github.com/Celading/CangHui.git", commitId = "<reviewed-
 cuic init HelloCangHuiDev --canghui-path ../CangHui
 ```
 
-`CANGHUI_FRAMEWORK_ROOT` 也可以作为单次命令的显式覆盖。旧名称 `CANGUI_FRAMEWORK_ROOT` 仅为兼容保留。
+`CANGHUI_FRAMEWORK_ROOT` 可覆盖没有消费者依赖归属的单次命令。对于已经初始化的应用，manifest/lock 必须保持权威，因为 CJPM 最终链接的是该声明源码；应用要构建本地框架时应使用 `--canghui-path`。旧名称 `CANGUI_FRAMEWORK_ROOT` 仅为兼容保留。
 
 ## 范围
 

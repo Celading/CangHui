@@ -207,7 +207,7 @@ opening a window.
 
 The scanner follows recursive local path dependencies plus the resolved framework cache and reports every duplicate source location before the
 child build. Macro-generated symbols and the runtime registry remain fail-closed backstops. See
-[`docs/probe.md`](../../docs/probe.md) for annotation, scripting, assertion, and report details.
+[`manual/reference/probe.md`](../../manual/reference/probe.md) for annotation, scripting, assertion, and report details.
 
 ## Platform Matrix
 
@@ -222,7 +222,7 @@ child build. Macro-generated symbols and the runtime registry remain fail-closed
 
 The CLI intentionally rejects unconfigured cross-host builds and unsupported Android execution.
 `doctor` always displays every platform group, while its exit status considers only global checks and the
-requested target. See [`docs/doctor.md`](../../docs/doctor.md) for status, JSON schema, privacy, and CI behavior.
+requested target. See [`manual/reference/doctor.md`](../../manual/reference/doctor.md) for status, JSON schema, privacy, and CI behavior.
 
 ## Fonts
 
@@ -243,7 +243,7 @@ Recommended macOS installation:
 applications after installation. Users may instead open the TTF with Font Book or copy it into `~/Library/Fonts/`.
 
 Component, Theme, application, bundled, and system fallback behavior is documented in
-[`docs/fonts.md`](../../docs/fonts.md).
+[`manual/reference/fonts.md`](../../manual/reference/fonts.md).
 
 ## Symbols
 
@@ -261,7 +261,7 @@ catalogs and writes a declared-subset registry for an application:
 Generated export names must be unique across providers. Alias-equivalent
 canonical duplicates are rejected. Provider packages remain optional and the
 complete upstream icon collections are not bundled. See
-[`docs/symbols.md`](../../docs/symbols.md) for registration and fallback rules.
+[`manual/reference/symbols.md`](../../manual/reference/symbols.md) for registration and fallback rules.
 
 The CLI-owned font is distributed unmodified under the
 [HarmonyOS Sans Fonts License Agreement](../../assets/fonts/HARMONYOS_SANS_LICENSE.txt). Its upstream package source is:

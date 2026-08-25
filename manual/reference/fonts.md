@@ -69,4 +69,4 @@ the tier actually selected for that string. The recording renderer includes
 ```
 
 The stable machine-readable contract is
-[`canghui.font-resolution.v0`](../contracts/canghui-font-resolution-v0.json).
+[`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json).

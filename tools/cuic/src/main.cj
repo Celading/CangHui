@@ -6,7 +6,7 @@ import std.env.{getCommandLine, getVariable, getVariables}
 import std.fs.{Directory, File, Path, canonicalize, exists, removeIfExists}
 import std.process.{ProcessRedirect, executeWithOutput, launch}
 
-let VERSION = "0.5.0"
+let VERSION = "0.6.0"
 
 class CuicError <: Exception {
     init(message: String) {
@@ -415,17 +415,13 @@ func cliRoot(): String {
 }
 
 func resolveFrameworkRoot(project: String): String {
-    let integrated = integratedFrameworkRoot()
-    if (integrated.size > 0) {
-        return integrated
-    }
-    for (name in ["CANGHUI_FRAMEWORK_ROOT", "CANGUI_FRAMEWORK_ROOT"]) {
-        match (getVariable(name)) {
-            case Some(value) where value.size > 0 => return validateFramework(value)
-            case _ => ()
-        }
-    }
+    // A consumer's declared dependency owns build-time package and native-runtime
+    // resolution. An integrated development checkout must not shadow the exact
+    // Git revision that CJPM will actually link.
     if (project.size > 0 && exists(joinPath(project, "cjpm.toml"))) {
+        if (frameworkRootCandidate(project)) {
+            return trimTrailingSlash(project)
+        }
         let spec = frameworkDependencySpec(project)
         if (spec.isLocal()) {
             let dependency = if (startsWithText(spec.path, "/") || isWindowsAbsolute(spec.path)) {
@@ -435,9 +431,20 @@ func resolveFrameworkRoot(project: String): String {
             }
             return validateFramework(dependency)
         }
-        let cached = cachedFrameworkRoot(project)
-        if (!cached.isEmpty()) {
-            return cached
+        if (spec.isGit()) {
+            let cached = cachedFrameworkRoot(project)
+            if (!cached.isEmpty()) { return cached }
+            throw CuicError("The locked CangHui dependency is not available in the CJPM cache")
+        }
+    }
+    let integrated = integratedFrameworkRoot()
+    if (integrated.size > 0) {
+        return integrated
+    }
+    for (name in ["CANGHUI_FRAMEWORK_ROOT", "CANGUI_FRAMEWORK_ROOT"]) {
+        match (getVariable(name)) {
+            case Some(value) where value.size > 0 => return validateFramework(value)
+            case _ => ()
         }
     }
     let parent = parentPath(cliRoot())
@@ -582,6 +589,7 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
         )
     }
     let args = ArrayList<String>()
+    args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
     } else {
@@ -607,6 +615,7 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
         )
     }
     let args = ArrayList<String>()
+    args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
     } else {
@@ -616,6 +625,14 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
     args.add("cjpm")
     for (arg in targetArgs) { args.add(arg) }
     executeCommandQuiet("/usr/bin/env", args.toArray(), context.project)
+}
+
+func nativeLinkSearchAssignment(sdl: String, current: String): String {
+    if (current.isEmpty()) {
+        "LIBRARY_PATH=${sdl}"
+    } else {
+        "LIBRARY_PATH=${sdl}:${current}"
+    }
 }
 
 func executeCommand(program: String, args: Array<String>, workingDirectory: String): Int64 {

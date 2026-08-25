@@ -275,6 +275,18 @@ public class Button <: Widget {
         interactionSurface.focusableId()
     }
 
+    /**
+     * Buttons may fill a column's width, but a tall horizontal row must not enlarge
+     * their hit target by accident. `.height(...)` and `.fillHeight()` remain explicit
+     * opt-ins through the normal modifier layer.
+     */
+    public func acceptsStretch(axis: Axis): Bool {
+        match (axis) {
+            case Axis.Horizontal => true
+            case Axis.Vertical => false
+        }
+    }
+
     private func buttonAppearance(ctx: UiContext, state: ButtonVisualState): ButtonAppearance {
         resolveButtonAppearance(ctx.theme, buttonRole, state,
             styleOverride: customButtonStyle, surfaceOverride: customStyle)

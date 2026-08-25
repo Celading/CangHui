@@ -68,10 +68,10 @@ resolved commit to `cjpm.lock`. Later build-like commands reuse that cache and f
 or its CangHui commit differs from the manifest; they never run `cjpm update` implicitly. Commit `cjpm.lock`
 with the application and rerun the explicit command only when intentionally refreshing dependency resolution.
 
-On macOS, `cuic` copies the installed Homebrew SDL3 and SDL3_ttf libraries into the resolved CangHui cache before
-compilation and supplies the matching runtime path and bundled HarmonyOS Sans path while the application runs.
-Linux uses `pkg-config`; Windows uses the framework's declared DLL surface. Platform doctor output remains the
-authority for incomplete adapters.
+On macOS, `cuic` copies the installed Homebrew SDL3 and SDL3_ttf libraries into a staging cache keyed by the
+resolved CangHui root. It supplies that directory through both the compile-time `LIBRARY_PATH` and runtime
+dynamic-library path, without modifying the CJPM source checkout. Linux uses `pkg-config`; Windows uses the
+framework's declared DLL surface. Platform doctor output remains the authority for incomplete adapters.
 
 ## Local Framework Development
 
@@ -81,8 +81,10 @@ Use an explicit path only when modifying CangHui itself or working offline with 
 cuic init HelloCangHuiDev --canghui-path ../CangHui
 ```
 
-`CANGHUI_FRAMEWORK_ROOT` is also an explicit command-level override. The older `CANGUI_FRAMEWORK_ROOT` name is
-retained for compatibility.
+`CANGHUI_FRAMEWORK_ROOT` is also an explicit command-level override for commands without an owning consumer
+dependency. An initialized consumer's manifest/lock remains authoritative because CJPM will link that declared
+source; use `--canghui-path` when the application itself must build a local framework checkout. The older
+`CANGUI_FRAMEWORK_ROOT` name is retained for compatibility.
 
 ## Scope
 

@@ -37,7 +37,7 @@
 ./tools/cuic/bin/cuic doctor macos --json > doctor.json
 ```
 
-JSON 文档遵循 [`canghui.doctor.v0`](../contracts/canghui-doctor-v0.schema.json)。未使用 `--verbose` 时，每个 `evidence` 字段都是空字符串。详细模式可能包含工具版本和文件系统位置，但签名身份与已连接设备只会输出摘要，不会直接暴露完整身份。
+JSON 文档遵循 [`canghui.doctor.v0`](../../contracts/canghui-doctor-v0.schema.json)。未使用 `--verbose` 时，每个 `evidence` 字段都是空字符串。详细模式可能包含工具版本和文件系统位置，但签名身份与已连接设备只会输出摘要，不会直接暴露完整身份。
 
 新报告会在稳定的 `cliVersion` 旁增加 `cliProvenance`。其中 `channel` 为
 `development`、`local-source` 或 `release`；安装产物的 `revision` 是精确 Git

@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="仓颉" />
-  <img src="https://img.shields.io/badge/version-0.14.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.14.0" />
+  <img src="https://img.shields.io/badge/version-0.15.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.15.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
@@ -141,7 +141,7 @@ main() {
 }
 ```
 
-完整的缓存、锁定与本地覆盖规则见[轻量消费工作流](docs/consumer-workflow.zh-CN.md)。
+完整的缓存、锁定与本地覆盖规则见[轻量消费工作流](manual/reference/consumer-workflow.zh-CN.md)。
 
 对应用开发者而言，理想形态很小：依赖 `chui`、安装 `cuic`，再由工具生成
 工程骨架。完整框架 checkout 适合框架开发，但不应成为普通应用的目录结构。
@@ -150,7 +150,7 @@ main() {
 
 - 基于 SDL3 的自渲染 GUI 引擎，使用 GPU 几何图元与超采样渲染圆角、描边、图标、阴影与渐变。
 - 基于仓颉尾随 lambda、`extend`、`prop` 的声明式 UI 编码范式。
-- 布局容器：`VStack`、`HStack`、`ZStack`、`Grid`、`Panel`、`FlowRow`、`ScrollView`、
+- 布局容器：`VStack`、`HStack`、`ContentRow`、`ZStack`、`Grid`、`Panel`、`FlowRow`、`ScrollView`、
   `SplitView`、`Accordion`、动画折叠容器 `Reveal`，以及视口聚焦的懒加载容器
   `LazyColumn`、`LazyRow`、`LazyList`、`LazyGrid`。
 - 控件：按钮、文本框、开关、复选框、单选、选择器、步进器、滑块、进度条、环形进度、评分、
@@ -201,11 +201,11 @@ main() {
   （限定在既有 cuic 动作内）
 
 doctor 状态模型与 JSON 契约见
-[`docs/doctor.zh-CN.md`](docs/doctor.zh-CN.md)。
+[`manual/reference/doctor.zh-CN.md`](manual/reference/doctor.zh-CN.md)。
 
 发布/调试控制面边界、反编译能力边界、trim/strip 编译契约与 macOS
 Developer ID/公证证据链见
-[`docs/security-and-release.zh-CN.md`](docs/security-and-release.zh-CN.md)。
+[`manual/reference/security-and-release.zh-CN.md`](manual/reference/security-and-release.zh-CN.md)。
 
 ## 组件、Gallery 与包
 
@@ -320,17 +320,18 @@ CangHui 运行时能力声明。
 
 - [公开手册与版本记录](manual/index.md)
 - [示例应用](examples/)
-- [入门指南](docs/guide/index.md)
-- [API 文档](docs/api/index.md)
-- [架构说明](docs/architecture.md)
-- [轻量消费工作流](docs/consumer-workflow.zh-CN.md)
-- [多平台 Doctor](docs/doctor.zh-CN.md)
-- [Symbol 与可选图标 Provider](docs/symbols.zh-CN.md)
-- [字体](docs/fonts.zh-CN.md)
-- [Scene3D 语义投影](docs/scene3d.md)
-- [Probe 与 kMode](docs/probe.zh-CN.md)
-- [SDL3 Apple 宿主说明](docs/sdl3-apple-host.zh-CN.md)
-- [现代 GUI 核心范式洞察辨析](docs/modern-GUI-insights-and-analysis.md)
+- [手册首页](manual/index.md)
+- [入门指南](manual/guide/index.md)
+- [API 文档](manual/api/index.md)
+- [架构说明](manual/reference/architecture.md)
+- [轻量消费工作流](manual/reference/consumer-workflow.zh-CN.md)
+- [多平台 Doctor](manual/reference/doctor.zh-CN.md)
+- [Symbol 与可选图标 Provider](manual/reference/symbols.zh-CN.md)
+- [字体](manual/reference/fonts.zh-CN.md)
+- [Scene3D 语义投影](manual/reference/scene3d.md)
+- [Probe 与 kMode](manual/reference/probe.zh-CN.md)
+- [SDL3 Apple 宿主说明](manual/reference/sdl3-apple-host.zh-CN.md)
+- [现代 GUI 核心范式洞察辨析](manual/reference/modern-GUI-insights-and-analysis.md)
 
 ## 许可证
 

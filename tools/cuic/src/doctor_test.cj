@@ -28,6 +28,14 @@ func doctorStatusOnlyCountsRequestedTargetBlockers(): Unit {
 }
 
 @Test
+func doctorMacosRuntimeProviderAcceptsAnExistingStagingLibrary(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let check = doctorMacosRuntimeProvider("macos", "macos.sdl3", "SDL3 provider",
+        joinPath(framework, "sdl/.sdl3/libSDL3.dylib"), "sdl3")
+    @Expect(doctorStatusName(check.status), "ready")
+}
+
+@Test
 func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     let group = DoctorGroup("toolchain", "Toolchain", "all", [
         doctorDegraded("toolchain.sample", "Sample", "needs work", DoctorActionKind.Manual, "repair it", "/tmp/tool")
@@ -35,7 +43,7 @@ func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     let result = DoctorResult("macos", "arm64", "macos", [group])
     let json = renderDoctorJson(result, false)
     @Expect(json.contains("\"schema\":\"canghui.doctor.v0\""))
-    @Expect(json.contains("\"cliVersion\":\"0.5.0\""))
+    @Expect(json.contains("\"cliVersion\":\"0.6.0\""))
     @Expect(json.contains("\"cliProvenance\":{\"channel\":\"development\",\"revision\":\"unembedded\"}"))
     @Expect(json.contains("\"status\":\"degraded\""))
     @Expect(json.contains("\"kind\":\"manual\""))

@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.14.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.14.0" />
+  <img src="https://img.shields.io/badge/version-0.15.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.15.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -162,7 +162,7 @@ focus, keyboard, release-inside and move-out cancellation contract:
 ```cangjie
 Button(onClick: {=> openWorkspace()}, role: ButtonRole.Primary) {
     HStack(spacing: 8.vp) {
-        Icon(IconName.Folder)
+        Icon(IconName.OpenFolder)
         VStack(spacing: 2.vp) {
             Label("Open workspace").bold()
             Label("Local or remote").muted().fontSize(12.fp)
@@ -192,7 +192,7 @@ Primitive controls follow the same headless contract. `IconButton`, `Switch`,
 their action owner, keyboard shortcut and current value/selection state;
 `accessibilityLabel` supplies a stable name for icon-only or value-only faces.
 
-See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
+See [consumer workflow](manual/reference/consumer-workflow.md) for cache, lock, and local
 override rules.
 
 The intended consumer shape is small: depend on `chui`, install `cuic`, and let
@@ -204,7 +204,7 @@ framework development, but it is not the normal application layout.
 - Self-rendered GUI engine on SDL3 with GPU geometry, supersampled anti-aliasing,
   rounded corners, strokes, icons, shadows, and gradient fills.
 - Declarative UI built on Cangjie trailing lambdas, `extend`, and `prop`.
-- Layout containers: `VStack`, `HStack`, `ZStack`, `Grid`, `Panel`, `FlowRow`,
+- Layout containers: `VStack`, `HStack`, `ContentRow`, `ZStack`, `Grid`, `Panel`, `FlowRow`,
   `ScrollView`, `SplitView`, `Accordion`, animated `Reveal`, and viewport-focused
   lazy containers `LazyColumn`, `LazyRow`, `LazyList`, and `LazyGrid`.
 - Controls: buttons, text fields, switches, checkboxes, radio buttons, pickers,
@@ -271,11 +271,11 @@ framework development, but it is not the normal application layout.
   `canghui.toml` (bounded to existing cuic actions)
 
 Doctor status model and JSON contract:
-[`docs/doctor.md`](docs/doctor.md).
+[`manual/reference/doctor.md`](manual/reference/doctor.md).
 
 The release/debug control-plane boundary, reverse-engineering limits, compiler
 trim/strip contract and macOS Developer ID/notarization evidence chain are in
-[`docs/security-and-release.md`](docs/security-and-release.md).
+[`manual/reference/security-and-release.md`](manual/reference/security-and-release.md).
 
 ## Components, Gallery, and Packages
 
@@ -403,17 +403,18 @@ visual acceptance; they simply stop carrying the entire testing burden.
 
 - [Public manual and release notes](manual/index.md)
 - [Examples](examples/)
-- [Getting started](docs/guide/index.md)
-- [API reference](docs/api/index.md)
-- [Architecture](docs/architecture.md)
-- [Consumer workflow](docs/consumer-workflow.md)
-- [Multiplatform doctor](docs/doctor.md)
-- [Symbols and providers](docs/symbols.md)
-- [Fonts](docs/fonts.md)
-- [Scene3D semantic projection](docs/scene3d.md)
-- [Probe and kMode](docs/probe.md)
-- [SDL3 Apple host notes](docs/sdl3-apple-host.md)
-- [Modern GUI insights](docs/modern-GUI-insights-and-analysis.md)
+- [Manual home](manual/index.md)
+- [Getting started](manual/guide/index.md)
+- [API reference](manual/api/index.md)
+- [Architecture](manual/reference/architecture.md)
+- [Consumer workflow](manual/reference/consumer-workflow.md)
+- [Multiplatform doctor](manual/reference/doctor.md)
+- [Symbols and providers](manual/reference/symbols.md)
+- [Fonts](manual/reference/fonts.md)
+- [Scene3D semantic projection](manual/reference/scene3d.md)
+- [Probe and kMode](manual/reference/probe.md)
+- [SDL3 Apple host notes](manual/reference/sdl3-apple-host.md)
+- [Modern GUI insights](manual/reference/modern-GUI-insights-and-analysis.md)
 
 ## License
 

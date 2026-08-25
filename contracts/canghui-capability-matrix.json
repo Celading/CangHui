@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.20260824.30",
+  "matrixVersion": "CangHui.20260825.31",
   "project": "CangHui",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "surfaceTier": "mother-framework-incubating",
   "proofRefs": [
     "proofs/20260725-cangjiegui-mother-framework-v0.json",
@@ -60,6 +60,7 @@
       "reusable UIKit CAMetalLayer lifecycle, safe-area, touch and CADisplayLink native-surface adapter",
       "generation-safe Android SurfaceView to JNI to ANativeWindow bootstrap boundary",
       "surface-first decorative composition and one-owner interaction primitives with deterministic nested-owner diagnostics",
+      "agent-safe three-slot ContentRow composition, intrinsic control height defaults and progressive cuic-first UI review guidance",
       "fieldwise inherited container typography for semantic text leaves across measure, layout, draw, input geometry and deferred overlays",
       "provider-neutral sealed Scene3D snapshots with eight-class semantic debug projection and an optional bgfx4cj driver boundary"
     ],
@@ -75,12 +76,24 @@
   "features": [
     {
       "id": "cui-core",
-      "version": "0.14.0",
+      "version": "0.15.0",
       "state": "source-test-proven",
       "codeRefs": [
         "src",
         "sdl",
         "cjpm.toml"
+      ]
+    },
+    {
+      "id": "agent-safe-ui-composition",
+      "version": "canghui.agent-ui.v0",
+      "state": "source-test-and-public-manual-proven; consumer-product-visual-acceptance-remains-consumer-owned",
+      "codeRefs": [
+        "src/core/content_row.cj",
+        "src/core/content_row_test.cj",
+        "manual/getting-started/agent-first-workflow.md",
+        "manual/guide/how-to/agent-ui-review.md",
+        "manual/skills/canghui-agent-ui/SKILL.md"
       ]
     },
     {
@@ -93,7 +106,7 @@
         "examples/scene3d-bgfx-metal-capture",
         "scripts/verify-scene3d-bgfx-native-supply.sh",
         "scripts/verify-scene3d-bgfx-metal-capture.sh",
-        "docs/scene3d.md"
+        "manual/reference/scene3d.md"
       ]
     },
     {
@@ -105,7 +118,7 @@
         "src/core/ui_owner_queue_test.cj",
         "src/core/state.cj",
         "src/desktop/desktop_app.cj",
-        "docs/api/chui/core/UiOwnerQueue.md"
+        "manual/api/chui/core/UiOwnerQueue.md"
       ]
     },
     {
@@ -125,8 +138,8 @@
         "src/controls/dropdown.cj",
         "src/text/text_area.cj",
         "src/text/combo_box.cj",
-        "docs/api/chui/desktop/FramePacing.md",
-        "docs/api/chui/core/ScrollOptions.md"
+        "manual/api/chui/desktop/FramePacing.md",
+        "manual/api/chui/core/ScrollOptions.md"
       ]
     },
     {
@@ -161,7 +174,7 @@
         "src/core/widget_modifiers.cj",
         "src/core/ui_context.cj",
         "src/core/probe.cj",
-        "docs/api/chui/core/ControlSemantics.md"
+        "manual/api/chui/core/ControlSemantics.md"
       ]
     },
     {
@@ -184,10 +197,10 @@
         "src/core/button_surface_migration_test.cj",
         "src/core/control_content_environment.cj",
         "src/core/probe.cj",
-        "docs/api/chui/core/Surface.md",
-        "docs/api/chui/core/InteractionSurface.md",
-        "docs/api/chui/core/Button.md",
-        "docs/api/chui/core/IconButton.md"
+        "manual/api/chui/core/Surface.md",
+        "manual/api/chui/core/InteractionSurface.md",
+        "manual/api/chui/core/Button.md",
+        "manual/api/chui/core/IconButton.md"
       ]
     },
     {
@@ -272,7 +285,7 @@
         "sdl/src/draw_ir.cj",
         "tools/cuic/src/kmode.cj",
         "contracts/cui-probe-v0.schema.json",
-        "docs/probe.md"
+        "manual/reference/probe.md"
       ]
     },
     {
@@ -283,7 +296,7 @@
         "tools/cuic/src/doctor.cj",
         "tools/cuic/src/doctor_test.cj",
         "contracts/canghui-doctor-v0.schema.json",
-        "docs/doctor.md"
+        "manual/reference/doctor.md"
       ]
     },
     {
@@ -297,7 +310,7 @@
         "sdl/src/renderer.cj",
         "src/core/theme.cj",
         "contracts/canghui-font-resolution-v0.json",
-        "docs/fonts.md",
+        "manual/reference/fonts.md",
         "examples/fonts"
       ]
     },
@@ -315,9 +328,9 @@
         "src/controls/rich_span.cj",
         "src/controls/rich_text.cj",
         "src/controls/rich_text_layout.cj",
-        "docs/api/chui/core/TypographyEnvironment.md",
-        "docs/api/chui/core/Widget.md",
-        "docs/api/chui/controls/RichText.md"
+        "manual/api/chui/core/TypographyEnvironment.md",
+        "manual/api/chui/core/Widget.md",
+        "manual/api/chui/controls/RichText.md"
       ]
     },
     {
@@ -333,7 +346,7 @@
         "packages/symbol-arco",
         "tools/cuic/src/symbol.cj",
         "contracts/canghui-symbol-v0.schema.json",
-        "docs/symbols.md",
+        "manual/reference/symbols.md",
         "packages/gallery-components/src/gallery_symbols.cj",
         "examples/component-gallery"
       ]
@@ -341,11 +354,12 @@
     {
       "id": "installable-cli-and-lightweight-git-consumer",
       "version": "cuic.consumer.v0",
-      "state": "sparse-install-fresh-cache-git-lock-macos-build-doctor-kmode-e2e-proven; central-package-and-other-native-host-proof-open",
+      "state": "sparse-install-fresh-cache-git-lock-external-content-row-consumer-macos-build-doctor-kmode-e2e-proven; central-package-and-other-native-host-proof-open",
       "codeRefs": [
         "scripts/install-cuic.sh",
         "tools/cuic",
-        "docs/consumer-workflow.md"
+        "manual/getting-started/sdk-consumption.md",
+        "manual/reference/consumer-workflow.md"
       ]
     },
     {
@@ -357,7 +371,7 @@
         "tools/cuic/src/main.cj",
         "tools/cuic/scripts/test-cli.sh",
         "tools/cuic/README.md",
-        "docs/consumer-workflow.md"
+        "manual/reference/consumer-workflow.md"
       ]
     },
     {
@@ -372,7 +386,7 @@
         "tools/cuic/src/application_packaging.cj",
         "contracts/canghui-packaging-plan-v0.schema.json",
         "contracts/canghui-packaging-artifact-v0.schema.json",
-        "docs/application-packaging.md"
+        "manual/reference/application-packaging.md"
       ]
     },
     {
@@ -398,7 +412,7 @@
         "contracts/canghui-mobile-signed-package-evidence-v0.schema.json",
         "contracts/canghui-mobile-installation-attempt-v0.schema.json",
         "contracts/canghui-mobile-host-replay-v0.schema.json",
-        "docs/mobile-application-host.md",
+        "manual/reference/mobile-application-host.md",
         "tools/cuic/src/doctor.cj",
         "examples/mobile-host-replay"
       ]
@@ -451,7 +465,7 @@
       "codeRefs": [
         "src/host/native_surface_proxy.cj",
         "src/host/native_surface_proxy_test.cj",
-        "docs/sdl3-apple-host.md"
+        "manual/reference/sdl3-apple-host.md"
       ]
     },
     {

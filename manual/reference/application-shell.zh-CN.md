@@ -64,7 +64,7 @@ shell.handleDeepLink("demo://app/settings")
 | `unsupported` | 当前宿主或 Provider 不支持该能力。 |
 
 公开契约见
-[`canghui-application-shell-v0.json`](../contracts/canghui-application-shell-v0.json)。
+[`canghui-application-shell-v0.json`](../../contracts/canghui-application-shell-v0.json)。
 工程身份、逻辑资源、确定性规划与无签名产物见
 [应用打包](application-packaging.zh-CN.md)，类型化
 设置与迁移见[应用设置](application-settings.zh-CN.md)。

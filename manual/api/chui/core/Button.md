@@ -22,6 +22,8 @@ Button <: [`Widget`](Widget.md)
 
 slot 构造器用于图标、主副标题、状态点等组合内容。slot 是装饰子树：外层 Button 独占焦点与激活，slot 内的可聚焦后代不会进入 Tab 环或接收事件，因此不要在其中嵌套真正需要独立操作的控件。未显式设色的 Label/Icon/Symbol 会从 [`ControlContentEnvironment`](ControlContentEnvironment.md) 继承 ButtonStyle 已解析的前景色。
 
+Button 可以在水平方向接受父布局的剩余宽度，但默认不接受高 `HStack` 的纵向拉伸，普通按钮因而保持本征高度。只有显式 `.height(...)` 或 `.fillHeight()` 才会铺满高度；这类覆盖应代表明确设计，而不是容器的偶然结果。
+
 ## 示例
 
 ```cangjie verify

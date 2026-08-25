@@ -32,7 +32,7 @@ InteractionSurface(
     key: Some("open-workspace")
 ) {
     HStack(spacing: 8.vp) {
-        Icon(IconName.Folder)
+        Icon(IconName.OpenFolder)
         VStack(spacing: 2.vp) {
             Label("打开工作区")
             Label("本地或远程").muted().fontSize(12.fp)
@@ -73,6 +73,6 @@ VStack(spacing: 6.vp) {
 粗体、斜体、下划线与删除线。容器排版目前由语义文本叶子消费，不会自动改写
 所有自绘控件的内部文字。
 
-更多类型和边界见 [`Surface`](../../docs/api/chui/core/Surface.md)、
-[`InteractionSurface`](../../docs/api/chui/core/InteractionSurface.md) 与
-[`TypographyEnvironment`](../../docs/api/chui/core/TypographyEnvironment.md)。
+更多类型和边界见 [`Surface`](../api/chui/core/Surface.md)、
+[`InteractionSurface`](../api/chui/core/InteractionSurface.md) 与
+[`TypographyEnvironment`](../api/chui/core/TypographyEnvironment.md)。

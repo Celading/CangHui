@@ -2,6 +2,40 @@
 
 本 changelog 只记录开发者可观察的公开变化。
 
+## 0.15.0 (2026-08-25)
+
+### 新增
+
+- 新增 `ContentRow` 三槽信息行：leading/trailing 按内容收缩，content 自动获得剩余宽度，
+  默认提供 12/8 vp 内边距、8 vp 槽间距与 44 vp 最小高度；焦点和交互 owner 保持透传。
+- 新增 `canghui-agent-ui` 公开 skill，把框架消费边界、三槽对齐、按钮本征高度、稳定图标、
+  窄侧栏换行与亮/暗主题评审变成可直接复用的 Agent 工作流。
+- 新增 SDK 式消费快速入口：应用使用锁定 `commitId`、`cjpm.lock` 与 CJPM 用户缓存直接
+  `import chui.*`，无需在应用旁保留或修改完整 CangHui checkout。
+
+### 修复与集成
+
+- `Button` 与 `IconButton` 默认不再继承高 `HStack` 的纵向拉伸，避免普通按钮被协同生成代码
+  意外撑成整行色块；显式 `.height(...)`/`.fillHeight()` 仍可有意覆盖。
+- 基于 CorePlayer、ExplorerX 与 PiHub(CHUI) 的只读消费者审计，吸收了稳定三槽信息行、
+  本征控制高度、窄侧栏 FlowRow、块级文本节奏和单状态主题等通用方法；播放、文件传输、
+  Pi/DSH、产品导航与平台桥仍由消费者拥有，框架未复制其业务代码。
+- `docs/api`、`docs/guide` 与主题文档统一迁入 `manual/`；`docs/` 只留迁移入口。README、
+  capability matrix、cuic Doctor 与公开面链接审计同步采用新的单一文档树。
+- cuic 提升到 `0.6.0`。手册明确 `doctor → pview/probe ascii → prnt → 平台截图` 的
+  分层证据顺序，并保留发布构建拒绝 probe/pview 特权执行的安全门。
+- cuic 构建现在以消费者 manifest/lock 对应的 CangHui 根为准，并把隔离缓存中的 SDL3 同时加入
+  编译期 `LIBRARY_PATH` 与运行期动态库路径；Git 源码依赖不再被 cuic 自身的开发 checkout
+  遮蔽，也不要求把原生库写回 CJPM 源码缓存。Doctor 使用同一暂存根，并在缓存尚未生成时检查
+  可自动供给它的 Homebrew provider，不再把可构建的全新消费者误报为硬阻塞。
+
+### 仍未声称
+
+- 当前“SDK 式”路径是受锁定和缓存管理的 Git 源码依赖，不是跨目标预编译二进制 SDK。
+  后续二进制包仍需固定 Cangjie ABI/工具链、目标模块、native 运行时闭包、校验值、许可和发布者证据。
+- 三个消费者只提供需求与方法证据；其产品视觉、平台宿主、设备行为和发布状态不随本版本成为
+  CangHui 框架证明。
+
 ## 0.14.0 (2026-08-24)
 
 ### 安全与发布

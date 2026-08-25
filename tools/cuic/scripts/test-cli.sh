@@ -21,7 +21,7 @@ rm -rf "${REMOTE_FIXTURE_DIR}"
 rm -rf "${FAKE_BIN_DIR}"
 rm -f "${FAKE_LOCK_FILE}"
 
-"${ROOT_DIR}/bin/cuic" version | grep -Fq 'cuic 0.5.0 (development@unembedded)'
+"${ROOT_DIR}/bin/cuic" version | grep -Fq 'cuic 0.6.0 (development@unembedded)'
 "${ROOT_DIR}/bin/cuic" examples | grep -q '^notepad$'
 "${ROOT_DIR}/bin/cuic" init "${FIXTURE_DIR}" --name canghui_cli_smoke --platform macos \
     --canghui-path "${FRAMEWORK_ROOT}"

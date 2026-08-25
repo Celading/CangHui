@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "matrixVersion": "CangHui.ArkUI.20260730.1",
-  "projectVersion": "0.14.0",
+  "matrixVersion": "CangHui.ArkUI.20260825.2",
+  "projectVersion": "0.15.0",
   "reference": {
     "family": "OpenHarmony ArkUI",
     "baseline": "local OpenHarmony 6.1 documentation corpus",

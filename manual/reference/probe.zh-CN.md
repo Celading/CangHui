@@ -116,7 +116,7 @@ cuic 会拒绝 `list`、`describe`、`run`、`ascii` 与 `pview`，只保留
   --columns 96 --rows 32
 ```
 
-需要提交事件脚本时，使用 `--script path/to/events.txt`。稳定报告契约见 [`contracts/cui-probe-v0.schema.json`](../contracts/cui-probe-v0.schema.json)。
+需要提交事件脚本时，使用 `--script path/to/events.txt`。稳定报告契约见 [`contracts/cui-probe-v0.schema.json`](../../contracts/cui-probe-v0.schema.json)。
 `probe ascii` 支持与 `probe run` 相同的可选事件脚本，并投影最终采样帧。探针节点可通过约定属性 `role`、`label`、`icon`、`action`、`shortcut`、`value`、`state` 与 `disabled` 自动生成面向无视觉模型的语义图：
 
 ```text

@@ -137,7 +137,7 @@ entry. See [Security And Release Provenance](security-and-release.md).
 
 Use `--script path/to/events.txt` for a checked-in event script. The stable
 report contract is published as
-[`contracts/cui-probe-v0.schema.json`](../contracts/cui-probe-v0.schema.json).
+[`contracts/cui-probe-v0.schema.json`](../../contracts/cui-probe-v0.schema.json).
 `probe ascii` accepts the same optional event script as `probe run` and renders
 the final sampled frame. Probe nodes with conventional `role`, `label`, `icon`,
 `action`, `shortcut`, `value`, `state`, and `disabled` properties are projected

@@ -74,7 +74,7 @@ frame.seal()
 边界上封闭，provider 必须继续遵守 surface generation 和 frame ordering 检查。
 `visible == false` 的实体保留在输入快照中，但不应提交可见几何。
 
-框架仓内的 [`scene3d-bgfx`](../packages/scene3d-bgfx/README.md) 是一个可选实现，目前只提供
+框架仓内的 [`scene3d-bgfx`](../../packages/scene3d-bgfx/README.md) 是一个可选实现，目前只提供
 macOS arm64 Metal 的当前主机验证。普通 CangHui 构建和一般消费者不会因此下载、
 编译或链接 bgfx 原生库。
 

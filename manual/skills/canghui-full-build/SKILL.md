@@ -20,8 +20,11 @@ cjpm --version
 ```
 
 Confirm that `cjpm.toml` declares the root package as `chui`. Read
-`README.md`, `manual/index.md`, and the documents directly related to the
-change. Do not infer a successful platform runtime from a common-source build.
+`README.md`, `manual/index.md`, `manual/getting-started/agent-first-workflow.md`,
+and the documents directly related to the change. When the change touches application UI,
+also read `manual/guide/how-to/agent-ui-review.md` and prefer cuic ASCII/framework
+capture before OS screenshots. Do not infer a successful platform runtime from a
+common-source build.
 
 On macOS, prepare missing SDL dependencies with the checked-in bootstrap:
 
@@ -111,6 +114,12 @@ install, launch, debug, or capture a device require the caller's authority.
 fallback. It does not prove CangHui scene rendering, a complete HarmonyOS host,
 store packaging, signing, installation, or LTS readiness. Record those facts as
 separate gates.
+
+For UI changes, use deterministic evidence in this order: `cuic pview` or
+`cuic probe ascii` for geometry/semantics, `cuic prnt` for framework pixels,
+event tests for interaction, then OS/device capture only for platform composition.
+Probe/pview execution requires a debug cuic; release refusal is expected and must
+not be worked around with historical environment flags.
 
 ## Conditional Security And Publisher Gate
 

@@ -11,6 +11,7 @@ from urllib.parse import unquote
 
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
+MANUAL_SKILLS_ROOT = SKILL_ROOT.parent
 DEFAULT_REPOSITORY_ROOT = SKILL_ROOT.parents[2]
 TEXT_ENCODINGS = ("utf-8", "utf-8-sig")
 LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
@@ -149,29 +150,35 @@ def audit_version_and_identity(root: Path, errors: list[str]) -> None:
     if expected_symbol not in symbol_source:
         errors.append("src/symbol/symbol.cj: built-in provider version does not match cjpm.toml")
 
-    if not (root / "src/chui.cj").is_file() or not (root / "docs/api/chui").is_dir():
+    if not (root / "src/chui.cj").is_file() or not (root / "manual/api/chui").is_dir():
         errors.append("public chui source/API roots are missing")
-    if (root / "docs/api/cui").exists():
-        errors.append("docs/api/cui remains as a live public package root")
+    if (root / "manual/api/cui").exists():
+        errors.append("manual/api/cui remains as a live public package root")
 
 
-def audit_skill(errors: list[str]) -> None:
-    skill_file = SKILL_ROOT / "SKILL.md"
-    text = read_text(skill_file)
-    if not text.startswith("---\n"):
-        errors.append("manual skill: YAML frontmatter is missing")
+def audit_skills(errors: list[str]) -> None:
+    skill_files = sorted(MANUAL_SKILLS_ROOT.glob("*/SKILL.md"))
+    if not skill_files:
+        errors.append("manual skills: no SKILL.md files found")
         return
-    end = text.find("\n---\n", 4)
-    if end < 0:
-        errors.append("manual skill: YAML frontmatter is not closed")
-        return
-    frontmatter = text[4:end]
-    name = re.search(r"^name:\s*([^\s]+)\s*$", frontmatter, re.MULTILINE)
-    description = re.search(r"^description:\s*(.+)$", frontmatter, re.MULTILINE)
-    if not name or name.group(1) != SKILL_ROOT.name:
-        errors.append("manual skill: name must match its directory")
-    if not description or len(description.group(1).strip()) < 40:
-        errors.append("manual skill: description must state a discriminating use case")
+    for skill_file in skill_files:
+        skill_root = skill_file.parent
+        text = read_text(skill_file)
+        label = f"manual skill {skill_root.name}"
+        if not text.startswith("---\n"):
+            errors.append(f"{label}: YAML frontmatter is missing")
+            continue
+        end = text.find("\n---\n", 4)
+        if end < 0:
+            errors.append(f"{label}: YAML frontmatter is not closed")
+            continue
+        frontmatter = text[4:end]
+        name = re.search(r"^name:\s*([^\s]+)\s*$", frontmatter, re.MULTILINE)
+        description = re.search(r"^description:\s*(.+)$", frontmatter, re.MULTILINE)
+        if not name or name.group(1) != skill_root.name:
+            errors.append(f"{label}: name must match its directory")
+        if not description or len(description.group(1).strip()) < 40:
+            errors.append(f"{label}: description must state a discriminating use case")
 
 
 def main(argv: list[str]) -> int:
@@ -185,7 +192,7 @@ def main(argv: list[str]) -> int:
     audit_internal_markers(root, errors)
     audit_markdown_links(root, errors)
     audit_version_and_identity(root, errors)
-    audit_skill(errors)
+    audit_skills(errors)
     if errors:
         print("CangHui public-surface audit failed:", file=sys.stderr)
         for error in errors:

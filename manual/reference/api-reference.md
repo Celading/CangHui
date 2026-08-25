@@ -1,7 +1,7 @@
 # CangHui API 参考
 
 本文记录 `chui` 根包重新导出的 GUI API。几何、渲染、窗口、事件、对话框、输入和系统能力见
-[SDL API 参考](../sdl/docs/api-reference.md)。可选 3D provider 的中立合同、八类语义调试实体和边界见
+[SDL API 参考](../../sdl/docs/api-reference.md)。可选 3D provider 的中立合同、八类语义调试实体和边界见
 [Scene3D 语义投影](scene3d.md)。
 
 ## 1. 尺寸单位
@@ -343,7 +343,7 @@ VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩
 `Unbounded` 对实际渲染帧不加等待。未显式给出时，普通 VSync 窗口使用 `Device`，kMode 使用
 `Unbounded`；只有 `vsync: false` 的旧调用继续沿用 `frameDelay`。
 
-底层重新导出类型与方法的完整定义见 [SDL API 参考](../sdl/docs/api-reference.md)。
+底层重新导出类型与方法的完整定义见 [SDL API 参考](../../sdl/docs/api-reference.md)。
 
 ### 客户端标题栏与本地化
 
@@ -354,7 +354,7 @@ VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩
 
 `LocaleTag` 表示带一个显式回退的应用语言；`LocalizationCatalog` 通过 `put` 注册稳定键，通过
 `resolve` 按精确语言、语言回退、默认语言、调用方回退和键本身的顺序解析。资源来源由应用或平台
-适配器决定。完整接法见[自绘标题栏与应用本地化](guide/how-to/client-window-chrome-and-localization.md)。
+适配器决定。完整接法见[自绘标题栏与应用本地化](../guide/how-to/client-window-chrome-and-localization.md)。
 
 ## 12. kMode 无界面控制面
 

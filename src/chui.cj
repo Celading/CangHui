@@ -79,6 +79,7 @@ public import chui.core.ComponentShape
 public import chui.core.ComponentSpacing
 public import chui.core.ComponentTheme
 public import chui.core.ComponentTypography
+public import chui.core.ContentRow
 public import chui.core.CrossAxisAlignment
 public import chui.core.ComponentProbe
 public import chui.core.CursorShape

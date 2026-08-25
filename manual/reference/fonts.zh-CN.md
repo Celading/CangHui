@@ -49,4 +49,4 @@ assets/fonts/HARMONYOS_SANS_SOURCE.txt
 ./tools/cuic/bin/cuic doctor macos --verbose
 ```
 
-稳定的机器可读契约是 [`canghui.font-resolution.v0`](../contracts/canghui-font-resolution-v0.json)。
+稳定的机器可读契约是 [`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json)。

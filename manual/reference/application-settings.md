@@ -51,4 +51,4 @@ does not prove Keychain, Windows Credential Manager, XDG secret storage or any
 other native persistence backend.
 
 The public shape is recorded in
-[`canghui-application-settings-v0.schema.json`](../contracts/canghui-application-settings-v0.schema.json).
+[`canghui-application-settings-v0.schema.json`](../../contracts/canghui-application-settings-v0.schema.json).

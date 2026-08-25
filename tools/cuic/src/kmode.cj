@@ -305,6 +305,8 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
+    let boot = bootstrap(hostPlatform(), framework, stagingRoot: context.stagingRoot)
+    if (boot != 0) { return boot }
     let lease = context.acquireLease()
     var buildCode = 0
     try {
@@ -389,6 +391,8 @@ func runKModeExchange(projectValue: String, operation: String, endpoint: String,
     let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
+    let boot = bootstrap(hostPlatform(), framework, stagingRoot: context.stagingRoot)
+    if (boot != 0) { return boot }
     let lease = context.acquireLease()
     var buildCode = 0
     try {

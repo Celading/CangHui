@@ -201,7 +201,7 @@ func collectDoctorResult(requestedTarget: String, framework: String, project!: S
     groups.add(doctorToolchainGroup(host, architecture))
     groups.add(doctorConsumerProjectGroup(project, framework))
     groups.add(doctorRepositoryGroup(framework))
-    groups.add(doctorMacosGroup(host, architecture, framework))
+    groups.add(doctorMacosGroup(host, architecture, framework, project))
     groups.add(doctorWindowsGroup(host, framework))
     groups.add(doctorLinuxGroup(host))
     groups.add(doctorIosGroup(host, framework, requestedTarget == "ios"))
@@ -332,17 +332,18 @@ func doctorRepositoryGroup(framework: String): DoctorGroup {
     DoctorGroup("repository", "CangHui repository, package, and CLI alignment", "all", checks.toArray())
 }
 
-func doctorMacosGroup(host: String, architecture: String, framework: String): DoctorGroup {
+func doctorMacosGroup(host: String, architecture: String, framework: String, project: String): DoctorGroup {
     let checks = ArrayList<DoctorCheck>()
     checks.add(doctorHostCheck("macos", host))
-    checks.add(doctorRequiredFile(
-        "macos.sdl3", "Bundled SDL3 runtime", joinPath(framework, "sdl/.sdl3/libSDL3.dylib"),
-        "Run cuic bootstrap macos."
-    ))
-    checks.add(doctorRequiredFile(
-        "macos.sdl3-ttf", "Bundled SDL3_ttf runtime", joinPath(framework, "sdl/.sdl3/libSDL3_ttf.dylib"),
-        "Run cuic bootstrap macos."
-    ))
+    let runtime = if (!framework.isEmpty() && !project.isEmpty() && exists(joinPath(project, "cjpm.toml"))) {
+        ExecutionContext(project, framework).sdlDirectory()
+    } else {
+        joinPath(framework, "sdl/.sdl3")
+    }
+    checks.add(doctorMacosRuntimeProvider(host, "macos.sdl3", "SDL3 link/runtime provider",
+        joinPath(runtime, "libSDL3.dylib"), "sdl3"))
+    checks.add(doctorMacosRuntimeProvider(host, "macos.sdl3-ttf", "SDL3_ttf link/runtime provider",
+        joinPath(runtime, "libSDL3_ttf.dylib"), "sdl3_ttf"))
     checks.add(if (host == "macos" && architecture == "arm64") {
         doctorReady("macos.architecture", "Native architecture", "The current arm64 host matches the bundled runtime proof.", architecture)
     } else if (host == "macos") {
@@ -358,6 +359,26 @@ func doctorMacosGroup(host: String, architecture: String, framework: String): Do
         "Restore the Component Gallery example before renderer acceptance."
     ))
     DoctorGroup("platform.macos", "macOS host and renderer readiness", "macos", checks.toArray())
+}
+
+func doctorMacosRuntimeProvider(host: String, id: String, label: String,
+    stagedLibrary: String, formula: String): DoctorCheck {
+    if (exists(stagedLibrary)) {
+        return doctorReady(id, label, "The isolated cuic native staging cache is ready.", stagedLibrary)
+    }
+    if (host != "macos") {
+        return doctorUnsupported(id, label, "The native provider can only be validated on macOS.",
+            "Run cuic doctor macos on macOS.", "host=" + host)
+    }
+    let fact = doctorCommandFact("brew", ["--prefix", formula])
+    if (fact.ok) {
+        doctorReady(id, label,
+            "The Homebrew provider is installed; cuic build will populate the isolated staging cache automatically.",
+            fact.summary)
+    } else {
+        doctorBlocked(id, label, "The Homebrew provider is unavailable.", DoctorActionKind.Automatic,
+            "Install it with: brew install sdl3 sdl3_ttf", fact.summary)
+    }
 }
 
 func doctorWindowsGroup(host: String, framework: String): DoctorGroup {
@@ -622,13 +643,13 @@ func doctorApplicationShellGroup(framework: String, project!: String = ""): Doct
     checks.add(doctorRequiredFile("application-shell.artifact-schema", "Packaging artifact schema",
         joinPath(framework, "contracts/canghui-packaging-artifact-v0.schema.json"),
         "Restore the public packaging-artifact schema."))
-    checks.add(if (exists(joinPath(framework, "docs/application-shell.md"))) {
+    checks.add(if (exists(joinPath(framework, "manual/reference/application-shell.md"))) {
         doctorReady("application-shell.docs", "Application shell guide",
-            "The public application-shell contract guide is available.", joinPath(framework, "docs/application-shell.md"))
+            "The public application-shell contract guide is available.", joinPath(framework, "manual/reference/application-shell.md"))
     } else {
         doctorDegraded("application-shell.docs", "Application shell guide",
             "The application-shell contract exists but its public guide is missing.",
-            DoctorActionKind.Manual, "Restore docs/application-shell.md.", joinPath(framework, "docs/application-shell.md"))
+            DoctorActionKind.Manual, "Restore manual/reference/application-shell.md.", joinPath(framework, "manual/reference/application-shell.md"))
     })
     DoctorGroup("application-shell", "Cangjie application identity, assets, settings and system surfaces", "all", checks.toArray())
 }
@@ -678,7 +699,7 @@ func doctorMobileApplicationHostGroup(framework: String): DoctorGroup {
         joinPath(framework, "examples/mobile-host-replay/src/main.cj"),
         "Restore the headless mobile host consumer fixture."))
     checks.add(doctorRequiredFile("mobile-host.docs", "Mobile application host guide",
-        joinPath(framework, "docs/mobile-application-host.md"),
+        joinPath(framework, "manual/reference/mobile-application-host.md"),
         "Restore the public mobile application host guide."))
 
     let iosAdapter = joinPath(framework, "platform/ios/runtime/CangHuiMetalSurfaceView.m")

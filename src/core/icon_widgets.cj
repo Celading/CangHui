@@ -345,6 +345,14 @@ public class IconButton <: Widget {
         interactionSurface.focusableId()
     }
 
+    /** Icon buttons keep their intrinsic height unless an explicit height modifier opts in. */
+    public func acceptsStretch(axis: Axis): Bool {
+        match (axis) {
+            case Axis.Horizontal => true
+            case Axis.Vertical => false
+        }
+    }
+
     private func iconFrame(bounds: Rect): Rect {
         match (labelText) {
             case Some(_) => Rect(
