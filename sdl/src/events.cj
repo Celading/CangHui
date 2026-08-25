@@ -25,6 +25,118 @@ public enum MouseButton {
     | RawCode(UInt8)
 }
 
+/** A gamepad axis named by physical location rather than a platform brand. */
+public enum GamepadAxis {
+    | LeftX
+    | LeftY
+    | RightX
+    | RightY
+    | LeftTrigger
+    | RightTrigger
+    | RawCode(UInt8)
+}
+
+public func gamepadAxisName(axis: GamepadAxis): String {
+    match (axis) {
+        case GamepadAxis.LeftX => "left-x"
+        case GamepadAxis.LeftY => "left-y"
+        case GamepadAxis.RightX => "right-x"
+        case GamepadAxis.RightY => "right-y"
+        case GamepadAxis.LeftTrigger => "left-trigger"
+        case GamepadAxis.RightTrigger => "right-trigger"
+        case GamepadAxis.RawCode(value) => "raw-${value}"
+    }
+}
+
+/** A gamepad button named by physical location rather than A/B/X/Y artwork. */
+public enum GamepadButton {
+    | South
+    | East
+    | West
+    | North
+    | Back
+    | Guide
+    | Start
+    | LeftStick
+    | RightStick
+    | LeftShoulder
+    | RightShoulder
+    | DPadUp
+    | DPadDown
+    | DPadLeft
+    | DPadRight
+    | Misc1
+    | RightPaddle1
+    | LeftPaddle1
+    | RightPaddle2
+    | LeftPaddle2
+    | Touchpad
+    | Misc2
+    | Misc3
+    | Misc4
+    | Misc5
+    | Misc6
+    | RawCode(UInt8)
+}
+
+public func gamepadButtonName(button: GamepadButton): String {
+    match (button) {
+        case GamepadButton.South => "south"
+        case GamepadButton.East => "east"
+        case GamepadButton.West => "west"
+        case GamepadButton.North => "north"
+        case GamepadButton.Back => "back"
+        case GamepadButton.Guide => "guide"
+        case GamepadButton.Start => "start"
+        case GamepadButton.LeftStick => "left-stick"
+        case GamepadButton.RightStick => "right-stick"
+        case GamepadButton.LeftShoulder => "left-shoulder"
+        case GamepadButton.RightShoulder => "right-shoulder"
+        case GamepadButton.DPadUp => "dpad-up"
+        case GamepadButton.DPadDown => "dpad-down"
+        case GamepadButton.DPadLeft => "dpad-left"
+        case GamepadButton.DPadRight => "dpad-right"
+        case GamepadButton.Misc1 => "misc-1"
+        case GamepadButton.RightPaddle1 => "right-paddle-1"
+        case GamepadButton.LeftPaddle1 => "left-paddle-1"
+        case GamepadButton.RightPaddle2 => "right-paddle-2"
+        case GamepadButton.LeftPaddle2 => "left-paddle-2"
+        case GamepadButton.Touchpad => "touchpad"
+        case GamepadButton.Misc2 => "misc-2"
+        case GamepadButton.Misc3 => "misc-3"
+        case GamepadButton.Misc4 => "misc-4"
+        case GamepadButton.Misc5 => "misc-5"
+        case GamepadButton.Misc6 => "misc-6"
+        case GamepadButton.RawCode(value) => "raw-${value}"
+    }
+}
+
+public struct GamepadDevice {
+    public let id: UInt32
+    public let name: String
+
+    public init(id: UInt32, name!: String = "") {
+        this.id = id
+        this.name = name
+    }
+}
+
+public enum GamepadConnectionState {
+    | Connected
+    | Disconnected
+    | Remapped
+    | Unavailable(String)
+}
+
+public func gamepadConnectionStateName(state: GamepadConnectionState): String {
+    match (state) {
+        case GamepadConnectionState.Connected => "connected"
+        case GamepadConnectionState.Disconnected => "disconnected"
+        case GamepadConnectionState.Remapped => "remapped"
+        case GamepadConnectionState.Unavailable(_) => "unavailable"
+    }
+}
+
 public struct FrameInfo {
     public let elapsedMs: UInt64
     public let deltaMs: UInt64
@@ -46,6 +158,10 @@ public enum UiEvent {
     | MouseDown(MouseButton, Float32, Float32)
     | MouseUp(MouseButton, Float32, Float32)
     | MouseWheel(Float32, Float32, Float32, Float32)
+    | GamepadConnectionChanged(GamepadDevice, GamepadConnectionState)
+    | GamepadAxisMotion(UInt32, GamepadAxis, Float32)
+    | GamepadButtonDown(UInt32, GamepadButton)
+    | GamepadButtonUp(UInt32, GamepadButton)
     | DropBegin
     | DropFile(String, Float32, Float32)
     | DropText(String, Float32, Float32)
@@ -98,6 +214,28 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
         } else if (eventType == SDL_EVENT_MOUSE_WHEEL) {
             let wheel = unsafe { CPointer<SdlMouseWheelEvent>(eventResource.value).read() }
             decoded = UiEvent.MouseWheel(wheel.x, wheel.y, wheel.mouseX, wheel.mouseY)
+        } else if (eventType == SDL_EVENT_GAMEPAD_AXIS_MOTION) {
+            let axis = unsafe { CPointer<SdlGamepadAxisEvent>(eventResource.value).read() }
+            decoded = UiEvent.GamepadAxisMotion(axis.which, gamepadAxisFromCode(axis.axis),
+                normalizeGamepadAxis(axis.axis, axis.value))
+        } else if (eventType == SDL_EVENT_GAMEPAD_BUTTON_DOWN || eventType == SDL_EVENT_GAMEPAD_BUTTON_UP) {
+            let button = unsafe { CPointer<SdlGamepadButtonEvent>(eventResource.value).read() }
+            if (eventType == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                decoded = UiEvent.GamepadButtonDown(button.which, gamepadButtonFromCode(button.button))
+            } else {
+                decoded = UiEvent.GamepadButtonUp(button.which, gamepadButtonFromCode(button.button))
+            }
+        } else if (eventType == SDL_EVENT_GAMEPAD_ADDED || eventType == SDL_EVENT_GAMEPAD_REMOVED ||
+            eventType == SDL_EVENT_GAMEPAD_REMAPPED) {
+            let device = unsafe { CPointer<SdlGamepadDeviceEvent>(eventResource.value).read() }
+            let state = if (eventType == SDL_EVENT_GAMEPAD_ADDED) {
+                GamepadConnectionState.Connected
+            } else if (eventType == SDL_EVENT_GAMEPAD_REMOVED) {
+                GamepadConnectionState.Disconnected
+            } else {
+                GamepadConnectionState.Remapped
+            }
+            decoded = UiEvent.GamepadConnectionChanged(GamepadDevice(device.which), state)
         } else if (isDropEvent(eventType)) {
             let drop = unsafe { CPointer<SdlDropEvent>(eventResource.value).read() }
             decoded = decodeDropEvent(eventType, drop)
@@ -198,5 +336,57 @@ internal func buttonFromCode(button: UInt8): MouseButton {
         MouseButton.Right
     } else {
         MouseButton.RawCode(button)
+    }
+}
+
+internal func gamepadAxisFromCode(axis: UInt8): GamepadAxis {
+    if (axis == SDL_GAMEPAD_AXIS_LEFTX) { GamepadAxis.LeftX }
+    else if (axis == SDL_GAMEPAD_AXIS_LEFTY) { GamepadAxis.LeftY }
+    else if (axis == SDL_GAMEPAD_AXIS_RIGHTX) { GamepadAxis.RightX }
+    else if (axis == SDL_GAMEPAD_AXIS_RIGHTY) { GamepadAxis.RightY }
+    else if (axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER) { GamepadAxis.LeftTrigger }
+    else if (axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) { GamepadAxis.RightTrigger }
+    else { GamepadAxis.RawCode(axis) }
+}
+
+internal func normalizeGamepadAxis(axis: UInt8, value: Int16): Float32 {
+    if (axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
+        if (value <= 0) { 0.0 } else { Float32(value) / 32767.0 }
+    } else if (value < 0) {
+        Float32(value) / 32768.0
+    } else {
+        Float32(value) / 32767.0
+    }
+}
+
+internal func gamepadButtonFromCode(button: UInt8): GamepadButton {
+    match (button) {
+        case 0 => GamepadButton.South
+        case 1 => GamepadButton.East
+        case 2 => GamepadButton.West
+        case 3 => GamepadButton.North
+        case 4 => GamepadButton.Back
+        case 5 => GamepadButton.Guide
+        case 6 => GamepadButton.Start
+        case 7 => GamepadButton.LeftStick
+        case 8 => GamepadButton.RightStick
+        case 9 => GamepadButton.LeftShoulder
+        case 10 => GamepadButton.RightShoulder
+        case 11 => GamepadButton.DPadUp
+        case 12 => GamepadButton.DPadDown
+        case 13 => GamepadButton.DPadLeft
+        case 14 => GamepadButton.DPadRight
+        case 15 => GamepadButton.Misc1
+        case 16 => GamepadButton.RightPaddle1
+        case 17 => GamepadButton.LeftPaddle1
+        case 18 => GamepadButton.RightPaddle2
+        case 19 => GamepadButton.LeftPaddle2
+        case 20 => GamepadButton.Touchpad
+        case 21 => GamepadButton.Misc2
+        case 22 => GamepadButton.Misc3
+        case 23 => GamepadButton.Misc4
+        case 24 => GamepadButton.Misc5
+        case 25 => GamepadButton.Misc6
+        case _ => GamepadButton.RawCode(button)
     }
 }

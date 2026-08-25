@@ -50,6 +50,7 @@ public struct WindowSpec {
 public class SdlWindow <: Resource {
     internal let windowPtr: CPointer<Unit>
     private let rendererPtr: CPointer<Unit>
+    private let gamepads: GamepadRuntime
     private var closed = false
 
     public var width: Int32
@@ -95,6 +96,7 @@ public class SdlWindow <: Resource {
         this.windowPtr = window
         this.rendererPtr = createdRenderer
         this.renderer = Renderer(createdRenderer, contentScale: spec.scale, supersample: spec.supersample)
+        this.gamepads = GamepadRuntime()
     }
 
     public func setTitle(title: String): Unit {
@@ -136,7 +138,7 @@ public class SdlWindow <: Resource {
         if (!unsafe { SDL_PollEvent(inout raw) }) {
             return None
         }
-        return Some(scaleEventCoordinates(decodeEvent(raw), scale))
+        return Some(gamepads.enrich(scaleEventCoordinates(decodeEvent(raw), scale)))
     }
 
     public func ticks(): UInt64 {
@@ -151,11 +153,24 @@ public class SdlWindow <: Resource {
         closed
     }
 
+    /**
+     * Lends the SDL window pointer to a platform adapter for the duration of `body`.
+     * The pointer is framework-owned: consumers must not destroy it or retain it after
+     * this window closes. Application scene models should never store this value.
+     */
+    public func withBorrowedPlatformWindow<T>(body: (CPointer<Unit>) -> T): T {
+        if (closed || windowPtr.isNull()) {
+            throw IllegalStateException("cannot borrow a closed SDL window")
+        }
+        body(windowPtr)
+    }
+
     public func close(): Unit {
         if (closed) {
             return
         }
         closed = true
+        gamepads.close()
         renderer.releaseResources()
         unsafe {
             if (windowPtr.isNotNull()) {

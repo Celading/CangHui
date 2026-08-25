@@ -25,6 +25,13 @@ public import sdl.FontResolutionSource
 public import sdl.CANGHUI_DEFAULT_FONT_FAMILY
 public import sdl.fontResolutionSourceName
 public import sdl.FrameInfo
+public import sdl.GamepadAxis
+public import sdl.GamepadButton
+public import sdl.GamepadConnectionState
+public import sdl.GamepadDevice
+public import sdl.gamepadAxisName
+public import sdl.gamepadButtonName
+public import sdl.gamepadConnectionStateName
 public import sdl.IconName
 public import sdl.ImageFileFormat
 public import sdl.Insets
@@ -495,6 +502,7 @@ public import chui.graphics.packGraphicsRenderPacket
 public import chui.scene3d.CANGHUI_SCENE3D_PROTOCOL
 public import chui.scene3d.DriverScene3DProvider
 public import chui.scene3d.FakeScene3DProvider
+public import chui.scene3d.FakeScene3DViewHost
 public import chui.scene3d.Scene3DBackend
 public import chui.scene3d.Scene3DCameraSnapshot
 public import chui.scene3d.Scene3DDebugEntityProjection
@@ -511,6 +519,13 @@ public import chui.scene3d.Scene3DHostSurface
 public import chui.scene3d.Scene3DProvider
 public import chui.scene3d.Scene3DReceipt
 public import chui.scene3d.Scene3DResource
+public import chui.scene3d.Scene3DView
+public import chui.scene3d.Scene3DViewController
+public import chui.scene3d.Scene3DViewFrameSource
+public import chui.scene3d.Scene3DViewHost
+public import chui.scene3d.Scene3DViewHostReceipt
+public import chui.scene3d.Scene3DViewInputEvent
+public import chui.scene3d.Scene3DViewPlacement
 public import chui.scene3d.Scene3DSemanticColor
 public import chui.scene3d.projectScene3DEntity
 public import chui.scene3d.scene3dBackendName

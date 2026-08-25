@@ -81,6 +81,55 @@ func frameEventsKeepTimeValuesWhenScaled(): Unit {
     }
 }
 
+@Test
+func gamepadAxisEventsDecodeAndNormalizeWithoutCoordinateScaling(): Unit {
+    let stick = decodeRawGamepadAxis(UInt32(17), SDL_GAMEPAD_AXIS_LEFTX, Int16(-32768))
+    match (scaleEventCoordinates(stick, 2.0)) {
+        case UiEvent.GamepadAxisMotion(id, GamepadAxis.LeftX, value) =>
+            @Expect(id, UInt32(17))
+            @Expect(value, Float32(-1.0))
+        case _ => @Fail("Left stick event should keep its normalized value when UI coordinates scale.")
+    }
+
+    let trigger = decodeRawGamepadAxis(UInt32(18), SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, Int16(32767))
+    match (trigger) {
+        case UiEvent.GamepadAxisMotion(id, GamepadAxis.RightTrigger, value) =>
+            @Expect(id, UInt32(18))
+            @Expect(value, Float32(1.0))
+        case _ => @Fail("Right trigger event should normalize into the unsigned trigger range.")
+    }
+    @Expect(normalizeGamepadAxis(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, Int16(-1)), Float32(0.0))
+}
+
+@Test
+func gamepadButtonsUsePhysicalLocationNames(): Unit {
+    let down = decodeRawGamepadButton(SDL_EVENT_GAMEPAD_BUTTON_DOWN, UInt32(9), UInt8(0))
+    match (down) {
+        case UiEvent.GamepadButtonDown(id, button) =>
+            @Expect(id, UInt32(9))
+            @Expect(gamepadButtonName(button), "south")
+        case _ => @Fail("Button zero should decode as the physical south button.")
+    }
+
+    let up = decodeRawGamepadButton(SDL_EVENT_GAMEPAD_BUTTON_UP, UInt32(9), UInt8(25))
+    match (up) {
+        case UiEvent.GamepadButtonUp(_, button) => @Expect(gamepadButtonName(button), "misc-6")
+        case _ => @Fail("Button-up should retain its physical-location mapping.")
+    }
+}
+
+@Test
+func gamepadDeviceEventsExposeConnectionLifecycle(): Unit {
+    let event = decodeRawGamepadDevice(SDL_EVENT_GAMEPAD_ADDED, UInt32(42))
+    match (event) {
+        case UiEvent.GamepadConnectionChanged(device, state) =>
+            @Expect(device.id, UInt32(42))
+            @Expect(device.name, "")
+            @Expect(gamepadConnectionStateName(state), "connected")
+        case _ => @Fail("Gamepad addition should decode as a connection lifecycle event.")
+    }
+}
+
 private func decodeRawDrop(eventType: UInt32, data: String, x: Float32, y: Float32): UiEvent {
     let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
     let cData = unsafe { LibC.mallocCString(data) }
@@ -95,6 +144,49 @@ private func decodeRawDrop(eventType: UInt32, data: String, x: Float32, y: Float
             unsafe { CPointer<SdlDropEvent>(eventResource.value).write(drop) }
             decoded = decodeEvent(unsafe { eventResource.value.read() })
         }
+    }
+    decoded
+}
+
+private func decodeRawGamepadAxis(id: UInt32, axis: UInt8, value: Int16): UiEvent {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    var decoded = UiEvent.Unknown(UInt32(0))
+    try (eventResource = eventPtr.asResource()) {
+        var raw = SdlGamepadAxisEvent()
+        raw.eventType = SDL_EVENT_GAMEPAD_AXIS_MOTION
+        raw.which = id
+        raw.axis = axis
+        raw.value = value
+        unsafe { CPointer<SdlGamepadAxisEvent>(eventResource.value).write(raw) }
+        decoded = decodeEvent(unsafe { eventResource.value.read() })
+    }
+    decoded
+}
+
+private func decodeRawGamepadButton(eventType: UInt32, id: UInt32, button: UInt8): UiEvent {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    var decoded = UiEvent.Unknown(UInt32(0))
+    try (eventResource = eventPtr.asResource()) {
+        var raw = SdlGamepadButtonEvent()
+        raw.eventType = eventType
+        raw.which = id
+        raw.button = button
+        raw.down = eventType == SDL_EVENT_GAMEPAD_BUTTON_DOWN
+        unsafe { CPointer<SdlGamepadButtonEvent>(eventResource.value).write(raw) }
+        decoded = decodeEvent(unsafe { eventResource.value.read() })
+    }
+    decoded
+}
+
+private func decodeRawGamepadDevice(eventType: UInt32, id: UInt32): UiEvent {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    var decoded = UiEvent.Unknown(UInt32(0))
+    try (eventResource = eventPtr.asResource()) {
+        var raw = SdlGamepadDeviceEvent()
+        raw.eventType = eventType
+        raw.which = id
+        unsafe { CPointer<SdlGamepadDeviceEvent>(eventResource.value).write(raw) }
+        decoded = decodeEvent(unsafe { eventResource.value.read() })
     }
     decoded
 }
