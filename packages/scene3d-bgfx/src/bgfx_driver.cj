@@ -21,6 +21,7 @@ public class Bgfx4cjDriver <: Scene3DDriver {
     private var pixelWidth: Int64 = 0
     private var pixelHeight: Int64 = 0
     private let clearColor: UInt32
+    private let palette: BgfxSemanticPalette
     private let geometry: BgfxGeometryResource
     private let shaders: BgfxShaderProgramResource
     private var vertexLayout = VertexLayoutHandle()
@@ -42,6 +43,7 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         nativeWindow: CPointer<Unit>,
         nativeWindowIdentity: UInt64,
         clearColor!: UInt32 = 0x20242AFF,
+        palette!: BgfxSemanticPalette = BgfxSemanticPalette(),
         geometry!: BgfxGeometryResource = debugCubeGeometry(),
         shaders!: BgfxShaderProgramResource = debugMetalShaderProgram()
     ) {
@@ -51,6 +53,7 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         this.nativeWindow = nativeWindow
         this.nativeWindowIdentity = nativeWindowIdentity
         this.clearColor = clearColor
+        this.palette = palette
         if (geometry.layoutSignature != shaders.layoutSignature) {
             throw IllegalArgumentException("bgfx geometry and shader layout signatures do not match")
         }
@@ -327,7 +330,9 @@ public class Bgfx4cjDriver <: Scene3DDriver {
         let entity = Scene3DEntitySnapshot(
             scene3dEntityKindName(kind), 0.0, 0.0, 0.0, kind: kind
         )
-        let semanticGeometry = debugEntityGeometry(projectScene3DEntity(entity))
+        let semanticGeometry = debugEntityGeometry(
+            projectScene3DEntity(entity), palette.color(kind)
+        )
         if (semanticGeometry.layoutSignature != geometry.layoutSignature ||
             semanticGeometry.vertexCount != geometry.vertexCount ||
             semanticGeometry.indexCount != geometry.indexCount) {

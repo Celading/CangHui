@@ -151,3 +151,37 @@ func semanticEntityGeometryKeepsStableTopologyAndPalette(): Unit {
     @Expect(facility.vertices()[4] == 0.77)
     @Expect(exit.vertices()[5] == 0.43)
 }
+
+@Test
+func semanticPaletteCanThemeProviderGeometryWithoutChangingTopology(): Unit {
+    let palette = BgfxSemanticPalette(
+        floor: BgfxColor4f(0.10, 0.20, 0.30, alpha: 0.90),
+        facility: BgfxColor4f(0.40, 0.50, 0.60)
+    )
+    let floorProjection = projectScene3DEntity(Scene3DEntitySnapshot(
+        "floor", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Floor
+    ))
+    let floor = debugEntityGeometry(floorProjection, palette.color(Scene3DEntityKind.Floor))
+    let facilityProjection = projectScene3DEntity(Scene3DEntitySnapshot(
+        "facility", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Facility
+    ))
+    let facility = debugEntityGeometry(
+        facilityProjection, palette.color(Scene3DEntityKind.Facility)
+    )
+    @Expect(floor.vertexCount, Int64(24))
+    @Expect(floor.indexCount, Int64(36))
+    @Expect(floor.vertices()[3], Float32(0.10))
+    @Expect(floor.vertices()[4], Float32(0.20))
+    @Expect(floor.vertices()[5], Float32(0.30))
+    @Expect(floor.vertices()[6], Float32(0.90))
+    @Expect(facility.vertices()[3], Float32(0.40))
+    @Expect(facility.vertices()[4], Float32(0.50))
+    @Expect(facility.vertices()[5], Float32(0.60))
+}
+
+@Test
+func semanticPaletteRejectsOutOfRangeChannels(): Unit {
+    @ExpectThrows[IllegalArgumentException](BgfxColor4f(-0.01, 0.0, 0.0))
+    @ExpectThrows[IllegalArgumentException](BgfxColor4f(0.0, 1.01, 0.0))
+    @ExpectThrows[IllegalArgumentException](BgfxColor4f(0.0, 0.0, 0.0, alpha: 1.01))
+}

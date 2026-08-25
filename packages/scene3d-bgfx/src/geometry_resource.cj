@@ -60,6 +60,17 @@ public func debugEntityGeometry(projection: Scene3DDebugEntityProjection): BgfxG
     )
 }
 
+/** Builds the same bounded geometry with a driver-selected semantic color. */
+public func debugEntityGeometry(
+    projection: Scene3DDebugEntityProjection,
+    color: BgfxColor4f
+): BgfxGeometryResource {
+    debugCubeGeometryWithColor(
+        "debug-" + scene3dEntityKindName(projection.kind),
+        color.red, color.green, color.blue, color.alpha
+    )
+}
+
 private func debugCubeGeometryWithColor(
     id: String,
     red: Float32,

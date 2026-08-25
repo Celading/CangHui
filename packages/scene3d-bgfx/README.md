@@ -12,11 +12,13 @@ does not match `Scene3DHostSurface.opaqueHandle`.
 Current scope includes provider lifecycle, immutable backend-bound shader and
 indexed-geometry resources, perspective/depth state, and a bounded semantic
 low-poly scene. `Scene3DEntityKind` maps floor, route, vehicle, user, structure,
-track, facility and exit snapshots onto slab, ribbon, box and marker families
-with stable provider-owned colors. Identity, position, optional scale/rotation,
-visibility and an optional frame camera stay in the sealed snapshot; product
-models and styling do not enter this package. Model/texture ingestion,
-picking and platform runtime certification remain separate work.
+track, facility and exit snapshots onto slab, ribbon, box and marker families.
+The default palette remains stable, while `BgfxSemanticPalette` lets a product
+select normalized colors for those eight roles when it constructs the driver.
+Identity, position, optional scale/rotation, visibility and an optional frame
+camera stay in the sealed snapshot; product models do not enter this package.
+Model/texture ingestion, picking and platform runtime certification remain
+separate work.
 
 `Scene3DBackend.Software` is an explicit metadata-only Noop verification lane:
 it accepts sealed scene metadata and advances a clear frame without uploading
