@@ -20,4 +20,9 @@ func umbrellaExportsScene3DViewAndGamepadContract(): Unit {
     @Expect(view.focusableId().isSome())
     @Expect(controller.place(Rect(4.0, 8.0, 200.0, 120.0), 2.0).ok)
     @Expect(host.currentPlacement().getOrThrow().scale, Float32(2.0))
+
+    let harmonyBridge = HarmonyNativeSurfaceBridge()
+    let harmonyHost = HarmonyXComponentScene3DHost("umbrella-harmony", bridge: harmonyBridge)
+    @Expect(harmonyHost.presentationMode(), HostPresentationMode.EmbeddedSurface)
+    @Expect(harmonyHost.current().isNone())
 }

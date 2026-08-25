@@ -103,7 +103,46 @@ canghui_scene3d_bgfx = { path = "/path/to/CangHui/packages/scene3d-bgfx" }
 ```
 
 这是 macOS arm64 的源码包加同机原生包流程，还不是跨平台二进制 SDK。Windows、
-Linux、HarmonyOS 以及 macOS x86_64 仍需要各自 provider 和制品验证。
+Linux 以及 macOS x86_64 仍需要各自 provider 和制品验证。
+
+## HarmonyOS XComponent 宿主
+
+`HarmonyXComponentScene3DHost` 已把 XComponent 的原生 surface 生命周期接到与 macOS
+相同的 `Scene3DViewHost` SPI。CangHui 只接收整数事实，不拥有 ArkTS 组件、
+`OH_NativeXComponent`、HAP 身份、签名或产品输入策略。
+
+应用侧构造 host 后继续使用普通的 `Scene3DViewController`。Vulkan 是默认后端；若平台
+provider 明确走 EGL/GLES，可在构造时选择 `NativeSurfaceBackend.OpenGLES`。
+
+```cangjie
+let host = HarmonyXComponentScene3DHost(
+    "station-scene",
+    requestDisplayFrame: { => platformDisplayScheduler.requestFrame() }
+)
+let controller = Scene3DViewController(
+    "station-scene", host, provider, resource, frameSource
+)
+```
+
+平台原生层包含
+[`CangHuiHarmonyXComponentHost.h`](../../platform/harmony/include/CangHuiHarmonyXComponentHost.h)，
+并在已有 XComponent 生命周期点按以下顺序提交：
+
+1. `surface-created`：递增 generation，调用 `canghui_harmony_surface_attach`；
+2. `surface-changed`：保持 generation，调用 `canghui_harmony_surface_resize`；
+3. display/vsync callback：调用 `canghui_harmony_surface_frame`；
+4. `surface-destroyed`：调用 `canghui_harmony_surface_detach`。
+
+`native_window` 转换为 `int64_t` 只发生在同一进程的 native ingress；公开 receipt、场景
+快照和应用模型都不会携带指针。回调只更新 mutex 保护的整数快照，renderer、observer
+与 provider 生命周期由 CangHui UI owner 调用 `host.refresh()` 或 `requestFrame()` 时消费。
+旧 generation 会返回 `-2`；非正 handle、超出 `65535` 的单边像素尺寸、超出
+`0.1–16.0` 的缩放或倒退的帧时钟返回 `-1`。
+
+平台侧可以在现有 `CangHUI_OHOS_SurfacePublish` 同一回调中并列提交这个 ABI：前者继续
+服务 SDL/OHNativeWindow provider，后者服务 CangHui `Scene3DViewHost`。这是接线合同，
+不是 HAP 或真机验收声明；真机证明仍须由 Harmony owner 构建、安装并用 `hap prnt`
+留存 attach / resize / frame / detach 收据。
 
 ## macOS 关闭生命周期
 

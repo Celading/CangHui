@@ -288,6 +288,8 @@ public import chui.host.HostSystemThemeService
 public import chui.host.HostTouchService
 public import chui.host.HostViewportMetrics
 public import chui.host.HostViewportService
+public import chui.host.HarmonyNativeSurfaceBridge
+public import chui.host.HarmonyNativeSurfaceSnapshot
 public import chui.host.LocalNotificationRequest
 public import chui.host.CANGHUI_MOBILE_APPLICATION_HOST_PROTOCOL
 public import chui.host.CANGHUI_MOBILE_HOST_REPLAY_PROTOCOL
@@ -351,6 +353,7 @@ public import chui.host.appLifecycleStateName
 public import chui.host.nativeSurfaceBackendName
 public import chui.host.hostLoopResultName
 public import chui.host.hostPresentationModeName
+public import chui.host.harmonyNativeSurfaceBridge
 public import chui.host.iosHostAbiVersion
 public import chui.host.mobileApplicationPlatformName
 public import chui.host.iosMobileApplicationInputTreeFiles
@@ -503,6 +506,7 @@ public import chui.scene3d.CANGHUI_SCENE3D_PROTOCOL
 public import chui.scene3d.DriverScene3DProvider
 public import chui.scene3d.FakeScene3DProvider
 public import chui.scene3d.FakeScene3DViewHost
+public import chui.scene3d.HarmonyXComponentScene3DHost
 public import chui.scene3d.Scene3DBackend
 public import chui.scene3d.Scene3DCameraSnapshot
 public import chui.scene3d.Scene3DDebugEntityProjection
