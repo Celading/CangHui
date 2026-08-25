@@ -1,7 +1,7 @@
 # CangHui Manual
 
 CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与缩写为 `chui`。
-`manual/` 是唯一的公开文档入口；`docs/` 只保留迁移说明，避免使用者在两套目录间来回猜测。
+`manual/` 是唯一的公开文档入口。
 
 ## 第一次来这里
 
@@ -32,8 +32,8 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
   自身高度，只有显式 `.height(...)`/`.fillHeight()` 才纵向铺满。
 - 图标使用 `Icon`、`IconButton` 或按需生成的 `Symbol`，不要用 Emoji、普通文字或
   iconfont 冒充稳定图标。
-- “图标—标题/说明—尾随信息”使用 [`ContentRow`](api/chui/core/ContentRow.md)：两端
-  收缩，中间自动吃掉剩余宽度，避免把三段内容平均摊开。
+- “图标—标题/说明—尾随信息”使用 [`Row`](api/chui/core/Row.md)，给中间内容添加
+  `.layoutWeight()`：两端按内容收缩，中间吃掉剩余宽度，避免把三段内容平均摊开。
 - 窄侧栏中的不定数量筛选项使用 `FlowRow`；普通信息行优先 44–48 vp，边框通常保持
   1 逻辑像素，并在窄/常规/宽视口及亮/暗主题下分别核验。
 

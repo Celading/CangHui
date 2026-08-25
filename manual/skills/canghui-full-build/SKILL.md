@@ -156,10 +156,11 @@ owner receipt.
 ## Public Surface Review
 
 The bundled audit script checks Markdown links, internal-path leakage, skill
-metadata, the `chui` public roots, and version mirrors in the manifest, README
-badges, manual, capability matrices, and built-in Symbol provider. Review its
-result together with the actual diff; automated text checks do not replace API
-or platform-boundary judgment.
+metadata, the `chui` public roots, version mirrors in the manifest, README
+badges, manual and built-in Symbol provider. It also rejects the retired
+`docs/` root and internal governance matrices if they reappear in the public
+repository. Review its result together with the actual diff; automated text
+checks do not replace API or platform-boundary judgment.
 
 Before closeout, also confirm that active Cangjie source files remain below the
 repository's 4000-line guard and that compatibility identifiers such as

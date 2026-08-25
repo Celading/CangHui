@@ -118,30 +118,26 @@ class TaskListModel {
 func taskRow(model: TaskListModel, task: Task): Unit {
     let expanded = rememberState<Bool>("expanded") {false}
     VStack(spacing: 6.vp) {
-        ContentRow(
-            leading: {=>
-                Button(if (model.selectedId.value == task.id) {
-                    "已选"
+        Row(space: 8.vp) {
+            Button(if (model.selectedId.value == task.id) {
+                "已选"
+            } else {
+                "选择"
+            }, {=> model.select(task.id)})
+            Label(task.title).maxLines(1).layoutWeight()
+            HStack(spacing: 8.vp) {
+                Label(if (task.done) {
+                    "已完成"
                 } else {
-                    "选择"
-                }, {=> model.select(task.id)})
-            },
-            content: {=> Label(task.title).maxLines(1)},
-            trailing: {=>
-                HStack(spacing: 8.vp) {
-                    Label(if (task.done) {
-                        "已完成"
-                    } else {
-                        "未完成"
-                    }).muted()
-                    Button(if (expanded.value) {
-                        "收起"
-                    } else {
-                        "展开"
-                    }, {=> expanded.value = !expanded.value})
-                }.hug()
-            }
-        ).fillWidth()
+                    "未完成"
+                }).muted()
+                Button(if (expanded.value) {
+                    "收起"
+                } else {
+                    "展开"
+                }, {=> expanded.value = !expanded.value})
+            }.hug()
+        }.padding(12.vp, 8.vp).minHeight(44.vp).fillWidth()
         if (expanded.value) {
             Label("业务 id：${task.id}").muted()
         }
@@ -199,7 +195,8 @@ func toggleOpenOnly(): Unit {
 - 以为稳定 key 能让已过滤或滚出虚拟视口的局部状态永久存活；需要长期保留的状态应进入以业务 id 为键的模型。
 - 在每次构建中追加默认数据，导致列表持续增长。
 - 过滤隐藏选择后既不清空也不重选，详情仍显示不可见对象。
-- 用 `SpaceAround` 平均分配图标、标题和尾随信息，导致主内容与尾随状态都漂离语义位置；三槽信息行使用 `ContentRow`。
+- 用 `SpaceAround` 平均分配图标、标题和尾随信息，导致主内容与尾随状态都漂离语义位置；
+  三段信息行使用 `Row`，并给主内容添加 `.layoutWeight()`。
 
 ## 相关 API
 
@@ -207,7 +204,8 @@ func toggleOpenOnly(): Unit {
 - [`LazyColumn`](../../api/chui/core/LazyColumn.md) — 固定高纵向虚拟列表。
 - [`ListView`](../../api/chui/controls/ListView.md) — 带选择和键盘导航的列表。
 - [`State`](../../api/chui/core/State.md) — 数据数组、筛选和选中 id。
-- [`ContentRow`](../../api/chui/core/ContentRow.md) — 前导、主内容和尾随信息的稳定三槽布局。
+- [`Row`](../../api/chui/core/Row.md) 与 [`Widget.layoutWeight`](../../api/chui/core/Widget.md#layoutweight) —
+  组合前导、主内容和尾随信息。
 
 ## 下一步
 

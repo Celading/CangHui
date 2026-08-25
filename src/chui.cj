@@ -79,7 +79,6 @@ public import chui.core.ComponentShape
 public import chui.core.ComponentSpacing
 public import chui.core.ComponentTheme
 public import chui.core.ComponentTypography
-public import chui.core.ContentRow
 public import chui.core.CrossAxisAlignment
 public import chui.core.ComponentProbe
 public import chui.core.CursorShape
@@ -94,6 +93,7 @@ public import chui.core.ForEachIndexed
 public import chui.core.Gradient
 public import chui.core.Corners
 public import chui.core.Pulse
+public import chui.core.Row
 public import chui.core.FrameHandler
 public import chui.core.Grid
 public import chui.core.HScrollBar

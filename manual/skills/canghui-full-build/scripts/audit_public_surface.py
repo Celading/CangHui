@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from pathlib import Path
@@ -134,16 +133,15 @@ def audit_version_and_identity(root: Path, errors: list[str]) -> None:
     require_text(root / "manual/index.md", f"`{version}`", errors, "manual version")
     require_text(root / "manual/CHANGELOG.md", f"## {version} ", errors, "current changelog heading")
 
-    capability = json.loads(read_text(root / "contracts/canghui-capability-matrix.json"))
-    if capability.get("version") != version:
-        errors.append("contracts/canghui-capability-matrix.json: version does not match cjpm.toml")
-    core_features = [feature for feature in capability.get("features", []) if feature.get("id") == "cui-core"]
-    if len(core_features) != 1 or core_features[0].get("version") != version:
-        errors.append("contracts/canghui-capability-matrix.json: cui-core version does not match cjpm.toml")
-
-    arkui = json.loads(read_text(root / "contracts/canghui-arkui-component-matrix.json"))
-    if arkui.get("projectVersion") != version:
-        errors.append("contracts/canghui-arkui-component-matrix.json: projectVersion does not match cjpm.toml")
+    retired_governance_assets = (
+        root / "contracts/canghui-capability-matrix.json",
+        root / "contracts/canghui-arkui-component-matrix.json",
+    )
+    for retired in retired_governance_assets:
+        if retired.exists():
+            errors.append(f"{retired.relative_to(root)}: internal governance matrix must not be public")
+    if (root / "docs").exists():
+        errors.append("docs/: retired public documentation root must not return; use manual/")
 
     symbol_source = read_text(root / "src/symbol/symbol.cj")
     expected_symbol = f'SymbolProviderSource("CangHui", "built-in", "{version}"'

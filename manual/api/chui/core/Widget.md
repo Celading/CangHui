@@ -130,6 +130,7 @@ main(): Unit {
 | [`border(...)`](#border) | 在组件的填充与内容之上描一圈圆角边框。 |
 | [`dashedBorder(...)`](#dashedborder) | 在组件的填充与内容之上描一圈虚线圆角边框。 |
 | [`flex(...)`](#flex) | 让组件按权重分享所在栈的剩余空间。 |
+| [`layoutWeight(...)`](#layoutweight) | `flex` 的 ArkTS 风格别名，常用于 [`Row`](Row.md) 子项。 |
 | [`visible(isVisible: Bool)`](#visible) | 控制组件是否参与布局、绘制与事件派发。 |
 | [`enabled(isEnabled: Bool)`](#enabled) | 保留组件的布局与绘制、按 `isEnabled` 屏蔽其输入。 |
 
@@ -674,6 +675,25 @@ func flex(weight: Float32): Widget
 **参数**
 
 - `weight`: `Float32` — 相对权重，限制在非负；无参数重载为 `1.0`。
+
+**返回值** `Widget` — 包装后的新节点，供继续链式调用。
+
+### layoutWeight
+
+让组件按权重分享所在 `Row`/`HStack` 的剩余空间，是 [`flex`](#flex) 的 ArkTS 风格别名。
+无参数重载使用权重 `1.0`；显式权重限制在非负。
+
+```cangjie
+func layoutWeight(): Widget
+```
+
+```cangjie
+func layoutWeight(weight: Float32): Widget
+```
+
+**参数**
+
+- `weight`: `Float32` — 相对权重；无参数重载为 `1.0`。
 
 **返回值** `Widget` — 包装后的新节点，供继续链式调用。
 

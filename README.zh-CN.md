@@ -37,8 +37,7 @@ SDL3 封装 `sdl`、集成工具链 `cuic`、组件包契约、响应式布局�
 框架正式名称是 **CangHui（仓绘）**，完整定位是 **CangHui Multiplatform**，仓颉包名是
 **`chui`**。少量旧标识仅在兼容边界保留：`cui.probe.v0` 与 `@cui-ascii` 是线协议标识，
 `CUI_*` 是源码兼容名称，`cuic` 与 `--cui-path` 是工具兼容名称，现有
-`dev.cui.examples.*` 是示例应用的持久化标识，`cui-core` / `full-cui-scene-*` 是能力矩阵的
-机器可读兼容键。它们不是包名，也不是 CangHui 的替代品牌。
+`dev.cui.examples.*` 是示例应用的持久化标识。它们不是包名，也不是 CangHui 的替代品牌。
 
 > CangHui 不是截图层，也不是一袋组件。它是面向语言的轻量运行时：
 > 应用意图以仓颉组合进入，经过布局、状态、动效、Symbol 与宿主能力，
@@ -150,7 +149,7 @@ main() {
 
 - 基于 SDL3 的自渲染 GUI 引擎，使用 GPU 几何图元与超采样渲染圆角、描边、图标、阴影与渐变。
 - 基于仓颉尾随 lambda、`extend`、`prop` 的声明式 UI 编码范式。
-- 布局容器：`VStack`、`HStack`、`ContentRow`、`ZStack`、`Grid`、`Panel`、`FlowRow`、`ScrollView`、
+- 布局容器：`VStack`、ArkTS 风格 `Row`、`HStack`、`ZStack`、`Grid`、`Panel`、`FlowRow`、`ScrollView`、
   `SplitView`、`Accordion`、动画折叠容器 `Reveal`，以及视口聚焦的懒加载容器
   `LazyColumn`、`LazyRow`、`LazyList`、`LazyGrid`。
 - 控件：按钮、文本框、开关、复选框、单选、选择器、步进器、滑块、进度条、环形进度、评分、
@@ -241,10 +240,10 @@ CangHui 使用分级词汇表达能力边界：
 | 语言 | [仓颉](https://cangjie-lang.cn/) | 主实现语言与应用语言 |
 | 声明式运行时 | CangHui（`chui`） | 框架自有的组合、状态、布局与组件表面 |
 | 桌面底座 | [SDL3](https://www.libsdl.org/) / SDL3_ttf | 由公开 `sdl` 包封装的上游运行时依赖 |
-| 原生表面 | UIKit、Metal、Android `SurfaceView` 与 `ANativeWindow` | 适配目标与有边界的启动切片；平台证据以能力矩阵为准 |
+| 原生表面 | UIKit、Metal、Android `SurfaceView` 与 `ANativeWindow` | 适配目标与有边界的启动切片；每项平台声明都需要独立、可复现的回执 |
 | 设计语言 | HarmonyOS Sans、Theme、Motion 与 Symbol 契约 | 自带兜底资源与 provider-neutral 公共 API |
 | 工具链 | `cuic`、kMode、probe、Draw IR、doctor 与 `prnt` | 框架自有的工程、检查与验证入口 |
-| 组件参考 | ArkUI 方向的组件矩阵与成熟 GUI 约定 | 兼容性与设计参考，不是捆绑的平台实现 |
+| 组件参考 | ArkUI 容器约定与成熟 GUI 系统 | API 与设计参考，不是捆绑的平台实现 |
 | 图形参考 | SDL、GPU 几何与原生表面工程资料 | 渲染边界的输入，不代表拥有所有图形后端 |
 
 可以把 CangHui 理解为一座**语义桥**：它负责让仓颉语义跨越宿主，

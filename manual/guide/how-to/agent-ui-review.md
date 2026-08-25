@@ -9,10 +9,11 @@
 
 ## 先选对布局语义
 
-### 三槽信息行使用 ContentRow
+### 用 Row 表达三段内容的空间所有权
 
-`ContentRow` 的 leading/trailing 按内容收缩，content 自动获得剩余宽度，默认水平/垂直内边距为
-12/8 vp、槽间距 8 vp、最小高度 44 vp。它表达的是“图标—主内容—尾随信息”，不是平均分布的工具栏：
+`Row` 是通用水平容器。前导与尾随内容按自身宽度收缩，中间内容添加 `.layoutWeight()` 后获得
+剩余宽度；padding、最小高度和表面由当前产品自己组合。下面的 12/8 vp 留白、8 vp 间距和
+44 vp 最小高度是一份信息行配方，不是框架强加的业务样式：
 
 ```cangjie verify
 package docexample
@@ -22,25 +23,24 @@ import chui.*
 main(): Unit {
     let app = DesktopApp(WindowSpec("信息行", 520, 260))
     app.run {
-        ContentRow(
-            leading: {=> Icon(IconName.OpenFolder)},
-            content: {=>
-                VStack(spacing: 2.vp) {
-                    Label("CorePlayer").bold().maxLines(1)
-                    Label("最近同步 2 分钟前").muted().fontSize(12.fp).maxLines(1)
-                }.hug()
-            },
-            trailing: {=> Label("已就绪").muted().maxLines(1)}
-        ).fillWidth()
+        Row(space: 8.vp) {
+            Icon(IconName.OpenFolder)
+            VStack(spacing: 2.vp) {
+                Label("CorePlayer").bold().maxLines(1)
+                Label("最近同步 2 分钟前").muted().fontSize(12.fp).maxLines(1)
+            }.hug().layoutWeight()
+            Label("已就绪").muted().maxLines(1)
+        }.padding(12.vp, 8.vp).minHeight(44.vp).fillWidth()
     }
 }
 ```
 
 这会得到 `[图标  标题/说明                 状态]`。`SpaceAround` 会把三段都推开，容易得到
 `[图标        标题        状态]`；它适合同权导航项，不适合有主内容所有权的信息行。只有两个端点时
-可以用 `HStack + Spacer`/`SpaceBetween`；三槽行优先使用 `ContentRow`。
+可以用 `Row.justifyContent(SpaceBetween)` 或 `HStack + Spacer`；有主内容所有权的三段行优先给
+中间子项添加 `.layoutWeight()`。
 
-`ContentRow` 本身不拥有点击。整行只有一个动作时，可在外层使用 `Button` 或
+`Row` 本身不拥有点击。整行只有一个动作时，可在外层使用 `Button` 或
 `InteractionSurface`；如果尾部还有独立按钮，不要再让整行抢同一个交互所有权。
 
 ### 让控件保持本征高度
@@ -91,4 +91,4 @@ main(): Unit {
 - 是否同时保留 ASCII/结构证据与必要的像素证据？
 
 相关页面：[选择布局](choose-layout.md)、[稳定身份列表](data-list.md)、
-[快照与性能记录](snapshot-and-profile.md)、[`ContentRow`](../../api/chui/core/ContentRow.md)。
+[快照与性能记录](snapshot-and-profile.md)、[`Row`](../../api/chui/core/Row.md)。

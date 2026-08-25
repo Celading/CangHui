@@ -1,6 +1,6 @@
 ---
 name: canghui-agent-ui
-description: Implement or review a CangHui consumer UI with direct chui dependency boundaries, intrinsic controls, ContentRow alignment, and cuic ASCII/pixel evidence before platform screenshots.
+description: Implement or review a CangHui consumer UI with direct chui dependency boundaries, composable Row alignment, intrinsic controls, and cuic ASCII/pixel evidence before platform screenshots.
 ---
 
 # CangHui Agent UI
@@ -35,7 +35,8 @@ task explicitly owns framework development or an offline source checkout.
 
 ## Layout rules
 
-- Use `ContentRow` for leading/content/trailing information. Do not approximate it with equal distribution.
+- Use `Row` for leading/content/trailing information and apply `.layoutWeight()` to the middle content. Do not
+  approximate semantic ownership with equal distribution.
 - Let `Button` and `IconButton` keep intrinsic height. Add `.fillHeight()` only when the design explicitly asks
   for a full-height control, and mention that choice in the receipt.
 - Preserve theme padding; do not make a text-tight button. Use `contentPadding` intentionally for slot buttons.

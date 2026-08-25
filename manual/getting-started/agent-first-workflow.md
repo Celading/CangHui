@@ -48,7 +48,8 @@ cuic prnt <platform> . --output artifacts/ui.png
 
 ## 4. 使用框架的默认安全形状
 
-- 三段信息行用 `ContentRow`，不要用三个 `Spacer` 或 `SpaceAround` 猜间距。
+- 三段信息行用 `Row`，给中间内容添加 `.layoutWeight()`；不要用三个 `Spacer` 或
+  `SpaceAround` 猜间距。
 - 普通按钮不写零 padding，不把 `.fillHeight()` 当默认修饰器；高容器中按钮会保持自身高度。
 - 图标用 `Icon`/`IconButton`/`Symbol`，不用单字文本、Emoji 或 iconfont 冒充。
 - 筛选 chips 在窄容器中用 `FlowRow`；文本保留标题、说明、尾随状态的层级，不把说明书塞进卡片。

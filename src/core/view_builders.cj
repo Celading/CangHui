@@ -165,6 +165,93 @@ public class HStack <: Widget {
 }
 
 /**
+ * ArkTS-shaped horizontal linear container backed by CangHui's existing stack engine.
+ *
+ * `Row` keeps the general layout vocabulary at framework level: use `space`,
+ * `justifyContent` and `alignItems` to configure the container, then apply
+ * `.layoutWeight()` to whichever child should receive the remaining width.
+ * Padding, minimum height, surfaces and interaction ownership remain ordinary
+ * widget composition rather than being baked into a purpose-specific row type.
+ */
+public class Row <: Widget {
+    private let stack: Stack
+
+    public init(
+        space!: Length = 0.vp,
+        padding!: LengthInsets = LengthInsets.zero(),
+        flexible!: Bool = true,
+        body!: () -> Unit
+    ) {
+        stack = Stack(Axis.Horizontal, buildChildren(body), spacing: space, padding: padding, flexible: flexible)
+        stack.setCrossAlignment(CrossAxisAlignment.Center)
+        emit(this)
+    }
+
+    public func measure(ctx: UiContext, available: Size): Size {
+        stack.measure(ctx, available)
+    }
+
+    public func layout(ctx: UiContext, rect: Rect): Unit {
+        stack.layout(ctx, rect)
+    }
+
+    public func draw(ctx: UiContext): Unit {
+        stack.draw(ctx)
+    }
+
+    public func handle(ctx: UiContext, event: UiEvent): Bool {
+        stack.handle(ctx, event)
+    }
+
+    public func isFlexible(): Bool {
+        stack.isFlexible()
+    }
+
+    public func focusableIds(): Array<String> {
+        stack.focusableIds()
+    }
+
+    public func interactionOwnerIds(): Array<String> {
+        stack.interactionOwnerIds()
+    }
+
+    /** Sets the fixed gap between adjacent children. */
+    public func space(value: Length): Row {
+        stack.setSpacing(value)
+        this
+    }
+
+    /** Sets the fixed gap between adjacent children in virtual pixels. */
+    public func space(value: Float32): Row {
+        space(vpLength(value))
+    }
+
+    /** Positions children along the horizontal axis when unused space remains. */
+    public func justifyContent(value: MainAxisAlignment): Row {
+        stack.setMainAlignment(value)
+        this
+    }
+
+    /** Positions children along the vertical axis; the default is `Center`. */
+    public func alignItems(value: CrossAxisAlignment): Row {
+        stack.setCrossAlignment(value)
+        this
+    }
+
+    /** Controls whether this row itself participates in its parent's flex pass. */
+    public func flexible(value: Bool): Row {
+        stack.setFlexible(value)
+        this
+    }
+
+    /** Sizes this row to its content along the parent's main axis. */
+    public func hug(): Row {
+        stack.setFlexible(false)
+        this
+    }
+}
+
+/**
  * Opts its content into the enclosing stack's space-sharing pass. A Flexible child is
  * stretched to `weight` shares of the leftover space instead of hugging its content, so
  * equal-weight cells form aligned columns and a heavier cell spans several of them:

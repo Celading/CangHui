@@ -45,8 +45,7 @@ Multiplatform**, and its Cangjie package is **`chui`**. A few older identifiers
 remain deliberately stable at compatibility boundaries: `cui.probe.v0` and
 `@cui-ascii` are wire identifiers; `CUI_*` declarations are source-compatible
 names; `cuic` and `--cui-path` are tool-compatible names; existing
-`dev.cui.examples.*` application ids remain persisted example identities; and
-`cui-core` / `full-cui-scene-*` remain machine-readable capability-matrix keys.
+`dev.cui.examples.*` application ids remain persisted example identities.
 They are not package names or alternate CangHui branding.
 
 > CangHui is not a screenshot layer and not a bag of widgets. It is a small
@@ -204,7 +203,7 @@ framework development, but it is not the normal application layout.
 - Self-rendered GUI engine on SDL3 with GPU geometry, supersampled anti-aliasing,
   rounded corners, strokes, icons, shadows, and gradient fills.
 - Declarative UI built on Cangjie trailing lambdas, `extend`, and `prop`.
-- Layout containers: `VStack`, `HStack`, `ContentRow`, `ZStack`, `Grid`, `Panel`, `FlowRow`,
+- Layout containers: `VStack`, ArkTS-shaped `Row`, `HStack`, `ZStack`, `Grid`, `Panel`, `FlowRow`,
   `ScrollView`, `SplitView`, `Accordion`, animated `Reveal`, and viewport-focused
   lazy containers `LazyColumn`, `LazyRow`, `LazyList`, and `LazyGrid`.
 - Controls: buttons, text fields, switches, checkboxes, radio buttons, pickers,
@@ -317,10 +316,10 @@ into the CangHui implementation claim.
 | Language | [Cangjie](https://cangjie-lang.cn/) | Primary implementation and application language |
 | Declarative runtime | CangHui (`chui`) | Framework-owned composition, state, layout and component surface |
 | Desktop substrate | [SDL3](https://www.libsdl.org/) / SDL3_ttf | Upstream runtime dependency wrapped by the public `sdl` package |
-| Native surface | UIKit, Metal, Android `SurfaceView` and `ANativeWindow` | Adapter targets and bounded bootstrap surfaces; platform proof is explicit in the matrix |
+| Native surface | UIKit, Metal, Android `SurfaceView` and `ANativeWindow` | Adapter targets and bounded bootstrap surfaces; each platform claim requires its own reproducible receipt |
 | Design language | HarmonyOS Sans, Theme, Motion and Symbol contracts | Bundled fallback plus provider-neutral public APIs |
 | Tooling | `cuic`, kMode, probe, Draw IR, doctor and `prnt` | Framework-owned project, inspection and verification entry points |
-| Component references | ArkUI-oriented component matrix and mature GUI conventions | Compatibility and design references, not bundled platform implementations |
+| Component references | ArkUI container conventions and mature GUI systems | API and design references, not bundled platform implementations |
 | Graphics references | SDL, GPU geometry and native-surface literature | Engineering inputs for the renderer boundary, not a claim of owning every backend |
 
 The useful mental model is a **semantic bridge**: CangHui carries Cangjie

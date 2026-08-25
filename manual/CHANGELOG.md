@@ -6,8 +6,9 @@
 
 ### 新增
 
-- 新增 `ContentRow` 三槽信息行：leading/trailing 按内容收缩，content 自动获得剩余宽度，
-  默认提供 12/8 vp 内边距、8 vp 槽间距与 44 vp 最小高度；焦点和交互 owner 保持透传。
+- 新增 ArkTS 风格 `Row` 通用水平容器与 `Widget.layoutWeight`：`space`、
+  `justifyContent`、`alignItems` 和弹性子项直接复用既有 Stack 引擎；三段信息行通过普通
+  padding、最小高度与中间子项权重组合，不再发布目的过窄的专用控件。
 - 新增 `canghui-agent-ui` 公开 skill，把框架消费边界、三槽对齐、按钮本征高度、稳定图标、
   窄侧栏换行与亮/暗主题评审变成可直接复用的 Agent 工作流。
 - 新增 SDK 式消费快速入口：应用使用锁定 `commitId`、`cjpm.lock` 与 CJPM 用户缓存直接
@@ -20,8 +21,9 @@
 - 基于 CorePlayer、ExplorerX 与 PiHub(CHUI) 的只读消费者审计，吸收了稳定三槽信息行、
   本征控制高度、窄侧栏 FlowRow、块级文本节奏和单状态主题等通用方法；播放、文件传输、
   Pi/DSH、产品导航与平台桥仍由消费者拥有，框架未复制其业务代码。
-- `docs/api`、`docs/guide` 与主题文档统一迁入 `manual/`；`docs/` 只留迁移入口。README、
-  capability matrix、cuic Doctor 与公开面链接审计同步采用新的单一文档树。
+- 原 `docs/api`、`docs/guide` 与主题文档统一迁入 `manual/`，并彻底移除旧 `docs/` 入口。
+  内部工程治理账本不再作为公开能力/组件矩阵随框架分发；公开审计会阻止旧目录和治理矩阵
+  重新进入分发面。
 - cuic 提升到 `0.6.0`。手册明确 `doctor → pview/probe ascii → prnt → 平台截图` 的
   分层证据顺序，并保留发布构建拒绝 probe/pview 特权执行的安全门。
 - cuic 构建现在以消费者 manifest/lock 对应的 CangHui 根为准，并把隔离缓存中的 SDL3 同时加入
