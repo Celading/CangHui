@@ -10,3 +10,9 @@ license = "Apache-2.0"
 chui = { path = "../.." }
 sdl = { path = "../../sdl" }
 bgfx4cj = { git = "https://gitcode.com/Cangjie-TPC/bgfx4cj.git", commitId = "149e9d856de361c7c2afb813a68783f7d85fa5c9" }
+
+[ffi.c]
+canghui_embedded_metal_host = { path = "${CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR}" }
+bgfx = { path = "${CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR}" }
+bimg = { path = "${CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR}" }
+bx = { path = "${CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR}" }

@@ -87,7 +87,19 @@ BGFX_NATIVE_ROOT=/path/to/accepted-native-archives \
 ./scripts/verify-scene3d-bgfx-metal-capture.sh \
   /tmp/canghui-scene3d-metal.png \
   /tmp/canghui-scene3d-native-supply.json
+
+BGFX4CJ_ROOT=/path/to/bgfx4cj \
+BGFX_NATIVE_ROOT=/path/to/accepted-native-archives \
+./scripts/verify-scene3d-bgfx-metal-embedded.sh \
+  /tmp/canghui-scene3d-metal-embedded.bmp
 ```
+
+The embedded gate prepares a same-host native pack, tests the checked-in
+provider, builds the checked-in consumer manifest and captures it with
+`cuic prnt`. It must not copy provider source or synthesize substitute manifests.
+The application manifest should contain only its normal `chui` and
+`canghui_scene3d_bgfx` dependencies; native archive propagation belongs to the
+provider's `[ffi.c]` surface.
 
 For close-lifecycle changes, also replay a normal non-capture loop through an
 SDL quit request and require clean detach. A fixed-frame capture is not a

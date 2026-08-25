@@ -7,75 +7,31 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT="${1:-${TMPDIR:-/tmp}/canghui-scene3d-bgfx-metal-embedded.bmp}"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/canghui-scene3d-bgfx-metal-embedded.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
+NATIVE_PACK="$STAGE/native"
 
 fail_embedded() {
     printf 'scene3d embedded Metal proof rejected: %s\n' "$1" >&2
     exit 1
 }
 
-for link_root in "$BGFX_NATIVE_ROOT" "$ROOT/sdl/.sdl3"; do
+for link_root in "$BGFX4CJ_ROOT" "$BGFX_NATIVE_ROOT" "$ROOT/sdl/.sdl3"; do
     if [[ "$link_root" == *[[:space:]]* || "$link_root" == *\"* || "$link_root" == *\\* ]]; then
         fail_embedded "native link root contains unsupported characters: $link_root"
     fi
 done
 [[ "$OUTPUT" == *.bmp || "$OUTPUT" == *.BMP ]] || fail_embedded "proof output must use .bmp"
 
-mkdir -p "$STAGE/clang-cache" "$STAGE/bgfx4cj" "$STAGE/scene3d-bgfx" "$STAGE/embedded-example"
-git -C "$BGFX4CJ_ROOT" archive --format=tar HEAD -o "$STAGE/bgfx4cj.tar"
-tar -xf "$STAGE/bgfx4cj.tar" -C "$STAGE/bgfx4cj"
-cp -R "$ROOT/packages/scene3d-bgfx/src" "$STAGE/scene3d-bgfx/src"
-cp "$ROOT/packages/scene3d-bgfx/platform/macos/macos_embedded_metal_host.cj" \
-    "$STAGE/scene3d-bgfx/src/macos_embedded_metal_host.cj"
-cp -R "$ROOT/examples/scene3d-bgfx-metal-embedded/src" "$STAGE/embedded-example/src"
+BGFX4CJ_ROOT="$BGFX4CJ_ROOT" BGFX_NATIVE_ROOT="$BGFX_NATIVE_ROOT" \
+    "$ROOT/scripts/prepare-scene3d-bgfx-macos-native.sh" "$NATIVE_PACK"
 
-xcrun clang -fobjc-arc -fno-objc-msgsend-selector-stubs -fmodules \
-    -fmodules-cache-path="$STAGE/clang-cache" \
-    -c "$ROOT/packages/scene3d-bgfx/platform/macos/macos_embedded_metal_host.m" \
-    -o "$STAGE/macos_embedded_metal_host.o"
-ar rcs "$STAGE/libcanghui_embedded_metal_host.a" "$STAGE/macos_embedded_metal_host.o"
-
-cat >"$STAGE/bgfx4cj/cjpm.toml" <<EOF
-[package]
-cjc-version = "1.1.0"
-name = "bgfx4cj"
-version = "1.0.0"
-output-type = "static"
-compile-option = "-Woff unused -Woff parser --diagnostic-format=noColor"
-link-option = "-L$BGFX_NATIVE_ROOT -lbgfx -lbimg -lbx -lc++ -lobjc -framework Metal -framework QuartzCore -framework Cocoa -framework Foundation -framework IOKit"
-
-[dependencies]
-EOF
-
-cat >"$STAGE/scene3d-bgfx/cjpm.toml" <<EOF
-[package]
-cjc-version = "1.1.0"
-name = "canghui_scene3d_bgfx"
-version = "0.1.0"
-output-type = "static"
-link-option = "-L$STAGE -lcanghui_embedded_metal_host -L$BGFX_NATIVE_ROOT -lbgfx -lbimg -lbx -lc++ -lobjc -L$ROOT/sdl/.sdl3 -lSDL3 -lSDL3_ttf -framework Metal -framework QuartzCore -framework Cocoa -framework Foundation -framework IOKit"
-
-[dependencies]
-chui = { path = "$ROOT" }
-sdl = { path = "$ROOT/sdl" }
-bgfx4cj = { path = "$STAGE/bgfx4cj" }
-EOF
-
-cat >"$STAGE/embedded-example/cjpm.toml" <<EOF
-[package]
-cjc-version = "1.1.0"
-name = "canghui_scene3d_bgfx_metal_embedded"
-version = "0.1.0"
-output-type = "executable"
-link-option = "-L$STAGE -lcanghui_embedded_metal_host -L$BGFX_NATIVE_ROOT -lbgfx -lbimg -lbx -lc++ -lobjc -L$ROOT/sdl/.sdl3 -lSDL3 -lSDL3_ttf -framework Metal -framework QuartzCore -framework Cocoa -framework Foundation -framework IOKit"
-
-[dependencies]
-chui = { path = "$ROOT" }
-canghui_scene3d_bgfx = { path = "$STAGE/scene3d-bgfx" }
-EOF
+export CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR="$NATIVE_PACK"
+export DYLD_LIBRARY_PATH="$NATIVE_PACK:${DYLD_LIBRARY_PATH:-}"
+(cd "$ROOT/packages/scene3d-bgfx" && cjpm test --no-progress)
+(cd "$ROOT/examples/scene3d-bgfx-metal-embedded" && cjpm build)
 
 LOG="$STAGE/embedded.log"
 (cd "$ROOT/tools/cuic" && cjpm build)
-"$ROOT/tools/cuic/target/release/bin/main" prnt macos "$STAGE/embedded-example" \
+"$ROOT/tools/cuic/target/release/bin/main" prnt macos "$ROOT/examples/scene3d-bgfx-metal-embedded" \
     --output "$OUTPUT" --frames 48 | tee "$LOG"
 
 grep -Fq 'presentation=embedded-surface childAttached=true' "$LOG" || \

@@ -1,6 +1,10 @@
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/CAMetalLayer.h>
 
+// bgfx/bimg/bx are C++ archives; carry their runtime requirement with the
+// provider-owned native host so a CJPM consumer does not duplicate -lc++.
+__asm__(".linker_option \"-lc++\"");
+
 @interface CangHuiEmbeddedSurfaceView : NSView
 @end
 

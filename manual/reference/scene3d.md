@@ -78,6 +78,33 @@ frame.seal()
 macOS arm64 Metal 的当前主机验证。普通 CangHui 构建和一般消费者不会因此下载、
 编译或链接 bgfx 原生库。
 
+## macOS 嵌入式 provider
+
+需要 Metal 3D 的应用先把冻结的 bgfx 原生归档与 SDL 动态库准备到一个同机目录：
+
+```bash
+BGFX4CJ_ROOT=/path/to/bgfx4cj \
+BGFX_NATIVE_ROOT=/path/to/accepted-native-archives \
+./scripts/prepare-scene3d-bgfx-macos-native.sh /tmp/chui-scene3d-native
+
+export CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR=/tmp/chui-scene3d-native
+export DYLD_LIBRARY_PATH="$CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR:${DYLD_LIBRARY_PATH:-}"
+```
+
+应用的 `cjpm.toml` 只需同时引用 `chui` 和 `canghui_scene3d_bgfx`。provider 通过
+`[ffi.c]` 把自身的原生归档传给最终链接，应用不需要复制 provider 源码或复写一组
+bgfx/framework 链接参数。完整构造和同窗口嵌入方式见
+[`scene3d-bgfx-metal-embedded`](../../examples/scene3d-bgfx-metal-embedded/)。
+
+```toml
+[dependencies]
+chui = { path = "/path/to/CangHui" }
+canghui_scene3d_bgfx = { path = "/path/to/CangHui/packages/scene3d-bgfx" }
+```
+
+这是 macOS arm64 的源码包加同机原生包流程，还不是跨平台二进制 SDK。Windows、
+Linux、HarmonyOS 以及 macOS x86_64 仍需要各自 provider 和制品验证。
+
 ## macOS 关闭生命周期
 
 可选 `MacOSSdlMetalHost` 在 `pump()` 中排空 SDL event 队列。收到
@@ -102,6 +129,6 @@ host.close()
 ## 非目标
 
 这一通用投影不是产品场景模型、材质系统或美术规范。它不包含模型/纹理导入、
-文字标注、拾取、碰撞、导航算法、实时传输、嵌入式 Scene3D 视图或移动端渲染认证。
+文字标注、拾取、碰撞、导航算法、实时传输或移动端渲染认证。
 产品可以把自身领域对象投影为上述八类通用低多边形实体，但领域类型不应进入 CangHui
 公开合同。

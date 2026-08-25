@@ -39,27 +39,64 @@ BMP capture contract before `cuic` emits PNG. Verification checks both native
 API receipts and bounded non-background pixels, so an accepted but uniform
 frame is rejected.
 
+## macOS arm64 consumption
+
+The checked-in package is directly consumable as a CJPM source dependency. Its
+`[ffi.c]` entries propagate the four provider-owned native archives to the final
+consumer link; applications do not repeat bgfx, bimg, bx, libc++ or Apple
+framework link flags.
+
+First prepare one same-host native directory from the pinned bgfx4cj checkout,
+an accepted archive supply and CangHui's bootstrapped SDL libraries:
+
+```bash
+BGFX4CJ_ROOT=/path/to/bgfx4cj \
+BGFX_NATIVE_ROOT=/path/to/accepted-native-archives \
+./scripts/prepare-scene3d-bgfx-macos-native.sh \
+  /tmp/canghui-scene3d-bgfx-macos-native
+
+export CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR=/tmp/canghui-scene3d-bgfx-macos-native
+export DYLD_LIBRARY_PATH="$CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR:${DYLD_LIBRARY_PATH:-}"
+```
+
+Then add the package beside `chui` in the application manifest. No provider
+source needs to be copied into the application:
+
+```toml
+[dependencies]
+chui = { path = "/path/to/CangHui" }
+canghui_scene3d_bgfx = { path = "/path/to/CangHui/packages/scene3d-bgfx" }
+```
+
+[`scene3d-bgfx-metal-embedded`](../../examples/scene3d-bgfx-metal-embedded/) is
+the complete checked-in consumer. It places a `CAMetalLayer` child surface in
+the same CangHui window and constructs `MacOSEmbeddedMetalHost` from the
+borrowed SDL window.
+
+This is a source-package plus prepared same-host native-pack flow, not yet a
+portable binary SDK. macOS x86_64, Windows, Linux and HarmonyOS providers remain
+separate adapter work.
+
+## Verification
+
 The bounded macOS verification expects external source and archive locations:
 
 ```bash
 BGFX4CJ_ROOT=/path/to/bgfx4cj \
 BGFX_NATIVE_ROOT=/path/to/native-archives \
-./scripts/verify-scene3d-bgfx-metal-capture.sh \
-  /tmp/scene3d-metal.png \
-  /tmp/scene3d-native-supply.json
+./scripts/verify-scene3d-bgfx-metal-embedded.sh \
+  /tmp/scene3d-metal-embedded.bmp
 ```
 
 The archive directory must contain `libbgfx.a`, `libbimg.a` and `libbx.a` built
 for the frozen macOS arm64 Metal/Noop contract. Before linking, the verifier
 checks the exact bgfx4cj revision, archive SHA-256 digests, architecture,
-deployment metadata and renderer symbols. It emits a path-free
-`canghui.scene3d-bgfx-native-supply-receipt.v1` receipt.
-
-All source and CJPM link settings are staged in a disposable directory. The
-verification does not rewrite CangHui or bgfx4cj manifests and lock files. The
-frozen receipt is current-host evidence, not a portable binary release or a
-complete macOS 12 application-runtime claim. It also does not prove a consumer's
-product mapping, entry point, fallback, lifecycle, meshes or listing artifact.
+deployment metadata and renderer symbols. The embedded verifier then tests the
+real provider package, builds the real example manifest and calls `cuic prnt`;
+it does not synthesize replacement manifests or copy source into a staged
+package. Its receipts and captures are current-host evidence, not a portable
+binary release or a complete macOS 12 application-runtime claim. They also do
+not prove a consumer's product mapping, fallback, meshes or listing artifact.
 
 To reproduce the current-host archives from the pinned source checkout, use a
 new empty output directory:
