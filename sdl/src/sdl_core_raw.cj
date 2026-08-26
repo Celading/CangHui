@@ -21,6 +21,8 @@ foreign {
 
     func SDL_Delay(ms: UInt32): Unit
 
+    func SDL_GetCurrentThreadID(): UInt64
+
     func SDL_OpenGamepad(instanceId: UInt32): CPointer<Unit>
 
     func SDL_GetGamepadName(gamepad: CPointer<Unit>): CString

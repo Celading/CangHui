@@ -16,6 +16,10 @@
 
 ### 修复与集成
 
+- macOS `cuic prnt` 现在把捕获子进程约束为一个仓颉调度处理器，允许应用在
+  `DesktopApp.run` 前启动并等待子进程而不把 SDL 轮询迁到另一条原生线程；
+  `SdlWindow` 也会在进入 SDL 前拒绝线程身份不匹配，避免 macOS SIGBUS 被仓颉
+  1.1.3 误报为 SIGUSR1 后直接终止进程。
 - `Button` 与 `IconButton` 默认不再继承高 `HStack` 的纵向拉伸，避免普通按钮被协同生成代码
   意外撑成整行色块；显式 `.height(...)`/`.fillHeight()` 仍可有意覆盖。
 - 基于 CorePlayer、ExplorerX 与 PiHub(CHUI) 的只读消费者审计，吸收了稳定三槽信息行、

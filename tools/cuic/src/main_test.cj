@@ -84,6 +84,18 @@ func prntResolvesTheMatchingCangjieRuntimeDirectory(): Unit {
 }
 
 @Test
+func prntMacCapturePinsOneCangjieProcessorByDefault(): Unit {
+    if (hostPlatform() != "macos") {
+        return
+    }
+    let environment = applicationEnvironment("/tmp/canghui", "/tmp/capture.bmp", UInt64(2))
+    @Expect(environment.get("cjProcessorNum") ?? "", "1")
+    @Expect(shouldPinMacCaptureProcessor("macos", ""))
+    @Expect(!shouldPinMacCaptureProcessor("macos", "2"))
+    @Expect(!shouldPinMacCaptureProcessor("linux", ""))
+}
+
+@Test
 func packageNamesAreCompilerFriendly(): Unit {
     @Expect(sanitizePackageName("Hello-CangUI"), "hello_cangui")
     @Expect(sanitizePackageName("2026 Demo"), "app_2026_demo")

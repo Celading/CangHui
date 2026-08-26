@@ -61,6 +61,13 @@ model.
 
 ## Current Limits
 
+- Cangjie cjthreads use an M:N scheduler, while a macOS SDL/AppKit window still
+  requires creation and event pumping on one native thread. `cuic prnt`
+  therefore sets `cjProcessorNum=1` only for its capture child. An ordinary app
+  that suspends during startup after creating its window must use the same
+  constraint or move that work behind the running event loop. `SdlWindow`
+  checks the native thread identity before polling so this fails as an explicit
+  exception instead of a cross-thread native crash.
 - Direct `SDL_EnterAppMainCallbacks` binding waits for a complete iOS host
   entry and lifecycle integration.
 - SDL3 GPU wrappers and shader packaging belong to renderer-specific work.

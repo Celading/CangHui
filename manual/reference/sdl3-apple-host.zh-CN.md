@@ -45,6 +45,10 @@ SwiftSDL 的通用指针 owner、销毁回调、类型化 SDL 错误与分配辅
 
 ## 当前限制
 
+- 仓颉线程采用 M:N 调度，macOS SDL/AppKit 窗口仍要求创建与事件泵处于同一原生线程。
+  `cuic prnt` 因此仅为捕获子进程设置 `cjProcessorNum=1`；普通应用若在建窗后执行会挂起
+  的启动工作，也必须采用同一约束或把工作移到事件循环启动后。`SdlWindow` 会在轮询前
+  检查线程身份，以明确异常替代跨线程原生崩溃。
 - 直接绑定 `SDL_EnterAppMainCallbacks` 需要等待完整的 iOS 宿主入口与生命周期集成。
 - SDL3 GPU 封装与着色器打包属于渲染器专项工作。
 - CangHui 不内置 SDL3 源码或 XCFramework。

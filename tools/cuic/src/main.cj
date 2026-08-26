@@ -1135,7 +1135,17 @@ func applicationEnvironment(
     environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
     environment.add("CANGHUI_CAPTURE_PATH", capturePath)
     environment.add("CANGHUI_CAPTURE_FRAMES", captureFrames.toString())
+    // Cangjie cjthreads use an M:N scheduler. A single processor keeps macOS SDL/AppKit
+    // capture on one native thread even when the application launches a child process
+    // during startup. Respect an explicit caller value for diagnostic overrides.
+    if (shouldPinMacCaptureProcessor(hostPlatform(), readEnv("cjProcessorNum"))) {
+        environment.add("cjProcessorNum", "1")
+    }
     environment
+}
+
+internal func shouldPinMacCaptureProcessor(platform: String, configured: String): Bool {
+    platform == "macos" && configured.isEmpty()
 }
 
 func cangjieRuntimeLibraryDirectory(): String {

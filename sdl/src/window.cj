@@ -50,6 +50,7 @@ public struct WindowSpec {
 public class SdlWindow <: Resource {
     internal let windowPtr: CPointer<Unit>
     private let rendererPtr: CPointer<Unit>
+    private let ownerThreadId: UInt64
     private let gamepads: GamepadRuntime
     private var closed = false
 
@@ -95,6 +96,7 @@ public class SdlWindow <: Resource {
 
         this.windowPtr = window
         this.rendererPtr = createdRenderer
+        this.ownerThreadId = unsafe { SDL_GetCurrentThreadID() }
         this.renderer = Renderer(createdRenderer, contentScale: spec.scale, supersample: spec.supersample)
         this.gamepads = GamepadRuntime()
     }
@@ -134,6 +136,12 @@ public class SdlWindow <: Resource {
     }
 
     public func pollEvent(): ?UiEvent {
+        let currentThreadId = unsafe { SDL_GetCurrentThreadID() }
+        if (!sameNativeThread(ownerThreadId, currentThreadId)) {
+            throw CuiException(
+                "SDL event polling moved across native threads; create or borrow the desktop window only after blocking startup work"
+            )
+        }
         var raw = SdlEvent()
         if (!unsafe { SDL_PollEvent(inout raw) }) {
             return None
@@ -185,6 +193,10 @@ public class SdlWindow <: Resource {
             SDL_Quit()
         }
     }
+}
+
+internal func sameNativeThread(ownerThreadId: UInt64, currentThreadId: UInt64): Bool {
+    ownerThreadId == currentThreadId
 }
 
 internal func windowCreationFlags(spec: WindowSpec): UInt64 {

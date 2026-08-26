@@ -50,6 +50,14 @@ main(): Unit {
 cuic prnt macos . --output artifacts/release-check.bmp
 ```
 
+macOS 上 `cuic prnt` 会把捕获子进程约束为一个仓颉调度处理器。原因是仓颉线程采用
+M:N 调度，而 SDL/AppKit 要求窗口创建与事件轮询保持在同一原生线程；应用即使在
+`DesktopApp.run` 前启动并等待子进程，也不会因此把捕获事件泵迁到另一条 worker。
+该约束只作用于 `prnt` 启动的进程，不改变普通构建或应用并发策略。若直接运行的
+macOS 应用必须在构造 `DesktopApp` 后执行阻塞式启动工作，可用
+`cjProcessorNum=1 cjpm run` 作为明确边界；长期任务应在事件循环启动后准备不可变结果，
+再通过 `DesktopApp.postToUi` 提交。
+
 `cuic` 会先构建项目，再直接启动生成的可执行文件，并通过 `DesktopCaptureRequest` 宿主协议请求采集；不依赖 `cjpm run --arg` 或 `--run-args`。进程应自动退出。检查文件存在、长度非零、BMP 头有效，并人工查看标题、进度条、徽章和按钮没有裁切。不要把“能构建”写成“已运行”；二者是不同证据。
 
 ### 3. 为交互另写测试

@@ -289,3 +289,14 @@ to PNG with ImageMagick, macOS `sips`, or Windows System.Drawing.
 
 This captures the application render surface rather than the surrounding desktop and does not require
 the operating system's screen-recording permission.
+
+On macOS, `prnt` defaults the captured child process to the Cangjie runtime's
+`cjProcessorNum=1`. Cangjie cjthreads use an M:N scheduler, while SDL/AppKit
+requires window creation and event polling to stay on one native thread. This
+capture-only boundary lets an application launch or wait for child processes
+before `DesktopApp.run` without moving SDL polling to another scheduler worker.
+An explicitly configured `cjProcessorNum` is preserved for diagnostics. For a
+directly launched macOS application that performs blocking startup work after
+constructing `DesktopApp`, use `cjProcessorNum=1 cjpm run`; normal background
+work should instead prepare immutable results and deliver them through
+`DesktopApp.postToUi` after the event loop starts.
