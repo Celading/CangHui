@@ -114,3 +114,18 @@ func componentThemeResolvesButtonStateAndPanelSurface(): Unit {
     @Expect(theme.panelSurface().fill.r, panel.fill.r)
     @Expect(theme.panelSurface().radius, panel.radius)
 }
+
+@Test
+func quietButtonStyleHasTransparentIdleAndVisibleInteraction(): Unit {
+    let theme = Theme.light()
+    let style = ButtonStyle.quiet()
+    let idle = style.resolve(theme, ButtonRole.Normal, ButtonVisualState())
+    let hover = style.resolve(theme, ButtonRole.Normal, ButtonVisualState(hover: 1.0))
+    let press = style.resolve(theme, ButtonRole.Danger, ButtonVisualState(press: 1.0))
+
+    @Expect(idle.surface.fill.a, UInt8(0))
+    @Expect(idle.surface.borderWidth, Float32(0.0))
+    @Expect(hover.surface.fill.a > UInt8(0))
+    @Expect(press.surface.fill.a > UInt8(0))
+    @Expect(press.foreground.r, theme.danger.r)
+}

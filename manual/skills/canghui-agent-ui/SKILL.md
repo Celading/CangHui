@@ -37,10 +37,26 @@ task explicitly owns framework development or an offline source checkout.
 
 - Use `Row` for leading/content/trailing information and apply `.layoutWeight()` to the middle content. Do not
   approximate semantic ownership with equal distribution.
+- An exact `.width(...)` in `Row`/`HStack` and exact `.height(...)` in `VStack` removes that child from the
+  corresponding flex pass. Do not insert a `Spacer` to compensate for an unexpected empty slot; update to
+  `chui >= 0.16.1` and verify the actual assigned rectangles first.
 - Let `Button` and `IconButton` keep intrinsic height. Add `.fillHeight()` only when the design explicitly asks
   for a full-height control, and mention that choice in the receipt.
-- Preserve theme padding; do not make a text-tight button. Use `contentPadding` intentionally for slot buttons.
+- The regular Button baseline is 38 vp. In a dense desktop toolbar or sidebar, opt into a compact target
+  explicitly with `.minControlSize(width: 0.0, height: 28.0)` and retain readable horizontal
+  `contentPadding`; do not let a product-wide dense surface silently inherit the regular baseline.
+- Preserve readable padding; do not make a text-tight button. Use `contentPadding` intentionally for slot
+  buttons.
 - Use `Icon`, `IconButton`, or generated `Symbol`; do not rely on emoji, text glyphs, or iconfont metrics.
+- Use `ButtonStyle.quiet()` for dense icon-command rows that should not show idle field borders. Do not replace
+  an available icon with a text button merely because the command name is easier to type.
+- A custom `ButtonStyle` must derive foreground and Ink from the active theme. For an accent surface use
+  `theme.accentText` / `theme.inkColor(role: role)`; never hardcode white merely because one theme uses a dark
+  accent.
+- For letter avatars or square icon labels, set `Label.textAlign(TextAlign.Center)` explicitly; fixed frame size
+  alone centers vertically but does not change the default leading text alignment.
+- For a synchronized line-number gutter, use an exact width and `TextArea(..., editable: false,
+  chrome: TextAreaChrome.None)`; do not paint a second input-field border around the gutter.
 - Use `FlowRow` for variable chips in narrow sidebars and one state-derived theme across every surface.
 - Keep title, supporting text, trailing state, and action visually distinct; move long explanation to details/help.
 

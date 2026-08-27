@@ -44,6 +44,66 @@ class SizedLayoutProbe <: Widget {
     }
 }
 
+class NaturallyFlexibleLayoutProbe <: Widget {
+    var rect = Rect.zero()
+
+    public func measure(_: UiContext, available: Size): Size {
+        available
+    }
+
+    public func layout(_: UiContext, assigned: Rect): Unit {
+        rect = assigned
+    }
+
+    public func draw(_: UiContext): Unit {}
+
+    public func handle(_: UiContext, _: UiEvent): Bool {
+        false
+    }
+
+    public func isFlexible(): Bool {
+        true
+    }
+}
+
+@Test
+func exactWidthRemovesNaturallyFlexibleChildFromHorizontalFlexPass(): Unit {
+    let ctx = testContext()
+    let gutter = NaturallyFlexibleLayoutProbe()
+    let editor = LayoutProbe()
+    let view = HStack(spacing: 0.vp) {
+        emit(gutter)
+        gutter.width(45.0)
+        emit(editor)
+        editor.layoutWeight()
+    }
+
+    view.layout(ctx, Rect(0.0, 0.0, 300.0, 100.0))
+
+    @Expect(gutter.rect.w, Float32(45.0))
+    @Expect(editor.rect.x, Float32(45.0))
+    @Expect(editor.rect.w, Float32(255.0))
+}
+
+@Test
+func exactHeightRemovesNaturallyFlexibleChildFromVerticalFlexPass(): Unit {
+    let ctx = testContext()
+    let header = NaturallyFlexibleLayoutProbe()
+    let body = LayoutProbe()
+    let view = VStack(spacing: 0.vp) {
+        emit(header)
+        header.height(32.0)
+        emit(body)
+        body.layoutWeight()
+    }
+
+    view.layout(ctx, Rect(0.0, 0.0, 120.0, 200.0))
+
+    @Expect(header.rect.h, Float32(32.0))
+    @Expect(body.rect.y, Float32(32.0))
+    @Expect(body.rect.h, Float32(168.0))
+}
+
 @Test
 func chainedSizeModifiersReplaceEmittedNode(): Unit {
     let ctx = testContext()

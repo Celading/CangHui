@@ -542,6 +542,7 @@ public import chui.media.clearImageCache
 public import chui.media.invalidateImage
 public import chui.text.ComboBox
 public import chui.text.TextArea
+public import chui.text.TextAreaChrome
 public import chui.text.TextEditState
 public import chui.text.TextField
 public import chui.testkit.PreviewCase

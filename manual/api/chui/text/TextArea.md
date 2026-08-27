@@ -21,6 +21,7 @@ public class TextArea <: Widget
 - **字节偏移语义**：与 [`TextField`](TextField.md) 相同，光标与选区锚点是 UTF-8 字节偏移。从外部接管 `cursor` 后再从外部移动它（加载文件、程序化粘贴）时必须连同 `anchor` 一起移动，否则陈旧锚点会张开一段用户从未做过的选区，下一次按键将整段替换。完整的编辑操作见 [`TextEditState`](TextEditState.md)。
 - **键盘表**：方向键按字符移动，Up/Down 跨行且尽量保持字节列；Home/End 移到**行**首尾（单行控件则是全文首尾）；Enter 插入换行；按住 Shift 的所有导航键扩展选区；Ctrl+A/C/X/V/Z/Y 与 Ctrl+Shift+Z 同单行控件。
 - **只读模式**：`editable: false` 时仍可移动光标、选择和复制；Ctrl+X 只复制而不删除，粘贴与撤销/重做会被忽略，控件不进入 Tab 焦点遍历。
+- **嵌入式表面**：`chrome: TextAreaChrome.None`（或链式 `.chrome(...)`）只移除默认字段底色与描边；文本、选区、滚动条及共享 `scroll` 状态保持不变，适合编辑器行号和日志分栏。
 - **滚动**：滚轮只在内容超出视口时被消费（内容装得下时让给外层滚动容器，不留死区）；键盘编辑与导航后视口滚动最小距离让光标所在行可见，指针路径不做跟随。滚动偏移每帧限制在内容范围，且仅在值变化时写回，外部接管的滚动状态不会收到空写通知。
 - **粘贴换行处理**：保留多行内容，但把 Windows 的 CRLF 和单独的 CR 统一为 `\n`；否则行尾残留的 `\r` 会干扰 End、退格和文字测量。剪贴板不可用时复制/粘贴会静默失败，不会让控件退出。
 - **撤销**：与单行控件相同——500 毫秒内连续编辑合并一步、光标跳转切分撤销组、栈上限 300 步；撤销/重做后自动滚动到光标行。
@@ -58,6 +59,7 @@ main(): Unit {
 | [`undo()`](#undo) | 回退最近一组编辑；同时绑定在 Ctrl+Z。 |
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
+| [`chrome(value: TextAreaChrome)`](#chrome) | 选择普通字段外观或无框嵌入式表面。 |
 | [`measure(...)`](#measure) | [`Widget`](../core/Widget.md) 协议实现：占满全部可用空间。 |
 | [`layout(...)`](#layout) | [`Widget`](../core/Widget.md) 协议实现：记录分配的框架矩形，供绘制与命中测试使用。 |
 | [`draw(...)`](#draw) | [`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、可见行、光标与右缘滚动条。 |
@@ -78,7 +80,8 @@ public init(
     scroll!: ?State<Float32> = None,
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None,
-    editable!: Bool = true
+    editable!: Bool = true,
+    chrome!: TextAreaChrome = TextAreaChrome.Field
 )
 ```
 
@@ -90,6 +93,7 @@ public init(
 - `cursor!`: `?State<Int64>` — 外部接管的光标字节偏移；默认 `None`，初值在文本末尾。
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
 - `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读：可导航选择复制，不可编辑，不进入 Tab 焦点遍历。
+- `chrome!`: `TextAreaChrome` — 默认 `Field`；传 `None` 不绘制默认字段底色和描边。
 
 **异常**
 
@@ -132,6 +136,18 @@ public func scrollOptions(value: ScrollOptions): TextArea
 ```
 
 **参数** `value`: [`ScrollOptions`](../core/ScrollOptions.md) — 行为、步长、时长与曲线。
+
+**返回值** `TextArea` — 本文本区自身，用于链式调用。
+
+### chrome
+
+选择普通字段外观或无框嵌入式表面；不改变文本视口、滚动和编辑语义。
+
+```cangjie
+public func chrome(value: TextAreaChrome): TextArea
+```
+
+**参数** `value`: `TextAreaChrome` — `Field` 或 `None`。
 
 **返回值** `TextArea` — 本文本区自身，用于链式调用。
 

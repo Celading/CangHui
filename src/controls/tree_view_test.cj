@@ -173,3 +173,22 @@ func treeViewIgnoresKeysWhenUnfocused(): Unit {
     @Expect(!tree.handle(ctx, UiEvent.KeyDown(Key.Right, false)))
     @Expect(!expanded.value.contains("a"))
 }
+
+@Test
+func treeViewEllipsizesLongLabelsInsideRemainingRowWidth(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let tree = TreeView([
+        TreeNode("long", "a-very-long-workspace-file-name-that-must-fit.cj")
+    ], State<String>(""), key: "narrow-tree")
+    tree.layout(ctx, Rect(0.0, 0.0, 120.0, 80.0))
+    tree.draw(ctx)
+
+    var sawEllipsis = false
+    for (command in renderer.drawIr()) {
+        if (command.kind == "text" && command.toJson().contains("…")) {
+            sawEllipsis = true
+        }
+    }
+    @Expect(sawEllipsis)
+}

@@ -54,6 +54,41 @@ func editableTextAreaJoinsFocusRingButReadOnlyDoesNot(): Unit {
 }
 
 @Test
+func textAreaChromeNoneOmitsFieldSurfaceButKeepsText(): Unit {
+    let fieldRenderer = Renderer.recordingHeadless()
+    let field = TextArea(State<String>("1\n2"), key: "field")
+    let fieldCtx = UiContext(fieldRenderer, Theme.light())
+    field.layout(fieldCtx, Rect(0.0, 0.0, 80.0, 80.0))
+    field.draw(fieldCtx)
+
+    let plainRenderer = Renderer.recordingHeadless()
+    let plain = TextArea(State<String>("1\n2"), key: "plain", editable: false,
+        chrome: TextAreaChrome.None)
+    let plainCtx = UiContext(plainRenderer, Theme.light())
+    plain.layout(plainCtx, Rect(0.0, 0.0, 80.0, 80.0))
+    plain.draw(plainCtx)
+
+    var fieldSurfaces: Int64 = 0
+    var plainSurfaces: Int64 = 0
+    var plainText: Int64 = 0
+    for (command in fieldRenderer.drawIr()) {
+        if (command.kind == "paint.fill-rounded-rect") {
+            fieldSurfaces += 1
+        }
+    }
+    for (command in plainRenderer.drawIr()) {
+        if (command.kind == "paint.fill-rounded-rect") {
+            plainSurfaces += 1
+        }
+        if (command.kind == "text") {
+            plainText += 1
+        }
+    }
+    @Expect(fieldSurfaces > plainSurfaces)
+    @Expect(plainText, Int64(2))
+}
+
+@Test
 func textAreaWheelUpdatesSharedScrollState(): Unit {
     let ctx = textTestContext()
     let text = State<String>("one\ntwo\nthree\nfour\nfive\nsix\nseven\neight")

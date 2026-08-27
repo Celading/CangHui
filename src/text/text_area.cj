@@ -15,6 +15,12 @@ private let AREA_LETTER_X: UInt8 = 88
 private let AREA_LETTER_Y: UInt8 = 89
 private let AREA_LETTER_Z: UInt8 = 90
 
+/** Controls whether a TextArea paints its ordinary field surface. */
+public enum TextAreaChrome {
+    | Field
+    | None
+}
+
 /*
  * Caches a document's line split so scrolling does not re-split the whole text every frame. Keyed
  * by the text's revision: an edit bumps the revision (see Observable.revision), which refreshes the
@@ -51,6 +57,7 @@ public class TextArea <: Widget {
     private var cursorStateValue: State<Int64>
     private var anchorStateValue: State<Int64>
     private var isEditable: Bool
+    private var chromeMode: TextAreaChrome
     private let scrollBar: ScrollBar
     private let scrollMotion: ScrollMotion
     private var scrollPolicy = ScrollOptions.web()
@@ -66,7 +73,8 @@ public class TextArea <: Widget {
         scroll!: ?State<Float32> = None,
         cursor!: ?State<Int64> = None,
         anchor!: ?State<Int64> = None,
-        editable!: Bool = true
+        editable!: Bool = true,
+        chrome!: TextAreaChrome = TextAreaChrome.Field
     ) {
         let ident = resolveControlKey(key, "TextArea")
         this.id = ident
@@ -90,6 +98,7 @@ public class TextArea <: Widget {
             case None => localState<Int64>("TextArea:${ident}:anchor") {caretStart}
         }
         this.isEditable = editable
+        this.chromeMode = chrome
         this.scrollBar = ScrollBar("TextArea:${ident}:thumb")
         this.scrollMotion = localState<ScrollMotion>("TextArea:${ident}:scroll-motion") {
             ScrollMotion(initialScroll.value)
@@ -107,6 +116,12 @@ public class TextArea <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): TextArea {
         scrollPolicy = value
+        this
+    }
+
+    /** Selects ordinary field chrome or a chrome-free surface for embedded editor parts. */
+    public func chrome(value: TextAreaChrome): TextArea {
+        chromeMode = value
         this
     }
 
@@ -161,7 +176,7 @@ public class TextArea <: Widget {
         }
         let content = TextAreaContent(text.value, cursorStateValue.value, scrollStateValue.value)
         drawTextAreaBox(ctx, frame, id, content, docLines, edit.selectionStart(), edit.selectionEnd(),
-            ctx.hasFocus(id), scrollBar.dragging(ctx))
+            ctx.hasFocus(id), scrollBar.dragging(ctx), chromeMode)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -405,9 +420,13 @@ private func drawTextAreaBox(
     selStart: Int64,
     selEnd: Int64,
     focused: Bool,
-    barActive: Bool
+    barActive: Bool,
+    chrome: TextAreaChrome
 ): Unit {
-    drawTextBoxChrome(ctx, frame, id)
+    match (chrome) {
+        case TextAreaChrome.Field => drawTextBoxChrome(ctx, frame, id)
+        case TextAreaChrome.None => ()
+    }
     let viewport = textViewport(frame)
     ctx.renderer.pushClip(viewport)
     if (focused) {
