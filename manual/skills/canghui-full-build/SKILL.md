@@ -44,7 +44,9 @@ cjpm build
 cjpm test
 (cd sdl && cjpm test)
 (cd tools/cuic && cjpm test && cjpm build)
+bash scripts/test-chui-matrix.sh all
 bash tools/cuic/scripts/test-cli.sh
+bash tools/cuic/scripts/test-install.sh
 bash scripts/audit-network-control-surface.sh
 bash scripts/verify-privileged-release-exclusion.sh
 python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
@@ -60,10 +62,25 @@ debug and device capture even when historical environment/argv opt-ins are
 injected; debug must retain the explicit bounded stdio workflow. A source scan
 or a release-only green test is not a substitute for this dual proof.
 
-The CLI smoke creates a disposable application using a local
+The package matrix discovers every source-owned positive `chui` consumer under
+`bench/`, `examples/`, `packages/` and `tools/release-fixtures/`, then builds
+and tests it. The discovered `tools/cuic/testdata/duplicate-probe` project is
+an intentional negative fixture and remains covered by the CLI smoke. Scene3D
+consumers record a native-supply gap when
+`CANGHUI_SCENE3D_BGFX_MACOS_NATIVE_DIR` is absent. For any packet that touches
+or claims native Scene3D, set `CANGHUI_MATRIX_REQUIRE_NATIVE=1` so that such a
+skip fails the gate.
+
+The CLI and install smokes create disposable applications using a local
 `[dependencies].chui` path and `import chui.*`. If that step is not available,
 create an equivalent disposable consumer outside the repository, build it, and
 remove or retain it only according to the caller's cleanup policy.
+
+When a shared `cuic` command is being delivered on the current host, install it
+through `scripts/install-cuic.sh` and replay the install smoke with
+`CANGHUI_SHARED_CUIC=/absolute/path/to/cuic`. This additionally proves that the
+shared binary recognizes and builds the disposable external `chui` consumer;
+matching a version string alone is insufficient.
 
 ## Conditional Scene3D Native Gate
 

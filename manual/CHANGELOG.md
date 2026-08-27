@@ -2,6 +2,42 @@
 
 本 changelog 只记录开发者可观察的公开变化。
 
+## 0.16.0 (2026-08-27)
+
+### 新增
+
+- 新增 `chui.graphics` 跨后端适配合同：应用按 `Core3D` / `Compute3D` 等能力档位、
+  限额与电源偏好协商 adapter，不把 Metal、Vulkan、D3D11/12、OpenGL ES、WebGPU
+  或软件后端写入业务模型；选择结果与 surface generation 以结构化 receipt 返回。
+- 新增带上限的保留式资源与 render packet：资源和 render-item 使用 slot + generation
+  身份，序列化、解包和事务式 fake replay 会拒绝越界、悬空绑定、旧 generation 与
+  半提交状态，为后续各平台 provider 保留稳定输入面。
+- `Scene3DView` 成为可布局、可聚焦的普通 CangHui 叶节点；指针会转换到视图局部坐标，
+  归一化手柄连接、轴与按键事件只路由给当前焦点所有者。
+- 可选 `scene3d-bgfx` 提供 macOS 同窗口嵌入与原生依赖传递；HarmonyOS 侧新增带版本的
+  XComponent C ABI 和 `HarmonyXComponentScene3DHost`，把 attach / resize / frame /
+  detach 接入同一 Scene3D 宿主 SPI。
+
+### 修复与验证
+
+- macOS `cuic prnt` 把捕获子进程约束为一个仓颉调度处理器，并在 SDL 入口核对原生线程
+  身份，避免等待捕获子进程时把 SDL event loop 迁移到错误线程。
+- 新增源码归属包矩阵：全量门会构建并测试 `bench/`、`examples/`、`packages/` 与
+  release fixture 中所有正向 `chui` 消费者；原生 Scene3D 输入缺失会留下明确 gap，
+  涉及原生 3D 的改动可把该 gap 提升为硬失败。
+- CUIC 安装烟测不再只比较版本号：临时安装后的命令必须识别并构建仓库外的
+  `[dependencies].chui` 消费者；共享安装版也可通过同一门禁核验。
+- 本地源码安装的 provenance 只按实际复制的 `tools/cuic` 子树判定 `+dirty`，不再让
+  框架其他目录中的无关工作树状态污染 CUIC 版本身份。
+
+### 仍未声称
+
+- 图形合同和 render packet 不是所列全部后端的完整驱动实现。当前真实像素证明仍集中在
+  macOS arm64 Metal；Windows、Linux、Android 与 HarmonyOS provider 像素、实体手柄映射、
+  发布者签名、商店发布、生产与 LTS 仍需各自回执。
+- HarmonyOS 公共入口不包含 ArkTS/HAP 产品宿主，macOS 同机原生包也不是跨平台
+  预编译二进制 SDK。应用的模型、材质、拾取、导航与输入策略继续由消费者拥有。
+
 ## 0.15.0 (2026-08-25)
 
 ### 新增
@@ -16,10 +52,6 @@
 
 ### 修复与集成
 
-- macOS `cuic prnt` 现在把捕获子进程约束为一个仓颉调度处理器，允许应用在
-  `DesktopApp.run` 前启动并等待子进程而不把 SDL 轮询迁到另一条原生线程；
-  `SdlWindow` 也会在进入 SDL 前拒绝线程身份不匹配，避免 macOS SIGBUS 被仓颉
-  1.1.3 误报为 SIGUSR1 后直接终止进程。
 - `Button` 与 `IconButton` 默认不再继承高 `HStack` 的纵向拉伸，避免普通按钮被协同生成代码
   意外撑成整行色块；显式 `.height(...)`/`.fillHeight()` 仍可有意覆盖。
 - 基于 CorePlayer、ExplorerX 与 PiHub(CHUI) 的只读消费者审计，吸收了稳定三槽信息行、

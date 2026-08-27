@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="仓颉" />
-  <img src="https://img.shields.io/badge/version-0.15.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.15.0" />
+  <img src="https://img.shields.io/badge/version-0.16.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.16.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
@@ -77,7 +77,7 @@ CangHui 声明式核心  ----  状态、身份、布局、控件、覆盖层
 | --- | --- | --- |
 | macOS 桌面 | 可用 | 本机通过构建、框架/SDL/CLI 全量测试套件、交互式 Gallery 与确定性截图。 |
 | iOS | native-surface 适配器已证明 | 模拟器与真机证明覆盖静态包 bootstrap、UIKit `CAMetalLayer`、生命周期、安全区、触摸、`CADisplayLink`、detach/reattach generation 回放与 Metal clear pass。完整 CangHui 场景渲染、IME、无障碍和产品应用验收仍未完成。 |
-| HarmonyOS / HarmonyPC | 本仓库未提供应用宿主 | 公共契约覆盖原生 surface 与宿主能力，但本仓库不包含 ArkTS/HAP 应用宿主，也不声明独立的设备运行验收。 |
+| HarmonyOS / HarmonyPC | 已提供 XComponent 宿主入口 | 仓库发布带版本的 C ABI 与 `HarmonyXComponentScene3DHost` 生命周期桥；ArkTS/HAP 应用宿主、provider 像素、签名与独立设备验收仍由消费者负责。 |
 | Windows / Linux | 仅有代码路径 | `cuic` 提供 bootstrap、doctor 与构建代码路径；本仓库不声称这两个平台的主机级运行时证明。 |
 | Android | 仅 native-surface bootstrap | 最小 Activity 已经管理 generation-safe 的 `SurfaceView` 到 JNI 再到 `ANativeWindow` 生命周期，并通过 `arm64-v8a` 与 `x86_64` 构建。仓颉 Android SDK、渲染器桥、输入/IME、APK 打包和真机运行证明仍未完成。 |
 
@@ -86,9 +86,9 @@ CangHui 声明式核心  ----  状态、身份、布局、控件、覆盖层
 | 层 | 公开代码中已有 | 边界 |
 | --- | --- | --- |
 | CangHui 核心 | 声明式组合、身份、状态、布局、控件、覆盖层与文本编辑 | 平台无关的源代码 API |
-| 渲染 | 基于 SDL3 的桌面渲染器、几何、文本、Symbol、阴影与渐变 | 这是依赖上游底座的实现，不代表所有 GPU 后端都已完成 |
-| Scene3D | provider-neutral 的封闭快照、八类语义调试投影，以及带 macOS SDL/Metal 宿主的可选 bgfx4cj driver | 已证明的是有界低多边形几何；产品模型、网格、材质、拾取、嵌入式视图与其他宿主运行时仍是独立门禁 |
-| 交互 | 指针捕获、hover/click 取消、焦点、键盘路由、缓动滚动与动效力度 | 未证明的平台仍由原生宿主负责 IME 与无障碍 |
+| 渲染 | 基于 SDL3 的桌面渲染器，以及 provider-neutral 的图形协商、保留资源与有界渲染包 | Metal、Vulkan、D3D11/12、OpenGL ES、WebGPU 与软件渲染只是适配器身份，不代表每个后端驱动都已交付或验证 |
+| Scene3D | 封闭语义快照、可聚焦的嵌入式 `Scene3DView`、可选 macOS bgfx4cj 打包与带版本的 HarmonyOS XComponent 宿主入口 | 已证明 macOS 有界几何与宿主接线；产品资产、拾取和其他宿主 provider 像素仍是独立门禁 |
+| 交互 | 指针捕获、焦点、键盘路由、归一化手柄连接/轴/按键事件、缓动滚动与动效力度 | 手柄事件由焦点所有者接收；实体设备映射、IME 与无障碍仍由尚未证明的平台宿主负责 |
 | 检查 | 仅调试构建可用的 `kMode`、`cuic probe`、组件/函数/事件报告、Draw IR 与确定性 `prnt` | 发布应用和发布 cuic 拒绝特权检查；无头报告证明语义与几何，不等于完整设备 UI 验收 |
 | 工具链 | `cuic init`、确定性无签名输入、release-exclusion/network 审计和可选 macOS Developer ID/公证门 | 运行时闭包与发布凭据仍由 owner 提供；商店发布和未证明的原生运行时继续独立验收 |
 | 移动桥接 | iOS 原生表面生命周期切片、Android 表面启动边界、阶段化 package receipt、签名包证据、安装尝试 receipt 与仅调试态 kMode 回放 | 平台签名器/安装器不会被隐式执行；安装 receipt 仍是平台 owner 外部证明，启动、渲染、真机回放与消费者验收继续分门推进 |

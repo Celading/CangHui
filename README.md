@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.15.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.15.0" />
+  <img src="https://img.shields.io/badge/version-0.16.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.16.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -89,7 +89,7 @@ scene rendering or application acceptance.
 | --- | --- | --- |
 | macOS desktop | Available | Build, the full framework/SDL/CLI test suites, the interactive gallery, and deterministic snapshots pass on this host. |
 | iOS | Native-surface adapter proven | Simulator and physical-device proof covers static-package bootstrap, a UIKit `CAMetalLayer`, lifecycle, safe area, touch, `CADisplayLink`, detach/reattach generation replay and a Metal clear pass. Full CangHui scene rendering, IME, accessibility and product application acceptance remain open. |
-| HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
+| HarmonyOS / HarmonyPC | XComponent host ingress available | The repository publishes a versioned C ABI and `HarmonyXComponentScene3DHost` lifecycle bridge. An ArkTS/HAP application host, provider pixels, signing and standalone device acceptance remain consumer-owned gates. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
 | Android | Native-surface bootstrap only | A minimal Activity owns the generation-safe `SurfaceView` to JNI to `ANativeWindow` lifecycle, and the slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, input/IME, APK packaging and device runtime proof remain open. |
 
@@ -98,9 +98,9 @@ scene rendering or application acceptance.
 | Layer | In the public tree | Boundary |
 | --- | --- | --- |
 | CangHui core | Declarative composition, identity, state, layout, controls, overlays and text editing | Platform-neutral source API |
-| Rendering | SDL3-backed desktop renderer, geometry, text, symbols, shadows and gradients | The renderer is a dependency-backed implementation, not a claim about every GPU backend |
-| Scene3D | Provider-neutral sealed snapshots, eight semantic classes, optional entity scale/rotation and a frame camera, plus an optional bgfx4cj driver with a macOS SDL/Metal host | Bounded low-poly geometry is proven; product models, meshes, materials, picking, an embedded view and other-host runtime proof remain separate gates |
-| Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
+| Rendering | SDL3-backed desktop renderer plus provider-neutral graphics negotiation, retained resources and bounded render packets | Metal, Vulkan, D3D11/12, OpenGL ES, WebGPU and software are adapter identities, not claims that every backend driver is shipped or verified |
+| Scene3D | Sealed semantic snapshots, a focusable embedded `Scene3DView`, optional macOS bgfx4cj packaging, and a versioned HarmonyOS XComponent host ingress | macOS bounded geometry and host wiring are proven; product assets, picking and other-host provider pixels remain separate gates |
+| Interaction | Pointer capture, focus, keyboard routing, normalized gamepad connection/axis/button events, smooth scrolling and motion levels | Gamepad routing is focus-owned; physical-device mappings, native IME and accessibility remain host responsibilities where not proven |
 | Inspection | debug-build-only `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Release applications and release cuic refuse privileged inspection; reports prove semantics and geometry, not a full device UI acceptance |
 | Packaging | `cuic init`, manifest validation, deterministic unsigned inputs, release-exclusion and network audits, plus opt-in macOS Developer ID/notarization gates | Runtime closure and publisher credentials remain owner inputs; App Store/MSIX publication and non-macOS host launch remain separate gates |
 | Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, signed-package evidence, installation-attempt receipts and debug-only kMode callback replay | Platform signers/installers are never run implicitly; installation receipts remain platform-owner attestations, while launch, rendering, device replay and consumer acceptance stay separate gates |
