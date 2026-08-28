@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="仓颉" />
-  <img src="https://img.shields.io/badge/version-0.11.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.11.0" />
+  <img src="https://img.shields.io/badge/version-0.16.1-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.16.1" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
@@ -37,8 +37,7 @@ SDL3 封装 `sdl`、集成工具链 `cuic`、组件包契约、响应式布局�
 框架正式名称是 **CangHui（仓绘）**，完整定位是 **CangHui Multiplatform**，仓颉包名是
 **`chui`**。少量旧标识仅在兼容边界保留：`cui.probe.v0` 与 `@cui-ascii` 是线协议标识，
 `CUI_*` 是源码兼容名称，`cuic` 与 `--cui-path` 是工具兼容名称，现有
-`dev.cui.examples.*` 是示例应用的持久化标识，`cui-core` / `full-cui-scene-*` 是能力矩阵的
-机器可读兼容键。它们不是包名，也不是 CangHui 的替代品牌。
+`dev.cui.examples.*` 是示例应用的持久化标识。它们不是包名，也不是 CangHui 的替代品牌。
 
 > CangHui 不是截图层，也不是一袋组件。它是面向语言的轻量运行时：
 > 应用意图以仓颉组合进入，经过布局、状态、动效、Symbol 与宿主能力，
@@ -78,7 +77,7 @@ CangHui 声明式核心  ----  状态、身份、布局、控件、覆盖层
 | --- | --- | --- |
 | macOS 桌面 | 可用 | 本机通过构建、框架/SDL/CLI 全量测试套件、交互式 Gallery 与确定性截图。 |
 | iOS | native-surface 适配器已证明 | 模拟器与真机证明覆盖静态包 bootstrap、UIKit `CAMetalLayer`、生命周期、安全区、触摸、`CADisplayLink`、detach/reattach generation 回放与 Metal clear pass。完整 CangHui 场景渲染、IME、无障碍和产品应用验收仍未完成。 |
-| HarmonyOS / HarmonyPC | 本仓库未提供应用宿主 | 公共契约覆盖原生 surface 与宿主能力，但本仓库不包含 ArkTS/HAP 应用宿主，也不声明独立的设备运行验收。 |
+| HarmonyOS / HarmonyPC | 已提供 XComponent 宿主入口 | 仓库发布带版本的 C ABI 与 `HarmonyXComponentScene3DHost` 生命周期桥；ArkTS/HAP 应用宿主、provider 像素、签名与独立设备验收仍由消费者负责。 |
 | Windows / Linux | 仅有代码路径 | `cuic` 提供 bootstrap、doctor 与构建代码路径；本仓库不声称这两个平台的主机级运行时证明。 |
 | Android | 仅 native-surface bootstrap | 最小 Activity 已经管理 generation-safe 的 `SurfaceView` 到 JNI 再到 `ANativeWindow` 生命周期，并通过 `arm64-v8a` 与 `x86_64` 构建。仓颉 Android SDK、渲染器桥、输入/IME、APK 打包和真机运行证明仍未完成。 |
 
@@ -87,11 +86,12 @@ CangHui 声明式核心  ----  状态、身份、布局、控件、覆盖层
 | 层 | 公开代码中已有 | 边界 |
 | --- | --- | --- |
 | CangHui 核心 | 声明式组合、身份、状态、布局、控件、覆盖层与文本编辑 | 平台无关的源代码 API |
-| 渲染 | 基于 SDL3 的桌面渲染器、几何、文本、Symbol、阴影与渐变 | 这是依赖上游底座的实现，不代表所有 GPU 后端都已完成 |
-| 交互 | 指针捕获、hover/click 取消、焦点、键盘路由、缓动滚动与动效力度 | 未证明的平台仍由原生宿主负责 IME 与无障碍 |
-| 检查 | `kMode`、`cuic probe`、组件/函数/事件报告、Draw IR 与确定性 `prnt` | 无头报告证明语义与几何，不等于完整设备 UI 验收 |
-| 工具链 | `cuic init`、应用清单、依赖缓存/锁、doctor 与平台准备 | 平台签名、商店发布和未证明的原生运行时仍由平台门禁负责 |
-| 移动桥接 | iOS 原生表面生命周期切片、Android 表面启动边界、阶段化 package receipt、签名包证据、安装尝试 receipt 与 kMode 回放 | CangHui 不执行签名器、验证器或安装器；安装 receipt 仍是平台 owner 的外部证明，启动、渲染、真机回放与消费者验收继续分门推进 |
+| 渲染 | 基于 SDL3 的桌面渲染器，以及 provider-neutral 的图形协商、保留资源与有界渲染包 | Metal、Vulkan、D3D11/12、OpenGL ES、WebGPU 与软件渲染只是适配器身份，不代表每个后端驱动都已交付或验证 |
+| Scene3D | 封闭语义快照、可聚焦的嵌入式 `Scene3DView`、可选 macOS bgfx4cj 打包与带版本的 HarmonyOS XComponent 宿主入口 | 已证明 macOS 有界几何与宿主接线；产品资产、拾取和其他宿主 provider 像素仍是独立门禁 |
+| 交互 | 指针捕获、焦点、键盘路由、归一化手柄连接/轴/按键事件、缓动滚动与动效力度 | 手柄事件由焦点所有者接收；实体设备映射、IME 与无障碍仍由尚未证明的平台宿主负责 |
+| 检查 | 仅调试构建可用的 `kMode`、`cuic probe`、组件/函数/事件报告、Draw IR 与确定性 `prnt` | 发布应用和发布 cuic 拒绝特权检查；无头报告证明语义与几何，不等于完整设备 UI 验收 |
+| 工具链 | `cuic init`、确定性无签名输入、release-exclusion/network 审计和可选 macOS Developer ID/公证门 | 运行时闭包与发布凭据仍由 owner 提供；商店发布和未证明的原生运行时继续独立验收 |
+| 移动桥接 | iOS 原生表面生命周期切片、Android 表面启动边界、阶段化 package receipt、签名包证据、安装尝试 receipt 与仅调试态 kMode 回放 | 平台签名器/安装器不会被隐式执行；安装 receipt 仍是平台 owner 外部证明，启动、渲染、真机回放与消费者验收继续分门推进 |
 
 ## 快速开始
 
@@ -140,7 +140,7 @@ main() {
 }
 ```
 
-完整的缓存、锁定与本地覆盖规则见[轻量消费工作流](docs/consumer-workflow.zh-CN.md)。
+完整的缓存、锁定与本地覆盖规则见[轻量消费工作流](manual/reference/consumer-workflow.zh-CN.md)。
 
 对应用开发者而言，理想形态很小：依赖 `chui`、安装 `cuic`，再由工具生成
 工程骨架。完整框架 checkout 适合框架开发，但不应成为普通应用的目录结构。
@@ -149,7 +149,7 @@ main() {
 
 - 基于 SDL3 的自渲染 GUI 引擎，使用 GPU 几何图元与超采样渲染圆角、描边、图标、阴影与渐变。
 - 基于仓颉尾随 lambda、`extend`、`prop` 的声明式 UI 编码范式。
-- 布局容器：`VStack`、`HStack`、`ZStack`、`Grid`、`Panel`、`FlowRow`、`ScrollView`、
+- 布局容器：`VStack`、ArkTS 风格 `Row`、`HStack`、`ZStack`、`Grid`、`Panel`、`FlowRow`、`ScrollView`、
   `SplitView`、`Accordion`、动画折叠容器 `Reveal`，以及视口聚焦的懒加载容器
   `LazyColumn`、`LazyRow`、`LazyList`、`LazyGrid`。
 - 控件：按钮、文本框、开关、复选框、单选、选择器、步进器、滑块、进度条、环形进度、评分、
@@ -189,8 +189,10 @@ main() {
 - `cuic init` / `build` / `test` / `run`，按目标平台准备依赖
 - `cuic doctor`：分组报告 Cangjie、仓库、SDL、macOS、Windows、Linux、iOS、HarmonyOS、
   Android、字体、Symbol、kMode 与 probe 就绪度
-- `cuic kmode`：不创建窗口的调试/受监管无头调用
-- `cuic probe`：无窗口输出组件/函数/事件/动画与 Draw IR 报告
+- 调试构建的 `cuic kmode`：不创建窗口的受监管无头调用；发布 cuic 仅保留
+  `kmode diff` 静态检查并拒绝执行
+- 调试构建的 `cuic probe` / `pview`：输出组件/函数/事件/动画与 Draw IR；
+  发布 cuic 仅保留 `probe diff`
 - `cuic symbol`：声明式 provider 子集与生成
 - `cuic font`：字体准备与注册
 - `cuic prnt`：确定性稳态帧截图
@@ -198,7 +200,11 @@ main() {
   （限定在既有 cuic 动作内）
 
 doctor 状态模型与 JSON 契约见
-[`docs/doctor.zh-CN.md`](docs/doctor.zh-CN.md)。
+[`manual/reference/doctor.zh-CN.md`](manual/reference/doctor.zh-CN.md)。
+
+发布/调试控制面边界、反编译能力边界、trim/strip 编译契约与 macOS
+Developer ID/公证证据链见
+[`manual/reference/security-and-release.zh-CN.md`](manual/reference/security-and-release.zh-CN.md)。
 
 ## 组件、Gallery 与包
 
@@ -234,10 +240,10 @@ CangHui 使用分级词汇表达能力边界：
 | 语言 | [仓颉](https://cangjie-lang.cn/) | 主实现语言与应用语言 |
 | 声明式运行时 | CangHui（`chui`） | 框架自有的组合、状态、布局与组件表面 |
 | 桌面底座 | [SDL3](https://www.libsdl.org/) / SDL3_ttf | 由公开 `sdl` 包封装的上游运行时依赖 |
-| 原生表面 | UIKit、Metal、Android `SurfaceView` 与 `ANativeWindow` | 适配目标与有边界的启动切片；平台证据以能力矩阵为准 |
+| 原生表面 | UIKit、Metal、Android `SurfaceView` 与 `ANativeWindow` | 适配目标与有边界的启动切片；每项平台声明都需要独立、可复现的回执 |
 | 设计语言 | HarmonyOS Sans、Theme、Motion 与 Symbol 契约 | 自带兜底资源与 provider-neutral 公共 API |
 | 工具链 | `cuic`、kMode、probe、Draw IR、doctor 与 `prnt` | 框架自有的工程、检查与验证入口 |
-| 组件参考 | ArkUI 方向的组件矩阵与成熟 GUI 约定 | 兼容性与设计参考，不是捆绑的平台实现 |
+| 组件参考 | ArkUI 容器约定与成熟 GUI 系统 | API 与设计参考，不是捆绑的平台实现 |
 | 图形参考 | SDL、GPU 几何与原生表面工程资料 | 渲染边界的输入，不代表拥有所有图形后端 |
 
 可以把 CangHui 理解为一座**语义桥**：它负责让仓颉语义跨越宿主，
@@ -313,16 +319,18 @@ CangHui 运行时能力声明。
 
 - [公开手册与版本记录](manual/index.md)
 - [示例应用](examples/)
-- [入门指南](docs/guide/index.md)
-- [API 文档](docs/api/index.md)
-- [架构说明](docs/architecture.md)
-- [轻量消费工作流](docs/consumer-workflow.zh-CN.md)
-- [多平台 Doctor](docs/doctor.zh-CN.md)
-- [Symbol 与可选图标 Provider](docs/symbols.zh-CN.md)
-- [字体](docs/fonts.zh-CN.md)
-- [Probe 与 kMode](docs/probe.zh-CN.md)
-- [SDL3 Apple 宿主说明](docs/sdl3-apple-host.zh-CN.md)
-- [现代 GUI 核心范式洞察辨析](docs/modern-GUI-insights-and-analysis.md)
+- [手册首页](manual/index.md)
+- [入门指南](manual/guide/index.md)
+- [API 文档](manual/api/index.md)
+- [架构说明](manual/reference/architecture.md)
+- [轻量消费工作流](manual/reference/consumer-workflow.zh-CN.md)
+- [多平台 Doctor](manual/reference/doctor.zh-CN.md)
+- [Symbol 与可选图标 Provider](manual/reference/symbols.zh-CN.md)
+- [字体](manual/reference/fonts.zh-CN.md)
+- [Scene3D 语义投影](manual/reference/scene3d.md)
+- [Probe 与 kMode](manual/reference/probe.zh-CN.md)
+- [SDL3 Apple 宿主说明](manual/reference/sdl3-apple-host.zh-CN.md)
+- [现代 GUI 核心范式洞察辨析](manual/reference/modern-GUI-insights-and-analysis.md)
 
 ## 许可证
 

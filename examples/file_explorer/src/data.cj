@@ -72,8 +72,8 @@ func seedRoots(): Array<TreeNode> {
                 ])
             ]),
             folder("CangHui/docs", [
-                file("CangHui/docs/components.md"),
-                file("CangHui/docs/architecture.md")
+                file("CangHui/manual/api/index.md"),
+                file("CangHui/manual/reference/architecture.md")
             ]),
             file("CangHui/README.md"),
             file("CangHui/LICENSE")

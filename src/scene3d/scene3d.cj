@@ -115,30 +115,112 @@ public struct Scene3DResource {
 /** Minimal immutable entity projection used by a provider for one frame. */
 public struct Scene3DEntitySnapshot {
     public let id: String
+    public let kind: Scene3DEntityKind
     public let x: Float32
     public let y: Float32
     public let z: Float32
+    public let scaleX: Float32
+    public let scaleY: Float32
+    public let scaleZ: Float32
+    public let rotationX: Float32
+    public let rotationY: Float32
+    public let rotationZ: Float32
     public let visible: Bool
 
-    public init(id: String, x: Float32, y: Float32, z: Float32, visible!: Bool = true) {
+    public init(
+        id: String,
+        x: Float32,
+        y: Float32,
+        z: Float32,
+        visible!: Bool = true,
+        kind!: Scene3DEntityKind = Scene3DEntityKind.Vehicle,
+        scaleX!: Float32 = 0.0,
+        scaleY!: Float32 = 0.0,
+        scaleZ!: Float32 = 0.0,
+        rotationX!: Float32 = 0.0,
+        rotationY!: Float32 = 0.0,
+        rotationZ!: Float32 = 0.0
+    ) {
         if (id.isEmpty()) { throw IllegalArgumentException("scene3d entity id must be present") }
+        if (scaleX < 0.0 || scaleY < 0.0 || scaleZ < 0.0) {
+            throw IllegalArgumentException("scene3d entity scale overrides must not be negative")
+        }
         this.id = id
+        this.kind = kind
         this.x = x
         this.y = y
         this.z = z
+        this.scaleX = scaleX
+        this.scaleY = scaleY
+        this.scaleZ = scaleZ
+        this.rotationX = rotationX
+        this.rotationY = rotationY
+        this.rotationZ = rotationZ
         this.visible = visible
+    }
+}
+
+/** Provider-neutral camera carried by one immutable scene frame. */
+public struct Scene3DCameraSnapshot {
+    public let eyeX: Float32
+    public let eyeY: Float32
+    public let eyeZ: Float32
+    public let targetX: Float32
+    public let targetY: Float32
+    public let targetZ: Float32
+    public let upX: Float32
+    public let upY: Float32
+    public let upZ: Float32
+    public let fieldOfViewY: Float32
+    public let nearPlane: Float32
+    public let farPlane: Float32
+
+    public init(
+        eyeX: Float32,
+        eyeY: Float32,
+        eyeZ: Float32,
+        targetX: Float32,
+        targetY: Float32,
+        targetZ: Float32,
+        upX!: Float32 = 0.0,
+        upY!: Float32 = 1.0,
+        upZ!: Float32 = 0.0,
+        fieldOfViewY!: Float32 = 52.0,
+        nearPlane!: Float32 = 0.1,
+        farPlane!: Float32 = 100.0
+    ) {
+        if (fieldOfViewY <= 1.0 || fieldOfViewY >= 179.0 || nearPlane <= 0.0 || farPlane <= nearPlane) {
+            throw IllegalArgumentException("scene3d camera projection is invalid")
+        }
+        if (upX == 0.0 && upY == 0.0 && upZ == 0.0) {
+            throw IllegalArgumentException("scene3d camera up vector must not be zero")
+        }
+        this.eyeX = eyeX
+        this.eyeY = eyeY
+        this.eyeZ = eyeZ
+        this.targetX = targetX
+        this.targetY = targetY
+        this.targetZ = targetZ
+        this.upX = upX
+        this.upY = upY
+        this.upZ = upZ
+        this.fieldOfViewY = fieldOfViewY
+        this.nearPlane = nearPlane
+        this.farPlane = farPlane
     }
 }
 
 /** Product-facing scene snapshot. It becomes immutable at the submit boundary. */
 public class Scene3DFrameSnapshot {
     public let sceneId: String
+    public let camera: ?Scene3DCameraSnapshot
     private let entities = ArrayList<Scene3DEntitySnapshot>()
     private var sealed = false
 
-    public init(sceneId: String) {
+    public init(sceneId: String, camera!: ?Scene3DCameraSnapshot = None) {
         if (sceneId.isEmpty()) { throw IllegalArgumentException("scene3d scene id must be present") }
         this.sceneId = sceneId
+        this.camera = camera
     }
 
     public func add(entity: Scene3DEntitySnapshot): Unit {

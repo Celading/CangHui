@@ -1,5 +1,6 @@
 package chui.kmode
 
+@When[debug]
 import std.env.{getCommandLine, getVariable}
 
 @When[debug]
@@ -12,15 +13,17 @@ public func kModeDebugDefault(): Bool {
     false
 }
 
-/** kMode is automatic for compiler debug builds and explicit for supervised runs. */
+/**
+ * kMode is a compiler-debug-only facility.
+ *
+ * Release artifacts fail closed even when a launcher supplies historical
+ * environment or argv opt-ins. This is a build boundary, not a preference.
+ */
 public func kModeEnabled(): Bool {
-    if (kModeDebugDefault()) {
-        return true
-    }
-    let value = environmentValue("CANGHUI_KMODE")
-    value == "1" || value == "true" || value == "on"
+    kModeDebugDefault()
 }
 
+@When[debug]
 public func kModeStdioRequested(): Bool {
     if (environmentValue("CANGHUI_KMODE_TRANSPORT") == "stdio") {
         return true
@@ -33,6 +36,12 @@ public func kModeStdioRequested(): Bool {
     false
 }
 
+@When[!debug]
+public func kModeStdioRequested(): Bool {
+    false
+}
+
+@When[debug]
 func environmentValue(name: String): String {
     match (getVariable(name)) {
         case Some(value) => value.trimAscii()
@@ -53,7 +62,7 @@ public class KModePolicy {
             KModeCapability.Admin
         ]
     ) {
-        this.enabled = enabled
+        this.enabled = enabled && kModeDebugDefault()
         this.capabilities = capabilities
     }
 

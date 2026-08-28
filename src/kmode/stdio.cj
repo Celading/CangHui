@@ -1,7 +1,9 @@
 package chui.kmode
 
+@When[debug]
 import std.env.{getStdIn, getStdOut}
 
+@When[debug]
 public func runKModeStdio(policy!: KModePolicy = KModePolicy()): Int64 {
     if (!policy.enabled) {
         return 2
@@ -39,11 +41,23 @@ public func runKModeStdio(policy!: KModePolicy = KModePolicy()): Int64 {
     0
 }
 
+@When[!debug]
+public func runKModeStdio(policy!: KModePolicy = KModePolicy()): Int64 {
+    if (policy.enabled) { () }
+    2
+}
+
 /** Call before constructing DesktopApp so the control plane stays headless. */
+@When[debug]
 public func runKModeStdioIfRequested(): Bool {
     if (!kModeEnabled() || !kModeStdioRequested()) {
         return false
     }
     _ = runKModeStdio()
     true
+}
+
+@When[!debug]
+public func runKModeStdioIfRequested(): Bool {
+    false
 }

@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.11.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.11.0" />
+  <img src="https://img.shields.io/badge/version-0.16.1-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.16.1" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -45,8 +45,7 @@ Multiplatform**, and its Cangjie package is **`chui`**. A few older identifiers
 remain deliberately stable at compatibility boundaries: `cui.probe.v0` and
 `@cui-ascii` are wire identifiers; `CUI_*` declarations are source-compatible
 names; `cuic` and `--cui-path` are tool-compatible names; existing
-`dev.cui.examples.*` application ids remain persisted example identities; and
-`cui-core` / `full-cui-scene-*` remain machine-readable capability-matrix keys.
+`dev.cui.examples.*` application ids remain persisted example identities.
 They are not package names or alternate CangHui branding.
 
 > CangHui is not a screenshot layer and not a bag of widgets. It is a small
@@ -90,7 +89,7 @@ scene rendering or application acceptance.
 | --- | --- | --- |
 | macOS desktop | Available | Build, the full framework/SDL/CLI test suites, the interactive gallery, and deterministic snapshots pass on this host. |
 | iOS | Native-surface adapter proven | Simulator and physical-device proof covers static-package bootstrap, a UIKit `CAMetalLayer`, lifecycle, safe area, touch, `CADisplayLink`, detach/reattach generation replay and a Metal clear pass. Full CangHui scene rendering, IME, accessibility and product application acceptance remain open. |
-| HarmonyOS / HarmonyPC | Host integration not shipped here | The shared contracts cover native surfaces and host capabilities, but this repository does not include an ArkTS/HAP application host or claim standalone device acceptance. |
+| HarmonyOS / HarmonyPC | XComponent host ingress available | The repository publishes a versioned C ABI and `HarmonyXComponentScene3DHost` lifecycle bridge. An ArkTS/HAP application host, provider pixels, signing and standalone device acceptance remain consumer-owned gates. |
 | Windows / Linux | Code paths present | `cuic` contains bootstrap, doctor and build code paths; this repository does not claim host-verified runtime proof for either platform. |
 | Android | Native-surface bootstrap only | A minimal Activity owns the generation-safe `SurfaceView` to JNI to `ANativeWindow` lifecycle, and the slice builds for `arm64-v8a` and `x86_64`. The Cangjie Android SDK, renderer bridge, input/IME, APK packaging and device runtime proof remain open. |
 
@@ -99,11 +98,12 @@ scene rendering or application acceptance.
 | Layer | In the public tree | Boundary |
 | --- | --- | --- |
 | CangHui core | Declarative composition, identity, state, layout, controls, overlays and text editing | Platform-neutral source API |
-| Rendering | SDL3-backed desktop renderer, geometry, text, symbols, shadows and gradients | The renderer is a dependency-backed implementation, not a claim about every GPU backend |
-| Interaction | Pointer capture, hover/click cancellation, focus, keyboard routing, smooth scrolling and motion levels | Native IME and accessibility remain host responsibilities where not proven |
-| Inspection | `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Headless reports prove semantics and geometry, not a full device UI acceptance |
-| Packaging | `cuic init`, manifest validation, deterministic plans, unsigned macOS `.app` generation, Windows resource inputs, Linux desktop inputs, dependency cache/lock discipline and doctor | Self-contained native runtime closure, signing, notarization, MSIX/store publication and non-macOS host launch remain platform gates |
-| Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, signed-package evidence, installation-attempt receipts and kMode callback replay | CangHui does not execute signers, verifiers or installers; installation receipts remain platform-owner attestations, while launch, rendering, device replay and consumer acceptance stay separate gates |
+| Rendering | SDL3-backed desktop renderer plus provider-neutral graphics negotiation, retained resources and bounded render packets | Metal, Vulkan, D3D11/12, OpenGL ES, WebGPU and software are adapter identities, not claims that every backend driver is shipped or verified |
+| Scene3D | Sealed semantic snapshots, a focusable embedded `Scene3DView`, optional macOS bgfx4cj packaging, and a versioned HarmonyOS XComponent host ingress | macOS bounded geometry and host wiring are proven; product assets, picking and other-host provider pixels remain separate gates |
+| Interaction | Pointer capture, focus, keyboard routing, normalized gamepad connection/axis/button events, smooth scrolling and motion levels | Gamepad routing is focus-owned; physical-device mappings, native IME and accessibility remain host responsibilities where not proven |
+| Inspection | debug-build-only `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Release applications and release cuic refuse privileged inspection; reports prove semantics and geometry, not a full device UI acceptance |
+| Packaging | `cuic init`, manifest validation, deterministic unsigned inputs, release-exclusion and network audits, plus opt-in macOS Developer ID/notarization gates | Runtime closure and publisher credentials remain owner inputs; App Store/MSIX publication and non-macOS host launch remain separate gates |
+| Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, signed-package evidence, installation-attempt receipts and debug-only kMode callback replay | Platform signers/installers are never run implicitly; installation receipts remain platform-owner attestations, while launch, rendering, device replay and consumer acceptance stay separate gates |
 
 ## Quick Start
 
@@ -161,7 +161,7 @@ focus, keyboard, release-inside and move-out cancellation contract:
 ```cangjie
 Button(onClick: {=> openWorkspace()}, role: ButtonRole.Primary) {
     HStack(spacing: 8.vp) {
-        Icon(IconName.Folder)
+        Icon(IconName.OpenFolder)
         VStack(spacing: 2.vp) {
             Label("Open workspace").bold()
             Label("Local or remote").muted().fontSize(12.fp)
@@ -191,7 +191,7 @@ Primitive controls follow the same headless contract. `IconButton`, `Switch`,
 their action owner, keyboard shortcut and current value/selection state;
 `accessibilityLabel` supplies a stable name for icon-only or value-only faces.
 
-See [consumer workflow](docs/consumer-workflow.md) for cache, lock, and local
+See [consumer workflow](manual/reference/consumer-workflow.md) for cache, lock, and local
 override rules.
 
 The intended consumer shape is small: depend on `chui`, install `cuic`, and let
@@ -203,7 +203,7 @@ framework development, but it is not the normal application layout.
 - Self-rendered GUI engine on SDL3 with GPU geometry, supersampled anti-aliasing,
   rounded corners, strokes, icons, shadows, and gradient fills.
 - Declarative UI built on Cangjie trailing lambdas, `extend`, and `prop`.
-- Layout containers: `VStack`, `HStack`, `ZStack`, `Grid`, `Panel`, `FlowRow`,
+- Layout containers: `VStack`, ArkTS-shaped `Row`, `HStack`, `ZStack`, `Grid`, `Panel`, `FlowRow`,
   `ScrollView`, `SplitView`, `Accordion`, animated `Reveal`, and viewport-focused
   lazy containers `LazyColumn`, `LazyRow`, `LazyList`, and `LazyGrid`.
 - Controls: buttons, text fields, switches, checkboxes, radio buttons, pickers,
@@ -259,9 +259,10 @@ framework development, but it is not the normal application layout.
 - `cuic init` / `build` / `test` / `run` with per-platform preparation
 - `cuic doctor` for grouped Cangjie, repository, SDL, macOS, Windows, Linux,
   iOS, HarmonyOS, Android, font, Symbol, kMode, and probe readiness
-- `cuic kmode` for debug/supervised headless invocation without opening a window
-- `cuic probe` for deterministic component/function/event/animation and Draw IR
-  reports without a window
+- debug-built `cuic kmode` for supervised headless invocation without opening a
+  window; release cuic keeps only `kmode diff` and refuses execution
+- debug-built `cuic probe` / `pview` for deterministic component/function/event/
+  animation and Draw IR reports; release cuic keeps only `probe diff`
 - `cuic symbol` for declared provider subsets and generation
 - `cuic font` for font preparation and registration
 - `cuic prnt` for deterministic settled-frame screenshots
@@ -269,7 +270,11 @@ framework development, but it is not the normal application layout.
   `canghui.toml` (bounded to existing cuic actions)
 
 Doctor status model and JSON contract:
-[`docs/doctor.md`](docs/doctor.md).
+[`manual/reference/doctor.md`](manual/reference/doctor.md).
+
+The release/debug control-plane boundary, reverse-engineering limits, compiler
+trim/strip contract and macOS Developer ID/notarization evidence chain are in
+[`manual/reference/security-and-release.md`](manual/reference/security-and-release.md).
 
 ## Components, Gallery, and Packages
 
@@ -311,10 +316,10 @@ into the CangHui implementation claim.
 | Language | [Cangjie](https://cangjie-lang.cn/) | Primary implementation and application language |
 | Declarative runtime | CangHui (`chui`) | Framework-owned composition, state, layout and component surface |
 | Desktop substrate | [SDL3](https://www.libsdl.org/) / SDL3_ttf | Upstream runtime dependency wrapped by the public `sdl` package |
-| Native surface | UIKit, Metal, Android `SurfaceView` and `ANativeWindow` | Adapter targets and bounded bootstrap surfaces; platform proof is explicit in the matrix |
+| Native surface | UIKit, Metal, Android `SurfaceView` and `ANativeWindow` | Adapter targets and bounded bootstrap surfaces; each platform claim requires its own reproducible receipt |
 | Design language | HarmonyOS Sans, Theme, Motion and Symbol contracts | Bundled fallback plus provider-neutral public APIs |
 | Tooling | `cuic`, kMode, probe, Draw IR, doctor and `prnt` | Framework-owned project, inspection and verification entry points |
-| Component references | ArkUI-oriented component matrix and mature GUI conventions | Compatibility and design references, not bundled platform implementations |
+| Component references | ArkUI container conventions and mature GUI systems | API and design references, not bundled platform implementations |
 | Graphics references | SDL, GPU geometry and native-surface literature | Engineering inputs for the renderer boundary, not a claim of owning every backend |
 
 The useful mental model is a **semantic bridge**: CangHui carries Cangjie
@@ -397,16 +402,18 @@ visual acceptance; they simply stop carrying the entire testing burden.
 
 - [Public manual and release notes](manual/index.md)
 - [Examples](examples/)
-- [Getting started](docs/guide/index.md)
-- [API reference](docs/api/index.md)
-- [Architecture](docs/architecture.md)
-- [Consumer workflow](docs/consumer-workflow.md)
-- [Multiplatform doctor](docs/doctor.md)
-- [Symbols and providers](docs/symbols.md)
-- [Fonts](docs/fonts.md)
-- [Probe and kMode](docs/probe.md)
-- [SDL3 Apple host notes](docs/sdl3-apple-host.md)
-- [Modern GUI insights](docs/modern-GUI-insights-and-analysis.md)
+- [Manual home](manual/index.md)
+- [Getting started](manual/guide/index.md)
+- [API reference](manual/api/index.md)
+- [Architecture](manual/reference/architecture.md)
+- [Consumer workflow](manual/reference/consumer-workflow.md)
+- [Multiplatform doctor](manual/reference/doctor.md)
+- [Symbols and providers](manual/reference/symbols.md)
+- [Fonts](manual/reference/fonts.md)
+- [Scene3D semantic projection](manual/reference/scene3d.md)
+- [Probe and kMode](manual/reference/probe.md)
+- [SDL3 Apple host notes](manual/reference/sdl3-apple-host.md)
+- [Modern GUI insights](manual/reference/modern-GUI-insights-and-analysis.md)
 
 ## License
 

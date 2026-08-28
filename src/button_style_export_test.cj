@@ -2,6 +2,8 @@ package chui
 
 @Test
 func umbrellaExportsComponentThemeAndButtonStyle(): Unit {
+    let quiet = ButtonStyle.quiet()
+    let chrome = TextAreaChrome.None
     let style = ButtonStyle(resolve: {
         theme, role, state => ButtonAppearance(
             surface: theme.buttonSurface(role),
@@ -31,4 +33,9 @@ func umbrellaExportsComponentThemeAndButtonStyle(): Unit {
     @Expect(theme.components.buttonLayout.minHeight, Float32(38.0))
     @Expect(theme.components.spacing.controlMinHeight, Float32(44.0))
     @Expect(theme.components.shape.resolvedControl(theme), Float32(12.0))
+    @Expect(quiet.resolve(theme, ButtonRole.Normal, ButtonVisualState()).surface.borderWidth, Float32(0.0))
+    @Expect(match (chrome) {
+        case TextAreaChrome.None => true
+        case TextAreaChrome.Field => false
+    })
 }

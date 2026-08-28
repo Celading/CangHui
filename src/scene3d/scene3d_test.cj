@@ -5,6 +5,85 @@ func scene3dNamesAndProtocolStayStable(): Unit {
     @Expect(CANGHUI_SCENE3D_PROTOCOL, "canghui.scene3d.v0")
     @Expect(scene3dBackendName(Scene3DBackend.Metal), "metal")
     @Expect(scene3dBackendName(Scene3DBackend.D3D12), "d3d12")
+    @Expect(scene3dEntityKindName(Scene3DEntityKind.UserMarker), "user-marker")
+    @Expect(scene3dEntityKindName(Scene3DEntityKind.ExitMarker), "exit-marker")
+    @Expect(scene3dDebugGeometryFamilyName(Scene3DDebugGeometryFamily.Ribbon), "ribbon")
+    @Expect(scene3dSemanticColorName(Scene3DSemanticColor.RouteAccent), "route-accent")
+}
+
+@Test
+func scene3dDebugProjectionMapsAllGenericEntityKinds(): Unit {
+    let floor = projectScene3DEntity(Scene3DEntitySnapshot(
+        "floor", 0.0, -1.0, 0.0, kind: Scene3DEntityKind.Floor
+    ))
+    let route = projectScene3DEntity(Scene3DEntitySnapshot(
+        "route", 0.0, -0.8, 0.2, kind: Scene3DEntityKind.Route
+    ))
+    let vehicle = projectScene3DEntity(Scene3DEntitySnapshot(
+        "vehicle", -0.8, -0.3, 0.0, kind: Scene3DEntityKind.Vehicle
+    ))
+    let user = projectScene3DEntity(Scene3DEntitySnapshot(
+        "user", 1.0, -0.2, 0.0, visible: false, kind: Scene3DEntityKind.UserMarker
+    ))
+    let structure = projectScene3DEntity(Scene3DEntitySnapshot(
+        "structure", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Structure,
+        scaleX: 1.4, scaleY: 0.3, scaleZ: 0.5, rotationY: 0.25
+    ))
+    let track = projectScene3DEntity(Scene3DEntitySnapshot(
+        "track", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Track
+    ))
+    let facility = projectScene3DEntity(Scene3DEntitySnapshot(
+        "facility", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.Facility
+    ))
+    let exit = projectScene3DEntity(Scene3DEntitySnapshot(
+        "exit", 0.0, 0.0, 0.0, kind: Scene3DEntityKind.ExitMarker
+    ))
+
+    @Expect(floor.geometryFamily == Scene3DDebugGeometryFamily.Slab)
+    @Expect(floor.semanticColor == Scene3DSemanticColor.GroundNeutral)
+    @Expect(floor.scaleX == 3.8)
+    @Expect(route.geometryFamily == Scene3DDebugGeometryFamily.Ribbon)
+    @Expect(route.semanticColor == Scene3DSemanticColor.RouteAccent)
+    @Expect(route.green == 0.63)
+    @Expect(vehicle.geometryFamily == Scene3DDebugGeometryFamily.Box)
+    @Expect(vehicle.entityId, "vehicle")
+    @Expect(vehicle.x == -0.8)
+    @Expect(user.geometryFamily == Scene3DDebugGeometryFamily.Marker)
+    @Expect(user.semanticColor == Scene3DSemanticColor.UserHighlight)
+    @Expect(!user.visible)
+    @Expect(structure.semanticColor == Scene3DSemanticColor.StructureNeutral)
+    @Expect(structure.scaleX == 1.4)
+    @Expect(structure.scaleY == 0.3)
+    @Expect(structure.rotationY == 0.25)
+    @Expect(track.semanticColor == Scene3DSemanticColor.TrackNeutral)
+    @Expect(facility.semanticColor == Scene3DSemanticColor.FacilityAccent)
+    @Expect(exit.semanticColor == Scene3DSemanticColor.ExitAccent)
+}
+
+@Test
+func scene3dEntitySnapshotKeepsLegacyDefaultKind(): Unit {
+    let entity = Scene3DEntitySnapshot("legacy", 1.0, 2.0, 3.0)
+    @Expect(entity.kind == Scene3DEntityKind.Vehicle)
+    @Expect(entity.visible)
+    @Expect(entity.scaleX == 0.0)
+    @Expect(entity.rotationY == 0.0)
+}
+
+@Test
+func scene3dFrameCarriesValidatedOptionalCamera(): Unit {
+    let camera = Scene3DCameraSnapshot(7.0, 5.0, 9.0, 0.0, -0.5, 0.0,
+        fieldOfViewY: 48.0, nearPlane: 0.2, farPlane: 80.0)
+    let frame = Scene3DFrameSnapshot("camera", camera: Some(camera))
+    match (frame.camera) {
+        case Some(value) =>
+            @Expect(value.eyeX == 7.0)
+            @Expect(value.fieldOfViewY == 48.0)
+            @Expect(value.farPlane == 80.0)
+        case None => @Fail("camera should be present")
+    }
+    @ExpectThrows[IllegalArgumentException](
+        Scene3DCameraSnapshot(1.0, 1.0, 1.0, 0.0, 0.0, 0.0, nearPlane: 2.0, farPlane: 1.0)
+    )
 }
 
 @Test

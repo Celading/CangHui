@@ -371,6 +371,16 @@ public interface Widget {
         applyModifier(this, WidgetModifier.Flex(max(0.0, weight)))
     }
 
+    /** ArkTS-shaped alias for sharing an enclosing Row/HStack's remaining space. */
+    func layoutWeight(): Widget {
+        flex()
+    }
+
+    /** ArkTS-shaped alias for sharing remaining space with an explicit weight. */
+    func layoutWeight(weight: Float32): Widget {
+        flex(weight)
+    }
+
     /** Includes or removes this widget from layout, drawing, and event dispatch. */
     func visible(isVisible: Bool): Widget {
         if (!isVisible) {

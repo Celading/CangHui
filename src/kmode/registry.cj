@@ -27,6 +27,7 @@ public class KModeRegistration {
     }
 }
 
+@When[debug]
 public func registerKModeEndpoint(endpoint: KModeEndpoint): KModeEndpoint {
     synchronized(kModeRegistryMutex) {
         for (existing in kModeEndpoints) {
@@ -41,6 +42,12 @@ public func registerKModeEndpoint(endpoint: KModeEndpoint): KModeEndpoint {
     endpoint
 }
 
+@When[!debug]
+public func registerKModeEndpoint(endpoint: KModeEndpoint): KModeEndpoint {
+    endpoint
+}
+
+@When[debug]
 public func listKModeEndpoints(): Array<KModeEndpoint> {
     let copy = ArrayList<KModeEndpoint>()
     synchronized(kModeRegistryMutex) {
@@ -51,6 +58,12 @@ public func listKModeEndpoints(): Array<KModeEndpoint> {
     sortKModeEndpoints(copy.toArray())
 }
 
+@When[!debug]
+public func listKModeEndpoints(): Array<KModeEndpoint> {
+    []
+}
+
+@When[debug]
 public func findKModeEndpoint(name: String): ?KModeEndpoint {
     var found: ?KModeEndpoint = None
     synchronized(kModeRegistryMutex) {
@@ -64,6 +77,13 @@ public func findKModeEndpoint(name: String): ?KModeEndpoint {
     found
 }
 
+@When[!debug]
+public func findKModeEndpoint(_name: String): ?KModeEndpoint {
+    let _ = _name
+    None
+}
+
+@When[debug]
 public func dispatchKModeRequest(
     request: KModeRequest,
     policy!: KModePolicy = KModePolicy()
@@ -105,6 +125,21 @@ public func dispatchKModeRequest(
                 KModeResponse(request.id, true, "stopping")
             }
     }
+}
+
+@When[!debug]
+public func dispatchKModeRequest(
+    request: KModeRequest,
+    policy!: KModePolicy = KModePolicy()
+): KModeResponse {
+    if (policy.enabled) { () }
+    KModeResponse(
+        request.id,
+        false,
+        "disabled",
+        errorCode: -32000,
+        errorMessage: "kMode is unavailable in release builds"
+    )
 }
 
 func renderKModeEndpointList(): String {

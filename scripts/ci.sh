@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CangHui local CI: prepare SDL, run root/sdl/cuic tests, build cuic, and run public-surface checks.
+# CangHui local CI: prepare SDL and run package, CLI, security and public-surface gates.
 # Usage: bash scripts/ci.sh
 set -euo pipefail
 
@@ -23,8 +23,9 @@ fi
 
 export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-/opt/homebrew/lib}"
 
-# 2. Root framework tests.
-echo "==> root cjpm test"
+# 2. Root framework build and tests.
+echo "==> root cjpm build + test"
+cjpm build
 cjpm test
 
 # 3. sdl package tests.
@@ -35,11 +36,29 @@ echo "==> sdl cjpm test"
 echo "==> cuic build + test"
 (cd tools/cuic && cjpm test && cjpm build)
 
-# 5. Platform script tests.
+# 5. Source-owned public packages. Native Scene3D packages record a gap unless
+# an accepted native supply directory is explicitly provided.
+echo "==> source-owned package matrix"
+bash scripts/test-chui-matrix.sh packages
+
+# 6. CLI and installed-distribution regression.
+echo "==> cuic CLI smoke"
+bash tools/cuic/scripts/test-cli.sh
+
+echo "==> cuic install smoke"
+bash tools/cuic/scripts/test-install.sh
+
+# 7. Platform and security script tests.
 echo "==> iOS provisioning profile decoder"
 bash scripts/test-ios-provisioning-profile.sh
 
-# 6. Public-surface checks.
+echo "==> source network/control audit"
+bash scripts/audit-network-control-surface.sh
+
+echo "==> privileged release exclusion"
+bash scripts/verify-privileged-release-exclusion.sh
+
+# 8. Public-surface checks.
 echo "==> diff check"
 git diff --check
 

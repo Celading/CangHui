@@ -23,13 +23,36 @@ main(): Int64 {
         if (!attach.ok) { return 10 }
 
         let load = provider.loadScene(Scene3DResource(
-            "metal-clear", "memory://metal-clear", "sha256:metadata-only", 0
+            "metal-debug-cube", "memory://metal-debug-cube", "sha256:embedded-debug-cube", 0
         ))
         println("load=${load.code}")
         if (!load.ok) { return 11 }
 
-        let snapshot = Scene3DFrameSnapshot("metal-clear-scene")
-        snapshot.add(Scene3DEntitySnapshot("clear-frame", 0.0, 0.0, 0.0))
+        let camera = Scene3DCameraSnapshot(
+            7.4, 6.2, 9.1,
+            0.1, -0.7, 0.0,
+            fieldOfViewY: 48.0
+        )
+        let snapshot = Scene3DFrameSnapshot("metal-semantic-debug-scene", camera: Some(camera))
+        snapshot.add(Scene3DEntitySnapshot(
+            "floor", 0.0, -1.2, 0.0, kind: Scene3DEntityKind.Floor,
+            scaleX: 3.2, scaleY: 0.16, scaleZ: 2.5, rotationY: 0.08
+        ))
+        snapshot.add(Scene3DEntitySnapshot(
+            "route", 0.0, -0.92, 0.25, kind: Scene3DEntityKind.Route,
+            scaleX: 2.3, scaleY: 0.10, scaleZ: 0.18, rotationY: -0.20
+        ))
+        snapshot.add(Scene3DEntitySnapshot(
+            "vehicle", -0.9, -0.62, 0.15, kind: Scene3DEntityKind.Vehicle
+        ))
+        snapshot.add(Scene3DEntitySnapshot(
+            "user", 1.0, -0.38, -0.1, kind: Scene3DEntityKind.UserMarker
+        ))
+        snapshot.add(Scene3DEntitySnapshot(
+            "hidden-sentinel", 0.0, 2.0, 0.0,
+            visible: false, kind: Scene3DEntityKind.UserMarker
+        ))
+        println("camera=non-default transform=non-default")
         var captureRequested = false
         var captured = false
         let totalFrames = capture.settleFrames + UInt64(24)
@@ -40,7 +63,7 @@ main(): Int64 {
             let submit = provider.submit(snapshot, currentClock)
             let present = provider.present(currentClock)
             if (frame == UInt64(1)) {
-                println("submit=${submit.code} present=${present.code}")
+                println("submit=${submit.code} detail=${submit.detail} present=${present.code}")
             }
             if (!submit.ok || !present.ok) { return 12 }
             if (!captureRequested && frame >= capture.settleFrames) {

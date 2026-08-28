@@ -3,10 +3,10 @@ package cuic
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
 import std.env.{getCommandLine, getVariable, getVariables}
-import std.fs.{Directory, File, Path, exists, removeIfExists}
+import std.fs.{Directory, File, Path, canonicalize, exists, removeIfExists}
 import std.process.{ProcessRedirect, executeWithOutput, launch}
 
-let VERSION = "0.4.0"
+let VERSION = "0.6.0"
 
 class CuicError <: Exception {
     init(message: String) {
@@ -342,7 +342,7 @@ func helpText(): String {
     "  cuic version\n\n" +
     "Project scripts: declare portable lifecycle pipelines in canghui.toml, then run cuic <name>.\n" +
     "prnt builds once, launches the executable directly, and uses DesktopCaptureRequest; it does not rely on cjpm run argument forwarding.\n" +
-    "debug is the explicit debug channel; production builds are the default and never embed the capture service.\n" +
+    "kmode/probe execution, pview, debug, and device capture require a cuic debug build (-g); release cuic refuses them.\n" +
     "pview prints the current CangHui layout as a deterministic ASCII projection from the\n" +
     "  recording-headless Draw IR, without opening a window. Tutorial:\n" +
     "  cuic pview <probe>                       # default 96x32 grid\n" +
@@ -381,14 +381,11 @@ func normalizePlatform(value: String): String {
 }
 
 func currentDirectory(): String {
-    if (hostPlatform() == "windows") {
-        let (code, out, _) = executeWithOutput("cmd", ["/D", "/C", "cd"])
-        if (code == 0) { return trimAscii(String.fromUtf8(out)) }
-    } else {
-        let (code, out, _) = executeWithOutput("pwd", [])
-        if (code == 0) { return trimAscii(String.fromUtf8(out)) }
+    try {
+        return canonicalize(".").toString()
+    } catch (_: Exception) {
+        throw CuicError("cannot resolve current directory")
     }
-    throw CuicError("cannot resolve current directory")
 }
 
 func frameworkForCurrentCommand(): String {
@@ -418,17 +415,13 @@ func cliRoot(): String {
 }
 
 func resolveFrameworkRoot(project: String): String {
-    let integrated = integratedFrameworkRoot()
-    if (integrated.size > 0) {
-        return integrated
-    }
-    for (name in ["CANGHUI_FRAMEWORK_ROOT", "CANGUI_FRAMEWORK_ROOT"]) {
-        match (getVariable(name)) {
-            case Some(value) where value.size > 0 => return validateFramework(value)
-            case _ => ()
-        }
-    }
+    // A consumer's declared dependency owns build-time package and native-runtime
+    // resolution. An integrated development checkout must not shadow the exact
+    // Git revision that CJPM will actually link.
     if (project.size > 0 && exists(joinPath(project, "cjpm.toml"))) {
+        if (frameworkRootCandidate(project)) {
+            return trimTrailingSlash(project)
+        }
         let spec = frameworkDependencySpec(project)
         if (spec.isLocal()) {
             let dependency = if (startsWithText(spec.path, "/") || isWindowsAbsolute(spec.path)) {
@@ -438,9 +431,20 @@ func resolveFrameworkRoot(project: String): String {
             }
             return validateFramework(dependency)
         }
-        let cached = cachedFrameworkRoot(project)
-        if (!cached.isEmpty()) {
-            return cached
+        if (spec.isGit()) {
+            let cached = cachedFrameworkRoot(project)
+            if (!cached.isEmpty()) { return cached }
+            throw CuicError("The locked CangHui dependency is not available in the CJPM cache")
+        }
+    }
+    let integrated = integratedFrameworkRoot()
+    if (integrated.size > 0) {
+        return integrated
+    }
+    for (name in ["CANGHUI_FRAMEWORK_ROOT", "CANGUI_FRAMEWORK_ROOT"]) {
+        match (getVariable(name)) {
+            case Some(value) where value.size > 0 => return validateFramework(value)
+            case _ => ()
         }
     }
     let parent = parentPath(cliRoot())
@@ -577,10 +581,15 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
     let font = runtimeHarmonyFont(context.framework)
     let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, font, targetArgs)
-        return executeCommand("cmd", ["/D", "/C", command], context.project)
+        return executeCommandWithEnvironment(
+            "cjpm",
+            targetArgs,
+            context.project,
+            windowsCjpmEnvironment(sdl, font)
+        )
     }
     let args = ArrayList<String>()
+    args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
     } else {
@@ -597,10 +606,16 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
     let font = runtimeHarmonyFont(context.framework)
     let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
     if (hostPlatform() == "windows") {
-        let command = windowsCjpmCommand(sdl, font, targetArgs)
-        return executeCommandQuiet("cmd", ["/D", "/C", command], context.project)
+        return executeCommandWithEnvironment(
+            "cjpm",
+            targetArgs,
+            context.project,
+            windowsCjpmEnvironment(sdl, font),
+            quiet: true
+        )
     }
     let args = ArrayList<String>()
+    args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
     } else {
@@ -610,6 +625,14 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
     args.add("cjpm")
     for (arg in targetArgs) { args.add(arg) }
     executeCommandQuiet("/usr/bin/env", args.toArray(), context.project)
+}
+
+func nativeLinkSearchAssignment(sdl: String, current: String): String {
+    if (current.isEmpty()) {
+        "LIBRARY_PATH=${sdl}"
+    } else {
+        "LIBRARY_PATH=${sdl}:${current}"
+    }
 }
 
 func executeCommand(program: String, args: Array<String>, workingDirectory: String): Int64 {
@@ -640,6 +663,39 @@ func executeCommandQuiet(program: String, args: Array<String>, workingDirectory:
         println("error: failed to execute ${program}: ${e.message}")
         127
     }
+}
+
+func executeCommandWithEnvironment(
+    program: String,
+    args: Array<String>,
+    workingDirectory: String,
+    environment: HashMap<String, String>,
+    quiet!: Bool = false
+): Int64 {
+    try {
+        let output = if (quiet) { ProcessRedirect.Discard } else { ProcessRedirect.Inherit }
+        let process = launch(
+            program,
+            args,
+            workingDirectory: Path(workingDirectory),
+            environment: environment,
+            stdIn: ProcessRedirect.Inherit,
+            stdOut: output,
+            stdErr: output
+        )
+        process.wait()
+    } catch (e: Exception) {
+        println("error: failed to execute ${program}: ${e.message}")
+        127
+    }
+}
+
+func windowsCjpmEnvironment(sdl: String, font: String): HashMap<String, String> {
+    let environment = HashMap<String, String>()
+    for ((key, value) in getVariables()) { environment.add(key, value) }
+    environment.add("PATH", "${sdl};${readEnv("PATH")}")
+    environment.add("CANGHUI_HARMONYOS_SANS", font)
+    environment
 }
 
 func resolveHarmonyFont(platform: String): String {
@@ -871,7 +927,9 @@ func joinStrings(values: Array<String>, separator: String): String {
     out.toString()
 }
 
+@When[debug]
 func debugCommand(args: Array<String>, start: Int64): Int64 {
+    requireDebugChannelBuild("cuic debug")
     let options = parseDebugOptions(args, start)
     if (options.device.size > 0 || options.app.size > 0) {
         let targets = listHdcTargets()
@@ -894,6 +952,12 @@ func debugCommand(args: Array<String>, start: Int64): Int64 {
     2
 }
 
+@When[!debug]
+func debugCommand(_args: Array<String>, _start: Int64): Int64 {
+    requireDebugChannelBuild("cuic debug")
+    1
+}
+
 func printWindow(args: Array<String>, start: Int64): Int64 {
     let options = parsePrntOptions(args, start)
     if (options.device.size > 0 || options.app.size > 0) {
@@ -902,7 +966,9 @@ func printWindow(args: Array<String>, start: Int64): Int64 {
     return printDesktopWindow(options)
 }
 
+@When[debug]
 func printDeviceWindow(options: PrntOptions): Int64 {
+    requireDebugChannelBuild("cuic prnt --device/--app")
     let targets = listHdcTargets()
     if (options.device.size > 0 && !hasHdcTarget(targets, options.device)) {
         println("cuic prnt: device '${options.device}' is not visible")
@@ -951,6 +1017,12 @@ func printDeviceWindow(options: PrntOptions): Int64 {
     }
     println("snapshot (system fallback): ${output}")
     0
+}
+
+@When[!debug]
+func printDeviceWindow(_options: PrntOptions): Int64 {
+    requireDebugChannelBuild("cuic prnt --device/--app")
+    1
 }
 
 func printDesktopWindow(options: PrntOptions): Int64 {
@@ -1063,7 +1135,17 @@ func applicationEnvironment(
     environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
     environment.add("CANGHUI_CAPTURE_PATH", capturePath)
     environment.add("CANGHUI_CAPTURE_FRAMES", captureFrames.toString())
+    // Cangjie cjthreads use an M:N scheduler. A single processor keeps macOS SDL/AppKit
+    // capture on one native thread even when the application launches a child process
+    // during startup. Respect an explicit caller value for diagnostic overrides.
+    if (shouldPinMacCaptureProcessor(hostPlatform(), readEnv("cjProcessorNum"))) {
+        environment.add("cjProcessorNum", "1")
+    }
     environment
+}
+
+internal func shouldPinMacCaptureProcessor(platform: String, configured: String): Bool {
+    platform == "macos" && configured.isEmpty()
 }
 
 func cangjieRuntimeLibraryDirectory(): String {
@@ -1149,13 +1231,6 @@ func convertToBmp(source: String, output: String): Int64 {
     if (programAvailable("magick")) { return executeCommand("magick", [source, output], currentDirectory()) }
     if (programAvailable("convert")) { return executeCommand("convert", [source, output], currentDirectory()) }
     throw CuicError("BMP output requires magick or convert; request .jpeg or .png instead")
-}
-
-func windowsCjpmCommand(sdl: String, font: String, args: Array<String>): String {
-    let out = StringBuilder()
-    out.append("set \"PATH=${sdl};%PATH%\" && set \"CANGHUI_HARMONYOS_SANS=${font}\" && cjpm")
-    for (arg in args) { out.append(" \"${arg}\"") }
-    out.toString()
 }
 
 func runtimeHarmonyFont(framework: String): String {

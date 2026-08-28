@@ -1,5 +1,6 @@
 package chui.kmode.linktest
 
+@When[debug]
 import chui.kmode.{KModeOperation, KModePolicy, KModeRequest, dispatchKModeRequest}
 import chui.kmode.macros.*
 
@@ -8,6 +9,7 @@ func linkedEcho(value: String): String {
     "linked:" + value
 }
 
+@When[debug]
 @Test
 func macroLinkedEndpointIsRegisteredAndInvocable(): Unit {
     let response = dispatchKModeRequest(

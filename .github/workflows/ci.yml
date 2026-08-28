@@ -20,7 +20,7 @@ jobs:
         run: python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
       - name: Active file size guard (<4000 lines)
         run: |
-          find src sdl/src tools/cuic/src -name '*.cj' -print0 2>/dev/null \
+          find src sdl/src tools/cuic/src packages -name '*.cj' -print0 2>/dev/null \
             | xargs -0 wc -l \
             | awk '$1 >= 4000 {print; bad=1} END {exit bad}'
 

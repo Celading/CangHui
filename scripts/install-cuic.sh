@@ -89,7 +89,7 @@ SOURCE_REVISION="$(git -C "${SOURCE_ROOT:-${CHECKOUT}}" rev-parse HEAD 2>/dev/nu
 BUILD_CHANNEL="release"
 if [[ -n "${SOURCE_ROOT}" ]]; then
     BUILD_CHANNEL="local-source"
-    if [[ -n "$(git -C "${SOURCE_ROOT}" status --porcelain 2>/dev/null || true)" ]]; then
+    if [[ -n "$(git -C "${SOURCE_ROOT}" status --porcelain -- tools/cuic 2>/dev/null || true)" ]]; then
         SOURCE_REVISION="${SOURCE_REVISION}+dirty"
     fi
 fi

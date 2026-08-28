@@ -1,6 +1,12 @@
 package sdl
 
 @Test
+func nativeThreadIdentityMustMatchExactly(): Unit {
+    @Expect(sameNativeThread(UInt64(42), UInt64(42)))
+    @Expect(!sameNativeThread(UInt64(42), UInt64(43)))
+}
+
+@Test
 func windowSpecNormalizesInvalidScale(): Unit {
     let spec = WindowSpec("Scale", 100, 100, scale: -2.0)
 

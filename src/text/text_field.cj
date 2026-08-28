@@ -37,6 +37,7 @@ public class TextField <: Widget {
     private var autofocusRequested = false
     private let autofocusDone: State<Bool>
     private let isEditable: Bool
+    private var secureEntryEnabled = false
     private var frame = Rect.zero()
 
     public init(
@@ -93,8 +94,24 @@ public class TextField <: Widget {
         this
     }
 
+    /**
+     * Masks the rendered value and keeps credential bytes out of semantics,
+     * clipboard copy/cut and retained undo/redo history.
+     *
+     * The caller still owns the bound value and must clear it after handing the
+     * credential to its provider. Managed String storage is not a zeroizable
+     * secret container.
+     */
+    public func secureEntry(): TextField {
+        secureEntryEnabled = true
+        this
+    }
+
     /** Reverts the last edit group; also bound to Ctrl+Z. */
     public func undo(): Unit {
+        if (secureEntryEnabled) {
+            return
+        }
         match (history.undo(snapshot())) {
             case Some(state) => applySnapshot(state)
             case None => ()
@@ -103,6 +120,9 @@ public class TextField <: Widget {
 
     /** Reapplies the last undone edit; also bound to Ctrl+Y / Ctrl+Shift+Z. */
     public func redo(): Unit {
+        if (secureEntryEnabled) {
+            return
+        }
         match (history.redo(snapshot())) {
             case Some(state) => applySnapshot(state)
             case None => ()
@@ -120,8 +140,17 @@ public class TextField <: Widget {
     public func draw(ctx: UiContext): Unit {
         let edit = editState()
         edit.normalizeCursor()
+        let visibleText = if (secureEntryEnabled) { secureMask(text.value) } else { text.value }
+        let visibleCursor = if (secureEntryEnabled) {
+            secureDisplayOffset(text.value, cursorStateValue.value)
+        } else {
+            cursorStateValue.value
+        }
         recordControlSemantics(ctx, frame, "TextField", ControlSemantics(
-            "textfield", label: semanticLabel, value: text.value, placeholder: placeholderText,
+            if (secureEntryEnabled) { "password" } else { "textfield" },
+            label: semanticLabel,
+            value: if (secureEntryEnabled) { "" } else { text.value },
+            placeholder: placeholderText,
             action: if (isEditable) { "TextField.edit()" } else { "" },
             shortcut: if (isEditable) { "TextInput" } else { "" },
             actionOwner: id
@@ -129,17 +158,27 @@ public class TextField <: Widget {
         drawTextBoxChrome(ctx, frame, id)
         // Values longer than the field must not paint past its surface; selection, text and
         // caret are clipped together, and all three share the same follow shift.
-        let shift = followCursorShift(ctx)
+        let shift = followCursorShift(ctx, visibleText, visibleCursor)
         ctx.renderer.pushClip(frame.inset(2.0))
         if (ctx.hasFocus(id)) {
-            drawTextFieldSelection(ctx, frame, text.value, edit.selectionStart(), edit.selectionEnd(), xShift: shift)
+            let selectionStart = if (secureEntryEnabled) {
+                secureDisplayOffset(text.value, edit.selectionStart())
+            } else {
+                edit.selectionStart()
+            }
+            let selectionEnd = if (secureEntryEnabled) {
+                secureDisplayOffset(text.value, edit.selectionEnd())
+            } else {
+                edit.selectionEnd()
+            }
+            drawTextFieldSelection(ctx, frame, visibleText, selectionStart, selectionEnd, xShift: shift)
         }
         if (text.value.isEmpty() && !placeholderText.isEmpty()) {
             drawTextFieldPlaceholder(ctx, frame, placeholderText, shift)
         } else {
-            drawTextFieldText(ctx, frame, text.value, shift)
+            drawTextFieldText(ctx, frame, visibleText, shift)
         }
-        drawTextFieldCursor(ctx, frame, id, text.value, cursorStateValue.value, xShift: shift)
+        drawTextFieldCursor(ctx, frame, id, visibleText, visibleCursor, xShift: shift)
         ctx.renderer.popClip()
     }
 
@@ -149,11 +188,11 @@ public class TextField <: Widget {
      * is clamped so the text's tail never detaches from the right edge. Runs in draw, so
      * every way the caret moves — keys, clicks, undo, an external state write — is followed.
      */
-    private func followCursorShift(ctx: UiContext): Float32 {
+    private func followCursorShift(ctx: UiContext, visibleText: String, visibleCursor: Int64): Float32 {
         let innerW = max(1.0, frame.w - 16.0)
-        let position = normalizedTextCursor(text.value, cursorStateValue.value)
-        let caretX = ctx.renderer.textWidth(text.value[0..position], pointSize: FontSizes.BODY)
-        let textW = ctx.renderer.textWidth(text.value, pointSize: FontSizes.BODY)
+        let position = normalizedTextCursor(visibleText, visibleCursor)
+        let caretX = ctx.renderer.textWidth(visibleText[0..position], pointSize: FontSizes.BODY)
+        let textW = ctx.renderer.textWidth(visibleText, pointSize: FontSizes.BODY)
         var shift = min(xOffset.value, max(0.0, textW - innerW))
         if (caretX < shift) {
             shift = caretX
@@ -176,7 +215,7 @@ public class TextField <: Widget {
             case UiEvent.MouseDown(MouseButton.Left, x, y) => return pressAt(ctx, edit, x, y)
             case UiEvent.MouseMove(x, _) =>
                 if (ctx.isDragging(id) && ctx.leftMouseDown) {
-                    edit.extendTo(textFieldCursorForPoint(ctx, frame, text.value, x, xShift: xOffset.value))
+                    edit.extendTo(sourceCursorForPoint(ctx, x))
                     return true
                 }
             case UiEvent.TextInput(value) => return recordedEdit(ctx, {=> edit.insert(value)})
@@ -210,7 +249,7 @@ public class TextField <: Widget {
     private func pressAt(ctx: UiContext, edit: TextEditState, x: Float32, y: Float32): Bool {
         if (frame.contains(x, y)) {
             ctx.focus(id)
-            let offset = textFieldCursorForPoint(ctx, frame, text.value, x, xShift: xOffset.value)
+            let offset = sourceCursorForPoint(ctx, x)
             if (ctx.clickCount == 2) {
                 edit.selectWordAt(offset)
             } else if (ctx.clickCount >= 3) {
@@ -230,6 +269,10 @@ public class TextField <: Widget {
     private func recordedEdit(ctx: UiContext, action: () -> Unit): Bool {
         if (!ctx.hasFocus(id) || !isEditable) {
             return false
+        }
+        if (secureEntryEnabled) {
+            action()
+            return true
         }
         let before = snapshot()
         action()
@@ -271,15 +314,24 @@ public class TextField <: Widget {
             edit.selectAll()
             return true
         } else if (code == LETTER_C) {
+            if (secureEntryEnabled) {
+                return true
+            }
             copySelection(edit)
             return true
         } else if (code == LETTER_X) {
+            if (secureEntryEnabled) {
+                return true
+            }
             return recordedEdit(ctx, {=> if (copySelection(edit)) {
                 let _ = edit.deleteSelection()
             }})
         } else if (code == LETTER_V) {
             return recordedEdit(ctx, {=> pasteClipboard(edit)})
         } else if (code == LETTER_Z) {
+            if (secureEntryEnabled) {
+                return true
+            }
             if (Keyboard.modifiers().shift) {
                 redo()
             } else {
@@ -287,6 +339,9 @@ public class TextField <: Widget {
             }
             return true
         } else if (code == LETTER_Y) {
+            if (secureEntryEnabled) {
+                return true
+            }
             redo()
             return true
         }
@@ -296,6 +351,9 @@ public class TextField <: Widget {
     // Clipboard access can fail where there is no desktop session; treat it as best-effort
     // so a copy or paste never crashes the field.
     private func copySelection(edit: TextEditState): Bool {
+        if (secureEntryEnabled) {
+            return false
+        }
         if (!edit.hasSelection()) {
             return false
         }
@@ -317,6 +375,50 @@ public class TextField <: Widget {
             ()
         }
     }
+
+    private func sourceCursorForPoint(ctx: UiContext, x: Float32): Int64 {
+        if (!secureEntryEnabled) {
+            return textFieldCursorForPoint(ctx, frame, text.value, x, xShift: xOffset.value)
+        }
+        let visible = secureMask(text.value)
+        let displayOffset = textFieldCursorForPoint(ctx, frame, visible, x, xShift: xOffset.value)
+        secureSourceOffset(text.value, displayOffset)
+    }
+}
+
+private let SECURE_MASK_GLYPH: String = "•"
+
+private func secureMask(value: String): String {
+    let builder = StringBuilder()
+    var cursor: Int64 = 0
+    while (cursor < value.size) {
+        builder.append(SECURE_MASK_GLYPH)
+        cursor = nextTextBoundary(value, cursor)
+    }
+    builder.toString()
+}
+
+private func secureDisplayOffset(value: String, sourceOffset: Int64): Int64 {
+    let target = normalizedTextCursor(value, sourceOffset)
+    var cursor: Int64 = 0
+    var displayOffset: Int64 = 0
+    while (cursor < target) {
+        displayOffset += SECURE_MASK_GLYPH.size
+        cursor = nextTextBoundary(value, cursor)
+    }
+    displayOffset
+}
+
+private func secureSourceOffset(value: String, displayOffset: Int64): Int64 {
+    let visible = secureMask(value)
+    let target = normalizedTextCursor(visible, displayOffset)
+    var visibleCursor: Int64 = 0
+    var sourceCursor: Int64 = 0
+    while (visibleCursor < target && sourceCursor < value.size) {
+        visibleCursor = nextTextBoundary(visible, visibleCursor)
+        sourceCursor = nextTextBoundary(value, sourceCursor)
+    }
+    sourceCursor
 }
 
 // Collapses any line breaks so pasted multi-line text stays on the field's single row:

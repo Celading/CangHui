@@ -5,7 +5,7 @@ import sdl.{Color, FontSizes, IconName, Key, MouseButton, Pen, Rect, Size, UiEve
 import chui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
     State, UiContext, Widget, requireControlId, advanceScrollMotion, applyWheelScroll, cancelScrollMotion,
     claimHoverIfInside, clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity,
-    localState, scrollLineIndex, scrollLineRemainder}
+    ellipsize, localState, scrollLineIndex, scrollLineRemainder}
 
 // Logical pixels of indentation added per depth level.
 private let TREE_INDENT: Float32 = 16.0
@@ -421,7 +421,9 @@ public class TreeView <: Widget {
             case None => ()
         }
         let textY = rect.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.BODY) / 2.0
-        ctx.renderer.text(row.label, contentX, textY, textColor, pointSize: FontSizes.BODY)
+        let textWidth = max(0.0, rect.right() - contentX - 4.0)
+        let fitted = ellipsize(ctx, row.label, textWidth, FontSizes.BODY)
+        ctx.renderer.text(fitted, contentX, textY, textColor, pointSize: FontSizes.BODY)
     }
 }
 

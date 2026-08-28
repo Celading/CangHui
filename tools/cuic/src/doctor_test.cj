@@ -28,6 +28,14 @@ func doctorStatusOnlyCountsRequestedTargetBlockers(): Unit {
 }
 
 @Test
+func doctorMacosRuntimeProviderAcceptsAnExistingStagingLibrary(): Unit {
+    let framework = tryResolveFrameworkRoot(currentDirectory())
+    let check = doctorMacosRuntimeProvider("macos", "macos.sdl3", "SDL3 provider",
+        joinPath(framework, "sdl/.sdl3/libSDL3.dylib"), "sdl3")
+    @Expect(doctorStatusName(check.status), "ready")
+}
+
+@Test
 func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     let group = DoctorGroup("toolchain", "Toolchain", "all", [
         doctorDegraded("toolchain.sample", "Sample", "needs work", DoctorActionKind.Manual, "repair it", "/tmp/tool")
@@ -35,11 +43,27 @@ func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     let result = DoctorResult("macos", "arm64", "macos", [group])
     let json = renderDoctorJson(result, false)
     @Expect(json.contains("\"schema\":\"canghui.doctor.v0\""))
-    @Expect(json.contains("\"cliVersion\":\"0.4.0\""))
+    @Expect(json.contains("\"cliVersion\":\"0.6.0\""))
     @Expect(json.contains("\"cliProvenance\":{\"channel\":\"development\",\"revision\":\"unembedded\"}"))
     @Expect(json.contains("\"status\":\"degraded\""))
     @Expect(json.contains("\"kind\":\"manual\""))
     @Expect(json.contains("\"evidence\":\"\""))
+}
+
+@Test
+func doctorVerboseEvidenceRedactsPathsCredentialsAndIdentity(): Unit {
+    @Expect(doctorSafeEvidence("cjc 1.1.3"), "cjc 1.1.3")
+    @Expect(doctorSafeEvidence("/Users/alice/sdk/bin/cjc | 1.1.3"), "redacted")
+    @Expect(doctorSafeEvidence("C:\\Users\\alice\\sdk\\cjc.exe | 1.1.3"), "redacted")
+    @Expect(doctorSafeEvidence("https://alice:password@example.invalid/sdk"), "redacted")
+    @Expect(doctorSafeEvidence("Authorization: Bearer exposed"), "redacted")
+
+    let group = DoctorGroup("safe", "Safe", "all", [
+        doctorReady("safe.path", "Path", "ok", "/home/alice/private/tool")
+    ])
+    let json = renderDoctorJson(DoctorResult("macos", "arm64", "macos", [group]), true)
+    @Expect(json.contains("\"evidence\":\"redacted\""))
+    @Expect(!json.contains("alice"))
 }
 
 @Test

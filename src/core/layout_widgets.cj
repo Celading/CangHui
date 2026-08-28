@@ -128,7 +128,7 @@ class Stack <: Widget {
                 continue
             }
             participating += 1
-            if (child.isFlexible()) {
+            if (isFlexibleOnMainAxis(child)) {
                 weightTotal += child.flexWeight()
                 flexCount += 1
             } else {
@@ -155,7 +155,7 @@ class Stack <: Widget {
         var flexTotal: Float32 = 0.0
         for (i in 0..children.size) {
             let child = children[i]
-            if (!child.participatesInLayout() || !child.isFlexible()) {
+            if (!child.participatesInLayout() || !isFlexibleOnMainAxis(child)) {
                 continue
             }
             extents[i] = flexExtent(child.flexWeight(), unit, gap)
@@ -164,6 +164,15 @@ class Stack <: Widget {
             flexTotal += extents[i]
         }
         flexTotal
+    }
+
+    // Flexibility is axis-specific. A naturally flexible editor can still be pinned with
+    // `.width(...)` inside an HStack (or `.height(...)` inside a VStack); the exact modifier
+    // rejects stretching on that axis and therefore must be measured as fixed instead of
+    // consuming an invisible share of the remaining main-axis space. Explicit Flexible wrappers
+    // continue to accept stretching and keep their weighted behavior.
+    private func isFlexibleOnMainAxis(child: Widget): Bool {
+        child.isFlexible() && child.acceptsStretch(axis)
     }
 
     private func placeChildren(

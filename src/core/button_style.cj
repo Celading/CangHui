@@ -46,6 +46,30 @@ public class ButtonStyle {
     public func resolve(theme: Theme, role: ButtonRole, state: ButtonVisualState): ButtonAppearance {
         resolver(theme, role, state)
     }
+
+    /**
+     * Borderless command style for compact rows. Idle chrome is transparent; hover and press keep
+     * visible theme-derived feedback, while focus remains owned by Button/IconButton.
+     */
+    public static func quiet(): ButtonStyle {
+        ButtonStyle(resolve: {
+            theme, role, state =>
+            let clear = Color.rgba(0, 0, 0, 0)
+            let hoverFill = clear.lerp(theme.fieldActive, state.hover)
+            let fill = hoverFill.lerp(theme.accentSoft, state.press)
+            let foreground = match (role) {
+                case ButtonRole.Normal => theme.text
+                case ButtonRole.Primary => theme.accent
+                case ButtonRole.Danger => theme.danger
+            }
+            ButtonAppearance(
+                surface: SurfaceStyle(fill, radius: theme.controlRadius),
+                foreground: foreground,
+                ink: theme.inkColor(role: role),
+                focusRadius: theme.controlRadius
+            )
+        })
+    }
 }
 
 /** Layout anatomy shared by title and slot-based buttons. */

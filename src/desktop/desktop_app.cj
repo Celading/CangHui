@@ -88,6 +88,14 @@ public class DesktopApp {
     }
 
     /**
+     * Scoped platform-provider SPI. The borrowed SDL window pointer may be used to
+     * create a child native surface but remains owned by DesktopApp.
+     */
+    public func withBorrowedPlatformWindow<T>(body: (CPointer<Unit>) -> T): T {
+        window.withBorrowedPlatformWindow(body)
+    }
+
+    /**
      * Prevents the user from shrinking the window below `width` x `height` logical
      * pixels. Layouts do not reflow below their design minimum, so resizable windows
      * should set one to keep content from being squeezed off screen.

@@ -8,13 +8,20 @@ REMOTE_FIXTURE_DIR="${TMPDIR:-/tmp}/canghui-cli-remote-smoke"
 FAKE_BIN_DIR="${TMPDIR:-/tmp}/canghui-cli-fake-bin"
 FAKE_LOCK_FILE="${TMPDIR:-/tmp}/canghui-cli-fake-lock"
 FRAMEWORK_ROOT="$(cd "${ROOT_DIR}/../.." && pwd)"
+DEBUG_CUIC="${ROOT_DIR}/target/debug/bin/main"
+
+(cd "${ROOT_DIR}" && cjpm build -g)
+
+run_debug_cuic() {
+    CANGHUI_CLI_ROOT="${ROOT_DIR}" "${DEBUG_CUIC}" "$@"
+}
 
 rm -rf "${FIXTURE_DIR}"
 rm -rf "${REMOTE_FIXTURE_DIR}"
 rm -rf "${FAKE_BIN_DIR}"
 rm -f "${FAKE_LOCK_FILE}"
 
-"${ROOT_DIR}/bin/cuic" version | grep -Fq 'cuic 0.4.0 (development@unembedded)'
+"${ROOT_DIR}/bin/cuic" version | grep -Fq 'cuic 0.6.0 (development@unembedded)'
 "${ROOT_DIR}/bin/cuic" examples | grep -q '^notepad$'
 "${ROOT_DIR}/bin/cuic" init "${FIXTURE_DIR}" --name canghui_cli_smoke --platform macos \
     --canghui-path "${FRAMEWORK_ROOT}"
@@ -36,9 +43,10 @@ printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"schema":"canghui.packaging-artifac
 printf '%s' "${MAC_PACKAGE_JSON}" | grep -q '"executableIncluded":true'
 test -x "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/MacOS/canghui_cli_smoke"
 test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist"
-test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"
+test -f "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Resources/canghui-packaging-receipt.json"
+test ! -e "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"
 plutil -lint "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Info.plist" >/dev/null
-if grep -q '/Users/' "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/canghui-packaging-receipt.json"; then
+if grep -q '/Users/' "${FIXTURE_DIR}/dist/canghui_cli_smoke.app/Contents/Resources/canghui-packaging-receipt.json"; then
     echo "error: macOS packaging receipt leaked an absolute project path" >&2
     exit 1
 fi
@@ -101,13 +109,13 @@ expect_missing_lock_failure() {
 expect_missing_lock_failure build \
     "${ROOT_DIR}/bin/cuic" build macos "${REMOTE_FIXTURE_DIR}"
 expect_missing_lock_failure kmode \
-    "${ROOT_DIR}/bin/cuic" kmode list "${REMOTE_FIXTURE_DIR}"
+    run_debug_cuic kmode list "${REMOTE_FIXTURE_DIR}"
 expect_missing_lock_failure probe \
-    "${ROOT_DIR}/bin/cuic" probe list "${REMOTE_FIXTURE_DIR}" --json
+    run_debug_cuic probe list "${REMOTE_FIXTURE_DIR}" --json
 expect_missing_lock_failure snapshot \
-    "${ROOT_DIR}/bin/cuic" prnt macos "${REMOTE_FIXTURE_DIR}" --output "${REMOTE_FIXTURE_DIR}/missing-lock.bmp"
+    run_debug_cuic prnt macos "${REMOTE_FIXTURE_DIR}" --output "${REMOTE_FIXTURE_DIR}/missing-lock.bmp"
 expect_missing_lock_failure lifecycle-alias \
-    "${ROOT_DIR}/bin/cuic" snapshot-ui "${REMOTE_FIXTURE_DIR}"
+    run_debug_cuic snapshot-ui "${REMOTE_FIXTURE_DIR}"
 set +e
 MISSING_LOCK_DOCTOR="$("${ROOT_DIR}/bin/cuic" doctor macos --project "${REMOTE_FIXTURE_DIR}" --json 2>&1)"
 MISSING_LOCK_DOCTOR_CODE=$?
@@ -149,27 +157,30 @@ if [[ ${MISMATCH_CODE} -eq 0 ]] || [[ "${MISMATCH_OUTPUT}" != *"does not match t
 fi
 LOCK_AFTER_MISMATCH="$(shasum -a 256 "${REMOTE_FIXTURE_DIR}/cjpm.lock" | awk '{print $1}')"
 [[ "${LOCK_BEFORE_MISMATCH}" == "${LOCK_AFTER_MISMATCH}" ]]
-"${ROOT_DIR}/bin/cuic" probe diff component-gallery
-"${ROOT_DIR}/bin/cuic" probe list component-gallery --json | grep -q 'gallery.primary-button'
-"${ROOT_DIR}/bin/cuic" probe describe component-gallery gallery.primary-button --json | grep -q '"kind":"function"'
-"${ROOT_DIR}/bin/cuic" probe run component-gallery gallery.primary-button \
+run_debug_cuic probe diff component-gallery
+PROBE_LIST_JSON="$(run_debug_cuic probe list component-gallery --json)"
+printf '%s' "${PROBE_LIST_JSON}" | grep -q 'gallery.primary-button'
+PROBE_DESCRIBE_JSON="$(run_debug_cuic probe describe component-gallery gallery.primary-button --json)"
+printf '%s' "${PROBE_DESCRIBE_JSON}" | grep -q '"kind":"function"'
+PROBE_RUN_JSON="$(run_debug_cuic probe run component-gallery gallery.primary-button \
     --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
-    --json | grep -q '"ok":true'
-PROBE_ASCII="$("${ROOT_DIR}/bin/cuic" probe ascii component-gallery gallery.primary-button \
+    --json)"
+printf '%s' "${PROBE_RUN_JSON}" | grep -q '"ok":true'
+PROBE_ASCII="$(run_debug_cuic probe ascii component-gallery gallery.primary-button \
     --columns 72 --rows 24)"
 printf '%s' "${PROBE_ASCII}" | grep -q 'CangHui headless Draw IR 320.000000x120.000000 -> 72x24'
 printf '%s' "${PROBE_ASCII}" | grep -q 'Run probe'
 printf '%s' "${PROBE_ASCII}" | grep -Fq 'Semantic map:'
 printf '%s' "${PROBE_ASCII}" | grep -Fq '$i1 - "Button#primary-button"'
 
-MOBILE_HOST_REPLAY_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+MOBILE_HOST_REPLAY_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.host.replay 'player.toggle|4|9')"
 printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"protocol":"canghui.mobile-host-replay.v0"'
 printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"stage":"input-tree"'
 printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"installable":false'
 printf '%s' "${MOBILE_HOST_REPLAY_JSON}" | grep -q '"decision":"current"'
 
-IOS_PROVIDER_REPLAY_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_PROVIDER_REPLAY_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.provider.replay 'player.toggle|4|9')"
 printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"platform":"ios"'
 printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"stage":"input-tree"'
@@ -178,7 +189,7 @@ printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"deviceProven":false'
 printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q 'platform/ios/probe/Info.plist'
 printf '%s' "${IOS_PROVIDER_REPLAY_JSON}" | grep -q '"decision":"current"'
 
-IOS_SIGNING_PREPARATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_SIGNING_PREPARATION_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.signing.prepare 'ios-signing-identity,ios-provisioning-profile')"
 printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"protocol":"canghui.mobile-signing-preparation.v0"'
 printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"state":"requirements-satisfied"'
@@ -187,14 +198,14 @@ printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"signedPackage":false'
 printf '%s' "${IOS_SIGNING_PREPARATION_JSON}" | grep -q '"installable":false'
 
 IOS_SIGNING_BINDING="input-tree-v0:ios:ios-application-bundle:id-31:4:9:14"
-IOS_SIGNING_RECEIPT_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_SIGNING_RECEIPT_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.signing.bind "CangHui.app|xcode|identity-ref|profile-ref|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|${IOS_SIGNING_BINDING}")"
 printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"protocol":"canghui.mobile-external-signer-receipt.v0"'
 printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"state":"accepted"'
 printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"signedPackage":false'
 printf '%s' "${IOS_SIGNING_RECEIPT_JSON}" | grep -q '"deviceProven":false'
 
-IOS_SIGNED_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_SIGNED_PACKAGE_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.signing.verify "CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-20260819-cli|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|passed")"
 printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"protocol":"canghui.mobile-signed-package-evidence.v0"'
 printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"state":"applied"'
@@ -203,7 +214,7 @@ printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installable":true'
 printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"installationProven":false'
 printf '%s' "${IOS_SIGNED_PACKAGE_JSON}" | grep -q '"deviceProven":false'
 
-IOS_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_INSTALLATION_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|installed")"
 printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"protocol":"canghui.mobile-installation-attempt.v0"'
 printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"state":"recorded"'
@@ -213,19 +224,19 @@ printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"installationProven":true'
 printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"launchProven":false'
 printf '%s' "${IOS_INSTALLATION_JSON}" | grep -q '"deviceProven":false'
 
-IOS_FAILED_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_FAILED_INSTALLATION_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli-failed|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|${IOS_SIGNING_BINDING}|failed")"
 printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"state":"recorded"'
 printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"outcome":"failed"'
 printf '%s' "${IOS_FAILED_INSTALLATION_JSON}" | grep -q '"installationProven":false'
 
-IOS_STALE_INSTALLATION_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_STALE_INSTALLATION_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.installation.record "CangHui.app|ios-platform-owner|physical-device|devicectl|development-install-v1|install-20260819-cli-stale|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|input-tree-v0:ios:ios-application-bundle:stale:4:9:14|installed")"
 printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"state":"rejected"'
 printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"installationProven":false'
 printf '%s' "${IOS_STALE_INSTALLATION_JSON}" | grep -q '"deviceProven":false'
 
-IOS_STALE_SIGNED_PACKAGE_JSON="$("${ROOT_DIR}/bin/cuic" kmode call mobile-host-replay \
+IOS_STALE_SIGNED_PACKAGE_JSON="$(run_debug_cuic kmode call mobile-host-replay \
     mobile.demo.ios.signing.verify "CangHui.app|ios-platform-owner|codesign-verify|strict-v1|verify-20260819-stale|sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef|4096|input-tree-v0:ios:ios-application-bundle:stale:4:9:14|passed")"
 printf '%s' "${IOS_STALE_SIGNED_PACKAGE_JSON}" | grep -q '"state":"rejected"'
 printf '%s' "${IOS_STALE_SIGNED_PACKAGE_JSON}" | grep -q '"signedPackage":false'
@@ -257,7 +268,7 @@ if "${ROOT_DIR}/bin/cuic" symbol generate material:add@action ant:plus@action \
     exit 1
 fi
 
-if "${ROOT_DIR}/bin/cuic" probe diff "${ROOT_DIR}/testdata/duplicate-probe"; then
+if run_debug_cuic probe diff "${ROOT_DIR}/testdata/duplicate-probe"; then
     echo "error: duplicate probe scanner unexpectedly passed" >&2
     exit 1
 fi

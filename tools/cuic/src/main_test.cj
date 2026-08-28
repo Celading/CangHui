@@ -1,8 +1,31 @@
 package cuic
 
+import std.fs.{Directory, File, removeIfExists}
+
+@When[debug]
+@Test
+func debugTestBuildCarriesPrivilegedDebugGate(): Unit {
+    @Expect(debugChannelBuildEnabled())
+    @Expect(debugChannelBuildMarker(), "CANGHUI_PRIVILEGED_DEBUG_BUILD=1")
+}
+
+@When[!debug]
+@Test
+func releaseTestBuildRefusesPrivilegedDebugGate(): Unit {
+    @Expect(!debugChannelBuildEnabled())
+    @Expect(debugChannelBuildMarker(), "")
+    var refused = false
+    try {
+        requireDebugChannelBuild("test operation")
+    } catch (error: CuicError) {
+        refused = containsText(error.message, "unavailable in release cuic")
+    }
+    @Expect(refused)
+}
+
 @Test
 func versionCarriesAnHonestBuildIdentity(): Unit {
-    @Expect(renderCuicVersion(), "cuic 0.4.0 (development@unembedded)")
+    @Expect(renderCuicVersion(), "cuic 0.6.0 (development@unembedded)")
 }
 
 @Test
@@ -61,6 +84,18 @@ func prntResolvesTheMatchingCangjieRuntimeDirectory(): Unit {
 }
 
 @Test
+func prntMacCapturePinsOneCangjieProcessorByDefault(): Unit {
+    if (hostPlatform() != "macos") {
+        return
+    }
+    let environment = applicationEnvironment("/tmp/canghui", "/tmp/capture.bmp", UInt64(2))
+    @Expect(environment.get("cjProcessorNum") ?? "", "1")
+    @Expect(shouldPinMacCaptureProcessor("macos", ""))
+    @Expect(!shouldPinMacCaptureProcessor("macos", "2"))
+    @Expect(!shouldPinMacCaptureProcessor("linux", ""))
+}
+
+@Test
 func packageNamesAreCompilerFriendly(): Unit {
     @Expect(sanitizePackageName("Hello-CangUI"), "hello_cangui")
     @Expect(sanitizePackageName("2026 Demo"), "app_2026_demo")
@@ -70,6 +105,26 @@ func packageNamesAreCompilerFriendly(): Unit {
 func windowsAbsolutePathsAreRecognized(): Unit {
     @Expect(isWindowsAbsolute("C:\\work\\CangHui"))
     @Expect(!isWindowsAbsolute("examples/notepad"))
+}
+
+@Test
+func windowsCjpmUsesLiteralArgvAndEnvironmentWithoutCmdExpansion(): Unit {
+    let environment = windowsCjpmEnvironment(
+        "C:\\sdk&echo injected\\sdl",
+        "C:\\fonts\\Harmony%PATH%.ttf"
+    )
+    let pathValue = environment.get("PATH") ?? ""
+    let fontValue = environment.get("CANGHUI_HARMONYOS_SANS") ?? ""
+    @Expect(startsWithText(pathValue, "C:\\sdk&echo injected\\sdl;"))
+    @Expect(fontValue, "C:\\fonts\\Harmony%PATH%.ttf")
+
+    let args = cjpmArgsWithTarget(
+        ["build", "--name", "demo & echo injected", "%UNTRUSTED%"],
+        "C:\\target|next"
+    )
+    @Expect(args[2], "demo & echo injected")
+    @Expect(args[3], "%UNTRUSTED%")
+    @Expect(args[5], "C:\\target|next")
 }
 
 @Test
@@ -146,6 +201,26 @@ func integratedFrameworkRootWinsBeforeCompatibilityAliases(): Unit {
     let root = integratedFrameworkRoot()
     @Expect(root.size > 0)
     @Expect(frameworkRootCandidate(root))
+}
+
+@Test
+func consumerDependencyRootWinsOverIntegratedCheckout(): Unit {
+    let fixture = "/tmp/cuic-consumer-root-${currentPid()}"
+    let project = joinPath(fixture, "consumer")
+    let framework = joinPath(fixture, "framework")
+    _ = removeIfExists(fixture, recursive: true)
+    try {
+        Directory.create(joinPath(framework, "sdl"), recursive: true)
+        Directory.create(joinPath(framework, "src"), recursive: true)
+        Directory.create(project, recursive: true)
+        File.writeTo(joinPath(framework, "cjpm.toml"), "[package]\nname = \"chui\"\n".toArray())
+        File.writeTo(joinPath(framework, "src/chui.cj"), "package chui\n".toArray())
+        File.writeTo(joinPath(project, "cjpm.toml"),
+            ("[dependencies]\nchui = { path = \"${framework}\" }\n").toArray())
+        @Expect(resolveFrameworkRoot(project), framework)
+    } finally {
+        _ = removeIfExists(fixture, recursive: true)
+    }
 }
 
 @Test
@@ -436,6 +511,14 @@ func executionContextUsesExplicitTargetAndStagingRoots(): Unit {
 func executionContextSanitizesPathKeys(): Unit {
     @Expect(sanitizePathKey("/a/b"), "_a_b")
     @Expect(sanitizePathKey("C:\\x:y"), "C__x_y")
+}
+
+@Test
+func nativeLinkSearchPrependsTheCuicRuntimeDirectory(): Unit {
+    @Expect(nativeLinkSearchAssignment("/tmp/stage/sdl/.sdl3", ""),
+        "LIBRARY_PATH=/tmp/stage/sdl/.sdl3")
+    @Expect(nativeLinkSearchAssignment("/tmp/stage/sdl/.sdl3", "/opt/native"),
+        "LIBRARY_PATH=/tmp/stage/sdl/.sdl3:/opt/native")
 }
 
 @Test

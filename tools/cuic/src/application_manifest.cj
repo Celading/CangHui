@@ -399,7 +399,7 @@ func applicationPackagingPlanForManifest(project: String, platform: String,
             generated.add("dist/${manifest.name}.app/Contents/Resources/${icon}")
         }
         generated.add("dist/${manifest.name}.app/Contents/Resources/assets")
-        generated.add("dist/${manifest.name}.app/canghui-packaging-receipt.json")
+        generated.add("dist/${manifest.name}.app/Contents/Resources/canghui-packaging-receipt.json")
         providers.add("application-menu=native-provider-pending")
         providers.add("status-item=${if (manifest.statusItem) { "native-provider-pending" } else { "disabled-by-manifest" }}")
         providers.add("notifications=${if (manifest.notifications) { "native-provider-pending" } else { "disabled-by-manifest" }}")

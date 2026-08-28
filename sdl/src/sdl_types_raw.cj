@@ -1,6 +1,7 @@
 package sdl
 
 internal let SDL_INIT_VIDEO: UInt32 = UInt32(0x00000020)
+internal let SDL_INIT_GAMEPAD: UInt32 = UInt32(0x00002000)
 internal let SDL_WINDOW_FULLSCREEN: UInt64 = UInt64(0x0000000000000001)
 internal let SDL_WINDOW_OPENGL: UInt64 = UInt64(0x0000000000000002)
 internal let SDL_WINDOW_OCCLUDED: UInt64 = UInt64(0x0000000000000004)
@@ -36,6 +37,12 @@ internal let SDL_EVENT_MOUSE_MOTION: UInt32 = UInt32(0x400)
 internal let SDL_EVENT_MOUSE_BUTTON_DOWN: UInt32 = UInt32(0x401)
 internal let SDL_EVENT_MOUSE_BUTTON_UP: UInt32 = UInt32(0x402)
 internal let SDL_EVENT_MOUSE_WHEEL: UInt32 = UInt32(0x403)
+internal let SDL_EVENT_GAMEPAD_AXIS_MOTION: UInt32 = UInt32(0x650)
+internal let SDL_EVENT_GAMEPAD_BUTTON_DOWN: UInt32 = UInt32(0x651)
+internal let SDL_EVENT_GAMEPAD_BUTTON_UP: UInt32 = UInt32(0x652)
+internal let SDL_EVENT_GAMEPAD_ADDED: UInt32 = UInt32(0x653)
+internal let SDL_EVENT_GAMEPAD_REMOVED: UInt32 = UInt32(0x654)
+internal let SDL_EVENT_GAMEPAD_REMAPPED: UInt32 = UInt32(0x655)
 internal let SDL_EVENT_DROP_FILE: UInt32 = UInt32(0x1000)
 internal let SDL_EVENT_DROP_TEXT: UInt32 = UInt32(0x1001)
 internal let SDL_EVENT_DROP_BEGIN: UInt32 = UInt32(0x1002)
@@ -60,6 +67,12 @@ internal let SDL_SCANCODE_UP: Int32 = 82
 internal let SDL_BUTTON_LEFT: UInt8 = UInt8(1)
 internal let SDL_BUTTON_MIDDLE: UInt8 = UInt8(2)
 internal let SDL_BUTTON_RIGHT: UInt8 = UInt8(3)
+internal let SDL_GAMEPAD_AXIS_LEFTX: UInt8 = UInt8(0)
+internal let SDL_GAMEPAD_AXIS_LEFTY: UInt8 = UInt8(1)
+internal let SDL_GAMEPAD_AXIS_RIGHTX: UInt8 = UInt8(2)
+internal let SDL_GAMEPAD_AXIS_RIGHTY: UInt8 = UInt8(3)
+internal let SDL_GAMEPAD_AXIS_LEFT_TRIGGER: UInt8 = UInt8(4)
+internal let SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: UInt8 = UInt8(5)
 internal let SDL_BLENDMODE_NONE: UInt32 = UInt32(0)
 internal let SDL_BLENDMODE_BLEND: UInt32 = UInt32(1)
 internal let SDL_TEXTUREACCESS_TARGET: Int32 = 2
@@ -201,6 +214,40 @@ internal struct SdlMouseWheelEvent {
     var mouseY: Float32 = 0.0
     var integerX: Int32 = 0
     var integerY: Int32 = 0
+}
+
+@C
+internal struct SdlGamepadAxisEvent {
+    var eventType: UInt32 = 0
+    var reserved: UInt32 = 0
+    var timestamp: UInt64 = 0
+    var which: UInt32 = 0
+    var axis: UInt8 = 0
+    var padding1: UInt8 = 0
+    var padding2: UInt8 = 0
+    var padding3: UInt8 = 0
+    var value: Int16 = 0
+    var padding4: UInt16 = 0
+}
+
+@C
+internal struct SdlGamepadButtonEvent {
+    var eventType: UInt32 = 0
+    var reserved: UInt32 = 0
+    var timestamp: UInt64 = 0
+    var which: UInt32 = 0
+    var button: UInt8 = 0
+    var down: Bool = false
+    var padding1: UInt8 = 0
+    var padding2: UInt8 = 0
+}
+
+@C
+internal struct SdlGamepadDeviceEvent {
+    var eventType: UInt32 = 0
+    var reserved: UInt32 = 0
+    var timestamp: UInt64 = 0
+    var which: UInt32 = 0
 }
 
 @C
