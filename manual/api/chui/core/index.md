@@ -21,6 +21,8 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ComponentControlStyle`](ComponentControlStyle.md) | 按选择/展开、hover、press 与 focus 解析 Chip、Checkbox、Dropdown 和 Accordion header 外观。 |
 | [`DerivedState`](DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
 | [`Divider`](Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
+| [`DeviceRotationLayout`](DeviceRotationLayout.md) | 根据规范化设备方向选择竖屏/横屏结构；宿主统一旋转完整界面帧。 |
+| [`DeviceRotationTransition`](DeviceRotationTransition.md) | 供平台壳层复用的有向整帧设备旋转事务。 |
 | [`EventHandler`](EventHandler.md) | 在子树收到事件之前先把每个事件交给回调的透明包装组件，回调返回 `true` 即消费该事件。 |
 | [`Flexible`](Flexible.md) | 把内容纳入所在栈空间分配的包装组件：按权重分得剩余空间，而非按内容收缩。 |
 | [`FlowRow`](FlowRow.md) | 把子组件从左到右排布、放不下时自动换到内容高度新行的流式容器。 |
@@ -38,6 +40,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`LazyRow`](LazyRow.md) | 只构建视口附近列的定列宽水平滚动条带，是 [`LazyColumn`](LazyColumn.md) 的水平对应物。 |
 | [`Overlay`](Overlay.md) | 浮在整棵组件树之上的交互浮层：下拉弹出面板、菜单或对话框。 |
 | [`Panel`](Panel.md) | 带主题表面与内容内边距的卡片式容器，是划分界面区块的基础构件。 |
+| [`PageTransitionLayout`](PageTransitionLayout.md) | 在两棵页面子树之间播放横向交接并插值测量尺寸。 |
 | [`Pulse`](Pulse.md) | 永动的循环时间线——骨架屏微光、呼吸状态点、加载脉冲。 |
 | [`Reveal`](Reveal.md) | 在零与内容自然高度之间缓动过渡的展开/收起容器，切换 `shown` 即让内容滑入滑出。 |
 | [`Row`](Row.md) | ArkTS 风格的通用水平容器；以 `space`、`justifyContent`、`alignItems` 和子项 `layoutWeight` 表达布局。 |

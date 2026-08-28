@@ -147,10 +147,107 @@ public struct FrameInfo {
     }
 }
 
+/** A normalized device posture used by layout. Raw gyroscope samples stay provider-owned. */
+public enum DeviceRotation {
+    | Unknown
+    | Portrait
+    | LandscapeClockwise
+    | PortraitUpsideDown
+    | LandscapeCounterClockwise
+}
+
+/** Identifies which host surface normalized a device posture event. */
+public enum DeviceRotationSource {
+    | Gyroscope
+    | Display
+    | Host
+    | Synthetic
+}
+
+/** One stable quarter-turn reported by a platform orientation provider. */
+public struct DeviceRotationEvent {
+    public let rotation: DeviceRotation
+    public let source: DeviceRotationSource
+    public let timestampMs: UInt64
+
+    public init(
+        rotation: DeviceRotation,
+        source!: DeviceRotationSource = DeviceRotationSource.Host,
+        timestampMs!: UInt64 = UInt64(0)
+    ) {
+        this.rotation = rotation
+        this.source = source
+        this.timestampMs = timestampMs
+    }
+}
+
+public func deviceRotationName(rotation: DeviceRotation): String {
+    match (rotation) {
+        case DeviceRotation.Unknown => "unknown"
+        case DeviceRotation.Portrait => "portrait"
+        case DeviceRotation.LandscapeClockwise => "landscape-clockwise"
+        case DeviceRotation.PortraitUpsideDown => "portrait-upside-down"
+        case DeviceRotation.LandscapeCounterClockwise => "landscape-counter-clockwise"
+    }
+}
+
+public func deviceRotationSourceName(source: DeviceRotationSource): String {
+    match (source) {
+        case DeviceRotationSource.Gyroscope => "gyroscope"
+        case DeviceRotationSource.Display => "display"
+        case DeviceRotationSource.Host => "host"
+        case DeviceRotationSource.Synthetic => "synthetic"
+    }
+}
+
+/** Whether this posture uses a landscape layout. Unknown deliberately resolves to false here. */
+public func deviceRotationIsLandscape(rotation: DeviceRotation): Bool {
+    match (rotation) {
+        case DeviceRotation.LandscapeClockwise => true
+        case DeviceRotation.LandscapeCounterClockwise => true
+        case _ => false
+    }
+}
+
+/**
+ * Signed quarter-turn from one stable posture to another, in screen-clockwise degrees.
+ *
+ * Opposite postures deliberately retain direction: portrait -> upside-down is +180,
+ * while the reverse is -180; clockwise-landscape -> counter-clockwise-landscape is
+ * -180, while the reverse is +180. Unknown has no physical direction and returns zero.
+ */
+public func deviceRotationDeltaDegrees(from: DeviceRotation, to: DeviceRotation): Float32 {
+    if (deviceRotationIsUnknown(from) || deviceRotationIsUnknown(to)) {
+        return 0.0
+    }
+    var delta = deviceRotationDegrees(to) - deviceRotationDegrees(from)
+    if (delta > 180.0) { delta -= 360.0 }
+    if (delta < -180.0) { delta += 360.0 }
+    delta
+}
+
+private func deviceRotationDegrees(rotation: DeviceRotation): Float32 {
+    match (rotation) {
+        case DeviceRotation.Portrait => 0.0
+        case DeviceRotation.LandscapeClockwise => 90.0
+        case DeviceRotation.PortraitUpsideDown => 180.0
+        case DeviceRotation.LandscapeCounterClockwise => -90.0
+        case DeviceRotation.Unknown => 0.0
+    }
+}
+
+private func deviceRotationIsUnknown(rotation: DeviceRotation): Bool {
+    match (rotation) {
+        case DeviceRotation.Unknown => true
+        case _ => false
+    }
+}
+
 public enum UiEvent {
     | Frame(FrameInfo)
     | Quit
     | WindowResized(Int32, Int32)
+    | DeviceRotationChanged(DeviceRotationEvent)
     | KeyDown(Key, Bool)
     | KeyUp(Key)
     | TextInput(String)

@@ -3,7 +3,8 @@ package chui.desktop
 import std.collection.ArrayList
 import std.convert.*
 import std.env.getCommandLine
-import sdl.{FrameInfo, Key, MouseButton, Rect, SdlWindow, UiEvent, WindowFlags, WindowPosition, WindowSpec}
+import sdl.{DeviceRotation, DeviceRotationEvent, DeviceRotationSource, FrameInfo, Key, MouseButton, Rect,
+    SdlWindow, UiEvent, WindowFlags, WindowPosition, WindowSpec}
 import sdl.input.{Cursor, Keyboard, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
@@ -13,8 +14,9 @@ import sdl.system.ApplicationMetadata
 import sdl.system.SdlHintSetting
 import sdl.system.SdlHint
 import sdl.system.SdlHints
-import chui.core.{CursorShape, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRoot,
-    UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip}
+import chui.core.{AnimationSpec, CursorShape, DeviceRotationTransition, StateStore, Theme, ThemeTransition,
+    UiContext, Widget, buildRoot, UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration,
+    drawTooltip}
 import chui.kmode.kModeEnabled
 
 // Long enough for the first paint to settle and for background work started at launch
@@ -51,6 +53,8 @@ public class DesktopApp {
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
     private var appliedInputAnchor: ?Rect = None
     private var themeTransition: ?ThemeTransition = None
+    private var deviceRotationTransition: ?DeviceRotationTransition = None
+    private let deviceRotationAnimation: AnimationSpec
 
     public init(
         spec: WindowSpec,
@@ -59,6 +63,7 @@ public class DesktopApp {
         framePacing!: ?FramePacing = None,
         capture!: ?DesktopCaptureRequest = None,
         fontScale!: Float32 = 1.0,
+        deviceRotationAnimation!: AnimationSpec = AnimationSpec.automatic(duration: UInt64(320)),
         metadata!: ?AppMetadata = None,
         hints!: Array<SdlHintSetting> = []
     ) {
@@ -66,6 +71,7 @@ public class DesktopApp {
         this.ctx = UiContext(window.renderer, theme)
         this.ctx.displayScale = window.scale
         this.ctx.fontScale = max(0.1, fontScale)
+        this.deviceRotationAnimation = deviceRotationAnimation
         this.resolvedPacing = resolveFramePacing(framePacing, spec.vsync, frameDelay, kModeEnabled())
         let wantsVsync = framePacingUsesVSync(this.resolvedPacing)
         if (wantsVsync != spec.vsync) {
@@ -174,6 +180,38 @@ public class DesktopApp {
     /** Current owner epoch for optimistic `postToUi(baseEpoch:)` preparation. */
     public func uiOwnerEpoch(): UInt64 {
         uiOwnerQueue.currentEpoch()
+    }
+
+    /** Effective layout posture, using viewport aspect ratio until a provider reports. */
+    public func deviceRotation(): DeviceRotation {
+        ctx.deviceRotation()
+    }
+
+    /** Last posture reported by a provider, or `Unknown` before the first report. */
+    public func reportedDeviceRotation(): DeviceRotation {
+        ctx.reportedDeviceRotation()
+    }
+
+    /**
+     * Queues one normalized device posture through ordinary UI event routing. Call this
+     * on the UI owner; worker/native callbacks should use `postDeviceRotation`.
+     */
+    public func queueDeviceRotation(event: DeviceRotationEvent): Unit {
+        queuedEvents.add(UiEvent.DeviceRotationChanged(event))
+    }
+
+    /** Convenience overload for owner-thread providers and deterministic previews. */
+    public func queueDeviceRotation(
+        rotation: DeviceRotation,
+        source!: DeviceRotationSource = DeviceRotationSource.Host,
+        timestampMs!: UInt64 = UInt64(0)
+    ): Unit {
+        queueDeviceRotation(DeviceRotationEvent(rotation, source: source, timestampMs: timestampMs))
+    }
+
+    /** Thread-safe provider ingress; the event is enqueued by the UI owner before a later build. */
+    public func postDeviceRotation(event: DeviceRotationEvent): UiOwnerTicket {
+        postToUi({ => queueDeviceRotation(event) })
     }
 
     /** Queues a pointer click through the normal CangHui hit-test and event route. */
@@ -287,6 +325,7 @@ public class DesktopApp {
                 previousTick = frame.elapsedMs
                 ctx.frame = frame
                 advanceThemeTransition(frame.deltaMs)
+                advanceDeviceRotationTransition(frame.deltaMs)
                 let viewportW = window.width
                 let viewportH = window.height
                 ctx.viewportWidth = Float32(viewportW)
@@ -298,7 +337,7 @@ public class DesktopApp {
                 let mustRender = continuousRequested || ownerWorkPending || !events.isEmpty() ||
                     observedStateGen != lastRenderedGen ||
                     viewportW != renderedWidth || viewportH != renderedHeight || captureRequest.isSome() ||
-                    profiler.isSome() || themeTransition.isSome()
+                    profiler.isSome() || themeTransition.isSome() || deviceRotationTransition.isSome()
 
                 if (mustRender) {
                     rendered = true
@@ -318,7 +357,8 @@ public class DesktopApp {
                     frames += 1
                     let (beginNs, treeNs, resolveNs, presentNs) = draw(widget)
                     lastRenderedGen = frameStateGen
-                    continuousRequested = ctx.takeFrameRequest() || themeTransition.isSome()
+                    continuousRequested = ctx.takeFrameRequest() || themeTransition.isSome() ||
+                        deviceRotationTransition.isSome()
                     renderedWidth = viewportW
                     renderedHeight = viewportH
                     match (profiler) {
@@ -337,6 +377,7 @@ public class DesktopApp {
         } finally {
             let _ = uiOwnerQueue.close(reason: "desktop application closed")
             closeThemeTransition()
+            closeDeviceRotationTransition()
             closeManagedResources()
             window.close()
         }
@@ -385,6 +426,11 @@ public class DesktopApp {
             case UiEvent.WindowResized(w, h) =>
                 window.width = Int32(Float32(w) / window.scale)
                 window.height = Int32(Float32(h) / window.scale)
+            case UiEvent.DeviceRotationChanged(rotation) =>
+                let previous = ctx.deviceRotation()
+                ctx.updateDeviceRotation(rotation)
+                beginDeviceRotationTransition(previous, ctx.deviceRotation())
+                dispatchEvent(widget, event)
             case UiEvent.MouseMove(_, _) =>
                 // Resolve which control the pointer is over, then reflect its requested
                 // shape in the system cursor. Bracketing keeps hover single-winner.
@@ -436,7 +482,7 @@ public class DesktopApp {
         let t1 = FrameProfiler.now()
         let width = Float32(window.width)
         let height = Float32(window.height)
-        if (!drawThemeTransition(widget, width, height)) {
+        if (!drawThemeTransition(widget, width, height) && !drawDeviceRotationTransition(widget, width, height)) {
             clearDrawRegistrations()
             widget.draw(ctx)
             ctx.drawInkRipples()
@@ -458,6 +504,25 @@ public class DesktopApp {
     private func advanceThemeTransition(deltaMs: UInt64): Unit {
         match (themeTransition) {
             case Some(transition) where transition.snapshotsReady() => let _ = transition.advance(deltaMs)
+            case Some(_) => ()
+            case None => ()
+        }
+    }
+
+    private func beginDeviceRotationTransition(from: DeviceRotation, to: DeviceRotation): Unit {
+        // Theme snapshotting already owns the full frame. A posture change still updates layout,
+        // but overlapping two whole-frame transitions would capture another transition instead of UI.
+        if (themeTransition.isSome()) { return }
+        closeDeviceRotationTransition()
+        let transition = DeviceRotationTransition(from, to, deviceRotationAnimation, ctx.theme)
+        if (transition.deltaDegrees() != 0.0) {
+            deviceRotationTransition = Some(transition)
+        }
+    }
+
+    private func advanceDeviceRotationTransition(deltaMs: UInt64): Unit {
+        match (deviceRotationTransition) {
+            case Some(transition) where transition.snapshotsReady() => transition.advance(deltaMs)
             case Some(_) => ()
             case None => ()
         }
@@ -500,6 +565,32 @@ public class DesktopApp {
         }
     }
 
+    private func drawDeviceRotationTransition(widget: Widget, width: Float32, height: Float32): Bool {
+        match (deviceRotationTransition) {
+            case Some(transition) =>
+                let ready = transition.prepareNextSnapshot(
+                    ctx.renderer,
+                    width,
+                    height,
+                    ctx.theme.bg,
+                    { =>
+                        clearDrawRegistrations()
+                        widget.draw(ctx)
+                        ctx.drawInkRipples()
+                        if (!ctx.hasOverlay()) { drawTooltip(ctx, width, height) }
+                        ctx.drawActiveOverlay()
+                    }
+                )
+                transition.draw(ctx.renderer, width, height)
+                if (ready && transition.isComplete()) {
+                    transition.close()
+                    deviceRotationTransition = None
+                }
+                true
+            case None => false
+        }
+    }
+
     private func clearDrawRegistrations(): Unit {
         ctx.clearTooltip()
         ctx.clearActiveOverlay()
@@ -511,6 +602,14 @@ public class DesktopApp {
             case Some(transition) => transition.close()
             case None => ()
         }
+    }
+
+    private func closeDeviceRotationTransition(): Unit {
+        match (deviceRotationTransition) {
+            case Some(transition) => transition.close()
+            case None => ()
+        }
+        deviceRotationTransition = None
     }
 
     /*

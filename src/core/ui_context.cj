@@ -1,7 +1,7 @@
 package chui.core
 
 import std.collection.ArrayList
-import sdl.{Color, FrameInfo, Insets, Rect, Renderer, UiEvent}
+import sdl.{Color, DeviceRotation, DeviceRotationEvent, FrameInfo, Insets, Rect, Renderer, UiEvent}
 
 // A second press within this window and distance of the previous one continues a multi-click.
 private let MULTI_CLICK_MS: UInt64 = 400
@@ -40,6 +40,17 @@ private class InkRippleOverlay {
     }
 }
 
+private func deviceRotationChanged(first: DeviceRotation, second: DeviceRotation): Bool {
+    match ((first, second)) {
+        case (DeviceRotation.Unknown, DeviceRotation.Unknown) => false
+        case (DeviceRotation.Portrait, DeviceRotation.Portrait) => false
+        case (DeviceRotation.LandscapeClockwise, DeviceRotation.LandscapeClockwise) => false
+        case (DeviceRotation.PortraitUpsideDown, DeviceRotation.PortraitUpsideDown) => false
+        case (DeviceRotation.LandscapeCounterClockwise, DeviceRotation.LandscapeCounterClockwise) => false
+        case _ => true
+    }
+}
+
 /*
  * The per-frame service hub passed to every widget callback: the renderer and theme, pointer and
  * frame state, and the shared interaction protocols — focus (press claim/settle plus the Tab ring),
@@ -73,6 +84,8 @@ public class UiContext {
     /** Logical size of the drawing surface; overlays clamp their popups to it. */
     public var viewportWidth: Float32 = 0.0
     public var viewportHeight: Float32 = 0.0
+    private var reportedRotation: DeviceRotation = DeviceRotation.Unknown
+    private var lastRotationEvent: ?DeviceRotationEvent = None
     // Interactive overlays open this frame, bottom to top. Registration order is z-order:
     // the tree draws first (a Modal registers its dialog), then the overlay render pass
     // draws each layer's content, so a popup opened inside a dialog registers — and
@@ -92,6 +105,42 @@ public class UiContext {
         this.renderer = renderer
         this.theme = theme
         renderer.setThemeFontFamily(theme.fontFamily)
+    }
+
+    /** Last posture reported by a platform provider, without viewport fallback. */
+    public func reportedDeviceRotation(): DeviceRotation {
+        reportedRotation
+    }
+
+    /** Last complete device-rotation event, including its source and source timestamp. */
+    public func deviceRotationEvent(): ?DeviceRotationEvent {
+        lastRotationEvent
+    }
+
+    /**
+     * Effective layout posture. Before a provider reports, viewport aspect ratio is the
+     * deterministic fallback; this does not claim that a physical sensor produced a value.
+     */
+    public func deviceRotation(): DeviceRotation {
+        match (reportedRotation) {
+            case DeviceRotation.Unknown =>
+                if (viewportWidth > viewportHeight) {
+                    DeviceRotation.LandscapeClockwise
+                } else {
+                    DeviceRotation.Portrait
+                }
+            case value => value
+        }
+    }
+
+    /** Applies one normalized provider event and wakes layout only when posture changed. */
+    public func updateDeviceRotation(event: DeviceRotationEvent): Unit {
+        let changed = deviceRotationChanged(reportedRotation, event.rotation)
+        reportedRotation = event.rotation
+        lastRotationEvent = Some(event)
+        if (changed) {
+            requestFrame()
+        }
     }
 
     /** Applies Theme-owned renderer resources before a draw pass. */

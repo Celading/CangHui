@@ -32,6 +32,8 @@ import chui.*
 | [`derive`](core/functions.md#derive) | 返回从一到多个源计算出的只读派生状态。 |
 | [`DerivedState`](core/DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
 | [`Divider`](core/Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
+| [`DeviceRotationLayout`](core/DeviceRotationLayout.md) | 根据规范化设备方向选择竖屏/横屏结构；宿主统一旋转完整界面帧。 |
+| [`DeviceRotationTransition`](core/DeviceRotationTransition.md) | 供平台壳层复用的有向整帧设备旋转事务。 |
 | [`drawFocusRing`](core/functions.md#drawfocusring) | 绘制键盘焦点环：贴着控件的强调色圆角描边，画在边界外 2 像素处，读作独立于控件自身边缘的光晕。 |
 | [`Easing`](core/Easing.md) | 把 `[0, 1]` 内的动画进度映射为缓动后进度的时序曲线。 |
 | [`emit`](core/functions.md#emit) | 把新构造的组件注册进最内层打开的构建块。 |
@@ -66,6 +68,7 @@ import chui.*
 | [`Observable`](core/Observable.md) | 可读、可观察值的抽象：读取当前值、暴露修订号、订阅变更，并可 map 出派生状态。 |
 | [`Overlay`](core/Overlay.md) | 浮在整棵组件树之上的交互浮层：下拉弹出面板、菜单或对话框。 |
 | [`Panel`](core/Panel.md) | 带主题表面与内容内边距的卡片式容器，是划分界面区块的基础构件。 |
+| [`PageTransitionLayout`](core/PageTransitionLayout.md) | 在两棵页面子树之间播放横向交接并插值测量尺寸。 |
 | [`Pulse`](core/Pulse.md) | 永动的循环时间线——骨架屏微光、呼吸状态点、加载脉冲。 |
 | [`Radii`](core/Radii.md) | 圆角半径尺度，虚拟像素：小档给标签与输入框、中档给卡片、大档给醒目表面，pill 收成全圆头。 |
 | [`rememberState`](core/functions.md#rememberstate) | 返回由活动 `DesktopApp` 构建保留的局部状态。 |
@@ -205,6 +208,9 @@ import chui.*
 | `TextureFlip` | 旋转绘制纹理时的镜像方式，作为 `TextureRenderOptions` 的一项传入 `Renderer.textureRotated`。 |
 | `TextureRenderOptions` | `Renderer.textureRotated` 的可选项集合：源区域裁剪、旋转中心与镜像方式。 |
 | `UiEvent` | 解码后的 SDL 输入事件，按到达顺序交给应用处理。 |
+| `DeviceRotation` | 供布局使用的规范化四分之一转设备方向；原始陀螺仪采样不进入此枚举。 |
+| `DeviceRotationEvent` | 平台宿主上报的稳定设备方向、来源与源时间戳。 |
+| `DeviceRotationSource` | 方向事件来自陀螺仪、显示系统、宿主或确定性合成输入。 |
 | `WindowAspectRatio` | 窗口宽高比约束的上下界，由 `SdlWindow.aspectRatio` 返回。 |
 | `WindowBorderSize` | 窗口装饰（标题栏与边框）在四个方向占用的像素数，由 `SdlWindow.borderSize` 返回。 |
 | `WindowFlags` | 窗口状态标志位快照：把 SDL 的 64 位标志掩码展开为逐项布尔字段，同时保留原始掩码。 |

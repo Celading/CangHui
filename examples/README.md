@@ -291,6 +291,13 @@ Latin 与 CJK 一致生效。顶部四个 `Chip`
 动画原语 `Animator`：七条轨道共享同一时长、各绑一种曲线，播放后标记点并排推进，同一时刻位置不同，直观对比
 运动分布，回弹会越过终点再回落。自定义 `Widget` 逐帧推进并请求下一帧，即时模式下驱动连续动画。
 
+### [`device_rotation`](device_rotation/README.md)：设备旋转事件与自适应布局
+
+演示平台方向事件进入 `DesktopApp` 后，声明式界面读取 `deviceRotation()`，再由
+`DeviceRotationLayout(rotation:)` 选择竖屏/横屏结构，`DesktopApp` 冻结重建前后的完整帧并按
+`+90° / -90° / +180° / -180°` 有向角度旋转整页。桌面按钮使用 `Synthetic` 来源，移动宿主可从
+任意线程调用 `postDeviceRotation`；非活动子树不接收事件，也不会进入 Tab 焦点环。
+
 ### [`cards`](cards/README.md)：样式卡片（阴影 · 圆角 · 边框）
 
 一个样式属性演练场，演示通用样式修饰符 `shadow`（可配 offset/blur/spread/color 的软阴影，含 `Shadow.elevation`

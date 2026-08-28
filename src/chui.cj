@@ -14,6 +14,9 @@ package chui
 public import sdl.Color
 public import sdl.CuiException
 public import sdl.DrawIrCommand
+public import sdl.DeviceRotation
+public import sdl.DeviceRotationEvent
+public import sdl.DeviceRotationSource
 public import sdl.DrawIrAsciiAnnotation
 public import sdl.DrawIrAsciiAnnotationKind
 public import sdl.DrawIrAsciiOptions
@@ -59,6 +62,10 @@ public import sdl.WindowProgressState
 public import sdl.WindowSpec
 public import sdl.clampF32
 public import sdl.drawIcon
+public import sdl.deviceRotationDeltaDegrees
+public import sdl.deviceRotationIsLandscape
+public import sdl.deviceRotationName
+public import sdl.deviceRotationSourceName
 public import sdl.renderDrawIrAscii
 public import sdl.drawIrAsciiAnnotationKindName
 public import sdl.imageFormatFromPath
@@ -91,6 +98,7 @@ public import chui.core.ComponentProbe
 public import chui.core.CursorShape
 public import chui.core.DerivedState
 public import chui.core.Divider
+public import chui.core.DeviceRotationLayout
 public import chui.core.Easing
 public import chui.core.EventHandler
 public import chui.core.Flexible
@@ -100,6 +108,7 @@ public import chui.core.ForEachIndexed
 public import chui.core.Gradient
 public import chui.core.Corners
 public import chui.core.Pulse
+public import chui.core.PageTransitionLayout
 public import chui.core.Row
 public import chui.core.FrameHandler
 public import chui.core.Grid

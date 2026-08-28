@@ -317,7 +317,7 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 ## 11. `DesktopApp`
 
 ```cangjie
-DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None, capture: None, fontScale: 1.0, metadata: None, hints: [])
+DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None, capture: None, fontScale: 1.0, deviceRotationAnimation: AnimationSpec.automatic(duration: 320), metadata: None, hints: [])
 ```
 
 | 方法 | 说明 |
@@ -331,9 +331,14 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None
 | `setWindowPosition(x, y)`、`windowPosition()` | 设置或查询桌面坐标 |
 | `windowFlags()` | 查询当前窗口状态快照 |
 | `clearRememberedState()` | 清空局部状态存储 |
+| `deviceRotation()`、`reportedDeviceRotation()` | 分别读取布局回退后的有效方向与宿主真实报告方向 |
+| `queueDeviceRotation(...)`、`postDeviceRotation(...)` | 在 owner 上排队，或从任意线程投递规范化方向事件 |
 | `openFileDialog`、`saveFileDialog`、`openFolderDialog` | 创建异步文件对话框请求 |
 
 `fontScale` 作用于全部 `fp` 尺寸；`WindowSpec.scale` 决定 `px` 与 `vp` 的换算。
+
+`deviceRotationAnimation` 控制宿主收到规范化方向事件后对旧/新完整界面帧播放的有向旋转；方向差保留
+`+90° / -90° / +180° / -180°`，自动规格遵循主题运动等级和减弱动态效果设置。
 
 `capture` 接受 `DesktopCaptureRequest`，用于由宿主显式请求一次稳定渲染采集。`cuic prnt`
 构建后直接启动应用并注入同一请求，不依赖 CJPM 的应用参数转发。
