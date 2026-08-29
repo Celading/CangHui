@@ -46,7 +46,9 @@ for command in \
   "kmode list ." \
   "probe list ." \
   "pview" \
-  "shell snapshot ."; do
+  "shell snapshot ." \
+  "frame trace . --scenario release-gate" \
+  "frame replay unavailable.json --executor null"; do
   set +e
   output="$("${CUIC_RELEASE_BIN}" ${command} 2>&1)"
   code=$?
@@ -80,13 +82,16 @@ if [[ "${release_output}" != "CANGHUI_KMODE_RELEASE_CLOSED=1" ]]; then
   exit 1
 fi
 
-while IFS= read -r pattern; do
-  [[ -z "${pattern}" || "${pattern}" == \#* ]] && continue
-  if strings "${APP_RELEASE_BIN}" | grep -F "${pattern}" >/dev/null; then
-    echo "release application contains denylisted debug artifact: ${pattern}" >&2
-    exit 1
-  fi
-done < "${ROOT_DIR}/scripts/canghui-release-deny-list.txt"
+for release_binary in "${CUIC_RELEASE_BIN}" "${APP_RELEASE_BIN}"; do
+  while IFS= read -r pattern; do
+    [[ -z "${pattern}" || "${pattern}" == \#* ]] && continue
+    if strings "${release_binary}" | grep -F "${pattern}" >/dev/null; then
+      echo "release executable contains denylisted debug artifact: ${pattern}" >&2
+      echo "binary: ${release_binary}" >&2
+      exit 1
+    fi
+  done < "${ROOT_DIR}/scripts/canghui-release-deny-list.txt"
+done
 
 echo "==> debug application retains explicit local stdio workflow"
 debug_output="$({

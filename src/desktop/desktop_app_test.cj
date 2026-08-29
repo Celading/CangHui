@@ -149,3 +149,11 @@ func desktopDefaultsFirstFocusClickToReachControls(): Unit {
     }
     @Expect(hints[0].value, "1")
 }
+
+@Test
+func frameGraphSkipsTransientZeroAreaDesktopSurfaces(): Unit {
+    @Expect(desktopFrameSurfaceUsable(Int32(1280), Int32(720)))
+    @Expect(!desktopFrameSurfaceUsable(Int32(0), Int32(720)))
+    @Expect(!desktopFrameSurfaceUsable(Int32(1280), Int32(0)))
+    @Expect(!desktopFrameSurfaceUsable(Int32(-1), Int32(720)))
+}

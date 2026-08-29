@@ -18,7 +18,11 @@ func liquidGlassEffectsProbe(script: String): String {
             properties: [
                 ProbeProperty("nativeProvider", "sdl-readback"),
                 ProbeProperty("fallback", "deterministic-sdr"),
-                ProbeProperty("shapeUnion", "unsupported")
+                ProbeProperty("shapeUnion", "unsupported"),
+                ProbeProperty("frameGraph", "rev1-opt-in"),
+                ProbeProperty("scene3dMode", "native-child-surface-barrier"),
+                ProbeProperty("unifiedPixels", "false"),
+                ProbeProperty("presentMode", "full")
             ]
         ) {
             effectGallery()

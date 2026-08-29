@@ -557,6 +557,20 @@ public class Renderer {
         applyClip()
     }
 
+    /** Captures renderer-owned clip state before a temporary render-target switch. */
+    internal func snapshotClipStack(): Array<Rect> {
+        clipStack.toArray()
+    }
+
+    /** Restores the complete nested clip state captured by `snapshotClipStack`. */
+    internal func restoreClipStack(values: Array<Rect>): Unit {
+        clipStack.clear()
+        for (value in values) {
+            clipStack.add(value)
+        }
+        applyClip()
+    }
+
     public func setVSync(vsync: Int32): Unit {
         if (ptr.isNull()) {
             return

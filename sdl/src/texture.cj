@@ -136,7 +136,14 @@ extend Renderer {
         }
         let _ = unsafe { SDL_SetTextureScaleMode(raw, SDL_SCALEMODE_LINEAR) }
         let _ = unsafe { SDL_SetTextureBlendMode(raw, SDL_BLENDMODE_BLEND) }
-        Texture(raw)
+        try {
+            Texture(raw)
+        } catch (error: Exception) {
+            // Texture construction queries the native size and may reject. Until construction
+            // succeeds the raw allocation is still owned here.
+            unsafe { SDL_DestroyTexture(raw) }
+            throw error
+        }
     }
 
     /** Draws one logical frame into `texture`, restoring the previous target and scale. */
@@ -159,6 +166,7 @@ extend Renderer {
         let previousTarget = unsafe { SDL_GetRenderTarget(ptr) }
         let previousScaleX = currentScaleX()
         let previousScaleY = currentScaleY()
+        let previousClips = snapshotClipStack()
         try {
             ensureSdl(unsafe { SDL_SetRenderTarget(ptr, texture.ptr) }, "SDL_SetRenderTarget")
             setScale(texture.width / logicalWidth, texture.height / logicalHeight)
@@ -168,7 +176,7 @@ extend Renderer {
         } finally {
             let _ = unsafe { SDL_SetRenderTarget(ptr, previousTarget) }
             setScale(previousScaleX, previousScaleY)
-            resetClipStack()
+            restoreClipStack(previousClips)
         }
     }
 

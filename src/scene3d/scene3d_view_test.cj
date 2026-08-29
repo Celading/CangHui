@@ -103,8 +103,16 @@ func scene3DViewLocalizesPointerAndRoutesGamepadOnlyWhileFocused(): Unit {
     ctx.displayScale = 2.0
 
     @Expect(view.measure(ctx, Size(500.0, 400.0)).w, Float32(300.0))
+    ctx.beginFrameSurfaceRegistration()
     view.layout(ctx, Rect(40.0, 60.0, 300.0, 200.0))
     @Expect(host.currentPlacement().getOrThrow().scale, Float32(2.0))
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(0))
+
+    host.publish(NativeSurfaceEvent.Available(testSurface(2, 300.0, 200.0)))
+    ctx.beginFrameSurfaceRegistration()
+    view.layout(ctx, Rect(40.0, 60.0, 300.0, 200.0))
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(1))
+    @Expect(ctx.nativeChildFrameSurfaceAt(0).generation, Int64(2))
 
     @Expect(!view.handle(ctx, UiEvent.GamepadButtonDown(UInt32(4), GamepadButton.South)))
     @Expect(recorder.calls, Int64(0))

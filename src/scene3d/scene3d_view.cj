@@ -262,7 +262,14 @@ public class Scene3DView <: Widget {
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
-        let _ = controller.place(rect, ctx.displayScale)
+        let placement = controller.place(rect, ctx.displayScale)
+        // The FrameGraph sees only a scheduling barrier. Provider lifecycle and input remain here,
+        // and a native child surface is never promoted to unified 2D/3D pixels. Failed placement or
+        // an unattached provider is not a surface and therefore must not become a phantom barrier.
+        if (placement.ok && controller.isAttached() && controller.currentGeneration() > 0) {
+            ctx.registerNativeChildFrameSurface(
+                controller.id(), controller.currentGeneration(), rect)
+        }
     }
 
     public func draw(ctx: UiContext): Unit {

@@ -95,6 +95,8 @@ public class UiContext {
     private let controlContentEnvironments = ArrayList<ControlContentEnvironment>()
     private let typographyEnvironments = ArrayList<TypographyEnvironment>()
     private let interactionEnabledScopes = ArrayList<Bool>()
+    // FrameGraph scheduling facts only. Native handles and provider objects never enter this list.
+    private let nativeChildFrameSurfaces = ArrayList<NativeChildFrameSurface>()
     private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
@@ -105,6 +107,27 @@ public class UiContext {
         this.renderer = renderer
         this.theme = theme
         renderer.setThemeFontFamily(theme.fontFamily)
+    }
+
+    /** Clears the previous declarative build's external-surface scheduling registrations. */
+    protected func beginFrameSurfaceRegistration(): Unit {
+        nativeChildFrameSurfaces.clear()
+    }
+
+    /** Registers a Scene3D/native child surface without moving its lifecycle or input ownership. */
+    protected func registerNativeChildFrameSurface(
+        identity: String,
+        generation: Int64,
+        bounds: Rect
+    ): Unit {
+        if (identity.isEmpty() || generation <= 0 || bounds.w <= 0.0 || bounds.h <= 0.0) { return }
+        nativeChildFrameSurfaces.add(NativeChildFrameSurface(identity, generation, bounds))
+    }
+
+    protected func nativeChildFrameSurfaceCount(): Int64 { nativeChildFrameSurfaces.size }
+
+    protected func nativeChildFrameSurfaceAt(index: Int64): NativeChildFrameSurface {
+        nativeChildFrameSurfaces[index]
     }
 
     /** Last posture reported by a platform provider, without viewport fallback. */
