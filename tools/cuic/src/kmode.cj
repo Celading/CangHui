@@ -140,7 +140,14 @@ func isKModeLauncherNoise(line: String): Bool {
     line.isEmpty() || startsWithText(line, "cjpm ") ||
         startsWithText(line, "Warning: the functionality of 'CJPM_CONFIG' will be deprecated") ||
         startsWithText(line, "Warning: field 'profile.build.combined' in '") ||
-        startsWithText(line, "Warning: field 'profile.build.combined' only supports")
+        startsWithText(line, "Warning: field 'profile.build.combined' only supports") ||
+        isCjpmEmptyPackageWarning(line)
+}
+
+func isCjpmEmptyPackageWarning(line: String): Bool {
+    let prefix = "Warning: there is no '.cj' file in directory '"
+    let suffix = "', and its subdirectories will not be scanned as source code"
+    line.size > prefix.size + suffix.size && startsWithText(line, prefix) && endsWithText(line, suffix)
 }
 
 func kModeCommand(args: Array<String>, start: Int64): Int64 {

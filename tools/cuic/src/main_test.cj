@@ -179,6 +179,18 @@ func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
     @Expect(isKModeLauncherNoise(
         "Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows'"
     ))
+    @Expect(isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '/tmp/project/datalog', and its subdirectories will not be scanned as source code"
+    ))
+    @Expect(!isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '', and its subdirectories will not be scanned as source code"
+    ))
+    @Expect(!isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '/tmp/project/datalog'"
+    ))
+    @Expect(!isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '/tmp/project/datalog', and its subdirectories will not be scanned as source code; application output"
+    ))
     @Expect(!isKModeLauncherNoise("application wrote unexpected stdout"))
 }
 

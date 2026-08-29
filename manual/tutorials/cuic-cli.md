@@ -20,6 +20,11 @@ cuic run [platform] [project|example]
 `kmode diff` / `probe diff` 静态冲突检查；发布应用同样不会接受旧环境变量或
 `--kmode-stdio` 注入。
 
+调试子进程的 stdout 仍由帧协议独占。cuic 只跳过完整匹配的已知 CJPM 启动诊断（包括
+空包目录的 `there is no '.cj' file ... will not be scanned as source code` 警告）；任意应用
+stdout、截断警告或近似伪装文本都会在首个协议帧前明确失败，不能借通用 `Warning:` 前缀
+绕过协议污染检查。
+
 ```bash
 cuic debug [platform] [project] [--device <alias>] [--app <bundle>] [-- <app args...>]
 ```
