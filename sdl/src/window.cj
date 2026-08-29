@@ -59,8 +59,8 @@ public class SdlWindow <: Resource {
     internal let windowPtr: CPointer<Unit>
     private let rendererPtr: CPointer<Unit>
     private let ownerThreadId: UInt64
+    private let closeGate: WindowCloseGate
     private let gamepads: GamepadRuntime
-    private var closed = false
 
     public var width: Int32
     public var height: Int32
@@ -108,7 +108,9 @@ public class SdlWindow <: Resource {
 
         this.windowPtr = window
         this.rendererPtr = createdRenderer
-        this.ownerThreadId = unsafe { SDL_GetCurrentThreadID() }
+        let nativeOwner = unsafe { SDL_GetCurrentThreadID() }
+        this.ownerThreadId = nativeOwner
+        this.closeGate = WindowCloseGate(nativeOwner)
         this.renderer = Renderer(createdRenderer, contentScale: spec.scale, supersample: spec.supersample)
         this.gamepads = GamepadRuntime()
     }
@@ -179,7 +181,7 @@ public class SdlWindow <: Resource {
     }
 
     public func isClosed(): Bool {
-        closed
+        closeGate.isClosed()
     }
 
     /**
@@ -188,30 +190,43 @@ public class SdlWindow <: Resource {
      * this window closes. Application scene models should never store this value.
      */
     public func withBorrowedPlatformWindow<T>(body: (CPointer<Unit>) -> T): T {
-        if (closed || windowPtr.isNull()) {
+        if (isClosed() || windowPtr.isNull()) {
             throw IllegalStateException("cannot borrow a closed SDL window")
         }
         body(windowPtr)
     }
 
+    /**
+     * Closes native window resources exactly once on the native thread that created them.
+     *
+     * A first close from another native thread fails before entering gamepad, renderer or SDL
+     * teardown. Once an owner-thread close has completed, repeated calls are no-ops from any
+     * thread. Applications must keep creation, event pumping and first close on one native thread.
+     */
     public func close(): Unit {
-        if (closed) {
-            return
-        }
-        closed = true
-        gamepads.close()
-        renderer.releaseResources()
-        unsafe {
-            if (windowPtr.isNotNull()) {
-                let _ = SDL_StopTextInput(windowPtr)
+        let currentThreadId = unsafe { SDL_GetCurrentThreadID() }
+        let result = closeGate.close(currentThreadId, { =>
+            gamepads.close()
+            renderer.releaseResources()
+            unsafe {
+                if (windowPtr.isNotNull()) {
+                    let _ = SDL_StopTextInput(windowPtr)
+                }
+                if (rendererPtr.isNotNull()) {
+                    SDL_DestroyRenderer(rendererPtr)
+                }
+                if (windowPtr.isNotNull()) {
+                    SDL_DestroyWindow(windowPtr)
+                }
+                SDL_Quit()
             }
-            if (rendererPtr.isNotNull()) {
-                SDL_DestroyRenderer(rendererPtr)
-            }
-            if (windowPtr.isNotNull()) {
-                SDL_DestroyWindow(windowPtr)
-            }
-            SDL_Quit()
+        })
+        match (result) {
+            case WindowCloseResult.WrongThread =>
+                throw CuiException(
+                    "SDL window close moved across native threads; first close must run on the window owner thread"
+                )
+            case _ => ()
         }
     }
 
@@ -219,6 +234,39 @@ public class SdlWindow <: Resource {
         if (cornerRadius > 0.0) {
             applyRoundedWindowShape(windowPtr, pixelWidth, pixelHeight, cornerRadius * scale)
         }
+    }
+}
+
+internal enum WindowCloseResult {
+    | Closed
+    | AlreadyClosed
+    | WrongThread
+}
+
+/**
+ * Keeps the native teardown body behind an owner-thread and exactly-once gate. The gate is kept
+ * separate from SDL so its no-native-entry behavior can be proven without constructing a window.
+ */
+internal class WindowCloseGate {
+    private let ownerThreadId: UInt64
+    private var closed = false
+
+    internal init(ownerThreadId: UInt64) {
+        this.ownerThreadId = ownerThreadId
+    }
+
+    internal func isClosed(): Bool { closed }
+
+    internal func close(currentThreadId: UInt64, nativeClose: () -> Unit): WindowCloseResult {
+        if (closed) {
+            return WindowCloseResult.AlreadyClosed
+        }
+        if (!sameNativeThread(ownerThreadId, currentThreadId)) {
+            return WindowCloseResult.WrongThread
+        }
+        closed = true
+        nativeClose()
+        WindowCloseResult.Closed
     }
 }
 

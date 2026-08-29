@@ -3,6 +3,25 @@ package chui.desktop
 import sdl.{MouseButton, UiEvent}
 import sdl.system.SdlHint
 
+private class DesktopRunTestException <: Exception {
+    public init(message: String) { super(message) }
+}
+
+@Test
+func desktopRunPreservesOriginatingFailureOverCleanupFailure(): Unit {
+    let original = DesktopRunTestException("frame-loop-origin")
+    let cleanup = DesktopRunTestException("cleanup-affinity")
+
+    @Expect(preferredDesktopRunFailure(Some(original), cleanup).message, "frame-loop-origin")
+}
+
+@Test
+func desktopRunReportsCleanupFailureWhenNoEarlierFailureExists(): Unit {
+    let cleanup = DesktopRunTestException("cleanup-affinity")
+
+    @Expect(preferredDesktopRunFailure(None, cleanup).message, "cleanup-affinity")
+}
+
 @Test
 func tickDeltaGuardsAgainstClockReset(): Unit {
     @Expect(tickDelta(UInt64(10), UInt64(25)), UInt64(15))

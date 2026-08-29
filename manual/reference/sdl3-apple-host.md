@@ -67,7 +67,13 @@ model.
   that suspends during startup after creating its window must use the same
   constraint or move that work behind the running event loop. `SdlWindow`
   checks the native thread identity before polling so this fails as an explicit
-  exception instead of a cross-thread native crash.
+  exception instead of a cross-thread native crash. The first `close()` applies
+  the same rule and enters no native teardown on a worker mismatch; completed
+  close remains idempotent. `DesktopApp` keeps an originating frame-loop failure
+  authoritative if shutdown also reports that affinity error. A failed
+  wrong-thread close cannot recover a vanished owner loop, so applications must
+  still arrange first close on the owner thread rather than treat the guard as
+  cross-thread marshalling.
 - Direct `SDL_EnterAppMainCallbacks` binding waits for a complete iOS host
   entry and lifecycle integration.
 - SDL3 GPU wrappers and shader packaging belong to renderer-specific work.

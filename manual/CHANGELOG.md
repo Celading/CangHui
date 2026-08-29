@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- macOS SDL 窗口首次关闭现在核对创建时的原生线程；错线程调用在进入任何原生
+  销毁前明确失败，已完成关闭继续幂等。`DesktopApp.run` 也不再让清理期错误
+  覆盖更早的帧循环异常。
 - `Widget.zIndex(Int64)` 为 `ZStack` 提供稳定的绘制与命中顺序：高值后绘制/先命中，
   同值保持声明顺序，不改变布局、焦点遍历与 `Frame` 广播。
 - `cuic shell` 新增一次性 debug UI 回放与结构化 `snapshot/diff`；只启动自身构建的

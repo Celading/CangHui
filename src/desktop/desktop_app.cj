@@ -299,8 +299,9 @@ public class DesktopApp {
     }
 
     public func run(body: () -> Unit): Unit {
-        // The finally block keeps shutdown deterministic even when a widget throws out of
-        // the frame loop: managed resources close in reverse order, then the window.
+        // Capture the frame-loop failure before shutdown. Cleanup is still deterministic, but a
+        // cleanup/affinity failure must never replace the originating application exception.
+        var runFailure: ?Exception = None
         try {
             match (profiler) {
                 case Some(_) =>
@@ -378,12 +379,21 @@ public class DesktopApp {
                     window.delay(delay)
                 }
             }
-        } finally {
+        } catch (error: Exception) {
+            runFailure = Some(error)
+        }
+        try {
             let _ = uiOwnerQueue.close(reason: "desktop application closed")
             closeThemeTransition()
             closeDeviceRotationTransition()
             closeManagedResources()
             window.close()
+        } catch (cleanupError: Exception) {
+            runFailure = Some(preferredDesktopRunFailure(runFailure, cleanupError))
+        }
+        match (runFailure) {
+            case Some(error) => throw error
+            case None => ()
         }
     }
 
@@ -783,6 +793,14 @@ public class DesktopApp {
             resources[i].close()
             i -= 1
         }
+    }
+}
+
+/** Keeps the first application failure authoritative when shutdown also fails. */
+internal func preferredDesktopRunFailure(original: ?Exception, cleanup: Exception): Exception {
+    match (original) {
+        case Some(error) => error
+        case None => cleanup
     }
 }
 

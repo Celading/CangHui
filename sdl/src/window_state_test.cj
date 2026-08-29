@@ -1,9 +1,63 @@
 package sdl
 
+private class NativeCloseCounter {
+    public var value = 0
+    public func increment(): Unit { value += 1 }
+}
+
 @Test
 func nativeThreadIdentityMustMatchExactly(): Unit {
     @Expect(sameNativeThread(UInt64(42), UInt64(42)))
     @Expect(!sameNativeThread(UInt64(42), UInt64(43)))
+}
+
+@Test
+func wrongThreadWindowCloseNeverEntersNativeTeardown(): Unit {
+    let gate = WindowCloseGate(UInt64(42))
+    let nativeCloseCount = NativeCloseCounter()
+
+    let result = gate.close(UInt64(43), { => nativeCloseCount.increment() })
+
+    @Expect(isWrongThreadClose(result))
+    @Expect(nativeCloseCount.value, 0)
+    @Expect(!gate.isClosed())
+}
+
+@Test
+func ownerThreadWindowCloseIsExactlyOnceAndThenThreadAgnostic(): Unit {
+    let gate = WindowCloseGate(UInt64(42))
+    let nativeCloseCount = NativeCloseCounter()
+
+    let first = gate.close(UInt64(42), { => nativeCloseCount.increment() })
+    let repeatedOwner = gate.close(UInt64(42), { => nativeCloseCount.increment() })
+    let repeatedWorker = gate.close(UInt64(99), { => nativeCloseCount.increment() })
+
+    @Expect(isCompletedClose(first))
+    @Expect(isAlreadyClosed(repeatedOwner))
+    @Expect(isAlreadyClosed(repeatedWorker))
+    @Expect(nativeCloseCount.value, 1)
+    @Expect(gate.isClosed())
+}
+
+private func isWrongThreadClose(result: WindowCloseResult): Bool {
+    match (result) {
+        case WindowCloseResult.WrongThread => true
+        case _ => false
+    }
+}
+
+private func isCompletedClose(result: WindowCloseResult): Bool {
+    match (result) {
+        case WindowCloseResult.Closed => true
+        case _ => false
+    }
+}
+
+private func isAlreadyClosed(result: WindowCloseResult): Bool {
+    match (result) {
+        case WindowCloseResult.AlreadyClosed => true
+        case _ => false
+    }
 }
 
 @Test

@@ -14,7 +14,7 @@ public class DesktopApp
 
 ## 说明
 
-帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，`finally` 也会关闭 owner queue、完成待处理 ticket 并执行这套清理。`cuic prnt` 会构建后直接启动应用可执行文件，并通过 [`DesktopCaptureRequest`](DesktopCaptureRequest.md) 的宿主请求采集稳定画面，不依赖 `cjpm run` 转发参数。旧应用仍兼容 `--snapshot <path.bmp>` 与 `--snapshot-frame`；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
+帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，也会关闭 owner queue、完成待处理 ticket 并执行这套清理。若清理同时报告 SDL owner-thread 错误，`run` 会继续抛出更早的帧循环异常。`cuic prnt` 会构建后直接启动应用可执行文件，并通过 [`DesktopCaptureRequest`](DesktopCaptureRequest.md) 的宿主请求采集稳定画面，不依赖 `cjpm run` 转发参数。旧应用仍兼容 `--snapshot <path.bmp>` 与 `--snapshot-frame`；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
 
 ## 示例
 
