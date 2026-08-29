@@ -25,6 +25,8 @@ public class TextArea <: Widget
 - **滚动**：滚轮只在内容超出视口时被消费（内容装得下时让给外层滚动容器，不留死区）；键盘编辑与导航后视口滚动最小距离让光标所在行可见，指针路径不做跟随。滚动偏移每帧限制在内容范围，且仅在值变化时写回，外部接管的滚动状态不会收到空写通知。
 - **粘贴换行处理**：保留多行内容，但把 Windows 的 CRLF 和单独的 CR 统一为 `\n`；否则行尾残留的 `\r` 会干扰 End、退格和文字测量。剪贴板不可用时复制/粘贴会静默失败，不会让控件退出。
 - **撤销**：与单行控件相同——500 毫秒内连续编辑合并一步、光标跳转切分撤销组、栈上限 300 步；撤销/重做后自动滚动到光标行。
+- **绘制装饰**：`decorations` 接收 [`Observable`](../core/Observable.md)`<TextAreaDecorationSnapshot>`，用于语法高亮、诊断标记或搜索命中。范围是精确的 UTF-8 字节边界；无效范围被忽略，快照修订号与文本不同时回退为普通文本绘制。装饰只影响画面，不接管 tokenizer、文本、光标、IME 或撤销栈。
+- **绘制层级**：装饰背景 → 选区 → 字形/下划线 → 光标。重叠范围按输入顺序“后者覆盖前者”；归一化结果按文本修订、装饰修订和当前可见逻辑行窗口缓存。
 
 ## 示例
 
@@ -60,6 +62,7 @@ main(): Unit {
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`chrome(value: TextAreaChrome)`](#chrome) | 选择普通字段外观或无框嵌入式表面。 |
+| [`decorations(value: Observable<TextAreaDecorationSnapshot>)`](#decorations) | 更换与文档修订绑定的绘制装饰源。 |
 | [`measure(...)`](#measure) | [`Widget`](../core/Widget.md) 协议实现：占满全部可用空间。 |
 | [`layout(...)`](#layout) | [`Widget`](../core/Widget.md) 协议实现：记录分配的框架矩形，供绘制与命中测试使用。 |
 | [`draw(...)`](#draw) | [`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、可见行、光标与右缘滚动条。 |
@@ -81,7 +84,8 @@ public init(
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None,
     editable!: Bool = true,
-    chrome!: TextAreaChrome = TextAreaChrome.Field
+    chrome!: TextAreaChrome = TextAreaChrome.Field,
+    decorations!: ?Observable<TextAreaDecorationSnapshot> = None
 )
 ```
 
@@ -94,6 +98,7 @@ public init(
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
 - `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读：可导航选择复制，不可编辑，不进入 Tab 焦点遍历。
 - `chrome!`: `TextAreaChrome` — 默认 `Field`；传 `None` 不绘制默认字段底色和描边。
+- `decorations!`: `?Observable<TextAreaDecorationSnapshot>` — 默认 `None`；可传 `State` 或 `DerivedState` 发布的不可变装饰快照。
 
 **异常**
 
@@ -150,6 +155,20 @@ public func chrome(value: TextAreaChrome): TextArea
 **参数** `value`: `TextAreaChrome` — `Field` 或 `None`。
 
 **返回值** `TextArea` — 本文本区自身，用于链式调用。
+
+### decorations
+
+更换绘制装饰源；不改变文本、光标、选区、IME 和撤销的所有权。
+
+```cangjie
+public func decorations(value: Observable<TextAreaDecorationSnapshot>): TextArea
+```
+
+**参数** `value`: `Observable<TextAreaDecorationSnapshot>` — 应用生成的、与当前文本修订号绑定的不可变快照。
+
+**返回值** `TextArea` — 本文本区自身，用于链式调用。
+
+如果快照过期，本帧安全回退为普通文本绘制；应用下次发布当前修订的快照即可恢复。
 
 ### measure
 

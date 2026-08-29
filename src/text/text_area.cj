@@ -1,9 +1,9 @@
 package chui.text
 
-import sdl.{FontSizes, Key, MouseButton, Point, Rect, Size, UiEvent}
+import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
 import chui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
-    State, UiContext, Widget, advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside,
+    Observable, State, UiContext, Widget, advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside,
     clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, registerFocusable, resolveControlKey,
     scrollLineIndex, scrollLineRemainder}
 
@@ -63,6 +63,8 @@ public class TextArea <: Widget {
     private var scrollPolicy = ScrollOptions.web()
     private let history: UndoHistory
     private let lineCache: TextLineCache
+    private let decorationCache: TextAreaDecorationCache
+    private var decorationSource: ?Observable<TextAreaDecorationSnapshot>
     private var autofocusRequested = false
     private let autofocusDone: State<Bool>
     private var frame = Rect.zero()
@@ -74,7 +76,8 @@ public class TextArea <: Widget {
         cursor!: ?State<Int64> = None,
         anchor!: ?State<Int64> = None,
         editable!: Bool = true,
-        chrome!: TextAreaChrome = TextAreaChrome.Field
+        chrome!: TextAreaChrome = TextAreaChrome.Field,
+        decorations!: ?Observable<TextAreaDecorationSnapshot> = None
     ) {
         let ident = resolveControlKey(key, "TextArea")
         this.id = ident
@@ -105,6 +108,10 @@ public class TextArea <: Widget {
         }.value
         this.history = localState<UndoHistory>("TextArea:${ident}:history") {UndoHistory()}.value
         this.lineCache = localState<TextLineCache>("TextArea:${ident}:lines") {TextLineCache()}.value
+        this.decorationCache = localState<TextAreaDecorationCache>("TextArea:${ident}:decorations") {
+            TextAreaDecorationCache()
+        }.value
+        this.decorationSource = decorations
         this.autofocusDone = localState<Bool>("TextArea:${ident}:autofocused") {false}
         // A read-only text area is not an editing stop, so it stays out of Tab traversal.
         if (editable) {
@@ -122,6 +129,12 @@ public class TextArea <: Widget {
     /** Selects ordinary field chrome or a chrome-free surface for embedded editor parts. */
     public func chrome(value: TextAreaChrome): TextArea {
         chromeMode = value
+        this
+    }
+
+    /** Applies immutable, revision-bound paint decorations without taking text/edit ownership. */
+    public func decorations(value: Observable<TextAreaDecorationSnapshot>): TextArea {
+        decorationSource = Some(value)
         this
     }
 
@@ -175,8 +188,13 @@ public class TextArea <: Widget {
             cancelScrollMotion(scrollMotion, scrollStateValue)
         }
         let content = TextAreaContent(text.value, cursorStateValue.value, scrollStateValue.value)
+        let viewport = textViewport(frame)
+        let firstLine = scrollLineIndex(content.scroll)
+        let lastLine = firstLine + Int64(viewport.h / CUI_SMALL_H) + 2
+        let decorationRuns = decorationCache.visibleRuns(text.value, text.revision, decorationSource,
+            firstLine, lastLine)
         drawTextAreaBox(ctx, frame, id, content, docLines, edit.selectionStart(), edit.selectionEnd(),
-            ctx.hasFocus(id), scrollBar.dragging(ctx), chromeMode)
+            ctx.hasFocus(id), scrollBar.dragging(ctx), chromeMode, decorationRuns)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -421,7 +439,8 @@ private func drawTextAreaBox(
     selEnd: Int64,
     focused: Bool,
     barActive: Bool,
-    chrome: TextAreaChrome
+    chrome: TextAreaChrome,
+    decorations: Array<TextAreaDecorationRun>
 ): Unit {
     match (chrome) {
         case TextAreaChrome.Field => drawTextBoxChrome(ctx, frame, id)
@@ -429,13 +448,121 @@ private func drawTextAreaBox(
     }
     let viewport = textViewport(frame)
     ctx.renderer.pushClip(viewport)
+    drawTextAreaDecorationBackgrounds(ctx, viewport, content, decorations)
     if (focused) {
         drawTextAreaSelection(ctx, viewport, content, selStart, selEnd)
     }
-    drawLines(ctx, viewport, lines, content.scroll)
+    if (decorations.isEmpty()) {
+        drawLines(ctx, viewport, lines, content.scroll)
+    } else {
+        drawDecoratedLines(ctx, viewport, content, decorations)
+    }
     drawTextAreaCursor(ctx, viewport, id, content)
     ctx.renderer.popClip()
     drawVerticalScrollBar(ctx, frame, content.scroll, textContentHeight(lines), viewport.h, active: barActive)
+}
+
+private func drawTextAreaDecorationBackgrounds(
+    ctx: UiContext,
+    viewport: Rect,
+    content: TextAreaContent,
+    decorations: Array<TextAreaDecorationRun>
+): Unit {
+    let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
+    for (run in decorations) {
+        match (run.style.background) {
+            case Some(color) =>
+                let x = textAreaDecorationX(ctx, viewport, content.text, run.lineStart, run.startByte)
+                let width = ctx.renderer.textWidth(content.text[run.startByte..run.endByte],
+                    pointSize: FontSizes.BODY)
+                let y = viewport.y + Float32(run.lineIndex) * CUI_SMALL_H - content.scroll
+                if (width > 0.0) {
+                    ctx.renderer.fill(Rect(x, y, width, lineHeight), color)
+                }
+            case None => ()
+        }
+    }
+}
+
+private func drawDecoratedLines(
+    ctx: UiContext,
+    viewport: Rect,
+    content: TextAreaContent,
+    decorations: Array<TextAreaDecorationRun>
+): Unit {
+    var lineIndex = scrollLineIndex(content.scroll)
+    var lineStart = startOfTextLine(content.text, lineIndex)
+    var y = viewport.y - scrollLineRemainder(content.scroll)
+    var runIndex: Int64 = 0
+    while (lineStart <= content.text.size && y < viewport.bottom()) {
+        let lineEnd = lineEndAfterOrAt(content.text, lineStart)
+        var cursor = lineStart
+        while (runIndex < decorations.size && decorations[runIndex].lineIndex < lineIndex) {
+            runIndex += 1
+        }
+        var currentRun = runIndex
+        while (currentRun < decorations.size && decorations[currentRun].lineIndex == lineIndex) {
+            let run = decorations[currentRun]
+            if (cursor < run.startByte) {
+                drawTextAreaSlice(ctx, viewport, content.text, lineStart, cursor, run.startByte, y,
+                    ctx.theme.text, None)
+            }
+            let foreground = match (run.style.foreground) {
+                case Some(color) => color
+                case None => ctx.theme.text
+            }
+            drawTextAreaSlice(ctx, viewport, content.text, lineStart, run.startByte, run.endByte, y,
+                foreground, run.style.underline)
+            cursor = run.endByte
+            currentRun += 1
+        }
+        if (cursor < lineEnd || lineStart == lineEnd) {
+            drawTextAreaSlice(ctx, viewport, content.text, lineStart, cursor, lineEnd, y, ctx.theme.text, None)
+        }
+        runIndex = currentRun
+        if (lineEnd >= content.text.size) {
+            break
+        }
+        lineStart = nextTextBoundary(content.text, lineEnd)
+        lineIndex += 1
+        y += CUI_SMALL_H
+    }
+}
+
+private func drawTextAreaSlice(
+    ctx: UiContext,
+    viewport: Rect,
+    text: String,
+    lineStart: Int64,
+    start: Int64,
+    end: Int64,
+    y: Float32,
+    foreground: Color,
+    underline: ?Color
+): Unit {
+    let value = text[start..end]
+    let x = textAreaDecorationX(ctx, viewport, text, lineStart, start)
+    ctx.renderer.text(value, x, y, foreground, pointSize: FontSizes.BODY)
+    match (underline) {
+        case Some(color) =>
+            let width = ctx.renderer.textWidth(value, pointSize: FontSizes.BODY)
+            if (width > 0.0) {
+                let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
+                ctx.renderer.strokeLine(x, y + lineHeight - 1.0, x + width, y + lineHeight - 1.0,
+                    Pen(width: 1.0, color: color))
+            }
+        case None => ()
+    }
+}
+
+private func textAreaDecorationX(
+    ctx: UiContext,
+    viewport: Rect,
+    text: String,
+    lineStart: Int64,
+    offset: Int64
+): Float32 {
+    viewport.x + ctx.renderer.textWidth(text[lineStart..offset], pointSize: FontSizes.BODY)
 }
 
 internal func drawTextBoxChrome(ctx: UiContext, frame: Rect, id: String): Unit {

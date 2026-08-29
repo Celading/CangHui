@@ -47,7 +47,7 @@ func contentArea(model: EditorModel): Unit {
 
 func editorPanel(model: EditorModel): Unit {
     Panel {
-        TextArea(model.text)
+        TextArea(model.text, decorations: Some(model.decorations))
     }.contentPadding(12.vp).flex()
 }
 
