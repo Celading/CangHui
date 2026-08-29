@@ -428,15 +428,15 @@ public interface Widget {
      * dynamic public state such as selected/disabled/value on each sampled frame.
      */
     func probe(id: String): Widget {
-        applyProbeModifier(this, id, "Widget", [], None)
+        applyProbeModifier(this, id, "Widget", [], None<ProbeSemanticProvider>)
     }
 
     func probe(id: String, widgetType: String): Widget {
-        applyProbeModifier(this, id, widgetType, [], None)
+        applyProbeModifier(this, id, widgetType, [], None<ProbeSemanticProvider>)
     }
 
     func probe(id: String, widgetType: String, properties: Array<ProbeProperty>): Widget {
-        applyProbeModifier(this, id, widgetType, properties, None)
+        applyProbeModifier(this, id, widgetType, properties, None<ProbeSemanticProvider>)
     }
 
     func probe(id: String, widgetType: String, properties: Array<ProbeProperty>,

@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- `Widget.probe(...)` 的三个无语义 provider 重载现在显式构造
+  `None<ProbeSemanticProvider>`，避免消费者同时导入 SDL 等带 `None` 构造器的枚举时，
+  clean 或增量依赖构建出现名称解析歧义；CI 新增外部消费碰撞夹具覆盖两种构建路径。
 - 新增 provider-neutral 二维 renderer-effect 契约：`BackdropEffectRequest`、能力快照、帧 generation、
   预算与结构化 receipt；首个 `sdl-readback` adapter 在当前帧内有界采样背景并提供第一版柔化/折射，
   超预算、旧帧、无 provider、失败和降低透明度均保留 Liquid Glass 的确定性 fallback。当前原生像素
