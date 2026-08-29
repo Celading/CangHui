@@ -69,6 +69,9 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "pview") {
         return pviewCommand(args, 2)
     }
+    if (command == "shell") {
+        return shellCommand(args, 2)
+    }
     if (command == "device") {
         return deviceCommand(args, 2)
     }
@@ -326,6 +329,10 @@ func helpText(): String {
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
     "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
+    "  cuic shell click|touch [project] <x> <y>\n" +
+    "  cuic shell focus [project] <component-id>\n" +
+    "  cuic shell snapshot [project]\n" +
+    "  cuic shell run [project] (--events <script>|--script <file>)\n" +
     "  cuic probe ascii [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]  # alias of pview\n" +
     "  cuic scripts init|list [project]\n" +
     "  cuic scripts run <name> [project]\n" +
@@ -342,7 +349,7 @@ func helpText(): String {
     "  cuic version\n\n" +
     "Project scripts: declare portable lifecycle pipelines in canghui.toml, then run cuic <name>.\n" +
     "prnt builds once, launches the executable directly, and uses DesktopCaptureRequest; it does not rely on cjpm run argument forwarding.\n" +
-    "kmode/probe execution, pview, debug, and device capture require a cuic debug build (-g); release cuic refuses them.\n" +
+    "kmode/probe execution, pview, shell, debug, and device capture require a cuic debug build (-g); release cuic refuses them.\n" +
     "pview prints the current CangHui layout as a deterministic ASCII projection from the\n" +
     "  recording-headless Draw IR, without opening a window. Tutorial:\n" +
     "  cuic pview <probe>                       # default 96x32 grid\n" +

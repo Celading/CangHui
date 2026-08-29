@@ -44,6 +44,11 @@ public interface Widget {
         true
     }
 
+    /** Paint order among siblings in the same stacking context. Measurement is unchanged. */
+    func stackingIndex(): Int64 {
+        0
+    }
+
     /*
      * The keyboard-focus id this widget registered during construction, or `None` for
      * non-focusable widgets and multi-control containers. Single-child wrappers forward
@@ -379,6 +384,14 @@ public interface Widget {
     /** ArkTS-shaped alias for sharing remaining space with an explicit weight. */
     func layoutWeight(weight: Float32): Widget {
         flex(weight)
+    }
+
+    /**
+     * Sets this widget's paint and hit-test order among siblings in the same stacking context.
+     * Higher values paint later and receive input first; equal values retain declaration order.
+     */
+    func zIndex(value: Int64): Widget {
+        applyModifier(this, WidgetModifier.ZIndex(value))
     }
 
     /** Includes or removes this widget from layout, drawing, and event dispatch. */

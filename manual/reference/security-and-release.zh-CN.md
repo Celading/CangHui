@@ -13,6 +13,7 @@ CangHui 将开发检查能力与可分发应用行为分开。边界由编译条
 | 显式 `KModePolicy(enabled: true)` | 强制收敛为 disabled | 执行 capability policy |
 | `KModeChannelModule` 覆盖 | 拒绝 | 需要 admin policy；传输认证仍由 module 负责 |
 | `cuic kmode` / `probe` 执行与 `pview` | 拒绝 | 可用 |
+| `cuic shell` 一次性 UI 事件脚本 | 拒绝；应用不保留 opt-in/结果标记 | 仅白名单 debug 子进程，可用后自动退出 |
 | `cuic debug` 与 `prnt --device/--app` | 拒绝 | 在已实现的平台路径上可用 |
 | `kmode diff` / `probe diff` | 保留静态源码冲突检查 | 可用 |
 
@@ -20,6 +21,10 @@ CangHui 将开发检查能力与可分发应用行为分开。边界由编译条
 channel interface 是传输中立 SPI，不是隐藏隧道。未来远端 module 必须自行完成
 claim 校验、身份绑定、防重放、能力分域、限速/缓冲与敏感信息脱敏，并重新通过
 平台安全审查。local、loopback 或设备转发都不能充当认证。
+
+`cuic shell` 也不构成新增传输：它不会 attach 任意 PID，不读取 stdin 命令流，不监听
+socket/pipe，不解释 shell 字符串。cuic 只把最多 128 条、64 KiB 的白名单 UI 脚本交给
+自己启动的 debug 应用；应用逐帧走正常命中/焦点/键盘事件路径，输出结构化观察后退出。
 
 cuic 也把宿主执行和诊断信息移出 shell 文本边界。Windows 构建会把 `cjpm` 参数
 和环境分开传给进程 API，项目输入中的 `cmd.exe` 元字符不会被展开成第二条命令；

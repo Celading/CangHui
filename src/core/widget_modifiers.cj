@@ -27,6 +27,7 @@ protected enum WidgetModifier {
     | Border(Color, Float32, Length)
     | DashedBorder(Color, Float32, Length, Float32, Float32)
     | Flex(Float32)
+    | ZIndex(Int64)
     | Visible(Bool)
     | Enabled(Bool)
     | Typography(TypographyEnvironment)
@@ -247,6 +248,13 @@ class ModifiedWidget <: Widget {
         match (modifier) {
             case WidgetModifier.Visible(isVisible) => isVisible && child.participatesInLayout()
             case _ => child.participatesInLayout()
+        }
+    }
+
+    public func stackingIndex(): Int64 {
+        match (modifier) {
+            case WidgetModifier.ZIndex(value) => value
+            case _ => child.stackingIndex()
         }
     }
 

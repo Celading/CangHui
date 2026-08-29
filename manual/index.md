@@ -41,12 +41,14 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
 
 ```bash
 cuic doctor macos .
+cuic shell snapshot .
 cuic pview . <probe-id> --columns 96 --rows 32
 cuic prnt macos . --output artifacts/ui.png
 ```
 
-`pview`（亦可写 `cuic probe ascii`）给出确定性结构与几何，`prnt` 给出框架像素。
-`pview`、probe 执行和设备捕获属于调试渠道，发布版 cuic 拒绝它们是预期安全行为；请使用
+`shell snapshot/diff` 给出运行中焦点与交互变化，`pview`（亦可写 `cuic probe ascii`）
+给出确定性结构与几何，`prnt` 给出框架像素。`shell` 是一次性 debug 子进程脚本，不是
+常驻控制端口。`shell`、`pview`、probe 执行和设备捕获属于调试渠道，发布版 cuic 拒绝它们是预期安全行为；请使用
 与项目匹配的 debug cuic。只有验证窗口外壳、输入法、系统菜单、设备合成等平台事实时，
 系统截图才是必要证据，且不能替代结构化/ASCII 结果。
 

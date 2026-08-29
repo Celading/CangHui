@@ -15,7 +15,7 @@ cuic run [platform] [project|example]
 
 ## 调试渠道
 
-`kmode` / `probe` 执行、`pview`、`debug` 与设备截图属于特权开发面，必须使用
+`kmode` / `probe` 执行、`pview`、`shell`、`debug` 与设备截图属于特权开发面，必须使用
 `cjpm build -g` 构建的 cuic。发布 cuic 会显式拒绝这些路径，只保留
 `kmode diff` / `probe diff` 静态冲突检查；发布应用同样不会接受旧环境变量或
 `--kmode-stdio` 注入。
@@ -50,6 +50,26 @@ cuic pview [project] <probe> [--columns <20..240>] [--rows <8..100>] [--script <
   cuic pview coreplayer.layout --events 'press 80 35\nrelease 80 35'
   ```
 - `cuic probe ascii` 是兼容别名。
+
+## 一次性界面事件与无图观察
+
+```bash
+cuic shell snapshot [project]
+cuic shell click [project] <x> <y>       # touch 是别名
+cuic shell focus [project] <component-id>
+cuic shell run [project] --events 'snapshot
+click 120 48
+diff'
+```
+
+- `shell` 只构建并启动一个 debug 子进程；不连接任意现有 PID，不开放 socket、listener、
+  stdin 控制管道，也不执行 shell 文本。白名单脚本完成后应用自动退出。
+- 支持 `click/touch`、`down/press`、`move`、`up/release`、`focus`、`key`、`text`、
+  `snapshot`、`diff`；最多 128 条、64 KiB。坐标事件经过正常 CangHui 命中测试，不能
+  直接调用应用函数。
+- `snapshot` 返回 viewport、当前焦点、可聚焦节点和交互所有者；`diff` 返回相邻渲染帧
+  的新增/移除节点与焦点变化。先用它确认真实运行态，再用 `pview` 查几何、`prnt` 查像素。
+- release cuic 会拒绝 `shell`，release 应用也不会保留脚本 opt-in 与结果协议标记。
 
 ## 设备列表
 

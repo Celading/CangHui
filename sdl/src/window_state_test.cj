@@ -146,3 +146,21 @@ func windowSpecFramelessAliasAddsBorderlessFlag(): Unit {
     @Expect(explicitDecorated.frameless)
     @Expect(explicitDecorated.decorated)
 }
+
+@Test
+func windowSpecRoundedShapeAddsTransparencyAndNormalizesRadius(): Unit {
+    let shaped = WindowSpec("Shaped", 100, 80, frameless: true, cornerRadius: 18.0)
+    let invalid = WindowSpec("Invalid", 100, 80, cornerRadius: -2.0)
+
+    @Expect(shaped.cornerRadius, Float32(18.0))
+    @Expect((windowCreationFlags(shaped) & SDL_WINDOW_TRANSPARENT) != UInt64(0))
+    @Expect(invalid.cornerRadius, Float32(0.0))
+    @Expect((windowCreationFlags(invalid) & SDL_WINDOW_TRANSPARENT) == UInt64(0))
+}
+
+@Test
+func roundedWindowShapeKeepsCenterAndCutsOuterCorner(): Unit {
+    @Expect(roundedCornerAlpha(0, 0, 12.0), UInt8(0))
+    @Expect(roundedCornerAlpha(11, 11, 12.0), UInt8(255))
+    @Expect(fittedCornerRadius(20, 10, 30.0), Float32(5.0))
+}

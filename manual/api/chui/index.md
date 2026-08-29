@@ -217,7 +217,7 @@ import chui.*
 | `WindowFlash` | 任务栏/窗口闪烁请求的方式，传给 `SdlWindow.flash`。 |
 | `WindowPosition` | 窗口左上角在屏幕坐标系中的位置，由 `SdlWindow.position` 返回。 |
 | `WindowProgressState` | 原生任务栏进度指示的状态（Windows 任务栏按钮的进度条），经 `SdlWindow.setProgressState` 设置。 |
-| `WindowSpec` | 创建窗口时的一次性选项：标题、逻辑尺寸、DPI 与缩放行为、垂直同步和渲染器的超采样倍数。 |
+| `WindowSpec` | 创建窗口时的一次性选项：标题、逻辑尺寸、DPI/缩放、垂直同步、超采样，以及自绘窗口可选的原生 `cornerRadius` 形状。 |
 
 **来自 [`sdl.dialogs`](../../../sdl/docs/api-reference.md)**
 

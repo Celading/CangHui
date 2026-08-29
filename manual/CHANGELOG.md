@@ -2,6 +2,16 @@
 
 本 changelog 只记录开发者可观察的公开变化。
 
+## Unreleased
+
+- `Widget.zIndex(Int64)` 为 `ZStack` 提供稳定的绘制与命中顺序：高值后绘制/先命中，
+  同值保持声明顺序，不改变布局、焦点遍历与 `Frame` 广播。
+- `cuic shell` 新增一次性 debug UI 回放与结构化 `snapshot/diff`；只启动自身构建的
+  debug 子进程，事件白名单完成即退出，不连接现有 PID、不开放 listener/pipe/stdin 控制流，
+  release cuic 拒绝入口且 release 应用剔除 opt-in/结果协议标记。
+- `WindowSpec.cornerRadius` 为透明自绘窗口提供 SDL 原生 window shape，按缩放转换并在
+  resize 后重建；系统装饰窗口继续使用平台原生圆角。
+
 ## 0.16.1 (2026-08-27)
 
 - 修复 `HStack` / `Row` 中自然弹性控件加精确 `.width(...)` 后仍吞掉剩余空间的主轴分配

@@ -10,6 +10,12 @@ public struct WindowSpec {
     public let decorated: Bool
     /** Convenience alias: `frameless: true` is equivalent to `decorated: false`. */
     public let frameless: Bool
+    /**
+     * Native window-shape corner radius in logical pixels. A positive radius creates a
+     * transparent shaped window and is intended for custom/frameless chrome. Decorated
+     * platform windows should normally leave this at zero and use the system's own corners.
+     */
+    public let cornerRadius: Float32
     public let scale: Float32
     // Whether the renderer waits for the vertical blank on present. On (the default) prevents
     // tearing and is the right choice for real applications. Off lets the frame loop run
@@ -32,7 +38,8 @@ public struct WindowSpec {
         vsync!: Bool = true,
         supersample!: Int32 = 2,
         decorated!: Bool = true,
-        frameless!: Bool = false
+        frameless!: Bool = false,
+        cornerRadius!: Float32 = 0.0
     ) {
         this.title = title
         this.width = width
@@ -41,6 +48,7 @@ public struct WindowSpec {
         this.highDpi = highDpi
         this.decorated = decorated
         this.frameless = frameless
+        this.cornerRadius = normalizedCornerRadius(cornerRadius)
         this.scale = normalizedScale(scale)
         this.vsync = vsync
         this.supersample = supersample
@@ -57,6 +65,7 @@ public class SdlWindow <: Resource {
     public var width: Int32
     public var height: Int32
     public let scale: Float32
+    public let cornerRadius: Float32
     public let renderer: Renderer
 
     /**
@@ -66,6 +75,7 @@ public class SdlWindow <: Resource {
         this.width = spec.width
         this.height = spec.height
         this.scale = spec.scale
+        this.cornerRadius = spec.cornerRadius
 
         if (!unsafe { SDL_Init(SDL_INIT_VIDEO) }) {
             throw CuiException("SDL_Init failed: ${lastSdlError()}")
@@ -88,6 +98,8 @@ public class SdlWindow <: Resource {
                 throw CuiException("SDL_CreateWindowAndRenderer failed: ${lastSdlError()}")
             }
             configureRenderer(window, createdRenderer, spec.scale, spec.vsync)
+            applyRoundedWindowShape(window, pixelWidth, pixelHeight,
+                spec.cornerRadius * spec.scale)
             if (!unsafe { SDL_StartTextInput(window) }) {
                 destroyCreatedResources(window, createdRenderer)
                 throw CuiException("SDL_StartTextInput failed: ${lastSdlError()}")
@@ -114,6 +126,7 @@ public class SdlWindow <: Resource {
         ensureSdl(unsafe { SDL_SetWindowSize(windowPtr, pixelWidth, pixelHeight) }, "SDL_SetWindowSize")
         this.width = width
         this.height = height
+        refreshRoundedShape(pixelWidth, pixelHeight)
     }
 
     public func refreshSize(): Size {
@@ -122,7 +135,15 @@ public class SdlWindow <: Resource {
         ensureSdl(unsafe { SDL_GetWindowSize(windowPtr, inout w, inout h) }, "SDL_GetWindowSize")
         width = Int32(Float32(w) / scale)
         height = Int32(Float32(h) / scale)
+        refreshRoundedShape(w, h)
         Size(Float32(width), Float32(height))
+    }
+
+    /** Updates the logical size from an SDL pixel-size event and reapplies native shaping. */
+    public func updateSizeFromPixels(pixelWidth: Int32, pixelHeight: Int32): Unit {
+        width = Int32(Float32(pixelWidth) / scale)
+        height = Int32(Float32(pixelHeight) / scale)
+        refreshRoundedShape(pixelWidth, pixelHeight)
     }
 
     /**
@@ -193,6 +214,12 @@ public class SdlWindow <: Resource {
             SDL_Quit()
         }
     }
+
+    private func refreshRoundedShape(pixelWidth: Int32, pixelHeight: Int32): Unit {
+        if (cornerRadius > 0.0) {
+            applyRoundedWindowShape(windowPtr, pixelWidth, pixelHeight, cornerRadius * scale)
+        }
+    }
 }
 
 internal func sameNativeThread(ownerThreadId: UInt64, currentThreadId: UInt64): Bool {
@@ -210,5 +237,12 @@ internal func windowCreationFlags(spec: WindowSpec): UInt64 {
     if (!spec.decorated || spec.frameless) {
         flags = flags | SDL_WINDOW_BORDERLESS
     }
+    if (spec.cornerRadius > 0.0) {
+        flags = flags | SDL_WINDOW_TRANSPARENT
+    }
     flags
+}
+
+internal func normalizedCornerRadius(radius: Float32): Float32 {
+    if (radius > 0.0) { radius } else { 0.0 }
 }

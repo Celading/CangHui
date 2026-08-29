@@ -144,7 +144,7 @@
 
 ### `WindowSpec`
 
-`WindowSpec(title, width, height, resizable=true, highDpi=true, scale=1.0, vsync=true, supersample=2, decorated=true)`。非正缩放会归一化为 `1.0`；`decorated=false` 在创建时请求无系统边框窗口，应用必须自行提供拖动、最小化、最大化和关闭入口。
+`WindowSpec(title, width, height, resizable=true, highDpi=true, scale=1.0, vsync=true, supersample=2, decorated=true, frameless=false, cornerRadius=0.0)`。非正缩放会归一化为 `1.0`；`decorated=false` / `frameless=true` 在创建时请求无系统边框窗口，应用必须自行提供拖动、最小化、最大化和关闭入口。正 `cornerRadius` 以逻辑像素创建透明原生 window shape，并在 resize 后重建；系统装饰窗口通常应保留 `0.0`，交给平台绘制自身圆角。
 
 ### `SdlWindow <: Resource`
 

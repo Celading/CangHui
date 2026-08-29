@@ -183,6 +183,15 @@ func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
 }
 
 @Test
+func uiShellParsesBoundedOneShotActions(): Unit {
+    let click = parseUiShellSelection(["cuic", "shell", "click", "12.5", "30"], 2)
+    let focus = parseUiShellSelection(["cuic", "shell", "focus", "search-field"], 2)
+
+    @Expect(click.script, "click 12.5 30")
+    @Expect(focus.script, "focus search-field")
+}
+
+@Test
 func kModeDependencyScannerStaysInsideDependencySections(): Unit {
     let paths = kModeLocalDependencyPaths(
         "[package]\n" +

@@ -55,6 +55,7 @@ public class DesktopApp {
     private var themeTransition: ?ThemeTransition = None
     private var deviceRotationTransition: ?DeviceRotationTransition = None
     private let deviceRotationAnimation: AnimationSpec
+    private let debugUiScript = DebugUiScriptRunner()
 
     public init(
         spec: WindowSpec,
@@ -335,6 +336,7 @@ public class DesktopApp {
                 let observedStateGen = currentStateGeneration()
                 let ownerWorkPending = uiOwnerQueue.hasPending()
                 let mustRender = continuousRequested || ownerWorkPending || !events.isEmpty() ||
+                    debugUiScript.active() ||
                     observedStateGen != lastRenderedGen ||
                     viewportW != renderedWidth || viewportH != renderedHeight || captureRequest.isSome() ||
                     profiler.isSome() || themeTransition.isSome() || deviceRotationTransition.isSome()
@@ -352,6 +354,8 @@ public class DesktopApp {
                     widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
                     let tEvents = FrameProfiler.now()
                     dispatchCollectedEvents(widget, events)
+                    debugUiScript.observe(widget, ctx, viewportW, viewportH)
+                    debugUiScript.executeNext(ctx, { event => dispatchSyntheticEvent(widget, event) })
                     dispatchEvent(widget, UiEvent.Frame(frame))
                     let tDraw = FrameProfiler.now()
                     frames += 1
@@ -409,6 +413,12 @@ public class DesktopApp {
         }
     }
 
+    private func dispatchSyntheticEvent(widget: Widget, event: UiEvent): Unit {
+        preparePointer(event)
+        routeEvent(widget, event)
+        completePointer(event)
+    }
+
     /*
      * Routes one input event. Window-level events belong to the shell and are handled
      * before the overlays, so a modal dialog can neither swallow a quit request nor keep
@@ -424,8 +434,7 @@ public class DesktopApp {
         match (event) {
             case UiEvent.Quit => ctx.requestClose()
             case UiEvent.WindowResized(w, h) =>
-                window.width = Int32(Float32(w) / window.scale)
-                window.height = Int32(Float32(h) / window.scale)
+                window.updateSizeFromPixels(w, h)
             case UiEvent.DeviceRotationChanged(rotation) =>
                 let previous = ctx.deviceRotation()
                 ctx.updateDeviceRotation(rotation)

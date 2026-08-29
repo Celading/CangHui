@@ -57,8 +57,8 @@ public class ZStack <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        for (child in children) {
-            child.draw(ctx)
+        for (index in stackingOrder(children)) {
+            children[index].draw(ctx)
         }
     }
 
@@ -71,9 +71,10 @@ public class ZStack <: Widget {
                 return false
             case _ => ()
         }
-        var i = children.size - 1
+        let ordered = stackingOrder(children)
+        var i = ordered.size - 1
         while (i >= 0) {
-            if (children[i].handle(ctx, event)) {
+            if (children[ordered[i]].handle(ctx, event)) {
                 return true
             }
             i -= 1
@@ -88,6 +89,25 @@ public class ZStack <: Widget {
     public func interactionOwnerIds(): Array<String> {
         collectInteractionOwnerIds(children)
     }
+}
+
+/** Stable low-to-high sibling order for one stacking context. */
+private func stackingOrder(children: Array<Widget>): Array<Int64> {
+    let ordered = Array<Int64>(children.size, {index => index})
+    var i: Int64 = 0
+    while (i < ordered.size) {
+        var j = i + 1
+        while (j < ordered.size) {
+            if (children[ordered[j]].stackingIndex() < children[ordered[i]].stackingIndex()) {
+                let current = ordered[i]
+                ordered[i] = ordered[j]
+                ordered[j] = current
+            }
+            j += 1
+        }
+        i += 1
+    }
+    ordered
 }
 
 /**

@@ -45,7 +45,8 @@ for command in \
   "prnt --device unavailable-device" \
   "kmode list ." \
   "probe list ." \
-  "pview"; do
+  "pview" \
+  "shell snapshot ."; do
   set +e
   output="$("${CUIC_RELEASE_BIN}" ${command} 2>&1)"
   code=$?

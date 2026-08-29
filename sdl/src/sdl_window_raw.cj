@@ -64,6 +64,8 @@ foreign {
 
     func SDL_SetWindowOpacity(window: CPointer<Unit>, opacity: Float32): Bool
 
+    func SDL_SetWindowShape(window: CPointer<Unit>, shape: CPointer<Unit>): Bool
+
     func SDL_GetWindowOpacity(window: CPointer<Unit>): Float32
 
     func SDL_GetWindowPixelDensity(window: CPointer<Unit>): Float32
