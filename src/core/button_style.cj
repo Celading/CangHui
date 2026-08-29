@@ -1,6 +1,6 @@
 package chui.core
 
-import sdl.{Color, SurfaceStyle}
+import sdl.{Color, Rect, SurfaceStyle}
 
 /** Continuous interaction state supplied to a state-aware button style. */
 public struct ButtonVisualState {
@@ -243,6 +243,58 @@ public struct ComponentShape {
     }
 }
 
+/** Live geometry supplied to a custom segmented-control indicator painter. */
+public struct SegmentedControlVisualState {
+    public let animatedIndex: Float32
+    public let targetIndex: Int64
+    public let stretch: Float32
+    public let movingForward: Bool
+
+    public init(
+        animatedIndex!: Float32,
+        targetIndex!: Int64,
+        stretch!: Float32,
+        movingForward!: Bool
+    ) {
+        this.animatedIndex = animatedIndex
+        this.targetIndex = targetIndex
+        this.stretch = max(0.0, min(1.0, stretch))
+        this.movingForward = movingForward
+    }
+}
+
+/**
+ * Optional painter for SegmentedControl and TabView selection lenses.
+ *
+ * Geometry remains owned by the stock control. `deformation` only lets its independently animated
+ * leading and trailing edges stretch the indicator while it travels; the painter receives that
+ * resolved rectangle and can add material-specific optical layers without reimplementing input,
+ * focus, semantics or layout.
+ */
+public class SegmentedControlStyle {
+    public let deformation: Float32
+    private let indicatorPainter: (UiContext, Rect, SegmentedControlVisualState) -> Unit
+    private let foregroundResolver: (Theme, Bool) -> Color
+
+    public init(
+        deformation!: Float32 = 0.0,
+        paintIndicator!: (UiContext, Rect, SegmentedControlVisualState) -> Unit,
+        foreground!: (Theme, Bool) -> Color
+    ) {
+        this.deformation = max(0.0, min(1.0, deformation))
+        this.indicatorPainter = paintIndicator
+        this.foregroundResolver = foreground
+    }
+
+    public func paintIndicator(ctx: UiContext, rect: Rect, state: SegmentedControlVisualState): Unit {
+        indicatorPainter(ctx, rect, state)
+    }
+
+    public func foreground(theme: Theme, selected: Bool): Color {
+        foregroundResolver(theme, selected)
+    }
+}
+
 /** Component-scoped theme overrides layered on top of the semantic palette. */
 public struct ComponentTheme {
     public let buttonStyle: ?ButtonStyle
@@ -252,6 +304,7 @@ public struct ComponentTheme {
     public let typography: ComponentTypography
     public let spacing: ComponentSpacing
     public let shape: ComponentShape
+    public let segmentedControlStyle: ?SegmentedControlStyle
 
     public init(
         buttonStyle!: ?ButtonStyle = None,
@@ -260,7 +313,8 @@ public struct ComponentTheme {
         controlStyle!: ?ComponentControlStyle = None,
         typography!: ComponentTypography = ComponentTypography(),
         spacing!: ComponentSpacing = ComponentSpacing(),
-        shape!: ComponentShape = ComponentShape()
+        shape!: ComponentShape = ComponentShape(),
+        segmentedControlStyle!: ?SegmentedControlStyle = None
     ) {
         this.buttonStyle = buttonStyle
         this.buttonLayout = buttonLayout
@@ -269,6 +323,7 @@ public struct ComponentTheme {
         this.typography = typography
         this.spacing = spacing
         this.shape = shape
+        this.segmentedControlStyle = segmentedControlStyle
     }
 }
 

@@ -289,6 +289,10 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
 - Component-package schema: `contracts/canghui-component-package-v0.schema.json`
 - Symbol providers: `packages/symbol-material`, `packages/symbol-ant`,
   `packages/symbol-arco`
+- Optional style pack: `packages/style-liquid-glass` provides light/dark,
+  regular/clear/vapor material recipes, SDR optical layers, deforming stock
+  segmented lenses and accessibility fallbacks. The portable renderer does not
+  claim platform-native backdrop sampling or refraction.
 
 ## A Public Contract, Not a Platform Costume
 
@@ -410,6 +414,7 @@ visual acceptance; they simply stop carrying the entire testing burden.
 - [Multiplatform doctor](manual/reference/doctor.md)
 - [Symbols and providers](manual/reference/symbols.md)
 - [Fonts](manual/reference/fonts.md)
+- [Liquid Glass optional style pack](manual/reference/liquid-glass-style.md)
 - [Scene3D semantic projection](manual/reference/scene3d.md)
 - [Probe and kMode](manual/reference/probe.md)
 - [SDL3 Apple host notes](manual/reference/sdl3-apple-host.md)

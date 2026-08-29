@@ -1,8 +1,8 @@
 package chui.controls
 
-import sdl.{IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import chui.core.{Button, ComponentProbe, IconButton, ProbeProperty, Spacer, State, StateStore, Theme,
-    UiContext, VStack, Widget, buildRoot, emit}
+import sdl.{FrameInfo, IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
+import chui.core.{Button, ComponentProbe, IconButton, ProbeProperty, SegmentedControlStyle, Spacer,
+    State, StateStore, Theme, UiContext, VStack, Widget, buildRoot, emit}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -157,6 +157,33 @@ func segmentedControlSelectsClickedSegment(): Unit {
     control.layout(ctx, Rect(0.0, 0.0, 300.0, 38.0))
     @Expect(control.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 250.0, 12.0)))
     @Expect(selected.value, Int64(2))
+}
+
+@Test
+func segmentedControlStyleDeformsStockIndicatorWithoutReplacingInput(): Unit {
+    let ctx = controlTestContext()
+    let selected = State<Int64>(0)
+    let paintedWidth = State<Float32>(0.0)
+    let style = SegmentedControlStyle(
+        deformation: 1.0,
+        paintIndicator: {_, rect, _ => paintedWidth.value = rect.w},
+        foreground: {theme, _ => theme.text}
+    )
+    let store = StateStore()
+    let captured = State<?Widget>(None)
+    let _ = buildRoot({=>
+        captured.value = Some(SegmentedControl(["One", "Two", "Three"], selected)
+            .indicatorStyle(style))
+    }, store)
+    let control = captured.value.getOrThrow()
+    control.layout(ctx, Rect(0.0, 0.0, 300.0, 38.0))
+    control.draw(ctx)
+    @Expect(paintedWidth.value, 94.0)
+
+    selected.value = 2
+    ctx.frame = FrameInfo(UInt64(16), UInt64(16))
+    control.draw(ctx)
+    @Expect(paintedWidth.value > 94.0)
 }
 
 @Test

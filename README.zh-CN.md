@@ -217,6 +217,8 @@ Developer ID/公证证据链见
 - 响应式预览矩阵：`src/testkit/preview_matrix.cj`
 - 组件包 schema：`contracts/canghui-component-package-v0.schema.json`
 - Symbol provider：`packages/symbol-material`、`packages/symbol-ant`、`packages/symbol-arco`
+- 可选样式包：`packages/style-liquid-glass` 提供亮/暗、regular/clear/vapor、SDR 光学层、
+  内置分段控件镜片形变与无障碍降级；当前便携渲染器不宣称已实现平台原生背景采样或折射。
 
 ## 公开契约，而不是平台伪装
 

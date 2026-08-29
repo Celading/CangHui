@@ -176,7 +176,8 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 - `fieldSurface(active)`、`buttonSurface(role)`、`selectedSurface()`。
 
 `ButtonStyle` 按 `ButtonVisualState(hover, press, focused)` 返回表面、前景色、InkWell 色与焦点圆角；
-`ComponentTheme` 将该样式、Button 默认布局、`ComponentControlStyle`、组件排版/间距/形状和 Panel 默认表面装入 `Theme`。主题切换和插值会
+`ComponentTheme` 将该样式、Button 默认布局、`ComponentControlStyle`、可选
+`SegmentedControlStyle` 镜片、组件排版/间距/形状和 Panel 默认表面装入 `Theme`。主题切换和插值会
 保留或选择完整的组件覆盖层，而不会退回脚手架默认外观。
 
 slot Button、Chip、Checkbox、Dropdown 闭合面与 Accordion header 绘制装饰子树时会压入只读
@@ -195,6 +196,7 @@ interaction owner 与 selected/expanded/focus/hover/press 状态。作用域在�
 | `FlowRow` | `body` | `spacing`；空间不足自动换行 |
 | `ScrollView` | `id`、`body` | 垂直滚动；`scrollState` 接管偏移；`scrollOptions` 选择默认 Web 式缓动、即时模式或自定义步长/时长/曲线；溢出时为滚动条预留轨道，不遮挡内容；滑块可拖动、轨道可翻页 |
 | `Accordion` | `sections`（文本或 slot header）；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header `controlStyle`、hover/press、chevron 与高度 reveal 动画；按下后移出取消，release-inside 才切换 |
+| `Surface` | `shape`、`material`、可选 `painter`、`clip`、`body` | painter 只替换背景绘制；material 前景、child 布局/事件和 clip 仍由 Surface 管理 |
 | `Panel` | `body`（可选 `padding: LengthInsets`） | `contentPadding`、`style`、`flexible`、`hug` |
 | `Tooltip` | `text`、`body` | 悬停约 500ms 后在树上层绘制提示气泡；透明包裹，不改变布局/事件 |
 | `Dropdown` | `items`、`selected`；可选闭合面 `selectedContent(index, text)` slot | `controlStyle`；点击/Enter 打开字符串弹出列表；选中/外点/Esc 关闭，上下键移动高亮；长列表支持滚轮、滑块与键盘揭示 |
@@ -248,8 +250,8 @@ slot Button 可组合任意装饰性 CangHui 子树；外层 Button 独占焦点
 | `Slider` | `Slider(value, lower, upper, step)` | `accessibilityLabel`；拖拽或 Left/Right 调整数值 |
 | `Stepper` | `Stepper(value, lower, upper, step)` | `accessibilityLabel`；点击或方向键调整整数 |
 | `Stepper` | `Stepper(id, Bindable<Int64>, lower!, upper!, step!)` | 范围/步长可经构造参或链式 `range(lower, upper)`、`step(value)` 设置（构造参对齐 Slider/ProgressBar）；宽度按数值内容自适应（一至两位数稳定） |
-| `SegmentedControl` | `SegmentedControl(items, selected, id!: ?String = None)` | 分段单选；选中指示器弹簧滑动到新段；`Tab` 聚焦后 Left/Right 切换（端点钳制）；`id` 可选，缺省按构建序自动派生 |
-| `TabView` | `TabView(labels, selected, id!: ?String = None) { pages }` | 页面按标签顺序声明；活动标签指示器弹簧滑动；页签条为焦点停靠点（先于页内控件），聚焦后 Left/Right 切换页签；`id` 可选 |
+| `SegmentedControl` | `SegmentedControl(items, selected, id!: ?String = None)` | 分段单选；选中指示器弹簧滑动到新段；`.indicatorStyle(...)` 可替换镜片并启用独立前后缘形变；`Tab` 聚焦后 Left/Right 切换（端点钳制）；`id` 可选，缺省按构建序自动派生 |
+| `TabView` | `TabView(labels, selected, id!: ?String = None) { pages }` | 页面按标签顺序声明；活动标签指示器弹簧滑动；`.indicatorStyle(...)` 与 SegmentedControl 共用镜片样式；页签条为焦点停靠点（先于页内控件），聚焦后 Left/Right 切换页签；`id` 可选 |
 | `ListView` | `ListView(items, selected, scroll!: ?State<Float32> = None, id!: ?String = None)` | `scrollState`；点击选择、滚轮滚动，`Tab` 聚焦 + 方向键导航；选择变化即滚入可视区（含应用层改选），无外部滚动态时偏移按身份保留；滑块可拖动；`id` 可选，给定则身份稳定可寻址 |
 | `Table` | `Table(id, columns, rows, selected)` / `Table.of(id, data, columns, selected)` | 多列数据表：固定表头、窗口化滚动；点击列头排序（再次反向、数值列按数值），行选择存原始行索引故排序后跟随，`Tab` + 方向键/Home/End 导航；悬停保持默认箭头光标 |
 | `LazyColumn` | `LazyColumn(id, count, itemHeight) { i => 行 }` / `LazyColumn.of(id, data, itemHeight, key!) { item => 行 }` | 定高行、按索引或数据惰性构建的纵向列表：只物化视口附近的行，成本恒为一屏；数据形免去 `count` 与 `data[i]` 回查，`key` 令行局部状态随项走 |

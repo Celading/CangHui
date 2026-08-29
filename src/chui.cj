@@ -93,6 +93,8 @@ public import chui.core.ComponentShape
 public import chui.core.ComponentSpacing
 public import chui.core.ComponentTheme
 public import chui.core.ComponentTypography
+public import chui.core.SegmentedControlStyle
+public import chui.core.SegmentedControlVisualState
 public import chui.core.CrossAxisAlignment
 public import chui.core.ComponentProbe
 public import chui.core.CursorShape
@@ -152,6 +154,7 @@ public import chui.core.Shape
 public import chui.core.ClipPolicy
 public import chui.core.SurfaceState
 public import chui.core.SurfaceMaterial
+public import chui.core.SurfacePainter
 public import chui.core.MaterialProvider
 public import chui.core.Materials
 public import chui.core.Surface

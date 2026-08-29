@@ -46,6 +46,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Row`](Row.md) | ArkTS 风格的通用水平容器；以 `space`、`justifyContent`、`alignItems` 和子项 `layoutWeight` 表达布局。 |
 | [`ScrollBar`](ScrollBar.md) | 供滚动容器内部复用的垂直滚动条拖拽控制器，把命中滚动条的按下与移动转发给它，即得一致的滑块拖拽与轨道分页行为。 |
 | [`ScrollView`](ScrollView.md) | 裁剪显示、支持滚轮与拖动滚动条的垂直滚动视口，滚动位置按稳定标识跨帧保留。 |
+| [`SegmentedControlStyle`](SegmentedControlStyle.md) | 为库存 SegmentedControl/TabView 解析可形变选中镜片及标签前景，不接管输入与布局。 |
 | [`Spacer`](Spacer.md) | 测量为零并吸收所在栈剩余空间的空白弹性组件，把兄弟组件推向两端。 |
 | [`Spacing`](Spacing.md) | 4 像素栅格上的间距尺度：七档命名间隔，以虚拟像素的 Length 值表达。 |
 | [`Radii`](Radii.md) | 圆角半径尺度，虚拟像素：小档给标签与输入框、中档给卡片、大档给醒目表面，pill 收成全圆头。 |
@@ -56,6 +57,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`StateObservation`](StateObservation.md) | 由 Observable.observe 返回的可取消的观察句柄：持有它就持续收到回调，close() 后不再收到。 |
 | [`StateStore`](StateStore.md) | 跨声明式重建保留显式键控局部状态的容器：一次完整构建未访问的条目会被移除，与视图卸载语义一致。 |
 | [`Surface`](Surface.md) | 绘制 material 并发布前景环境、但不新增交互所有者的装饰组合面。 |
+| [`SurfacePainter`](Surface.md#surfacepainter) | 只替换 Surface 背景绘制、保留 material 前景与 child 所有权的低层效果钩子。 |
 | [`Tooltip`](Tooltip.md) | 为任意控件包上悬停提示：指针在子组件上驻留 500 毫秒后，提示文本被绘制在整棵组件树之上；其余时刻是完全透明的包装。 |
 | [`UiContext`](UiContext.md) | 每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。 |
 | [`UiOwnerQueue`](UiOwnerQueue.md) | 多 producer、单 UI owner 的顺序提交队列，提供 epoch/surface generation 门、取消、关闭和完成回执。 |
@@ -85,6 +87,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |
 | [`Shadow`](Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
 | [`ScrollOptions`](ScrollOptions.md) | 可滚动组件共享的滚轮策略：选择即时或平滑行为，并配置步长、播放时长与曲线。 |
+| [`SegmentedControlVisualState`](SegmentedControlStyle.md#segmentedcontrolvisualstate) | 选中镜片的实时下标、目标、伸展量与运动方向。 |
 | [`Shape`](Surface.md#shape) | Surface 与 Ink 共用的矩形/圆角矩形几何。 |
 | [`SurfaceMaterial`](Surface.md#surfacematerial) | MaterialProvider 返回的表面样式、前景、supporting 前景与 Ink 颜色。 |
 | [`SurfaceState`](Surface.md#surfacestate) | MaterialProvider 接收的 enabled/readonly/selection/focus/hover/press 只读状态。 |

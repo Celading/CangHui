@@ -34,13 +34,15 @@ Surface 的 `handle`、焦点列表、弹性和布局参与信息都透明转发
 public init(
     shape!: Shape = Shape.rectangle(),
     material!: MaterialProvider = Materials.themeSurface(),
+    painter!: ?SurfacePainter = None,
     clip!: ClipPolicy = ClipPolicy.Unclipped,
     body!: () -> Unit
 )
 ```
 
-`shape` 决定背景几何，`material` 根据 Theme/SurfaceState 返回完整外观，`clip` 决定是否把 child
-约束在表面外框中。也可用 `shape(value)`、`material(value)`、`clip(value)` 链式替换。
+`shape` 决定背景几何，`material` 根据 Theme/SurfaceState 返回完整外观，`painter` 可选地只替换背景
+绘制，`clip` 决定是否把 child 约束在表面外框中。也可用 `shape(value)`、`material(value)`、
+`painter(value)`、`clip(value)` 链式替换。
 
 ## Shape
 
@@ -89,5 +91,16 @@ public interface MaterialProvider {
 `Materials.themePrimary()` 是当前内置 provider。自定义 provider 可以根据 Theme 与交互状态改变外观，
 但不能自行拥有指针、焦点或语义动作。
 
-P0 不包含 backdrop blur、Liquid Glass、平台原生代理或低功耗策略；这些能力必须在后续 provider/platform
-包中单独实现，并保留确定性的 solid fallback。
+## SurfacePainter
+
+```cangjie
+public class SurfacePainter
+```
+
+`SurfacePainter(paint: (UiContext, Rect, Shape, SurfaceMaterial) -> Unit)` 是低层背景绘制钩子。它适合
+可选效果包在同一个 `Surface` 中绘制多层 SDR 光学、平台效果降级或调试覆盖；Surface 仍从 material
+取得前景/辅助前景与 Ink，仍拥有 child 布局、clip 和透明事件转发。painter 不应重复实现 Surface，
+也不能把装饰面变成新的交互 owner。
+
+核心不内置 backdrop blur、Liquid Glass 产品策略、平台原生代理或低功耗策略；这些能力由可选
+provider/style/platform 包实现，并保留确定性的 fallback。
