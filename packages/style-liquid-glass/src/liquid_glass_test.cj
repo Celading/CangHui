@@ -1,6 +1,7 @@
 package canghui_style_liquid_glass
 
-import chui.{ButtonRole, ButtonVisualState, Color, MotionLevel, Rect, Renderer, SurfaceState, Theme}
+import chui.{ButtonRole, ButtonVisualState, Color, MotionLevel, Rect, Renderer, RendererEffectStatus,
+    SurfaceState, Theme}
 
 @Test
 func liquidGlassThemesExposeAdaptiveTokens(): Unit {
@@ -73,4 +74,36 @@ func liquidGlassSdrPainterEmitsLayeredClearAndVaporCommands(): Unit {
     LiquidGlass.paint(renderer, Rect(10.0, 10.0, 180.0, 48.0),
         spec: LiquidGlassSpec(variant: LiquidGlassVariant.Vapor))
     @Expect(renderer.drawIr().size > clearCount)
+}
+
+@Test
+func liquidGlassReceiptExposesFallbackAndReducedTransparencySkipsEffectRequest(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    renderer.beginScene(240.0, 120.0, Color.rgb(20, 30, 40))
+    renderer.clearDrawIr()
+    let fallback = LiquidGlass.paintWithReceipt(
+        renderer,
+        Rect(20.0, 20.0, 160.0, 48.0),
+        spec: LiquidGlassSpec(variant: LiquidGlassVariant.Clear)
+    )
+    @Expect(fallback.status, RendererEffectStatus.Unsupported)
+    @Expect(fallback.code, "no-effect-adapter")
+    var effectCommands: Int64 = 0
+    for (command in renderer.drawIr()) {
+        if (command.kind == "effect.backdrop") { effectCommands += 1 }
+    }
+    @Expect(effectCommands, Int64(1))
+
+    renderer.clearDrawIr()
+    let opaque = LiquidGlass.paintWithReceipt(
+        renderer,
+        Rect(20.0, 20.0, 160.0, 48.0),
+        spec: LiquidGlassSpec(preferences: LiquidGlassPreferences(reduceTransparency: true))
+    )
+    @Expect(opaque.status, RendererEffectStatus.Degraded)
+    @Expect(opaque.code, "reduced-transparency")
+    for (command in renderer.drawIr()) {
+        @Expect(command.kind != "effect.backdrop")
+    }
+    renderer.endScene()
 }

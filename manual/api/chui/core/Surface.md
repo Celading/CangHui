@@ -102,5 +102,7 @@ public class SurfacePainter
 取得前景/辅助前景与 Ink，仍拥有 child 布局、clip 和透明事件转发。painter 不应重复实现 Surface，
 也不能把装饰面变成新的交互 owner。
 
-核心不内置 backdrop blur、Liquid Glass 产品策略、平台原生代理或低功耗策略；这些能力由可选
-provider/style/platform 包实现，并保留确定性的 fallback。
+`Surface` 核心不内置 Liquid Glass 产品策略、平台原生代理或低功耗策略。二维 renderer 提供可选的
+`BackdropEffectRequest` / `RendererEffectAdapter` / `RendererEffectReceipt` seam，效果包可在 painter 中
+尝试采样当前帧背景；能力缺失、旧帧、预算超限或无障碍偏好仍由 provider/style 包保留确定性的
+fallback。参见 [Renderer effects](../../../reference/renderer-effects.md)。

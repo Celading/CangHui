@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- 新增 provider-neutral 二维 renderer-effect 契约：`BackdropEffectRequest`、能力快照、帧 generation、
+  预算与结构化 receipt；首个 `sdl-readback` adapter 在当前帧内有界采样背景并提供第一版柔化/折射，
+  超预算、旧帧、无 provider、失败和降低透明度均保留 Liquid Glass 的确定性 fallback。当前原生像素
+  证明限于 macOS SDL，shape union 与其他 GPU backend 未声称完成。
 - 新增 `KeyedLayoutTransition`：以稳定业务 key 保留上一帧可见矩形，在重排和响应式网格换列时连续补间
   x/y/width/height；父布局、焦点与命中始终采用目标结构，中途重定向从当前可见位置继续。同步提供
   `LayoutTransitionClip`、`LayoutTransitionGeometry`、减少动态效果回归和可由 CUIC 回放的示例。

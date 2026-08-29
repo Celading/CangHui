@@ -291,8 +291,10 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
   `packages/symbol-arco`
 - Optional style pack: `packages/style-liquid-glass` provides light/dark,
   regular/clear/vapor material recipes, SDR optical layers, deforming stock
-  segmented lenses and accessibility fallbacks. The portable renderer does not
-  claim platform-native backdrop sampling or refraction.
+  segmented lenses and accessibility fallbacks. The bounded `sdl-readback`
+  renderer-effect adapter can sample the current frame for a first-pass optical
+  backdrop on proven SDL hosts; other backends and native platform-material
+  identity are not claimed.
 
 ## A Public Contract, Not a Platform Costume
 
@@ -415,6 +417,7 @@ visual acceptance; they simply stop carrying the entire testing burden.
 - [Symbols and providers](manual/reference/symbols.md)
 - [Fonts](manual/reference/fonts.md)
 - [Liquid Glass optional style pack](manual/reference/liquid-glass-style.md)
+- [Renderer effects and backdrop adapters](manual/reference/renderer-effects.md)
 - [Scene3D semantic projection](manual/reference/scene3d.md)
 - [Probe and kMode](manual/reference/probe.md)
 - [SDL3 Apple host notes](manual/reference/sdl3-apple-host.md)

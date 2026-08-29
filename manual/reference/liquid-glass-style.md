@@ -68,8 +68,15 @@ Surface(
 ## 当前渲染边界
 
 第一版已经提供真实的前景几何形变，以及由渐变、薄雾、内外高光、色散边缘和阴影组成的 SDR
-高透感模拟。当前 SDL 便携渲染器仍未提供背景采样、真实模糊/折射及多个玻璃形状的 union；因此
-这是确定性的 CangHui 光学降级实现，不等同于 Apple 平台原生材质，也不构成 iOS 运行时证明。
+高透感模拟。当前 `sdl-readback` adapter 还能在严格像素/数量预算内采样当前帧已绘背景，执行
+第一版多采样柔化与镜片取样；`LiquidGlass.paintWithReceipt`、`Renderer.lastEffectReceipt()` 和
+Draw IR 会说明实际应用或降级原因。缺少 adapter、旧帧、预算超限、provider 失败或
+`reduceTransparency` 时仍使用同一套确定性 SDR/不透明 fallback，不改变 Surface 内容与交互。
+
+首个 provider 的同步 readback 适合少量导航与悬浮控制，不适合无上限列表或全屏堆叠；它尚不支持
+多个玻璃形状的 union，并明确返回 `shape-union-unsupported`。详见
+[Renderer effects](renderer-effects.md)。macOS SDL 像素证明不等同于 Apple 平台原生材质，也不构成
+iOS、Metal、Vulkan、D3D、GLES 或 WebGPU backend 已完成的证明。
 
 设计依据来自 Apple 公开的
 [HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials)、

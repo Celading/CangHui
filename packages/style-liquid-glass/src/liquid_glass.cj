@@ -9,7 +9,7 @@ public enum LiquidGlassVariant {
     | Vapor
 }
 
-/** SDR optical approximation controls used until a renderer supplies backdrop sampling. */
+/** Optical controls shared by the optional backdrop request and deterministic SDR fallback. */
 public struct LiquidGlassOptics {
     public let clarity: Float32
     public let haze: Float32
@@ -77,7 +77,7 @@ public struct LiquidGlassSpec {
     public func shape(): Shape { Shape.rounded(radius) }
 }
 
-/** Public Liquid Glass-inspired recipes. The current SDL fallback does not sample the background. */
+/** Public Liquid Glass-inspired recipes with capability-gated backdrop effects and safe fallback. */
 public class LiquidGlass {
     /** A material for `Surface`; state-aware tinting is enabled only when `spec.interactive` is true. */
     public static func material(spec!: LiquidGlassSpec = LiquidGlassSpec()): MaterialProvider {
@@ -99,7 +99,7 @@ public class LiquidGlass {
         SegmentedControlStyle(
             deformation: if (spec.preferences.reduceMotion) { 0.0 } else { spec.optics.deformation },
             paintIndicator: {ctx, rect, state =>
-                paintOpticalGlass(ctx.renderer, rect, isDark(ctx.theme), spec, state.stretch)
+                let _ = paintOpticalGlass(ctx.renderer, rect, isDark(ctx.theme), spec, state.stretch)
             },
             foreground: {theme, selected =>
                 if (selected) { theme.text } else { theme.mutedText }
@@ -115,6 +115,17 @@ public class LiquidGlass {
         spec!: LiquidGlassSpec = LiquidGlassSpec(),
         stretch!: Float32 = 0.0
     ): Unit {
+        let _ = paintOpticalGlass(renderer, rect, dark, spec, clampUnit(stretch))
+    }
+
+    /** Paints the same material and returns the native-effect or fallback reason for diagnostics. */
+    public static func paintWithReceipt(
+        renderer: Renderer,
+        rect: Rect,
+        dark!: Bool = false,
+        spec!: LiquidGlassSpec = LiquidGlassSpec(),
+        stretch!: Float32 = 0.0
+    ): RendererEffectReceipt {
         paintOpticalGlass(renderer, rect, dark, spec, clampUnit(stretch))
     }
 
@@ -131,7 +142,7 @@ public class LiquidGlass {
                 preferences: spec.preferences,
                 optics: spec.optics
             )
-            paintOpticalGlass(ctx.renderer, rect, isDark(ctx.theme), resolved, 0.0)
+            let _ = paintOpticalGlass(ctx.renderer, rect, isDark(ctx.theme), resolved, 0.0)
         })
     }
 
@@ -396,17 +407,30 @@ private func paintOpticalGlass(
     dark: Bool,
     spec: LiquidGlassSpec,
     stretch: Float32
-): Unit {
+): RendererEffectReceipt {
     let radius = min(spec.radius, rect.h / 2.0 + stretch * 3.0)
     if (spec.preferences.reduceTransparency) {
         renderer.fillRoundedRect(rect, radius, glassFill(dark, spec.variant, spec.preferences))
         renderer.strokeRoundedRect(rect.inset(0.5), max(0.0, radius - 0.5),
             Pen(width: if (spec.preferences.increaseContrast) { 1.5 } else { 1.0 },
                 color: glassEdge(dark, spec.preferences)))
-        return
+        return RendererEffectReceipt(
+            RendererEffectStatus.Degraded,
+            "backdrop",
+            "reduced-transparency",
+            frameGeneration: renderer.effectFrameGeneration(),
+            detail: "opaque accessibility material selected without backdrop sampling"
+        )
     }
 
     let optics = spec.optics
+    let effectReceipt = renderer.applyBackdropEffect(BackdropEffectRequest(
+        rect,
+        cornerRadius: radius,
+        blurRadius: 6.0 + optics.haze * 18.0,
+        refraction: 0.12 + optics.clarity * 0.42,
+        edgeResponse: optics.edgeEnergy
+    ))
     let haloAlpha = Int64(24.0 + 44.0 * optics.edgeEnergy)
     let halo = if (dark) { Color.rgba(118, 169, 255, haloAlpha) } else {
         Color.rgba(255, 255, 255, haloAlpha)
@@ -474,6 +498,7 @@ private func paintOpticalGlass(
     renderer.fillRoundedRectSoft(gleam, gleam.h / 2.0,
         Color.rgba(255, 255, 255, Int64(38.0 + 54.0 * optics.edgeEnergy)),
         feather: 4.0)
+    effectReceipt
 }
 
 private func clampUnit(value: Float32): Float32 {

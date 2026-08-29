@@ -40,13 +40,20 @@ and settle through the style hook.
 
 ## Rendering boundary
 
-Liquid Glass is a dynamic optical material. CangHui's current portable SDL
-renderer does not yet expose background sampling, blur, refraction, or
-glass-shape union. This package therefore renders deterministic SDR optics
-using gradients, mist, inner/outer highlight energy, chromatic edge hints,
-shadows, semantic foregrounds and deforming foreground geometry. A future
-renderer effect adapter can replace the sampled-background optical layer
-without changing the public style recipe.
+Liquid Glass is a dynamic optical material. CangHui now exposes a bounded,
+provider-neutral renderer-effect contract. The first `sdl-readback` adapter
+samples pixels already drawn behind a surface and applies a first-pass
+multi-sample blur/refraction treatment under strict pixel and per-frame effect
+budgets. `LiquidGlass.paintWithReceipt`, `Renderer.lastEffectReceipt`, and Draw
+IR make application or degradation explicit.
+
+The package still renders deterministic SDR optics using gradients, mist,
+inner/outer highlight energy, chromatic edge hints, shadows, semantic
+foregrounds and deforming foreground geometry. That path remains authoritative
+when the adapter is absent, a request is stale or over budget, the provider
+fails, or reduced transparency is requested. The first SDL adapter does not
+support glass-shape union and reports that limitation instead of simulating a
+native union claim.
 
 Use glass for navigation and important floating controls, not as the default
 background for every content card. `reduceTransparency` intentionally replaces
@@ -54,7 +61,9 @@ translucent fills with opaque ones.
 
 This package is inspired by publicly documented interaction and hierarchy
 principles. It is not an Apple framework, does not include Apple assets, and
-does not claim pixel identity with platform-native Liquid Glass.
+does not claim pixel identity with platform-native Liquid Glass. Current native
+pixel proof is macOS SDL only; it is not Metal/Vulkan/D3D/GLES/WebGPU backend
+completeness.
 
 Design references:
 

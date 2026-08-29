@@ -136,6 +136,13 @@ public class Renderer {
     private let recordsDrawIr: Bool
     private let drawIrLog = ArrayList<DrawIrCommand>()
     private let drawIrScopes = ArrayList<String>()
+    internal var rendererEffectAdapter: ?RendererEffectAdapter = None
+    internal var rendererEffectGeneration: UInt64 = UInt64(0)
+    internal var rendererEffectFrame = RendererEffectFrame(
+        UInt64(0), Rect.zero(), 1.0, 1.0)
+    internal var rendererEffectSceneOpen = false
+    internal var rendererEffectCount: Int64 = 0
+    internal var rendererEffectLastReceipt: ?RendererEffectReceipt = None
 
     internal init(
         ptr: CPointer<Unit>,
@@ -153,6 +160,9 @@ public class Renderer {
         this.ssEnabled = ptr.isNotNull() && this.ssFactor > Int32(1)
         this.textBackend = createTextBackend(ptr)
         this.recordsDrawIr = recordDrawIr
+        if (ptr.isNotNull()) {
+            rendererEffectAdapter = Some(SdlReadbackRendererEffectAdapter())
+        }
     }
 
     /**
@@ -253,11 +263,11 @@ public class Renderer {
         }
     }
 
-    private func recordDrawIr(kind: String): Unit {
+    internal func recordDrawIr(kind: String): Unit {
         recordDrawIr(kind, "")
     }
 
-    private func recordDrawIr(kind: String, data: String): Unit {
+    internal func recordDrawIr(kind: String, data: String): Unit {
         if (!recordsDrawIr) { return }
         let scope = if (drawIrScopes.isEmpty()) { "" } else { drawIrScopes[drawIrScopes.size - 1] }
         drawIrLog.add(DrawIrCommand(kind, scope, data: data))
@@ -297,10 +307,12 @@ public class Renderer {
         recordDrawIr("scene.begin", "\"width\":" + logicalWidth.toString() +
             ",\"height\":" + logicalHeight.toString() + "," + drawIrColor(clearColor))
         if (ptr.isNull()) {
+            this.beginEffectFrame(logicalWidth, logicalHeight)
             return
         }
         if (!ssEnabled) {
             drawDirect(clearColor)
+            this.beginEffectFrame(logicalWidth, logicalHeight)
             return
         }
         var outW: Int32 = 0
@@ -308,6 +320,7 @@ public class Renderer {
         if (!unsafe { SDL_GetRenderOutputSize(ptr, inout outW, inout outH) } || outW <= 0 || outH <= 0) {
             ssEnabled = false
             drawDirect(clearColor)
+            this.beginEffectFrame(logicalWidth, logicalHeight)
             return
         }
         let targetWidth = outW * ssFactor
@@ -317,6 +330,7 @@ public class Renderer {
         }
         if (!ssEnabled) {
             drawDirect(clearColor)
+            this.beginEffectFrame(logicalWidth, logicalHeight)
             return
         }
         ensureSdl(unsafe { SDL_SetRenderTarget(ptr, ssTarget) }, "SDL_SetRenderTarget")
@@ -326,6 +340,7 @@ public class Renderer {
         scaleX = sx
         scaleY = sy
         clear(clearColor)
+        this.beginEffectFrame(logicalWidth, logicalHeight)
     }
 
     /**
@@ -334,6 +349,7 @@ public class Renderer {
      */
     public func endScene(): Unit {
         recordDrawIr("scene.end")
+        this.endEffectFrame()
         if (ptr.isNull() || !ssEnabled || ssTarget.isNull()) {
             return
         }
@@ -365,6 +381,7 @@ public class Renderer {
      * close, just before destroying the SDL renderer; safe to call more than once.
      */
     internal func releaseResources(): Unit {
+        let _ = this.releaseEffectAdapter()
         if (ssTarget.isNotNull()) {
             unsafe { SDL_DestroyTexture(ssTarget) }
             ssTarget = CPointer<Unit>()
@@ -374,6 +391,74 @@ public class Renderer {
             case None => ()
         }
         geometry.dispose()
+    }
+
+    internal func beginEffectFrame(logicalWidth: Float32, logicalHeight: Float32): Unit {
+        if (rendererEffectSceneOpen) { this.endEffectFrame() }
+        rendererEffectGeneration += UInt64(1)
+        rendererEffectFrame = RendererEffectFrame(
+            rendererEffectGeneration,
+            Rect(0.0, 0.0, logicalWidth, logicalHeight),
+            currentScaleX(),
+            currentScaleY()
+        )
+        rendererEffectSceneOpen = true
+        rendererEffectCount = 0
+        match (rendererEffectAdapter) {
+            case Some(value) =>
+                try {
+                    value.beginFrame(rendererEffectFrame)
+                } catch (error: Exception) {
+                    rendererEffectLastReceipt = Some(RendererEffectReceipt(
+                        RendererEffectStatus.Degraded, "begin-frame", "provider-failed",
+                        providerId: value.capabilities().providerId,
+                        frameGeneration: rendererEffectGeneration,
+                        detail: error.message
+                    ))
+                }
+            case None => ()
+        }
+    }
+
+    internal func endEffectFrame(): Unit {
+        if (!rendererEffectSceneOpen) { return }
+        match (rendererEffectAdapter) {
+            case Some(value) =>
+                try {
+                    value.endFrame(rendererEffectFrame)
+                } catch (error: Exception) {
+                    rendererEffectLastReceipt = Some(RendererEffectReceipt(
+                        RendererEffectStatus.Degraded, "end-frame", "provider-failed",
+                        providerId: value.capabilities().providerId,
+                        frameGeneration: rendererEffectGeneration,
+                        detail: error.message
+                    ))
+                }
+            case None => ()
+        }
+        rendererEffectSceneOpen = false
+    }
+
+    internal func releaseEffectAdapter(): RendererEffectReceipt {
+        this.endEffectFrame()
+        let receipt = match (rendererEffectAdapter) {
+            case Some(value) =>
+                try { value.release() } catch (error: Exception) {
+                    RendererEffectReceipt(
+                        RendererEffectStatus.Rejected, "release", "provider-failed",
+                        providerId: value.capabilities().providerId,
+                        frameGeneration: rendererEffectGeneration,
+                        detail: error.message
+                    )
+                }
+            case None => RendererEffectReceipt(
+                RendererEffectStatus.Unsupported, "release", "no-effect-adapter",
+                frameGeneration: rendererEffectGeneration
+            )
+        }
+        rendererEffectAdapter = None
+        rendererEffectLastReceipt = Some(receipt)
+        receipt
     }
 
     private func allocateTarget(width: Int32, height: Int32): Unit {

@@ -41,8 +41,16 @@
 | **stats** · 数据看板（字号混排）<br>![stats](.images/stats.png) | **links** · 可点击链接<br>![links](.images/links.png) | **highlight** · 搜索高亮<br>![highlight](.images/highlight.png) |
 | **styleguide** · 设计令牌<br>![styleguide](.images/styleguide.png) | **skeleton** · 骨架屏<br>![skeleton](.images/skeleton.png) | **stagger** · 交错入场<br>![stagger](.images/stagger.png) |
 | **layout_transition** · 键控重排连续性 | **corners** · 逐角圆角<br>![corners](.images/corners.png) | **dashed** · 虚线边框<br>![dashed](.images/dashed.png) |
+| **liquid-glass-effects** · 有界背景光学适配<br>![liquid-glass-effects](.images/liquid-glass-effects.png) | | |
 
 ## 示例清单
+
+### [`liquid-glass-effects`](liquid-glass-effects/README.md)：有界背景光学适配
+
+用两张标准 `Surface` 验证可选 renderer-effect adapter：SDL 首版从同一帧、同一渲染目标内有界
+采样卡片背后的色带，再由 Liquid Glass 样式绘制 SDR 边缘与高光；不支持、过预算、过期帧和降低
+透明度偏好都保持原内容树并降级。示例同时提供 debug `pview` 和原生 `prnt` 验收入口，不声称
+原生 Apple 材质身份、跨窗口采样、shape union 或其他图形后端已完成。
 
 ### [`cangcui`](cangcui/README.md)：苍翠画卷（千里江山 · 青绿山水）
 

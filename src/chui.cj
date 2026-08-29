@@ -44,6 +44,15 @@ public import sdl.Pen
 public import sdl.Point
 public import sdl.Rect
 public import sdl.Renderer
+public import sdl.BackdropEffectRequest
+public import sdl.RendererEffectAdapter
+public import sdl.RendererEffectCapabilities
+public import sdl.RendererEffectCapability
+public import sdl.RendererEffectFrame
+public import sdl.RendererEffectReceipt
+public import sdl.RendererEffectStatus
+public import sdl.rendererEffectCapabilityName
+public import sdl.rendererEffectStatusName
 public import sdl.SdlWindow
 public import sdl.Size
 public import sdl.Surface as SdlSurface

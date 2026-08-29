@@ -7,6 +7,7 @@
 - [符号/Symbols](symbols.zh-CN.md)
 - [字体](fonts.zh-CN.md)
 - [Liquid Glass 可选样式包](liquid-glass-style.md)
+- [二维 Renderer effects 与 backdrop adapter](renderer-effects.md)
 - [跨后端 Graphics 适配](graphics-adapter.md)
 - [Scene3D 语义投影](scene3d.md)
 - [SDL3 Apple Host](sdl3-apple-host.zh-CN.md)
