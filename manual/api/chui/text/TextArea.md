@@ -4,7 +4,7 @@
 
 `chui.text` 包中的 public class
 
-多行文本编辑控件：把编辑写回绑定的 `Bindable<String>`，带垂直滚动与右缘滚动条，行间导航按字节列对齐。沿用单行编辑的全部桌面惯例（多击选择、Ctrl 快捷键表、分组撤销），文档的行拆分按文本修订号缓存，滚动不会每帧重拆整篇文本；绑定可以是 [`State`](../core/State.md)，也可以是任何 [`Bindable`](../core/Bindable.md) 实现。
+多行文本编辑控件：把编辑写回绑定的 `Bindable<String>`，显式采用一逻辑行一视觉行的 no-wrap 契约，带双轴滚动与右缘/底缘滚动条，行间导航按字节列对齐。沿用单行编辑的全部桌面惯例（多击选择、Ctrl 快捷键表、分组撤销），文档的行拆分与最宽逻辑行按文本修订和字体度量缓存，不会每帧重扫整篇文本；绑定可以是 [`State`](../core/State.md)，也可以是任何 [`Bindable`](../core/Bindable.md) 实现。
 
 ## 声明
 
@@ -22,7 +22,10 @@ public class TextArea <: Widget
 - **键盘表**：方向键按字符移动，Up/Down 跨行且尽量保持字节列；Home/End 移到**行**首尾（单行控件则是全文首尾）；Enter 插入换行；按住 Shift 的所有导航键扩展选区；Ctrl+A/C/X/V/Z/Y 与 Ctrl+Shift+Z 同单行控件。
 - **只读模式**：`editable: false` 时仍可移动光标、选择和复制；Ctrl+X 只复制而不删除，粘贴与撤销/重做会被忽略，控件不进入 Tab 焦点遍历。
 - **嵌入式表面**：`chrome: TextAreaChrome.None`（或链式 `.chrome(...)`）只移除默认字段底色与描边；文本、选区、滚动条及共享 `scroll` 状态保持不变，适合编辑器行号和日志分栏。
-- **滚动**：滚轮只在内容超出视口时被消费（内容装得下时让给外层滚动容器，不留死区）；键盘编辑与导航后视口滚动最小距离让光标所在行可见，指针路径不做跟随。滚动偏移每帧限制在内容范围，且仅在值变化时写回，外部接管的滚动状态不会收到空写通知。
+- **逻辑行契约**：`wrapMode: TextAreaWrapMode.NoWrap` 是当前唯一支持的模式，也是默认值。视口变窄不会把一个逻辑源代码行拆成多个视觉行；软换行和“逻辑行到视觉行”投影尚未提供，框架不会用一个看似可选但实际不完整的布尔开关暗示它们存在。
+- **双轴滚动**：`scroll` 是垂直偏移，`horizontalScroll` 是横向偏移；两者都可外部接管。触控板/侧倾滚轮的水平分量直接横移，Shift+垂直滚轮也横移，普通垂直滚轮仍纵向滚动。内容装得下时事件让给外层，不留死区。键盘编辑、导航与外部光标变化以最小距离让光标在两轴可见。
+- **统一坐标平面**：普通/装饰文本、装饰背景、选区、光标、IME 锚点和指针命中都减去或加回同一个 `horizontalScroll`；应用不应自行平移其中一层。
+- **滚动指示器**：`.verticalScrollBar(false)` / `.horizontalScrollBar(false)` 只隐藏对应滑块，不禁用滚动。行号 gutter 可共享正文的 `scroll` 并隐藏自己的指示器，由正文保留唯一可见滚动条。
 - **粘贴换行处理**：保留多行内容，但把 Windows 的 CRLF 和单独的 CR 统一为 `\n`；否则行尾残留的 `\r` 会干扰 End、退格和文字测量。剪贴板不可用时复制/粘贴会静默失败，不会让控件退出。
 - **撤销**：与单行控件相同——500 毫秒内连续编辑合并一步、光标跳转切分撤销组、栈上限 300 步；撤销/重做后自动滚动到光标行。
 - **绘制装饰**：`decorations` 接收 [`Observable`](../core/Observable.md)`<TextAreaDecorationSnapshot>`，用于语法高亮、诊断标记或搜索命中。范围是精确的 UTF-8 字节边界；无效范围被忽略，快照修订号与文本不同时回退为普通文本绘制。装饰只影响画面，不接管 tokenizer、文本、光标、IME 或撤销栈。
@@ -39,7 +42,9 @@ main(): Unit {
     let app = DesktopApp(WindowSpec("TextArea", 640, 420))
     app.run {
         let draft = rememberState<String>("draft") {"会议纪要"}
-        let area = TextArea(draft).autofocus()
+        let horizontal = rememberState<Float32>("draft-x") {0.0}
+        let area = TextArea(draft, horizontalScroll: Some(horizontal),
+            wrapMode: TextAreaWrapMode.NoWrap).autofocus()
         // 运行时：在多行编辑区输入、换行并滚动，绑定文本实时更新。
     }
 }
@@ -61,6 +66,10 @@ main(): Unit {
 | [`undo()`](#undo) | 回退最近一组编辑；同时绑定在 Ctrl+Z。 |
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
+| [`horizontalScrollState(value: State<Float32>)`](#horizontalscrollstate) | 改用外部持有的横向偏移。 |
+| [`wrapMode(value: TextAreaWrapMode)`](#wrapmode) | 显式选择逻辑行布局；当前支持 `NoWrap`。 |
+| [`verticalScrollBar(visible: Bool)`](#verticalscrollbar) | 显示或隐藏纵向滚动指示器，不禁用滚动。 |
+| [`horizontalScrollBar(visible: Bool)`](#horizontalscrollbar) | 显示或隐藏横向滚动指示器，不禁用滚动。 |
 | [`chrome(value: TextAreaChrome)`](#chrome) | 选择普通字段外观或无框嵌入式表面。 |
 | [`decorations(value: Observable<TextAreaDecorationSnapshot>)`](#decorations) | 更换与文档修订绑定的绘制装饰源。 |
 | [`measure(...)`](#measure) | [`Widget`](../core/Widget.md) 协议实现：占满全部可用空间。 |
@@ -81,10 +90,12 @@ public init(
     text: Bindable<String>,
     key!: ?String = None,
     scroll!: ?State<Float32> = None,
+    horizontalScroll!: ?State<Float32> = None,
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None,
     editable!: Bool = true,
     chrome!: TextAreaChrome = TextAreaChrome.Field,
+    wrapMode!: TextAreaWrapMode = TextAreaWrapMode.NoWrap,
     decorations!: ?Observable<TextAreaDecorationSnapshot> = None
 )
 ```
@@ -94,10 +105,12 @@ public init(
 - `text`: `Bindable<String>` — 被编辑的文档；每次输入、粘贴与撤销都直接写回该绑定。
 - `key!`: `?String` — 显式控件标识；默认 `None`，按声明顺序自动派生。需要编辑状态跨结构变化保留时传入稳定键。
 - `scroll!`: `?State<Float32>` — 外部接管的垂直滚动偏移，逻辑像素；默认 `None`，控件在自身标识下保留。
+- `horizontalScroll!`: `?State<Float32>` — 外部接管的横向滚动偏移，逻辑像素；默认 `None`，控件按自身标识保留。
 - `cursor!`: `?State<Int64>` — 外部接管的光标字节偏移；默认 `None`，初值在文本末尾。
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
 - `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读：可导航选择复制，不可编辑，不进入 Tab 焦点遍历。
 - `chrome!`: `TextAreaChrome` — 默认 `Field`；传 `None` 不绘制默认字段底色和描边。
+- `wrapMode!`: [`TextAreaWrapMode`](TextAreaWrapMode.md) — 默认且当前唯一支持 `NoWrap`。
 - `decorations!`: `?Observable<TextAreaDecorationSnapshot>` — 默认 `None`；可传 `State` 或 `DerivedState` 发布的不可变装饰快照。
 
 **异常**
@@ -156,6 +169,38 @@ public func chrome(value: TextAreaChrome): TextArea
 
 **返回值** `TextArea` — 本文本区自身，用于链式调用。
 
+### horizontalScrollState
+
+改用外部持有的横向逻辑像素偏移，适合恢复编辑器位置或与其他视图联动。
+
+```cangjie
+public func horizontalScrollState(value: State<Float32>): TextArea
+```
+
+### wrapMode
+
+显式选择逻辑行布局。当前只提供 `TextAreaWrapMode.NoWrap`；该枚举为未来增加完整软换行契约保留类型安全的扩展面。
+
+```cangjie
+public func wrapMode(value: TextAreaWrapMode): TextArea
+```
+
+### verticalScrollBar
+
+显示或隐藏纵向滚动指示器；隐藏不禁用滚轮、共享状态或光标揭示。
+
+```cangjie
+public func verticalScrollBar(visible: Bool): TextArea
+```
+
+### horizontalScrollBar
+
+显示或隐藏横向滚动指示器；隐藏不禁用滚轮、共享状态或光标揭示。
+
+```cangjie
+public func horizontalScrollBar(visible: Bool): TextArea
+```
+
 ### decorations
 
 更换绘制装饰源；不改变文本、光标、选区、IME 和撤销的所有权。
@@ -198,7 +243,7 @@ public func layout(_: UiContext, rect: Rect): Unit
 
 ### draw
 
-[`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、可见行、光标与右缘滚动条。先把滚动偏移限制在内容范围（仅在变化时写回），行内容来自按修订号缓存的行拆分；聚焦时上报 IME 光标锚点并维持光标闪烁。
+[`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、可见逻辑行、光标与双轴滚动条。先把两轴偏移限制在内容范围（仅在变化时写回）；聚焦时上报已经横向平移的 IME 光标锚点并维持光标闪烁。
 
 ```cangjie
 public func draw(ctx: UiContext): Unit
@@ -210,7 +255,7 @@ public func draw(ctx: UiContext): Unit
 
 ### handle
 
-[`Widget`](../core/Widget.md) 协议实现：处理滚动条与滚轮、定位与多击选择、字符输入、Enter 换行、编辑导航键及 Ctrl 快捷键表。滚轮只在内容超出视口时被消费；只读区域不申请文本光标形状。
+[`Widget`](../core/Widget.md) 协议实现：处理双轴滚动条与滚轮、定位与多击选择、字符输入、Enter 换行、编辑导航键及 Ctrl 快捷键表。水平分量优先横移，Shift+垂直滚轮横移，普通垂直分量纵向滚动；只读区域不申请文本光标形状。
 
 ```cangjie
 public func handle(ctx: UiContext, event: UiEvent): Bool

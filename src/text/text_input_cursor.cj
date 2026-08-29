@@ -12,11 +12,13 @@ internal struct TextAreaContent {
     let text: String
     let cursor: Int64
     let scroll: Float32
+    let horizontalScroll: Float32
 
-    init(text: String, cursor: Int64, scroll: Float32) {
+    init(text: String, cursor: Int64, scroll: Float32, horizontalScroll!: Float32 = 0.0) {
         this.text = text
         this.cursor = cursor
         this.scroll = scroll
+        this.horizontalScroll = horizontalScroll
     }
 }
 
@@ -77,7 +79,8 @@ internal func textAreaCursorForPoint(
     let line = Int64(max(0.0, point.y - viewport.y + content.scroll) / CUI_SMALL_H)
     let lineStart = startOfTextLine(content.text, line)
     let lineEnd = lineEndAfterOrAt(content.text, lineStart)
-    textCursorForOffset(ctx, content.text, lineStart, lineEnd, point.x - viewport.x)
+    textCursorForOffset(ctx, content.text, lineStart, lineEnd,
+        point.x - viewport.x + content.horizontalScroll)
 }
 
 /*
@@ -151,11 +154,13 @@ internal func drawTextAreaSelection(
         let b = min(selEnd, lineEnd)
         let newlineSelected = lineEnd < text.size && selStart <= lineEnd && selEnd > lineEnd
         if (a < b || newlineSelected) {
-            let xA = viewport.x + ctx.renderer.textWidth(text[lineStart..a], pointSize: FontSizes.BODY)
+            let xA = viewport.x - content.horizontalScroll +
+                ctx.renderer.textWidth(text[lineStart..a], pointSize: FontSizes.BODY)
             let xB = if (newlineSelected) {
                 viewport.right()
             } else {
-                viewport.x + ctx.renderer.textWidth(text[lineStart..b], pointSize: FontSizes.BODY)
+                viewport.x - content.horizontalScroll +
+                    ctx.renderer.textWidth(text[lineStart..b], pointSize: FontSizes.BODY)
             }
             if (xB > xA) {
                 ctx.renderer.fill(Rect(xA, y, xB - xA, lineHeight), ctx.theme.accent.withAlpha(115))
@@ -184,10 +189,12 @@ internal func drawTextAreaCursor(
     let position = normalizedTextCursor(content.text, content.cursor)
     let line = textCursorLineIndex(content.text, position)
     let lineStart = lineStartBeforeOrAt(content.text, position)
-    let x = viewport.x + ctx.renderer.textWidth(content.text[lineStart..position], pointSize: FontSizes.BODY)
+    let x = viewport.x - content.horizontalScroll +
+        ctx.renderer.textWidth(content.text[lineStart..position], pointSize: FontSizes.BODY)
     let y = viewport.y + Float32(line) * CUI_SMALL_H - content.scroll
-    if (y + CUI_SMALL_H < viewport.y || y > viewport.bottom()) {
-        return // the caret line is scrolled out of view; the last IME anchor stands
+    if (y + CUI_SMALL_H < viewport.y || y > viewport.bottom() ||
+        x + TEXT_CURSOR_W < viewport.x || x > viewport.right()) {
+        return // an off-screen caret leaves the last visible IME anchor standing
     }
     // Rows are drawn from the top of each CUI_SMALL_H cell, so the caret matches the
     // glyph row exactly rather than filling the whole cell.

@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- `TextArea` 公开 `TextAreaWrapMode.NoWrap`、可绑定横向偏移、横向滚轮/Shift+滚轮和可拖动底部滑块；普通/装饰文本、选区、光标、IME 与命中测试共享同一横向坐标。最宽逻辑行按文档修订与字体度量缓存，editor 示例加入共享纵向滚动的行号 gutter。
 - CUIC kMode/probe 启动器识别 CJPM 对空包目录发出的完整普通警告，同时继续拒绝任意
   应用 stdout、截断警告和近似伪装文本，保持帧协议为唯一响应权威。
 - macOS SDL 窗口首次关闭现在核对创建时的原生线程；错线程调用在进入任何原生

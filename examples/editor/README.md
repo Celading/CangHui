@@ -1,7 +1,7 @@
 # editor：菜单栏编辑器
 
 一个由应用菜单栏驱动的文本编辑器，集中演示 `MenuBar`：多个顶层菜单、快捷键提示、分隔线，以及随文档
-状态动态启用/禁用的菜单项。菜单动作作用于模型，`TextArea` 绑定正文，改动即刻可见。
+状态动态启用/禁用的菜单项。菜单动作作用于模型，正文 `TextArea` 使用显式 no-wrap 与横向滚动；独立行号 gutter 共享纵向偏移，改动即刻可见且逻辑行不会与视觉行漂移。
 
 ## 演示要点
 
@@ -14,6 +14,7 @@
 - 动作作用于模型：新建/清空改写正文，追加日期（复用 `CalendarDate.today().iso()`）/分隔线在末尾追加，
   打开/保存/退出/关于更新状态栏；`TextArea` 双向绑定 `model.text`，菜单改动即刻反映到编辑区
 - 状态栏显示上次动作与由 `map` 派生的实时行数、字数
+- 编辑区：`TextAreaWrapMode.NoWrap`、外部 `horizontalScroll`、底部横向滑块；行号 gutter 共享 `verticalScroll` 并隐藏重复滚动条
 
 ## 文件结构
 
@@ -26,6 +27,23 @@
 | [theme.cj](src/theme.cj) | 浅灰底 + 靛蓝强调色主题 |
 
 ## 关键实现
+
+### 逻辑行 gutter 与横向正文
+
+gutter 是只读、无 chrome 的 `TextArea` 投影，与正文共享纵向偏移但不共享横向偏移。正文显式声明 `NoWrap`，所以窄窗口不会让一条源代码行占用多个视觉行：
+
+```cangjie
+TextArea(model.text.project(
+    get: {value => lineNumberText(value)},
+    set: {document, _ => document}
+), scroll: Some(model.verticalScroll), editable: false, chrome: TextAreaChrome.None)
+    .verticalScrollBar(false).horizontalScrollBar(false).width(52.vp)
+
+TextArea(model.text, scroll: Some(model.verticalScroll),
+    horizontalScroll: Some(model.horizontalScroll), wrapMode: TextAreaWrapMode.NoWrap)
+```
+
+横向偏移由正文独占，纵向偏移则让 gutter 和正文始终对齐。
 
 ### 菜单每帧构建，禁用状态实时
 
@@ -57,5 +75,6 @@ cjpm run
 点击顶部菜单标题展开，选择项执行；清空文档后再看文件菜单，“保存/清空”会置灰。支持视觉回归快照：
 
 ```powershell
+cuic pview . editor.no-wrap --columns 120 --rows 40
 cuic prnt . --output editor.bmp
 ```

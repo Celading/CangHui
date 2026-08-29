@@ -16,19 +16,67 @@ private func drawDecoratedArea(
     decorations: State<TextAreaDecorationSnapshot>,
     focused!: Bool = false,
     scroll!: ?State<Float32> = None,
+    horizontalScroll!: ?State<Float32> = None,
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None
 ): (UiContext, Renderer) {
     let renderer = Renderer.recordingHeadless()
     let ctx = UiContext(renderer, Theme.light())
-    let area = TextArea(text, key: "decorated", scroll: scroll, cursor: cursor, anchor: anchor,
-        decorations: Some(decorations))
+    let area = TextArea(text, key: "decorated", scroll: scroll, horizontalScroll: horizontalScroll,
+        cursor: cursor, anchor: anchor, decorations: Some(decorations))
     area.layout(ctx, Rect(0.0, 0.0, 320.0, 112.0))
     if (focused) {
         ctx.focus("decorated")
     }
     area.draw(ctx)
     (ctx, renderer)
+}
+
+@Test
+func textAreaDecorationAndSelectionShareHorizontalCoordinatePlane(): Unit {
+    let text = State<String>(
+        "012345678901234567890123456789012345678901234567890123456789")
+    let horizontal = State<Float32>(82.5)
+    let foreground = Color.rgb(19, 71, 211)
+    let background = Color.rgba(7, 31, 89, 73)
+    let decorations = State<TextAreaDecorationSnapshot>(TextAreaDecorationSnapshot(text.revision, [
+        TextAreaDecoration(10, 12, decorationTestStyle(
+            foreground: Some(foreground), background: Some(background)))
+    ]))
+    let (_, renderer) = drawDecoratedArea(text, decorations, horizontalScroll: Some(horizontal))
+
+    // Recording-headless BODY metrics are 8.25px per ASCII byte. Byte 10 therefore lands
+    // exactly at the 8px text origin after subtracting the shared 82.5px horizontal offset.
+    var sawTranslatedBackground = false
+    var sawTranslatedGlyph = false
+    for (command in renderer.drawIr()) {
+        let json = command.toJson()
+        if (json.contains("\"r\":7,\"g\":31,\"b\":89,\"a\":73") &&
+            json.contains("\"x\":8")) {
+            sawTranslatedBackground = true
+        }
+        if (command.kind == "text" && json.contains("01") && json.contains("\"b\":211") &&
+            json.contains("\"x\":8")) {
+            sawTranslatedGlyph = true
+        }
+    }
+
+    let selectionRenderer = Renderer.recordingHeadless()
+    let selectionCtx = UiContext(selectionRenderer, Theme.light())
+    drawTextAreaSelection(selectionCtx, Rect(8.0, 8.0, 304.0, 96.0),
+        TextAreaContent(text.value, 12, 0.0, horizontalScroll: horizontal.value), 10, 12)
+    var sawTranslatedSelection = false
+    for (command in selectionRenderer.drawIr()) {
+        let json = command.toJson()
+        if (command.kind == "paint.fill" && json.contains("\"a\":115") &&
+            json.contains("\"x\":8")) {
+            sawTranslatedSelection = true
+        }
+    }
+
+    @Expect(sawTranslatedBackground)
+    @Expect(sawTranslatedGlyph)
+    @Expect(sawTranslatedSelection)
 }
 
 @Test

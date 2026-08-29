@@ -281,14 +281,14 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 | 类型 | 构造函数 | 链式 API/行为 |
 |---|---|---|
 | `TextField` | `TextField(id, text, cursor!: ?State<Int64> = None, anchor!: ?State<Int64> = None, editable!: Bool = true)` | `autofocus`；单行 UTF-8 编辑；Shift 扩选、拖选、Ctrl+A/C/X/V；`undo`/`redo`（Ctrl+Z/Y）；只读（`editable: false`）忽略编辑、不参与 Tab 遍历，仍可选择/复制 |
-| `TextArea` | `TextArea(id, text, scroll!: ?State<Float32> = None, cursor!: ?State<Int64> = None, anchor!: ?State<Int64> = None, editable!: Bool = true)` | `autofocus`；多行选区、Shift+↑↓ 跨行扩选、拖选、Ctrl+A/C/X/V；`undo`/`redo`（Ctrl+Z/Y）；只读区（`editable: false`）不参与 Tab 遍历 |
+| `TextArea` | `TextArea(text, key!, scroll!, horizontalScroll!, cursor!, anchor!, editable!, chrome!, wrapMode!, decorations!)` | 显式 `TextAreaWrapMode.NoWrap`；双轴外部偏移、水平滚轮/Shift+滚轮与可拖动底部滑块；绘制/选区/光标/IME/命中共享横向坐标；`autofocus`、多行选择、undo/redo；只读区不参与 Tab 遍历 |
 | `ComboBox` | `ComboBox(id, text: Bindable<String>, options)` | 可编辑下拉：内嵌 `TextField`（完整编辑）+ 建议列表浮层；键入过滤（无匹配显示“—”占位）、点击/回车填入，自由文本亦保留。长建议列表在弹层内部滚动：滚轮、可拖动滑块、方向键揭示高亮 |
 
 外部状态（滚动、光标、锚点）均为可选命名参数；持有 `cursor!` 就应连同 `anchor!` 一并持有并
 **成对改写**——只改光标会残留“幻影选区”，下一次键入会替换它覆盖的内容。
 
 光标跟随：`TextField` 水平滑动文本窗口使光标始终可见（绘制、选区与命中测试共享同一偏移）；
-`TextArea` 在键盘编辑、导航与撤销后把光标行滚入视口。撤销合并除 500ms 时间窗外，在光标跳转
+`TextArea` 在键盘编辑、导航、撤销和外部光标变化后把光标沿双轴滚入视口。撤销合并除 500ms 时间窗外，在光标跳转
 （点击/方向键）处即时断组。
 
 插入光标与字形行等高、闪烁周期约 1.06 秒；点击定位按真实文本测量落在最近字符边界；

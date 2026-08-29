@@ -8,7 +8,7 @@
 package chui_editor
 
 import chui.{CrossAxisAlignment, FontSizes, HStack, Label, LengthUnits, Menu, MenuBar, MenuItem, Panel, Spacer,
-    TextArea, VStack}
+    TextArea, TextAreaChrome, TextAreaWrapMode, VStack}
 
 func editorView(model: EditorModel): Unit {
     VStack {
@@ -47,7 +47,19 @@ func contentArea(model: EditorModel): Unit {
 
 func editorPanel(model: EditorModel): Unit {
     Panel {
-        TextArea(model.text, decorations: Some(model.decorations))
+        HStack {
+            // A read-only gutter shares only the vertical offset. Its indicators are hidden so the
+            // editor owns the single visible vertical bar and the gutter never grows a duplicate.
+            TextArea(model.text.project(
+                get: {value => lineNumberText(value)},
+                set: {document, _ => document}
+            ), key: "editor.gutter", scroll: Some(model.verticalScroll), editable: false,
+                chrome: TextAreaChrome.None, wrapMode: TextAreaWrapMode.NoWrap)
+                .verticalScrollBar(false).horizontalScrollBar(false).width(52.vp)
+            TextArea(model.text, key: "editor.body", scroll: Some(model.verticalScroll),
+                horizontalScroll: Some(model.horizontalScroll), wrapMode: TextAreaWrapMode.NoWrap,
+                decorations: Some(model.decorations)).flex()
+        }.spacing(8.vp)
     }.contentPadding(12.vp).flex()
 }
 

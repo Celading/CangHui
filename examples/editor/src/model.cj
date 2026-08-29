@@ -12,6 +12,8 @@ import chui.{CalendarDate, Color, DerivedState, State, TextAreaDecoration, TextA
 
 class EditorModel {
     let text = State<String>(seedText())
+    let verticalScroll = State<Float32>(0.0)
+    let horizontalScroll = State<Float32>(0.0)
     let status = State<String>("就绪")
     let chars: DerivedState<Int64>
     let lines: DerivedState<Int64>

@@ -555,6 +555,7 @@ public import chui.media.invalidateImage
 public import chui.text.ComboBox
 public import chui.text.TextArea
 public import chui.text.TextAreaChrome
+public import chui.text.TextAreaWrapMode
 public import chui.text.TextAreaDecoration
 public import chui.text.TextAreaDecorationSnapshot
 public import chui.text.TextAreaDecorationStyle
