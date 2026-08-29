@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- 新增 `KeyedLayoutTransition`：以稳定业务 key 保留上一帧可见矩形，在重排和响应式网格换列时连续补间
+  x/y/width/height；父布局、焦点与命中始终采用目标结构，中途重定向从当前可见位置继续。同步提供
+  `LayoutTransitionClip`、`LayoutTransitionGeometry`、减少动态效果回归和可由 CUIC 回放的示例。
 - `TextArea` 公开 `TextAreaWrapMode.NoWrap`、可绑定横向偏移、横向滚轮/Shift+滚轮和可拖动底部滑块；普通/装饰文本、选区、光标、IME 与命中测试共享同一横向坐标。最宽逻辑行按文档修订与字体度量缓存，editor 示例加入共享纵向滚动的行号 gutter。
 - CUIC kMode/probe 启动器识别 CJPM 对空包目录发出的完整普通警告，同时继续拒绝任意
   应用 stdout、截断警告和近似伪装文本，保持帧协议为唯一响应权威。

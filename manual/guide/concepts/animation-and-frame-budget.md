@@ -31,6 +31,7 @@ CangHui 提供三种不同的动画方式。`Spring` 根据当前位置、速度
 - 永续加载/呼吸：Pulse，并在内容就绪后卸载使用它的控件。
 - 倒计时、异步请求轮询：条件挂载 FrameHandler；完成后移除。
 - 只想让高度展开/收起：优先用 Reveal 等成品容器，不必自建动画器。
+- 同一对象在排序或响应式网格中换槽位：用 `KeyedLayoutTransition`，并给对象稳定业务 key。
 - 组件应跟随主题力度：使用 `AnimationSpec.automatic(...)`。
 - 产品规范要求精确 320ms：使用 `AnimationSpec(duration: UInt64(320), easing: ...)`。
 
@@ -85,6 +86,8 @@ if (model.running.value) {
 - **“动画停住是 Easing 错了。”** 先检查对象是否稳定保留、是否调用带 UiContext 的 animate、是否还有续帧请求。
 - **“Pulse 到达 1 就结束。”** Pulse 是循环时间线，没有 settled 终点。
 - **“按下过就应该在释放时执行。”** 指针移出表示取消意图；外部释放不能补发点击。
+- **“移动中的卡片还应该在旧位置响应。”** `KeyedLayoutTransition` 只让绘制矩形过渡，输入和焦点立即属于目标布局。
+- **“数组下标可以作为重排 key。”** 下标表示槽位，不表示对象；排序后会把保留几何错配给另一条记录。
 - **“帧率低就关闭超采样。”** 先读阶段剖析；可见节点、文本成形或几何可能才是主要耗时。
 
 ## 相关 API
@@ -93,6 +96,7 @@ if (model.running.value) {
 - [`Spring`](../../api/chui/core/Spring.md) — 物理追随。
 - [`Pulse`](../../api/chui/core/Pulse.md) — 循环时间线。
 - [`FrameHandler`](../../api/chui/core/FrameHandler.md) — 条件帧钩子。
+- [`KeyedLayoutTransition`](../../api/chui/core/KeyedLayoutTransition.md) — 重排与响应式重布局的矩形连续性。
 
 ## 下一步
 

@@ -40,7 +40,7 @@
 | **disclosure** · 折叠问答<br>![disclosure](.images/disclosure.png) | **shadows** · 多重阴影<br>![shadows](.images/shadows.png) | **gradients** · 线性渐变<br>![gradients](.images/gradients.png) |
 | **stats** · 数据看板（字号混排）<br>![stats](.images/stats.png) | **links** · 可点击链接<br>![links](.images/links.png) | **highlight** · 搜索高亮<br>![highlight](.images/highlight.png) |
 | **styleguide** · 设计令牌<br>![styleguide](.images/styleguide.png) | **skeleton** · 骨架屏<br>![skeleton](.images/skeleton.png) | **stagger** · 交错入场<br>![stagger](.images/stagger.png) |
-| **corners** · 逐角圆角<br>![corners](.images/corners.png) | **dashed** · 虚线边框<br>![dashed](.images/dashed.png) | |
+| **layout_transition** · 键控重排连续性 | **corners** · 逐角圆角<br>![corners](.images/corners.png) | **dashed** · 虚线边框<br>![dashed](.images/dashed.png) |
 
 ## 示例清单
 
@@ -358,6 +358,11 @@ RichText 保持惰性。综合演示富文本内联交互 + 状态绑定 + 派�
 一组入场卡片，演示动画 `delay`（CSS `transition-delay` 的对应物）：让第 i 行多等「i × 步进」毫秒，整组便从
 「一起弹出」变成「依次落位的瀑布」。每行标出自己等了多久，把交错的数学摆在明面上；三档步进可对比手感。
 纯函数 `staggerDelay`/`cascadeTotalMs` 承担全部时序数学，可单测。综合演示交错动效 + 缓动曲线 + 状态绑定。
+
+### [`layout_transition`](layout_transition/README.md)：键控重排与响应式换列
+
+展示 `KeyedLayoutTransition` 如何让同一批稳定 key 卡片在顺序翻转和 `3 ↔ 2` 列网格变化时保持可见几何
+连续；输入、焦点和父布局立即使用目标结构，动画中再次改目标则从当前可见位置继续。
 
 ### [`corners`](corners/README.md)：逐角圆角（Corners）
 

@@ -143,6 +143,12 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 `StepIndicator` 均支持 `.animation(AnimationSpec)`；前两者另提供 `.animation(duration, easing:)`。
 `Color.lerp(other, t)` 在两色间按 `t∈[0,1]` 线性插值（用于随动画过渡颜色）。
 
+键控布局连续性：`KeyedLayoutTransition(key, animation:, clip:) { ... }` 保留同一逻辑子树上一帧的
+可见矩形，并在父级重排或 `Grid` 列数改变后，把 x/y/width/height 连续补间到新矩形。父布局、焦点和
+命中立即采用目标结构，只有绘制矩形仍在运动；动画中再次改目标会从当前可见矩形继续。首次出现和卸载后
+重新挂载保持静止，删除项不隐含退出动画。`geometry()` 返回 `LayoutTransitionGeometry(current,
+target, settled)`，`LayoutTransitionClip` 控制不裁剪、动画矩形裁剪或目标矩形裁剪。
+
 键盘焦点遍历：可聚焦控件在构建期按声明顺序登记进“焦点环”，`DesktopApp` 每帧构建后经
 `adoptFocusRing` 采纳，并在收到 `Tab`（`Shift+Tab` 反向）时调用 `focusNext` / `focusPrevious`
 环形移动焦点；`Tab` 由外壳消费，不下发给聚焦控件。只读 `TextArea` 不登记。`focusNext` /

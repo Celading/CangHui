@@ -34,6 +34,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`IconButton`](IconButton.md) | 以图标为面、可选带文字标签的按钮，激活方式与 [`Button`](Button.md) 完全相同。 |
 | [`InteractionSurface`](InteractionSurface.md) | 为任意装饰内容提供一个焦点、按压、release-inside 动作、Ink 与 semantic owner 的交互面。 |
 | [`Keyed`](Keyed.md) | 给子树赋予稳定声明式标识的透明包装组件：其下的局部状态键与控件交互标识都以该键为命名空间。 |
+| [`KeyedLayoutTransition`](KeyedLayoutTransition.md) | 让带稳定 key 的子树在重排或响应式重布局时，从当前可见矩形连续移动和变形到新槽位。 |
 | [`Label`](Label.md) | 单行或多行文本组件：默认单行、溢出以省略号截断，字体样式经链式构建器就地配置。 |
 | [`LazyColumn`](LazyColumn.md) | 只构建视口附近行的定行高垂直滚动列表，构建、布局与绘制均为 O(可见) 而非 O(行数)。 |
 | [`LazyList`](LazyList.md) | 行高由 `heightOf` 逐行给定的惰性垂直滚动列表，是 [`LazyColumn`](LazyColumn.md) 的变高对应物。 |
@@ -83,6 +84,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ControlContentEnvironment`](ControlContentEnvironment.md) | 当前装饰内容的前景、supporting 前景、role、action owner 与交互状态。 |
 | [`ControlSemantics`](ControlSemantics.md) | role、label/value、action、shortcut、owner 与可选选择/展开状态。 |
 | [`Gradient`](Gradient.md) | 圆角背景用的双色线性渐变填充，默认自上而下、`vertical` 为 false 时自左向右。 |
+| [`LayoutTransitionGeometry`](LayoutTransitionGeometry.md) | 键控布局过渡的当前绘制矩形、父布局目标矩形与稳定状态回执。 |
 | [`Length`](Length.md) | 带显式单位的一维尺寸，写作 `100.px`、`24.vp` 或 `15.fp`。 |
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |
 | [`Shadow`](Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
@@ -117,6 +119,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`CursorShape`](CursorShape.md) | 控件在指针悬停期间申请的语义指针形状，由宿主映射为各平台的原生光标。 |
 | [`Easing`](Easing.md) | 把 `[0, 1]` 内的动画进度映射为缓动后进度的时序曲线。 |
 | [`LengthUnit`](LengthUnit.md) | 长度值的单位：物理像素 `Px`、虚拟像素 `Vp` 或随用户字体缩放的字体像素 `Fp`。 |
+| [`LayoutTransitionClip`](LayoutTransitionClip.md) | 选择键控布局过渡不裁剪、裁剪到动画矩形或裁剪到目标矩形。 |
 | [`MainAxisAlignment`](MainAxisAlignment.md) | 栈沿主轴分配剩余空间的策略：靠端、居中或三种等分间隔。 |
 | [`ScrollBehavior`](ScrollBehavior.md) | 滚轮输入立即改变偏移，或沿保留式缓动曲线逐帧到达目标。 |
 | [`TextAlign`](TextAlign.md) | 文本在所分配框架内的水平对齐方式：行首、居中或行尾。 |

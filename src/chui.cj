@@ -114,6 +114,9 @@ public import chui.core.PageTransitionLayout
 public import chui.core.Row
 public import chui.core.FrameHandler
 public import chui.core.Grid
+public import chui.core.KeyedLayoutTransition
+public import chui.core.LayoutTransitionClip
+public import chui.core.LayoutTransitionGeometry
 public import chui.core.HScrollBar
 public import chui.core.HStack
 public import chui.core.Icon
