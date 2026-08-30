@@ -21,14 +21,18 @@ pixel/effect budget. It proves the provider-neutral lifecycle on the current
 macOS SDL renderer; it does not claim native Apple material identity, private
 APIs, shape union, or Metal/Vulkan/D3D/GLES/WebGPU backend completeness.
 
-The fake-host Scene3D preview is deliberately reported as
-`NativeChildSurfaceBarrier` with `unifiedPixels=false`. It proves framework graph
-ordering and lifecycle identity only—not real native-surface pixels or
-same-target 2D-over-3D composition. The rev1 Desktop bridge promotes unknown UI
-changes to full damage. A debug trace first observes one complete stable frame,
-then replays one bounded retained region before later frames prove whole-root
-idle culling. SDL reports a full present even for that bounded redraw, and no
-present for the culled frames; the trace keeps those facts separate.
+The fake-host Scene3D preview opts into `PreferSharedFrame`. Its bounded CPU
+RGBA8 lease is uploaded into the same SDL target at the widget's ordinary draw
+position, so neighboring 2D content, rounded clipping, z-order and resize remain
+under CangHui. The lease is reported as `presented` only after the compositor
+really sampled it; upload failure finishes it as fallback/executor failure.
+This proves the portable software composition path, not native GPU texture/fence
+interop or a production 3D renderer. The rev1 Desktop bridge promotes unknown
+UI changes to full damage. A debug trace first observes one complete stable
+frame, then replays one bounded retained region before later frames prove
+whole-root idle culling. SDL reports a full present even for that bounded
+redraw, and no present for the culled frames; the trace keeps those facts
+separate.
 
 When the adapter is absent, rejects a stale frame, exceeds its budget, or the
 user requests reduced transparency, `canghui_style_liquid_glass` keeps the same

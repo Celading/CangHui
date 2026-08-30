@@ -101,6 +101,44 @@ internal func windowSizeFromPixels(w: Int32, h: Int32, scale: Float32): Size {
     Size(Float32(w) / safeScale, Float32(h) / safeScale)
 }
 
+/** Native-free size transaction shared by SDL window-coordinate and backing-pixel events. */
+internal struct WindowResizeUpdate {
+    let logicalWidth: Int32
+    let logicalHeight: Int32
+    let pixelWidth: Int32
+    let pixelHeight: Int32
+
+    init(logicalWidth: Int32, logicalHeight: Int32, pixelWidth: Int32, pixelHeight: Int32) {
+        this.logicalWidth = logicalWidth
+        this.logicalHeight = logicalHeight
+        this.pixelWidth = pixelWidth
+        this.pixelHeight = pixelHeight
+    }
+}
+
+internal func logicalWindowResizeUpdate(
+    width: Int32,
+    height: Int32,
+    scale: Float32
+): WindowResizeUpdate {
+    WindowResizeUpdate(
+        width,
+        height,
+        scaledDimension(width, normalizedScale(scale)),
+        scaledDimension(height, normalizedScale(scale)))
+}
+
+internal func backingPixelResizeUpdate(
+    logicalWidth: Int32,
+    logicalHeight: Int32,
+    pixelWidth: Int32,
+    pixelHeight: Int32
+): WindowResizeUpdate {
+    // A drawable-pixel change can happen when a window moves between displays without changing
+    // its logical geometry. Keep layout stable and update only pixel-owned native resources.
+    WindowResizeUpdate(logicalWidth, logicalHeight, pixelWidth, pixelHeight)
+}
+
 internal func rectFromSdlRect(raw: SdlRect): Rect {
     Rect(Float32(raw.x), Float32(raw.y), Float32(raw.w), Float32(raw.h))
 }

@@ -84,7 +84,7 @@ private func effectGallery(
                 morphingGlassCard(model)
                 Spacer()
                 if (model.sceneVisible.value) {
-                    sceneBarrierCard(controller)
+                    sceneSharedFrameCard(controller)
                 } else {
                     settledSceneCard()
                 }
@@ -98,7 +98,7 @@ private func acceptanceToolbar(model: FrameGraphAcceptanceModel, app: ?DesktopAp
     HStack {
         VStack {
             Label("Unified FrameGraph rev1").fontSize(FontSizes.TITLE).bold()
-            Label("Liquid Glass deformation · simulated child barrier · deterministic idle cull")
+            Label("Liquid Glass deformation · shared Scene3D pixels · deterministic idle cull")
                 .muted().fontSize(FontSizes.CAPTION)
         }.spacing(3.vp).hug()
         Spacer()
@@ -164,15 +164,15 @@ private func morphingGlassCard(model: FrameGraphAcceptanceModel): Unit {
     }
 }
 
-private func sceneBarrierCard(controller: Scene3DViewController): Unit {
+private func sceneSharedFrameCard(controller: Scene3DViewController): Unit {
     VStack {
         HStack {
             Label("Simulated Scene3D resource").bold()
             Spacer()
-            Badge("BARRIER")
+            Badge("SHARED", kind: BadgeKind.Success)
         }.hug().fillWidth()
         Scene3DView(controller, width: 268.0, height: 116.0)
-        Label("Framework barrier metadata · unifiedPixels=false")
+        Label("CPU RGBA8 lease · ordinary CangHui clip/z-order")
             .fontSize(FontSizes.CAPTION).muted()
     }.spacing(10.vp).padding(16.vp).width(300.vp).height(210.vp)
         .background(Color.rgba(18, 26, 40, 212), 22.0)
@@ -181,14 +181,14 @@ private func sceneBarrierCard(controller: Scene3DViewController): Unit {
 private func settledSceneCard(): Unit {
     VStack {
         HStack {
-            Label("Scene3D scheduling receipt").bold()
+            Label("Scene3D composition receipt").bold()
             Spacer()
             Badge("CAPTURED", kind: BadgeKind.Success)
         }.hug().fillWidth()
         Spacer()
         Icon(IconName.Process, size: 34.vp)
-        Label("Simulated child barrier observed").fontSize(FontSizes.TITLE).bold()
-        Label("Fake host only; no native pixel or same-target composition claim.")
+        Label("Shared-frame lifecycle observed").fontSize(FontSizes.TITLE).bold()
+        Label("Fake CPU provider only; native texture/fence interop remains a field gate.")
             .muted().fontSize(FontSizes.CAPTION)
         Spacer()
     }.spacing(8.vp).padding(16.vp).width(300.vp).height(210.vp)
@@ -244,7 +244,8 @@ private func frameGraphAcceptanceSceneController(): Scene3DViewController {
             "memory://framegraph-acceptance",
             "sha256:framegraph-acceptance",
             0),
-        FrameGraphAcceptanceSceneFrames())
+        FrameGraphAcceptanceSceneFrames(),
+        compositionMode: Scene3DCompositionMode.PreferSharedFrame)
     host.publish(NativeSurfaceEvent.Available(NativeSurfaceDescriptor(
         "framegraph-acceptance-surface",
         NativeSurfaceBackend.Software,
@@ -255,6 +256,7 @@ private func frameGraphAcceptanceSceneController(): Scene3DViewController {
         116,
         1.0,
         1)))
+    host.publish(NativeSurfaceEvent.Frame(NativeSurfaceFrame(1, 0, 16)))
     controller
 }
 

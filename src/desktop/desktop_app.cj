@@ -14,13 +14,18 @@ import sdl.system.ApplicationMetadata
 import sdl.system.SdlHintSetting
 import sdl.system.SdlHint
 import sdl.system.SdlHints
-import chui.core.{AnimationSpec, CursorShape, DeviceRotationTransition, StateStore, Theme, ThemeTransition,
-    UiContext, Widget, buildRoot, UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration,
-    drawTooltip}
+import chui.core.{AnimationSpec, CursorShape, DeviceRotationTransition, RetainedUiDamage,
+    RetainedUiDamageKind, SemanticActionHandler, SemanticActionReceipt, SemanticActionRequest,
+    SemanticInteractionPolicy, SemanticRuntime, SemanticRuntimeLimits, SemanticTreeDiff,
+    SemanticTreeSnapshot, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRetainedRoot,
+    buildRoot, UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip,
+    withActiveSemanticRuntime}
 import chui.graphics.{DamageRegion, FrameDamageRect, FrameExecutionReceipt, FrameExternalMode, FrameGraph,
     FrameGraphRuntime, FramePassDescriptor, FramePassExecutionResult, FramePassId, FramePassKind,
+    GraphicsAlphaMode,
     FrameResourceDescriptor, FrameResourceId, FrameResourceKind, FrameResourceLifetime,
-    SdlFrameGraphExecutor, bridgeScene3DExternalSurface, sdlFramePhysicalPixelCount}
+    SdlFrameGraphExecutor, bridgeScene3DExternalSurface, bridgeScene3DSharedFrameImport,
+    sdlFramePhysicalPixelCount}
 import chui.kmode.kModeEnabled
 
 // Long enough for the first paint to settle and for background work started at launch
@@ -43,6 +48,8 @@ public class DesktopApp {
     private let resources = ArrayList<Resource>()
     private let queuedEvents = ArrayList<UiEvent>()
     private let stateStore = StateStore()
+    private let semanticActionRouter: DesktopSemanticActionRouter
+    private let semanticRuntime: SemanticRuntime
     private let uiOwnerQueue = UiOwnerQueue()
     private let captureRequest: ?DesktopCaptureRequest
     // Per-phase frame timing, enabled with `--profile`; None (and zero cost) in a normal run.
@@ -80,10 +87,21 @@ public class DesktopApp {
         fontScale!: Float32 = 1.0,
         deviceRotationAnimation!: AnimationSpec = AnimationSpec.automatic(duration: UInt64(320)),
         metadata!: ?AppMetadata = None,
-        hints!: Array<SdlHintSetting> = []
+        hints!: Array<SdlHintSetting> = [],
+        semanticWindowId!: String = "main",
+        semanticPolicy!: SemanticInteractionPolicy = SemanticInteractionPolicy(),
+        semanticLimits!: SemanticRuntimeLimits = SemanticRuntimeLimits(),
+        onSemanticAction!: SemanticActionHandler = {_ => false}
     ) {
         this.window = configuredWindow(spec, metadata, hints)
         this.ctx = UiContext(window.renderer, theme)
+        let actionRouter = DesktopSemanticActionRouter(this.ctx, fallback: onSemanticAction)
+        this.semanticActionRouter = actionRouter
+        this.semanticRuntime = SemanticRuntime(
+            semanticWindowId,
+            policy: semanticPolicy,
+            limits: semanticLimits,
+            handler: {request => actionRouter.dispatch(request)})
         this.frameGraphExecutor = SdlFrameGraphExecutor(
             window.renderer,
             clearColor: theme.bg,
@@ -112,6 +130,18 @@ public class DesktopApp {
 
     public func manage(resource: Resource): Unit {
         resources.add(resource)
+    }
+
+    /** Latest committed in-process semantic tree for accessibility and trusted host features. */
+    public func semanticSnapshot(): SemanticTreeSnapshot { semanticRuntime.snapshot() }
+
+    public func semanticDiff(previous: SemanticTreeSnapshot): SemanticTreeDiff {
+        semanticRuntime.diff(previous)
+    }
+
+    /** Dispatches only a typed, revision-bound application action; no coordinates or keys exist. */
+    public func dispatchSemanticAction(request: SemanticActionRequest): SemanticActionReceipt {
+        semanticRuntime.dispatch(request)
     }
 
     /**
@@ -356,11 +386,11 @@ public class DesktopApp {
                 let events = collectPendingEvents()
                 let observedStateGen = currentStateGeneration()
                 let ownerWorkPending = uiOwnerQueue.hasPending()
-                let renderRequested = continuousRequested || ownerWorkPending || !events.isEmpty() ||
+                let nonStateInvalidation = continuousRequested || ownerWorkPending || !events.isEmpty() ||
                     debugUiScript.active() ||
-                    observedStateGen != lastRenderedGen ||
                     viewportW != renderedWidth || viewportH != renderedHeight || captureRequest.isSome() ||
                     profiler.isSome() || themeTransition.isSome() || deviceRotationTransition.isSome()
+                let renderRequested = nonStateInvalidation || observedStateGen != lastRenderedGen
                 // A trace child may request one or more proof frames after the UI becomes idle. Those
                 // frames carry empty damage, letting the compiler prove stable-pass culling instead
                 // of turning observation itself into an application invalidation.
@@ -373,9 +403,19 @@ public class DesktopApp {
                     let _ = uiOwnerQueue.drain()
                     let frameStateGen = currentStateGeneration()
                     let tBuild = FrameProfiler.now()
-                    let widget = buildRoot(body, stateStore)
+                    let widget = if (frameGraphEnabled) {
+                        buildRetainedRoot(
+                            body,
+                            stateStore,
+                            desktopRetainedContextCode(
+                                viewportW, viewportH, ctx.displayScale, ctx.fontScale,
+                                ctx.deviceRotation()))
+                    } else {
+                        buildRoot(body, stateStore)
+                    }
                     let tLayout = FrameProfiler.now()
                     ctx.adoptFocusRing(stateStore.focusRing())
+                    semanticActionRouter.bind(widget)
                     ctx.beginFrameSurfaceRegistration()
                     widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
                     let tEvents = FrameProfiler.now()
@@ -386,10 +426,23 @@ public class DesktopApp {
                     let tDraw = FrameProfiler.now()
                     frames += 1
                     let stateChangedDuringFrame = currentStateGeneration() != frameStateGen
+                    let traceInvalidated = nonStateInvalidation ||
+                        frameStateGen != lastRenderedGen || stateChangedDuringFrame
                     let (beginNs, treeNs, resolveNs, presentNs) = if (frameGraphEnabled) {
-                        drawFrameGraph(widget, renderRequested || stateChangedDuringFrame)
+                        drawFrameGraph(
+                            widget,
+                            nonStateInvalidation || stateChangedDuringFrame,
+                            traceInvalidated,
+                            stateStore.retainedDamage())
                     } else {
                         draw(widget)
+                    }
+                    if (frameGraphEnabled) {
+                        if (desktopFrameSurfaceUsable(viewportW, viewportH)) {
+                            let _ = stateStore.finishRetainedFrame()
+                        } else {
+                            stateStore.cancelRetainedFrame()
+                        }
                     }
                     lastRenderedGen = frameStateGen
                     continuousRequested = ctx.takeFrameRequest() || themeTransition.isSome() ||
@@ -410,12 +463,16 @@ public class DesktopApp {
                 }
             }
         } catch (error: Exception) {
+            stateStore.cancelRetainedFrame()
+            let _ = ctx.finishSharedFrameSurfaces("executor-failed")
             runFailure = Some(error)
         }
         try {
             let _ = uiOwnerQueue.close(reason: "desktop application closed")
+            semanticActionRouter.clear()
             closeThemeTransition()
             closeDeviceRotationTransition()
+            stateStore.clear()
             closeManagedResources()
             window.close()
         } catch (cleanupError: Exception) {
@@ -484,7 +541,9 @@ public class DesktopApp {
         match (event) {
             case UiEvent.Quit => ctx.requestClose()
             case UiEvent.WindowResized(w, h) =>
-                window.updateSizeFromPixels(w, h)
+                window.updateLogicalSize(w, h)
+            case UiEvent.WindowPixelSizeChanged(w, h) =>
+                window.updatePixelSize(w, h)
             case UiEvent.DeviceRotationChanged(rotation) =>
                 let previous = ctx.deviceRotation()
                 ctx.updateDeviceRotation(rotation)
@@ -538,7 +597,9 @@ public class DesktopApp {
      */
     private func drawFrameGraph(
         widget: Widget,
-        fullDamageRequested: Bool
+        fullDamageRequested: Bool,
+        traceInvalidated: Bool,
+        retainedDamage: RetainedUiDamage
     ): (UInt64, UInt64, UInt64, UInt64) {
         let started = FrameProfiler.now()
         let width = window.width
@@ -547,6 +608,7 @@ public class DesktopApp {
         // contracts intentionally reject such dimensions; skipping that frame keeps the desktop
         // loop alive until the next resize instead of turning an ordinary minimize into an exit.
         if (!desktopFrameSurfaceUsable(width, height)) {
+            let _ = ctx.finishSharedFrameSurfaces("fallback")
             return (UInt64(0), UInt64(0), UInt64(0), UInt64(0))
         }
         updateFrameGraphSurface(width, height)
@@ -563,38 +625,108 @@ public class DesktopApp {
         let resources = ArrayList<FrameResourceDescriptor>()
         resources.add(target)
         let passes = ArrayList<FramePassDescriptor>()
-        let externalDependencies = ArrayList<FramePassId>()
-        let damageMode = frameTrace.damageMode(fullDamageRequested)
-        let damage = if (damageMode == 0) {
+        let sharedDependencies = ArrayList<FramePassId>()
+        let presentExternalDependencies = ArrayList<FramePassId>()
+        let sharedInputs = ArrayList<FrameResourceId>()
+        let damage = if (frameTrace.active()) {
+            let damageMode = frameTrace.damageMode(traceInvalidated)
+            if (damageMode == 0) {
+                DamageRegion.full()
+            } else if (damageMode == 1) {
+                // Debug trace keeps its deterministic synthetic probe independent from live State.
+                DamageRegion.bounded([FrameDamageRect(
+                    0,
+                    0,
+                    min(Int64(64), surfaceWidth),
+                    min(Int64(64), surfaceHeight))])
+            } else {
+                DamageRegion.empty()
+            }
+        } else if (fullDamageRequested) {
             DamageRegion.full()
-        } else if (damageMode == 1) {
-            // A debug trace first established a complete stable frame. Repainting one retained
-            // logical region now proves bounded redraw while SDL still reports a full present.
-            DamageRegion.bounded([FrameDamageRect(
-                0,
-                0,
-                min(Int64(64), surfaceWidth),
-                min(Int64(64), surfaceHeight))])
         } else {
-            DamageRegion.empty()
+            desktopRetainedFrameDamage(retainedDamage, surfaceWidth, surfaceHeight)
         }
         let fullBounds = FrameDamageRect(0, 0, surfaceWidth, surfaceHeight)
+
+        frameGraphExecutor.setClearColor(ctx.theme.bg)
+        frameGraphExecutor.clearPassBindings()
+        frameGraphExecutor.setBeforePresent({ => maybeCapture() })
+
+        for (i in 0..ctx.sharedFrameSurfaceCount()) {
+            let surface = ctx.sharedFrameSurfaceAt(i)
+            if (surface.isFinished()) { continue }
+            let sharedBounds = match (desktopFrameSurfaceBounds(
+                surface.bounds, surfaceWidth, surfaceHeight)) {
+                case Some(value) => value
+                case None =>
+                    let _ = surface.finish("fallback")
+                    continue
+            }
+            let bridged = bridgeScene3DSharedFrameImport(
+                surface.identity,
+                surface.generation,
+                surface.frameId,
+                passes.size,
+                surface.rowBytes * surface.pixelHeight,
+                surface.contentCode,
+                surface.syncEpoch,
+                sharedBounds,
+                damage: damage,
+                alphaMode: if (surface.alphaMode == "opaque") {
+                    GraphicsAlphaMode.Opaque
+                } else {
+                    GraphicsAlphaMode.Premultiplied
+                })
+            if (!bridged.ok) {
+                let _ = surface.finish("rejected")
+                continue
+            }
+            let resource = match (bridged.resource()) {
+                case Some(value) => value
+                case None =>
+                    let _ = surface.finish("rejected")
+                    continue
+            }
+            let pass = match (bridged.pass()) {
+                case Some(value) => value
+                case None =>
+                    let _ = surface.finish("rejected")
+                    continue
+            }
+            resources.add(resource)
+            passes.add(pass)
+            sharedInputs.add(resource.id)
+            sharedDependencies.add(pass.id)
+            frameGraphExecutor.bindPass(pass.id, {context =>
+                if (!context.unifiedPixels) {
+                    FramePassExecutionResult(false, "shared-frame-unification-missing")
+                } else {
+                    FramePassExecutionResult(true, "accepted-shared-frame-acquire")
+                }
+            })
+        }
+
         let uiPass = FramePassDescriptor(
             FramePassId("desktop.ui"),
-            0,
+            passes.size,
             FramePassKind.Ui2D,
+            reads: sharedInputs.toArray(),
             writes: [target.id],
+            dependsOn: sharedDependencies.toArray(),
             bounds: Some(fullBounds),
             stableInputCode: desktopFrameStableCode(currentStateGeneration(), width, height),
             canCull: true)
         passes.add(uiPass)
 
-        frameGraphExecutor.setClearColor(ctx.theme.bg)
-        frameGraphExecutor.clearPassBindings()
-        frameGraphExecutor.setBeforePresent({ => maybeCapture() })
         frameGraphExecutor.bindPass(uiPass.id, {_ =>
+            ctx.beginSharedFrameCompositionAttempt()
             drawFrameContents(widget, Float32(width), Float32(height))
-            FramePassExecutionResult(true, "accepted")
+            if (ctx.sharedFrameCompositionSucceeded()) {
+                FramePassExecutionResult(true, "accepted")
+            } else {
+                FramePassExecutionResult(false, "shared-frame-composition-failed")
+            }
         })
 
         for (i in 0..ctx.nativeChildFrameSurfaceCount()) {
@@ -619,7 +751,7 @@ public class DesktopApp {
             }
             resources.add(resource)
             passes.add(pass)
-            externalDependencies.add(pass.id)
+            presentExternalDependencies.add(pass.id)
             frameGraphExecutor.bindPass(pass.id, {context =>
                 if (context.unifiedPixels) {
                     FramePassExecutionResult(false, "native-child-unification-misreported")
@@ -634,7 +766,7 @@ public class DesktopApp {
             passes.size,
             FramePassKind.Present,
             reads: [target.id],
-            dependsOn: externalDependencies.toArray(),
+            dependsOn: presentExternalDependencies.toArray(),
             bounds: Some(fullBounds),
             stableInputCode: desktopFrameStableCode(currentStateGeneration(), width, height)))
         let graph = FrameGraph(
@@ -657,7 +789,14 @@ public class DesktopApp {
             } else {
                 "not-started"
             }
-            let legacyTimings = draw(widget)
+            let legacyTimings = draw(widget, finishSharedFrame: false)
+            let sharedFinishOutcome = if (ctx.sharedFrameCompositionSucceeded() ||
+                ctx.nativeChildFrameSurfaceCount() > 0) {
+                "fallback"
+            } else {
+                "executor-failed"
+            }
+            let sharedReleased = ctx.finishSharedFrameSurfaces(sharedFinishOutcome)
             let fallbackUsed = frameGraphExecutor.markLegacyFallbackUsed(
                 frameId: Int64(frames),
                 nativeChildBarrierCount: ctx.nativeChildFrameSurfaceCount())
@@ -670,7 +809,13 @@ public class DesktopApp {
                 frameGraphExecutor.lastReceipt().code)) {
                 ctx.requestClose()
             }
+            if (!sharedReleased) {
+                throw IllegalStateException("Scene3D shared frame release failed after graph fallback")
+            }
             return legacyTimings
+        }
+        if (!ctx.finishSharedFrameSurfaces("presented")) {
+            throw IllegalStateException("Scene3D shared frame release failed after present")
         }
         applyTextInputAnchor()
         finishFrameTrace(receipt, finished - started)
@@ -694,8 +839,15 @@ public class DesktopApp {
     }
 
     private func drawFrameContents(widget: Widget, width: Float32, height: Float32): Unit {
-        if (!drawThemeTransition(widget, width, height) &&
-            !drawDeviceRotationTransition(widget, width, height)) {
+        if (themeTransition.isSome()) {
+            let _ = drawThemeTransition(widget, width, height)
+            return
+        }
+        if (deviceRotationTransition.isSome()) {
+            let _ = drawDeviceRotationTransition(widget, width, height)
+            return
+        }
+        collectSemanticFrame({ =>
             clearDrawRegistrations()
             widget.draw(ctx)
             ctx.drawInkRipples()
@@ -703,6 +855,17 @@ public class DesktopApp {
                 drawTooltip(ctx, width, height)
             }
             ctx.drawActiveOverlay()
+        })
+    }
+
+    private func collectSemanticFrame(body: () -> Unit): Unit {
+        semanticRuntime.beginFrame()
+        try {
+            withActiveSemanticRuntime(semanticRuntime, body)
+            let _ = semanticRuntime.commitFrame()
+        } catch (error: Exception) {
+            semanticRuntime.cancelFrame()
+            throw error
         }
     }
 
@@ -710,14 +873,25 @@ public class DesktopApp {
     // supersample resolve, present) for the profiler. The timestamps are a handful of clock reads —
     // negligible against a frame — so they run unconditionally and only the profiler, when enabled,
     // records them.
-    private func draw(widget: Widget): (UInt64, UInt64, UInt64, UInt64) {
+    private func draw(
+        widget: Widget,
+        finishSharedFrame!: Bool = true
+    ): (UInt64, UInt64, UInt64, UInt64) {
         let t0 = FrameProfiler.now()
         ctx.syncThemeResources()
         ctx.renderer.beginScene(Float32(window.width), Float32(window.height), ctx.theme.bg)
         let t1 = FrameProfiler.now()
         let width = Float32(window.width)
         let height = Float32(window.height)
+        let transitionFrame = themeTransition.isSome() || deviceRotationTransition.isSome()
+        ctx.beginSharedFrameCompositionAttempt()
         drawFrameContents(widget, width, height)
+        // A cached transition snapshot can legitimately present without sampling the provider frame
+        // registered by this rebuild. Release that lease as fallback instead of manufacturing a
+        // successful composition receipt. The first snapshot frame may still sample and present it.
+        if (transitionFrame && !ctx.sharedFrameCompositionSucceeded()) {
+            let _ = ctx.finishSharedFrameSurfaces("fallback")
+        }
         applyTextInputAnchor()
         let t2 = FrameProfiler.now()
         ctx.renderer.endScene()
@@ -725,6 +899,16 @@ public class DesktopApp {
         maybeCapture()
         ctx.renderer.present()
         let t4 = FrameProfiler.now()
+        if (finishSharedFrame) {
+            let outcome = if (ctx.sharedFrameCompositionSucceeded()) {
+                "presented"
+            } else {
+                "executor-failed"
+            }
+            if (!ctx.finishSharedFrameSurfaces(outcome)) {
+                throw IllegalStateException("Scene3D shared frame release failed after immediate present")
+            }
+        }
         (t1 - t0, t2 - t1, t3 - t2, t4 - t3)
     }
 
@@ -772,9 +956,11 @@ public class DesktopApp {
                     { =>
                         ctx.theme = transition.targetTheme()
                         ctx.syncThemeResources()
-                        clearDrawRegistrations()
-                        widget.draw(ctx)
-                        ctx.drawActiveOverlay()
+                        collectSemanticFrame({ =>
+                            clearDrawRegistrations()
+                            widget.draw(ctx)
+                            ctx.drawActiveOverlay()
+                        })
                     }
                 )
                 ctx.theme = transition.sourceTheme()
@@ -786,6 +972,7 @@ public class DesktopApp {
                     transition.close()
                     themeTransition = None
                     ctx.theme = target
+                    ctx.requestFrame()
                 }
                 true
             case None => false
@@ -801,17 +988,20 @@ public class DesktopApp {
                     height,
                     ctx.theme.bg,
                     { =>
-                        clearDrawRegistrations()
-                        widget.draw(ctx)
-                        ctx.drawInkRipples()
-                        if (!ctx.hasOverlay()) { drawTooltip(ctx, width, height) }
-                        ctx.drawActiveOverlay()
+                        collectSemanticFrame({ =>
+                            clearDrawRegistrations()
+                            widget.draw(ctx)
+                            ctx.drawInkRipples()
+                            if (!ctx.hasOverlay()) { drawTooltip(ctx, width, height) }
+                            ctx.drawActiveOverlay()
+                        })
                     }
                 )
                 transition.draw(ctx.renderer, width, height)
                 if (ready && transition.isComplete()) {
                     transition.close()
                     deviceRotationTransition = None
+                    ctx.requestFrame()
                 }
                 true
             case None => false
@@ -1137,6 +1327,49 @@ private func desktopFrameStableCode(generation: UInt64, width: Int32, height: In
     code = (code * 131 + Int64(max(Int32(1), width))) % modulus
     code = (code * 137 + Int64(max(Int32(1), height))) % modulus
     max(Int64(1), code)
+}
+
+private func desktopRetainedContextCode(
+    width: Int32,
+    height: Int32,
+    displayScale: Float32,
+    fontScale: Float32,
+    rotation: DeviceRotation
+): Int64 {
+    let modulus: Int64 = 2147483647
+    var code = Int64(max(Int32(1), width))
+    code = (code * 131 + Int64(max(Int32(1), height))) % modulus
+    code = (code * 137 + Int64(max(0.0, displayScale) * 1000.0)) % modulus
+    code = (code * 139 + Int64(max(0.0, fontScale) * 1000.0)) % modulus
+    let rotationCode = match (rotation) {
+        case DeviceRotation.Unknown => Int64(0)
+        case DeviceRotation.Portrait => Int64(1)
+        case DeviceRotation.LandscapeClockwise => Int64(2)
+        case DeviceRotation.PortraitUpsideDown => Int64(3)
+        case DeviceRotation.LandscapeCounterClockwise => Int64(4)
+    }
+    max(Int64(1), (code * 149 + rotationCode) % modulus)
+}
+
+private func desktopRetainedFrameDamage(
+    retained: RetainedUiDamage,
+    surfaceWidth: Int64,
+    surfaceHeight: Int64
+): DamageRegion {
+    if (retained.kind == RetainedUiDamageKind.Full) { return DamageRegion.full() }
+    if (retained.kind == RetainedUiDamageKind.Empty) { return DamageRegion.empty() }
+    let rectangles = ArrayList<FrameDamageRect>()
+    for (i in 0..retained.rectangleCount()) {
+        match (desktopFrameSurfaceBounds(
+            retained.rectangleAt(i), surfaceWidth, surfaceHeight)) {
+            case Some(value) => rectangles.add(value)
+            // A bounded proof that cannot be represented by the target is never discarded.
+            case None => return DamageRegion.full()
+        }
+    }
+    if (rectangles.isEmpty()) { DamageRegion.full() } else {
+        DamageRegion.bounded(rectangles.toArray())
+    }
 }
 
 private func desktopFrameSurfaceBounds(

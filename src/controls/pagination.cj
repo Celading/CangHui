@@ -98,7 +98,7 @@ public class Pagination <: Widget {
         recordControlSemantics(ctx, frame, "Pagination", ControlSemantics(
             "pagination", label: semanticLabel,
             value: "page ${page + 1} of ${pageCount}",
-            action: "Pagination.setPage()", shortcut: "Enter|Space",
+            action: "", shortcut: "",
             actionOwner: id
         ))
         let selectedRect = currentPageRect(page)

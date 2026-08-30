@@ -148,18 +148,18 @@
 
 ### `SdlWindow <: Resource`
 
-公开字段：可变 `width`、`height`，只读 `scale`、`renderer`。
+公开字段：可变 `width`、`height`，只读 `scale`、`renderer`、`id`。
 
 | 功能 | 方法 |
 |---|---|
-| 基础 | `setTitle`、`setSize`、`refreshSize`、`pollEvent`、`ticks`、`delay` |
+| 基础 | `setTitle`、`setSize`、`refreshSize`、`pollEvent`、`pollEventEnvelope`、`ticks`、`delay` |
 | 文本输入 | `setTextInputArea` |
 | 生命周期 | `isClosed`、`close` |
 | 位置尺寸 | `setPosition`、`position`、`setMinimumSize`、`setMaximumSize` |
 | 外观 | `setBordered`、`setResizable`、`setAlwaysOnTop`、`setOpacity` |
 | 显示状态 | `show`、`hide`、`raiseWindow`、`maximize`、`minimize`、`restore`、`setFullscreen` |
 | 同步提示 | `sync`、`flash`、`setRelativeMouseMode` |
-| 查询 | `title`、`windowFlags`、`sizeInPixels`、`safeArea`、`minimumSize`、`maximumSize` |
+| 查询 | `title`、`windowFlags`、`shapeReceipt`、`sizeInPixels`、`safeArea`、`minimumSize`、`maximumSize` |
 | 边框缩放 | `borderSize`、`setAspectRatio`、`aspectRatio`、`opacity`、`pixelDensity`、`displayScale` |
 | 抓取焦点 | `setKeyboardGrab`、`setMouseGrab`、`keyboardGrabbed`、`mouseGrabbed` |
 | 鼠标区域 | `setMouseGrabRect`、`mouseGrabRect`、`setFocusable`、`showSystemMenu` |
@@ -173,6 +173,8 @@
 - `WindowBorderSize(top,left,bottom,right)`。
 - `WindowFlash`：`Cancel`、`Briefly`、`UntilFocused`。
 - `WindowProgressState`：`Inactive`、`Indeterminate`、`Normal`、`Paused`、`Error`。
+- `WindowShapeApplyStatus`：`NotRequested`、`Applied`、`Failed`；`WindowShapeReceipt` 记录请求
+  半径、实际应用半径、像素尺寸和运行时结果，但不把一次 API 成功误报成目标合成器视觉验收。
 - `WindowFlags`：保存 `raw` 及 fullscreen、hidden、resizable、focus、grab、high-DPI、Vulkan、Metal、
   transparent 等 SDL 窗口标志的布尔解析结果。
 

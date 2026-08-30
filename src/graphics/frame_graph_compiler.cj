@@ -157,7 +157,9 @@ protected class CompiledFrameGraph {
     public let trace: String
     public let redrawMode: FrameRedrawMode
     public let presentMode: FramePresentMode
+    public let presentStrategy: FramePresentStrategy
     public let fallbackReason: String
+    public let scheduleCacheHit: Bool
     public let declaredResourceBytes: Int64
     public let executedPassCount: Int64
     public let culledPassCount: Int64
@@ -172,7 +174,9 @@ protected class CompiledFrameGraph {
         trace: String,
         redrawMode: FrameRedrawMode,
         presentMode: FramePresentMode,
+        presentStrategy: FramePresentStrategy,
         fallbackReason: String,
+        scheduleCacheHit: Bool,
         declaredResourceBytes: Int64,
         scheduled: Array<CompiledFramePass>,
         groups: Array<CompiledFramePassGroup>,
@@ -186,7 +190,9 @@ protected class CompiledFrameGraph {
         this.trace = trace
         this.redrawMode = redrawMode
         this.presentMode = presentMode
+        this.presentStrategy = presentStrategy
         this.fallbackReason = fallbackReason
+        this.scheduleCacheHit = scheduleCacheHit
         this.declaredResourceBytes = declaredResourceBytes
         for (value in scheduled) { scheduledPasses.add(value) }
         for (value in groups) { executionGroups.add(value) }
@@ -254,17 +260,71 @@ private class FrameGraphValidation {
     }
 }
 
+protected class FrameGraphScheduleResolution {
+    let order: Array<Int64>
+    let hit: Bool
+
+    init(order: Array<Int64>, hit: Bool) {
+        this.order = order
+        this.hit = hit
+    }
+}
+
+/**
+ * One-entry owner-thread cache for immutable graph topology. Validation still runs on
+ * every frame, so state generations, capabilities, resource budgets and dynamic damage
+ * can never be hidden by a hit. Only the stable topological ordering is reused.
+ */
+protected class FrameGraphScheduleCache {
+    private var key = ""
+    private var order: Array<Int64> = []
+    private var hits: Int64 = 0
+    private var misses: Int64 = 0
+
+    func resolve(
+        graph: FrameGraph,
+        edgeFrom: Array<Int64>,
+        edgeTo: Array<Int64>
+    ): FrameGraphScheduleResolution {
+        let nextKey = frameGraphTopologyKey(graph)
+        if (!key.isEmpty() && key == nextKey && order.size == graph.passCount()) {
+            hits += 1
+            return FrameGraphScheduleResolution(order, true)
+        }
+        let nextOrder = stableTopologicalFrameOrder(graph.passCount(), edgeFrom, edgeTo)
+        key = nextKey
+        order = nextOrder
+        misses += 1
+        FrameGraphScheduleResolution(nextOrder, false)
+    }
+
+    public func hitCount(): Int64 { hits }
+    public func missCount(): Int64 { misses }
+
+    public func clear(): Unit {
+        key = ""
+        order = []
+    }
+}
+
 /** Pure compile: it does not begin an executor and cannot mutate committed state. */
 protected func compileFrameGraph(
     graph: FrameGraph,
     state: FrameGraphCompilerState,
-    capabilities: FrameGraphExecutorCapabilities
+    capabilities: FrameGraphExecutorCapabilities,
+    scheduleCache!: ?FrameGraphScheduleCache = None
 ): FrameCompileResult {
     let validation = validateFrameGraph(graph, state, capabilities)
     if (!validation.ok) { return FrameCompileResult.rejected(validation.code) }
 
-    let order = stableTopologicalFrameOrder(
-        graph.passCount(), validation.edgeFrom, validation.edgeTo)
+    let schedule = match (scheduleCache) {
+        case Some(value) => value.resolve(graph, validation.edgeFrom, validation.edgeTo)
+        case None => FrameGraphScheduleResolution(
+            stableTopologicalFrameOrder(
+                graph.passCount(), validation.edgeFrom, validation.edgeTo),
+            false)
+    }
+    let order = schedule.order
     if (order.size != graph.passCount()) {
         return FrameCompileResult.rejected("dependency-cycle")
     }
@@ -346,6 +406,8 @@ protected func compileFrameGraph(
     let redraw = frameRedrawModeForDamage(aggregateDamage, capabilities)
     let hasPresent = containsExecutedPresent(scheduled.toArray())
     let present = framePresentModeFor(redraw, hasPresent, capabilities)
+    let presentStrategy = framePresentStrategyFor(
+        aggregateDamage, redraw, present, hasPresent, capabilities)
     let fallback = frameFallbackReason(redraw, present, aggregateDamage, hasPresent, capabilities)
     let nextState = nextFrameGraphCompilerState(graph, compiledByDeclaration)
     let canonical = renderFrameGraphCanonical(
@@ -360,7 +422,8 @@ protected func compileFrameGraph(
     }
 
     FrameCompileResult.accepted(CompiledFrameGraph(
-        graph, scheduleHash, trace, redraw, present, fallback,
+        graph, scheduleHash, trace, redraw, present, presentStrategy, fallback,
+        schedule.hit,
         validation.declaredResourceBytes, scheduled.toArray(), groups,
         executedPassCount, culledPassCount, mergedPassCount, nextState))
 }
@@ -620,6 +683,39 @@ private func stableTopologicalFrameOrder(
         }
     }
     order.toArray()
+}
+
+/**
+ * Exact identity of inputs that can change dependency ordering. Frame id, State input
+ * codes and damage are intentionally absent: they affect culling/damage below the
+ * topology stage and are always recomputed after a cache hit.
+ */
+private func frameGraphTopologyKey(graph: FrameGraph): String {
+    let out = StringBuilder()
+    out.append(CANGHUI_FRAME_GRAPH_PROTOCOL)
+    out.append("|surface=")
+    out.append(graph.surfaceKey)
+    out.append("@")
+    out.append(graph.surfaceGeneration.toString())
+    out.append("|size=")
+    out.append(graph.surfaceWidth.toString())
+    out.append("x")
+    out.append(graph.surfaceHeight.toString())
+    out.append("|resources=")
+    out.append(graph.resourceCount().toString())
+    for (i in 0..graph.resourceCount()) {
+        out.append("|r:")
+        out.append(frameResourceDescriptorFingerprint(graph.resourceAt(i)))
+    }
+    out.append("|passes=")
+    out.append(graph.passCount().toString())
+    for (i in 0..graph.passCount()) {
+        out.append("|p:")
+        out.append(framePassOutputFingerprint(graph, graph.passAt(i)))
+    }
+    out.append("|dependency-cap=")
+    out.append(graph.limits.maxDependencies.toString())
+    out.toString()
 }
 
 private func findFrameResourceIndex(graph: FrameGraph, id: FrameResourceId): Int64 {
@@ -1004,6 +1100,30 @@ private func framePresentModeFor(
         return FramePresentMode.Partial
     }
     FramePresentMode.Full
+}
+
+private func framePresentStrategyFor(
+    damage: DamageRegion,
+    redraw: FrameRedrawMode,
+    present: FramePresentMode,
+    hasPresent: Bool,
+    capabilities: FrameGraphExecutorCapabilities
+): FramePresentStrategy {
+    if (!hasPresent || present == FramePresentMode.NotPresented) {
+        return FramePresentStrategy.NotPresented
+    }
+    if (damage.kind == FrameDamageKind.Bounded &&
+        redraw == FrameRedrawMode.Full && !capabilities.supportsBoundedRedraw) {
+        return FramePresentStrategy.UnsupportedFallback
+    }
+    if (redraw == FrameRedrawMode.Bounded && present == FramePresentMode.Partial &&
+        capabilities.supportsPartialPresent) {
+        return FramePresentStrategy.IncrementalRegions
+    }
+    if (redraw == FrameRedrawMode.Bounded && present == FramePresentMode.Full) {
+        return FramePresentStrategy.PreservedBufferBounded
+    }
+    FramePresentStrategy.FullSurface
 }
 
 private func frameFallbackReason(

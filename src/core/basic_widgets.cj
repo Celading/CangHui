@@ -239,7 +239,8 @@ public class Button <: Widget {
         drawSurface(ctx, visualFrame, appearance.surface)
         recordControlSemantics(ctx, visualFrame, "Button", ControlSemantics(
             "button", label: semanticLabel, action: "Button.activate()",
-            actionOwner: controlId
+            actionOwner: controlId,
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         match (title) {
             case Some(value) => ctx.renderer.textCenter(value, visualFrame, appearance.foreground,

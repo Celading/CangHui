@@ -4,6 +4,37 @@
 
 ## Unreleased
 
+## 0.17.0 (2026-08-30)
+
+### 运行时与公开 API
+
+- 新增 `SemanticRuntime`：库存 `ControlSemantics` 可在 `DesktopApp` 正常帧中自动形成有界、
+  带窗口身份和 revision 的语义树；公开 snapshot/diff 与 Activate/Focus/Increment/Decrement/
+  Dismiss 类型化动作。Voice/Agent 来源默认拒绝，密码值脱敏，且不包含坐标、按键、IPC、
+  进程附加、socket 或命令执行入口。
+- 新增 `DesktopApplication`、`WindowId` 与 `SdlEventEnvelope`：一个进程级
+  SDL event pump 可管理多个独立窗口，并按窗口隔离焦点、浮层、指针捕获和 Scene3D 登记；
+  进程级手柄事件只分配给活动窗口。内部 registry 不公开，托管窗口已拥有独立 semantic
+  snapshot/diff/action 路由。
+  高级 FrameGraph/effect/transition 同等能力仍待后续闭合。
+- `Scene3DView` 新增显式 `PreferSharedFrame` 合成模式与 exactly-once lease 合同。当前 SDL
+  生产路径可把有界 SDR CPU RGBA8 帧上传到同一 renderer device，并在普通组件树位置遵守
+  sibling z-order、祖先 clip 与圆角；原生 private texture/fence、零拷贝和实机 HDR 未声称完成。
+
+### 渲染内部与验证边界
+
+- 阶段感知保留账本记录 build/measure/layout/paint/semantics/hit-test 的精确状态依赖，支持
+  事务式提交/回滚与有界 damage；完整指纹一致的 keyed `Label` 可复用已提交测量输出，shape
+  裁剪、无自定义 painter 且使用框架可解析材质的 `Surface` 可按实际阴影偏移提供 paint 证明；
+  自定义材质 provider 保守升级为完整 damage。FrameGraph 按完整拓扑
+  身份复用调度，同时保留逐帧验证、culling 与执行回执；其余普通 Widget 回调仍保守执行。
+- SDL provider 统一 staging/preserve 与 binding snapshot cache，但最终仍执行整窗
+  `SDL_RenderPresent`，本版本不声称平台 swapchain 已支持 partial present。
+- 受保护的图形验证面新增 v2 AOT pipeline pack、能力 generation/ABI/预算校验、将内容意图、
+  surface capability 与 provider HDR/EDR 激活回执分离的色彩管线，以及与独立 CPU oracle
+  对比的 compute-vector 候选。它们没有从 `chui` 伞包公开，也不代表 GPU provider、实机
+  HDR 或 compute 执行已交付。
+
 - `Widget.probe(...)` 的三个无语义 provider 重载现在显式构造
   `None<ProbeSemanticProvider>`，避免消费者同时导入 SDL 等带 `None` 构造器的枚举时，
   clean 或增量依赖构建出现名称解析歧义；CI 新增外部消费碰撞夹具覆盖两种构建路径。

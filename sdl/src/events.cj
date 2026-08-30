@@ -247,6 +247,17 @@ public enum UiEvent {
     | Frame(FrameInfo)
     | Quit
     | WindowResized(Int32, Int32)
+    | WindowShown
+    | WindowHidden
+    | WindowExposed
+    | WindowMoved(Int32, Int32)
+    | WindowPixelSizeChanged(Int32, Int32)
+    | WindowMinimized
+    | WindowMaximized
+    | WindowRestored
+    | WindowFocusChanged(Bool)
+    | WindowCloseRequested
+    | WindowDestroyed
     | DeviceRotationChanged(DeviceRotationEvent)
     | KeyDown(Key, Bool)
     | KeyUp(Key)
@@ -267,6 +278,32 @@ public enum UiEvent {
     | Unknown(UInt32)
 }
 
+/** Stable SDL window identity. Zero is reserved for process-global events. */
+public struct WindowId <: Equatable<WindowId> {
+    public let raw: UInt32
+
+    public init(raw: UInt32) {
+        if (raw == UInt32(0)) { throw IllegalArgumentException("window id must be non-zero") }
+        this.raw = raw
+    }
+
+    public operator func ==(other: WindowId): Bool { raw == other.raw }
+    public operator func !=(other: WindowId): Bool { raw != other.raw }
+
+    public func toString(): String { raw.toString() }
+}
+
+/** Carries window identity without contaminating process-global gamepad and quit events. */
+public struct SdlEventEnvelope {
+    public let windowId: ?WindowId
+    public let event: UiEvent
+
+    public init(windowId: ?WindowId, event: UiEvent) {
+        this.windowId = windowId
+        this.event = event
+    }
+}
+
 internal func decodeEvent(raw: SdlEvent): UiEvent {
     let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
     var decoded = UiEvent.Unknown(UInt32(0))
@@ -281,9 +318,36 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
         // during window creation, which would otherwise flash the window shut on startup.
         if (eventType == SDL_EVENT_QUIT) {
             decoded = UiEvent.Quit
+        } else if (eventType == SDL_EVENT_WINDOW_SHOWN) {
+            decoded = UiEvent.WindowShown
+        } else if (eventType == SDL_EVENT_WINDOW_HIDDEN) {
+            decoded = UiEvent.WindowHidden
+        } else if (eventType == SDL_EVENT_WINDOW_EXPOSED) {
+            decoded = UiEvent.WindowExposed
+        } else if (eventType == SDL_EVENT_WINDOW_MOVED) {
+            let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
+            decoded = UiEvent.WindowMoved(window.data1, window.data2)
         } else if (eventType == SDL_EVENT_WINDOW_RESIZED) {
             let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
             decoded = UiEvent.WindowResized(window.data1, window.data2)
+        } else if (eventType == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+            eventType == SDL_EVENT_WINDOW_METAL_VIEW_RESIZED) {
+            let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
+            decoded = UiEvent.WindowPixelSizeChanged(window.data1, window.data2)
+        } else if (eventType == SDL_EVENT_WINDOW_MINIMIZED) {
+            decoded = UiEvent.WindowMinimized
+        } else if (eventType == SDL_EVENT_WINDOW_MAXIMIZED) {
+            decoded = UiEvent.WindowMaximized
+        } else if (eventType == SDL_EVENT_WINDOW_RESTORED) {
+            decoded = UiEvent.WindowRestored
+        } else if (eventType == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+            decoded = UiEvent.WindowFocusChanged(true)
+        } else if (eventType == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            decoded = UiEvent.WindowFocusChanged(false)
+        } else if (eventType == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+            decoded = UiEvent.WindowCloseRequested
+        } else if (eventType == SDL_EVENT_WINDOW_DESTROYED) {
+            decoded = UiEvent.WindowDestroyed
         } else if (eventType == SDL_EVENT_KEY_DOWN || eventType == SDL_EVENT_KEY_UP) {
             let keyEvent = unsafe { CPointer<SdlKeyboardEvent>(eventResource.value).read() }
             if (eventType == SDL_EVENT_KEY_DOWN) {
@@ -343,6 +407,38 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
     decoded
 }
 
+internal func decodeEventEnvelope(raw: SdlEvent): SdlEventEnvelope {
+    SdlEventEnvelope(rawEventWindowId(raw), decodeEvent(raw))
+}
+
+private func rawEventWindowId(raw: SdlEvent): ?WindowId {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    var result: ?WindowId = None
+    try (eventResource = eventPtr.asResource()) {
+        unsafe { eventResource.value.write(raw) }
+        let common = unsafe { CPointer<SdlCommonEvent>(eventResource.value).read() }
+        let eventType = common.eventType
+        var rawId: UInt32 = UInt32(0)
+        if (eventType >= SDL_EVENT_WINDOW_SHOWN && eventType <= SDL_EVENT_WINDOW_DESTROYED) {
+            rawId = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_KEY_DOWN || eventType == SDL_EVENT_KEY_UP) {
+            rawId = unsafe { CPointer<SdlKeyboardEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_TEXT_INPUT) {
+            rawId = unsafe { CPointer<SdlTextInputEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_MOUSE_MOTION) {
+            rawId = unsafe { CPointer<SdlMouseMotionEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_MOUSE_BUTTON_DOWN || eventType == SDL_EVENT_MOUSE_BUTTON_UP) {
+            rawId = unsafe { CPointer<SdlMouseButtonEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_MOUSE_WHEEL) {
+            rawId = unsafe { CPointer<SdlMouseWheelEvent>(eventResource.value).read() }.windowID
+        } else if (isDropEvent(eventType)) {
+            rawId = unsafe { CPointer<SdlDropEvent>(eventResource.value).read() }.windowID
+        }
+        if (rawId != UInt32(0)) { result = Some(WindowId(rawId)) }
+    }
+    result
+}
+
 internal func scaleEventCoordinates(event: UiEvent, scale: Float32): UiEvent {
     if (scale == 1.0) {
         return event
@@ -355,8 +451,16 @@ internal func scaleEventCoordinates(event: UiEvent, scale: Float32): UiEvent {
         case UiEvent.DropFile(path, x, y) => UiEvent.DropFile(path, x / scale, y / scale)
         case UiEvent.DropText(text, x, y) => UiEvent.DropText(text, x / scale, y / scale)
         case UiEvent.DropPosition(x, y) => UiEvent.DropPosition(x / scale, y / scale)
+        // SDL window-size events use window coordinates. Convert only those into CangHui logical
+        // coordinates; drawable-pixel events retain their exact backing dimensions.
+        case UiEvent.WindowResized(width, height) => UiEvent.WindowResized(
+            Int32(Float32(width) / scale), Int32(Float32(height) / scale))
         case _ => event
     }
+}
+
+internal func scaleEventEnvelope(envelope: SdlEventEnvelope, scale: Float32): SdlEventEnvelope {
+    SdlEventEnvelope(envelope.windowId, scaleEventCoordinates(envelope.event, scale))
 }
 
 internal func isDropEvent(eventType: UInt32): Bool {

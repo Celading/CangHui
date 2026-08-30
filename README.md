@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.16.1-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.16.1" />
+  <img src="https://img.shields.io/badge/version-0.17.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.17.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -98,9 +98,10 @@ scene rendering or application acceptance.
 | Layer | In the public tree | Boundary |
 | --- | --- | --- |
 | CangHui core | Declarative composition, identity, state, layout, controls, overlays and text editing | Platform-neutral source API |
-| Rendering | SDL3-backed desktop renderer plus provider-neutral graphics negotiation, retained resources and bounded render packets | Metal, Vulkan, D3D11/12, OpenGL ES, WebGPU and software are adapter identities, not claims that every backend driver is shipped or verified |
-| Scene3D | Sealed semantic snapshots, a focusable embedded `Scene3DView`, optional macOS bgfx4cj packaging, and a versioned HarmonyOS XComponent host ingress | macOS bounded geometry and host wiring are proven; product assets, picking and other-host provider pixels remain separate gates |
-| Interaction | Pointer capture, focus, keyboard routing, normalized gamepad connection/axis/button events, smooth scrolling and motion levels | Gamepad routing is focus-owned; physical-device mappings, native IME and accessibility remain host responsibilities where not proven |
+| Rendering | SDL3-backed desktop renderer, phase-aware retained bookkeeping, bounded damage planning, FrameGraph scheduling, provider-neutral graphics negotiation and bounded render packets | SDL currently preserves/stages damage internally but still calls full-window `SDL_RenderPresent`; Metal, Vulkan, D3D11/12, OpenGL ES, WebGPU and software are adapter identities, not claims that every backend driver is shipped or verified |
+| Scene3D | Sealed semantic snapshots, a focusable embedded `Scene3DView`, optional shared-frame composition, macOS bgfx4cj packaging, and a versioned HarmonyOS XComponent host ingress | The selected SDL path composes bounded CPU RGBA8 frames in normal tree order; native private-texture/fence composition, field HDR and other-host provider pixels remain separate gates |
+| Interaction | Pointer capture, focus, keyboard/gamepad routing, plus a bounded in-process semantic snapshot/diff and typed-action plane | Voice and agent actions are opt-in; this is not an IPC or remote-control channel, and native accessibility/IME adapters remain host responsibilities where not proven |
+| Desktop windows | `DesktopApp` for one window and `DesktopApplication` for one process-level SDL pump with independently owned windows | Focus, overlays, pointer capture and Scene3D state are window-local; process-global gamepad events target the active window, and the multi-window path does not yet have full advanced FrameGraph/effect/transition parity with `DesktopApp` |
 | Inspection | debug-build-only `kMode`, `cuic probe`, component/function/event reports, Draw IR and deterministic `prnt` | Release applications and release cuic refuse privileged inspection; reports prove semantics and geometry, not a full device UI acceptance |
 | Packaging | `cuic init`, manifest validation, deterministic unsigned inputs, release-exclusion and network audits, plus opt-in macOS Developer ID/notarization gates | Runtime closure and publisher credentials remain owner inputs; App Store/MSIX publication and non-macOS host launch remain separate gates |
 | Mobile bridge | iOS native-surface lifecycle slice, Android surface bootstrap, staged package receipts, signed-package evidence, installation-attempt receipts and debug-only kMode callback replay | Platform signers/installers are never run implicitly; installation receipts remain platform-owner attestations, while launch, rendering, device replay and consumer acceptance stay separate gates |
@@ -223,6 +224,24 @@ framework development, but it is not the normal application layout.
   the next declarative build, with epoch/native-surface-generation gates,
   cancellation, close receipts, and bounded draining. `State` itself remains
   UI-owner-only.
+- `DesktopApplication` opens, focuses, steps and closes multiple native windows
+  under one SDL event pump. Window-scoped events retain their `WindowId`; focus,
+  overlays, pointer capture and Scene3D state stay window-local, while
+  process-global gamepad events are assigned to the active window.
+- `SemanticRuntime` records one bounded, revisioned semantic tree per window and
+  exposes deterministic snapshot/diff plus typed actions. Agent and voice action
+  sources are denied unless the application opts in; no coordinate, key,
+  process-attach, socket or command execution surface is included.
+- `Scene3DView` can opt into `PreferSharedFrame`. The current desktop path
+  samples a bounded CPU RGBA8 lease at the widget's normal paint position and
+  releases it exactly once with the terminal composition outcome; native private GPU textures
+  and acquire fences remain provider work, not an implied zero-copy claim.
+- Phase-aware retained bookkeeping records exact state dependencies and bounded
+  damage, while the FrameGraph reuses topology schedules. An exactly fingerprinted
+  keyed `Label` may reuse its committed measure output and a shape-clipped `Surface`
+  with a framework-resolved material may bound paint damage; custom material providers and
+  generic widget callbacks remain conservative, and SDL
+  still performs a full-window present even when internal damage is smaller.
 - Stable widget identity via `Keyed`, `rememberState`, and `ForEach`; focus,
   hover, cursor, and click identity follow deterministic per-frame build order.
 - Animation primitives: `Spring`, duration/easing `Animator`, repeating `Pulse`,
@@ -419,6 +438,8 @@ visual acceptance; they simply stop carrying the entire testing burden.
 - [Liquid Glass optional style pack](manual/reference/liquid-glass-style.md)
 - [Renderer effects and backdrop adapters](manual/reference/renderer-effects.md)
 - [Scene3D semantic projection](manual/reference/scene3d.md)
+- [Runtime semantic interaction](manual/reference/semantic-runtime.md)
+- [Desktop multi-window runtime](manual/reference/desktop-multi-window.md)
 - [Probe and kMode](manual/reference/probe.md)
 - [SDL3 Apple host notes](manual/reference/sdl3-apple-host.md)
 - [Modern GUI insights](manual/reference/modern-GUI-insights-and-analysis.md)

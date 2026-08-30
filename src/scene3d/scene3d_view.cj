@@ -1,9 +1,12 @@
 package chui.scene3d
 
-import chui.core.{UiContext, Widget, drawFocusRing, emit, focusableControlIdentity}
+import chui.core.{ControlSemantics, SemanticActionKind, SharedFrameSurface, UiContext, Widget, drawFocusRing, emit,
+    focusableControlIdentity, recordControlSemantics}
+import chui.graphics.compositeSdlSharedRgbaFrame
 import chui.host.{HostNativeSurfaceService, NativeSurfaceBackend, NativeSurfaceDescriptor, NativeSurfaceFrame,
     NativeSurfaceRenderer}
-import sdl.{GamepadAxis, GamepadButton, GamepadConnectionState, GamepadDevice, MouseButton, Rect, Size, UiEvent}
+import sdl.{DeviceRotation, GamepadAxis, GamepadButton, GamepadConnectionState, GamepadDevice, MouseButton,
+    Rect, Size, UiEvent}
 
 /** Logical placement requested by one Scene3DView inside a normal CangHui layout. */
 public struct Scene3DViewPlacement {
@@ -78,16 +81,25 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
     private let resource: Scene3DResource
     private let frameSource: Scene3DViewFrameSource
     private let inputHandler: (Scene3DViewInputEvent) -> Bool
+    private let compositionMode: Scene3DCompositionMode
+    private let sharedFrameProvider: ?Scene3DSharedFrameProvider
     private var surfaceId = ""
     private var generation: Int64 = 0
     private var lastFrameId: Int64 = -1
     private var attached = false
+    private var hasPresentedFrame = false
     private var placed = false
     private var placementX: Float32 = 0.0
     private var placementY: Float32 = 0.0
     private var placementWidth: Float32 = 0.0
     private var placementHeight: Float32 = 0.0
     private var placementScale: Float32 = 0.0
+    private var placementRevision: Int64 = 0
+    private var ownerContextToken: Int64 = 0
+    // Composition capability belongs to the retained controller, not the ephemeral widget.
+    // Declarative bodies rebuild Scene3DView every frame, while this generation-scoped failure
+    // memory must survive those rebuilds so a failed shared upload remains on native-child fallback.
+    private var sharedFrameFailureGeneration: Int64 = -1
     private var lastLifecycleReceipt = Scene3DReceipt(false, "initialize", "not-attached", 0, -1,
         "waiting for a host surface")
     private var lastHostReceipt = Scene3DViewHostReceipt(false, "place", "not-placed", "",
@@ -99,7 +111,8 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
         provider: Scene3DProvider,
         resource: Scene3DResource,
         frameSource: Scene3DViewFrameSource,
-        onInput!: (Scene3DViewInputEvent) -> Bool = { _ => false }
+        onInput!: (Scene3DViewInputEvent) -> Bool = { _ => false },
+        compositionMode!: Scene3DCompositionMode = Scene3DCompositionMode.NativeChild
     ) {
         if (viewId.isEmpty()) { throw IllegalArgumentException("scene3d view id must be present") }
         this.viewId = viewId
@@ -108,6 +121,8 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
         this.resource = resource
         this.frameSource = frameSource
         this.inputHandler = onInput
+        this.compositionMode = compositionMode
+        this.sharedFrameProvider = provider as Scene3DSharedFrameProvider
         this.lastHostReceipt = Scene3DViewHostReceipt(false, "place", "not-placed", viewId,
             "waiting for widget layout")
         host.bind(this)
@@ -119,6 +134,33 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
     public func currentFrameId(): Int64 { lastFrameId }
     public func lifecycleReceipt(): Scene3DReceipt { lastLifecycleReceipt }
     public func hostReceipt(): Scene3DViewHostReceipt { lastHostReceipt }
+    public func requestedCompositionMode(): Scene3DCompositionMode { compositionMode }
+    public func canAcquireSharedFrame(): Bool {
+        compositionMode == Scene3DCompositionMode.PreferSharedFrame && sharedFrameProvider.isSome()
+    }
+
+    protected func sharedFrameFallbackRequired(value: Int64): Bool {
+        value > 0 && sharedFrameFailureGeneration == value
+    }
+
+    protected func recordSharedFrameComposition(value: Int64, ok: Bool): Unit {
+        if (ok) {
+            if (sharedFrameFailureGeneration == value) { sharedFrameFailureGeneration = -1 }
+        } else if (value > 0 && value == generation) {
+            sharedFrameFailureGeneration = value
+        }
+    }
+
+    /** Permanently binds this retained native-surface controller to one window-local UiContext. */
+    protected func bindOwnerContext(ctx: UiContext): Unit {
+        let candidate = ctx.ownershipToken()
+        if (ownerContextToken == 0) {
+            ownerContextToken = candidate
+        } else if (ownerContextToken != candidate) {
+            throw IllegalStateException(
+                "Scene3DViewController '${viewId}' cannot be reused across UiContext/window owners")
+        }
+    }
 
     public func place(rect: Rect, scale: Float32): Scene3DViewHostReceipt {
         if (rect.w <= 0.0 || rect.h <= 0.0 || scale <= 0.0) {
@@ -135,6 +177,7 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
         let receipt = host.place(Scene3DViewPlacement(viewId, rect.x, rect.y, rect.w, rect.h, scale))
         lastHostReceipt = receipt
         if (receipt.ok) {
+            placementRevision += 1
             placed = true
             placementX = rect.x
             placementY = rect.y
@@ -165,16 +208,20 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
         lastLifecycleReceipt = receipt
         if (!receipt.ok) { return }
         attached = true
+        hasPresentedFrame = false
         surfaceId = surface.id
         generation = surface.generation
+        sharedFrameFailureGeneration = -1
         lastFrameId = clock.frameId
         let loaded = provider.loadScene(resource)
         lastLifecycleReceipt = loaded
         if (!loaded.ok) {
             let _ = provider.detach(surface.id, surface.generation)
             attached = false
+            hasPresentedFrame = false
             surfaceId = ""
             generation = 0
+            sharedFrameFailureGeneration = -1
             lastFrameId = -1
         }
     }
@@ -201,7 +248,10 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
         if (!submitted.ok) { return }
         let presented = provider.present(clock)
         lastLifecycleReceipt = presented
-        if (presented.ok) { lastFrameId = frame.frameId }
+        if (presented.ok) {
+            lastFrameId = frame.frameId
+            hasPresentedFrame = true
+        }
     }
 
     public func detach(id: String, value: Int64): Unit {
@@ -214,8 +264,10 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
         lastLifecycleReceipt = receipt
         if (receipt.ok) {
             attached = false
+            hasPresentedFrame = false
             surfaceId = ""
             generation = 0
+            sharedFrameFailureGeneration = -1
             lastFrameId = -1
         }
     }
@@ -226,6 +278,77 @@ public class Scene3DViewController <: NativeSurfaceRenderer {
     }
 
     public func dispatchInput(event: Scene3DViewInputEvent): Bool { inputHandler(event) }
+
+    /**
+     * Acquires one provider frame and transfers its exactly-once finish callback to UiContext.
+     * The lease remains alive until graph commit/rollback or legacy fallback. Returning false
+     * finishes the lease immediately and leaves the caller on the native-child path.
+     */
+    protected func registerSharedFrame(ctx: UiContext, bounds: Rect, rotationCode: String): Bool {
+        if (!attached || !hasPresentedFrame ||
+            compositionMode != Scene3DCompositionMode.PreferSharedFrame) {
+            return false
+        }
+        let provider = match (sharedFrameProvider) {
+            case Some(value) => value
+            case None => return false
+        }
+        if (placementRevision <= 0 || rotationCode.isEmpty()) { return false }
+        let request = Scene3DSharedFrameRequest(
+            surfaceId,
+            generation,
+            lastFrameId,
+            bounds.w,
+            bounds.h,
+            ctx.displayScale,
+            placementRevision,
+            rotationCode)
+        let lease = match (provider.acquireSharedFrame(request)) {
+            case Some(value) => value
+            case None => return false
+        }
+        try {
+            if (lease.surfaceId != surfaceId || lease.generation != generation ||
+                lease.frameId != lastFrameId || !sameScene3DSharedRequest(lease.request, request)) {
+                let _ = lease.finish(Scene3DSharedFrameFinishReason.Rejected)
+                return false
+            }
+            // The first portable compositor uploads RGBA8 SDR. Extended-linear/HDR frames keep
+            // their explicit contract but remain on the native-child path until a selected target
+            // proves the matching color pipeline; metadata alone must never activate HDR.
+            if (lease.dynamicRange != Scene3DSharedDynamicRange.Sdr ||
+                lease.colorSpace != Scene3DSharedColorSpace.Srgb ||
+                lease.payloadKind != Scene3DSharedFramePayloadKind.CpuRgba8 ||
+                lease.acquireSync.waitRequired) {
+                let _ = lease.finish(Scene3DSharedFrameFinishReason.Fallback)
+                return false
+            }
+            let pixels = lease.copyRgbaPixels()
+            ctx.registerSharedFrameSurface(SharedFrameSurface(
+                viewId,
+                lease.generation,
+                lease.frameId,
+                bounds,
+                lease.pixelWidth,
+                lease.pixelHeight,
+                lease.rowBytes,
+                scene3DSharedColorSpaceName(lease.colorSpace),
+                scene3DSharedAlphaModeName(lease.alphaMode),
+                scene3DSharedDynamicRangeName(lease.dynamicRange),
+                lease.syncEpoch,
+                lease.contentCode,
+                lease.request.rotationCode,
+                pixels,
+                onFinish: {outcome =>
+                    lease.finish(scene3DSharedFrameFinishReasonFromCore(outcome)).ok
+                }
+            ))
+            true
+        } catch (_: Exception) {
+            let _ = lease.finish(Scene3DSharedFrameFinishReason.Rejected)
+            false
+        }
+    }
 
     private func matches(id: String, value: Int64): Bool {
         attached && id == surfaceId && value == generation
@@ -244,6 +367,7 @@ public class Scene3DView <: Widget {
     private let preferredWidth: Float32
     private let preferredHeight: Float32
     private var frame = Rect.zero()
+    private var nativeFallbackRegisteredThisFrame: Bool = false
 
     public init(controller: Scene3DViewController, width!: Float32 = 320.0, height!: Float32 = 240.0) {
         if (width <= 0.0 || height <= 0.0) {
@@ -262,19 +386,62 @@ public class Scene3DView <: Widget {
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        nativeFallbackRegisteredThisFrame = false
+        controller.bindOwnerContext(ctx)
         let placement = controller.place(rect, ctx.displayScale)
-        // The FrameGraph sees only a scheduling barrier. Provider lifecycle and input remain here,
-        // and a native child surface is never promoted to unified 2D/3D pixels. Failed placement or
-        // an unattached provider is not a surface and therefore must not become a phantom barrier.
-        if (placement.ok && controller.isAttached() && controller.currentGeneration() > 0) {
-            ctx.registerNativeChildFrameSurface(
-                controller.id(), controller.currentGeneration(), rect)
+        // A proven shared frame is sampled during this widget's ordinary draw position; otherwise
+        // the FrameGraph keeps the established native-child scheduling barrier. Provider lifecycle
+        // and input remain here, and failed placement never becomes a phantom surface.
+        let generation = controller.currentGeneration()
+        if (placement.ok && controller.isAttached() && generation > 0) {
+            if (controller.sharedFrameFallbackRequired(generation)) {
+                registerNativeFallback(ctx, rect, generation)
+            } else if (!controller.registerSharedFrame(
+                ctx, rect, scene3DDeviceRotationCode(ctx.deviceRotation()))) {
+                registerNativeFallback(ctx, rect, generation)
+            }
         }
     }
 
     public func draw(ctx: UiContext): Unit {
-        ctx.renderer.fillRoundedRect(frame, ctx.theme.smallRadius, ctx.theme.field)
+        recordControlSemantics(ctx, frame, "Scene3DView", ControlSemantics(
+            "scene3d", label: controller.id(), action: "", shortcut: "", actionOwner: controlId,
+            typedActions: [SemanticActionKind.Focus]
+        ))
+        var composed = false
+        match (ctx.sharedFrameSurface(controller.id())) {
+            case Some(surface) =>
+                let result = compositeSdlSharedRgbaFrame(
+                    ctx.renderer,
+                    true,
+                    surface.pixelWidth,
+                    surface.pixelHeight,
+                    surface.rowBytes,
+                    surface.alphaMode,
+                    surface.pixels(),
+                    frame,
+                    cornerRadius: ctx.theme.smallRadius,
+                    rotationCode: surface.rotationCode)
+                composed = result.ok
+                surface.recordComposition(result.ok, result.code)
+                controller.recordSharedFrameComposition(surface.generation, result.ok)
+                if (!result.ok) {
+                    // Keep the established native child alive for this terminal frame and every
+                    // later frame of the same surface generation. A new generation may retry the
+                    // shared path, while a persistent renderer/upload failure cannot oscillate
+                    // between missing 3D content and a placeholder.
+                    registerNativeFallback(ctx, frame, surface.generation)
+                }
+            case None => ()
+        }
+        if (!composed) { ctx.renderer.fillRoundedRect(frame, ctx.theme.smallRadius, ctx.theme.field) }
         if (ctx.showFocusRing(controlId)) { drawFocusRing(ctx, frame, ctx.theme.smallRadius) }
+    }
+
+    private func registerNativeFallback(ctx: UiContext, bounds: Rect, generation: Int64): Unit {
+        if (nativeFallbackRegisteredThisFrame) { return }
+        ctx.registerNativeChildFrameSurface(controller.id(), generation, bounds)
+        nativeFallbackRegisteredThisFrame = true
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -328,6 +495,36 @@ public class Scene3DView <: Widget {
 
     public func focusableId(): ?String { Some(controlId) }
     public func interactionOwnerIds(): Array<String> { [controlId] }
+}
+
+private func sameScene3DSharedRequest(
+    actual: Scene3DSharedFrameRequest,
+    expected: Scene3DSharedFrameRequest
+): Bool {
+    actual.surfaceId == expected.surfaceId && actual.generation == expected.generation &&
+        actual.frameId == expected.frameId && actual.logicalWidth == expected.logicalWidth &&
+        actual.logicalHeight == expected.logicalHeight && actual.scale == expected.scale &&
+        actual.placementRevision == expected.placementRevision &&
+        actual.rotationCode == expected.rotationCode
+}
+
+private func scene3DSharedFrameFinishReasonFromCore(value: String): Scene3DSharedFrameFinishReason {
+    if (value == "presented") { return Scene3DSharedFrameFinishReason.Presented }
+    if (value == "fallback") { return Scene3DSharedFrameFinishReason.Fallback }
+    if (value == "executor-failed") { return Scene3DSharedFrameFinishReason.ExecutorFailed }
+    if (value == "replaced") { return Scene3DSharedFrameFinishReason.Replaced }
+    if (value == "abandoned") { return Scene3DSharedFrameFinishReason.Abandoned }
+    Scene3DSharedFrameFinishReason.Rejected
+}
+
+private func scene3DDeviceRotationCode(value: DeviceRotation): String {
+    match (value) {
+        case DeviceRotation.Unknown => "unknown"
+        case DeviceRotation.Portrait => "portrait"
+        case DeviceRotation.LandscapeClockwise => "landscape-clockwise"
+        case DeviceRotation.PortraitUpsideDown => "portrait-upside-down"
+        case DeviceRotation.LandscapeCounterClockwise => "landscape-counter-clockwise"
+    }
 }
 
 private func toSceneSurface(surface: NativeSurfaceDescriptor): Scene3DHostSurface {

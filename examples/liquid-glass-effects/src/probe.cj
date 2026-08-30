@@ -20,8 +20,8 @@ func liquidGlassEffectsProbe(script: String): String {
                 ProbeProperty("fallback", "deterministic-sdr"),
                 ProbeProperty("shapeUnion", "unsupported"),
                 ProbeProperty("frameGraph", "rev1-opt-in"),
-                ProbeProperty("scene3dMode", "native-child-surface-barrier"),
-                ProbeProperty("unifiedPixels", "false"),
+                ProbeProperty("scene3dMode", "shared-frame-cpu-rgba8"),
+                ProbeProperty("unifiedPixels", "true"),
                 ProbeProperty("presentMode", "full")
             ]
         ) {

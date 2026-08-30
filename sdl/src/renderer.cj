@@ -911,6 +911,24 @@ public class Renderer {
         )
     }
 
+    /** Draws a texture through the exact rounded-rectangle silhouette in the active clip stack. */
+    public func texturedRoundedRect(
+        texture: Texture,
+        frame: Rect,
+        cornerRadius: Float32,
+        opacity!: Float32 = 1.0
+    ): Unit {
+        if (texture.isClosed()) {
+            throw CuiException("Cannot render a closed texture.")
+        }
+        recordDrawIr("paint.textured-rounded-rect", drawIrRect(frame) +
+            ",\"cornerRadius\":" + cornerRadius.toString() +
+            ",\"opacity\":" + opacity.toString())
+        if (ptr.isNull()) { return }
+        geometry.texturedRoundedRect(
+            ptr, texture.ptr, frame, roundedRadius(frame, cornerRadius), opacity)
+    }
+
     /**
      * Draws a textured triangle strip for skinned or deformable sprites: `points` holds
      * consecutive (left, right) vertex pairs along the strip in draw coordinates, and

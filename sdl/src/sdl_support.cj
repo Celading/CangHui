@@ -35,13 +35,11 @@ internal func lastSdlError(): String {
 /**
  * Throws `CuiException` when renderer defaults cannot be applied after window creation.
  */
-internal func configureRenderer(window: CPointer<Unit>, renderer: CPointer<Unit>, scale: Float32, vsync: Bool): Unit {
+internal func configureRenderer(renderer: CPointer<Unit>, scale: Float32, vsync: Bool): Unit {
     if (!unsafe { SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND) }) {
-        destroyCreatedResources(window, renderer)
         throw CuiException("SDL_SetRenderDrawBlendMode failed: ${lastSdlError()}")
     }
     if (!unsafe { SDL_SetRenderScale(renderer, scale, scale) }) {
-        destroyCreatedResources(window, renderer)
         throw CuiException("SDL_SetRenderScale failed: ${lastSdlError()}")
     }
     // 1 = sync to every vertical blank; 0 = SDL_RENDERER_VSYNC_DISABLED (uncapped present).
@@ -54,7 +52,8 @@ internal func configureRenderer(window: CPointer<Unit>, renderer: CPointer<Unit>
 }
 
 /**
- * Releases partially-created SDL resources before propagating a setup failure.
+ * Releases partially-created window resources before propagating a setup failure.
+ * Process-wide SDL teardown belongs exclusively to `SdlRuntime`.
  */
 internal func destroyCreatedResources(window: CPointer<Unit>, renderer: CPointer<Unit>): Unit {
     unsafe {
@@ -64,7 +63,6 @@ internal func destroyCreatedResources(window: CPointer<Unit>, renderer: CPointer
         if (window.isNotNull()) {
             SDL_DestroyWindow(window)
         }
-        SDL_Quit()
     }
 }
 

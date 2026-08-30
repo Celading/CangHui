@@ -1,8 +1,10 @@
 package chui.scene3d
 
 import chui.core.{Theme, UiContext}
+import chui.graphics.SdlSharedFrameHeadlessTarget
 import chui.host.{NativeSurfaceBackend, NativeSurfaceDescriptor, NativeSurfaceEvent, NativeSurfaceFrame}
-import sdl.{GamepadButton, MouseButton, Rect, Renderer, Size, UiEvent}
+import sdl.{Color, DeviceRotation, DeviceRotationEvent, DeviceRotationSource, GamepadButton, MouseButton, Rect,
+    Renderer, Size, UiEvent, deviceRotationDeltaDegrees}
 
 private class TestFrameSource <: Scene3DViewFrameSource {
     var calls: Int64 = 0
@@ -128,8 +130,187 @@ func scene3DViewLocalizesPointerAndRoutesGamepadOnlyWhileFocused(): Unit {
     @Expect(recorder.calls, Int64(2))
 }
 
+@Test
+func scene3DViewSharedModeFallsBackByGenerationAndRejectsFalsePresentedReceipt(): Unit {
+    let host = FakeScene3DViewHost()
+    let provider = FakeScene3DProvider()
+    let controller = Scene3DViewController(
+        "shared-scene", host, provider, testResource(), TestFrameSource(),
+        compositionMode: Scene3DCompositionMode.PreferSharedFrame)
+    let view = Scene3DView(controller, width: 120.0, height: 80.0)
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+
+    host.publish(NativeSurfaceEvent.Available(testSurface(1, 120.0, 80.0)))
+    ctx.beginFrameSurfaceRegistration()
+    view.layout(ctx, Rect(10.0, 20.0, 120.0, 80.0))
+    @Expect(ctx.sharedFrameSurfaceCount(), Int64(0))
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(1))
+
+    host.publish(NativeSurfaceEvent.Frame(NativeSurfaceFrame(3, 10, 20)))
+    ctx.beginFrameSurfaceRegistration()
+    view.layout(ctx, Rect(10.0, 20.0, 120.0, 80.0))
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(0))
+    @Expect(ctx.sharedFrameSurfaceCount(), Int64(1))
+    let frame = ctx.sharedFrameSurfaceAt(0)
+    @Expect(frame.identity, "shared-scene")
+    @Expect(frame.frameId, Int64(3))
+    @Expect(frame.rotationCode, "portrait")
+    @Expect(frame.pixelWidth, Int64(240))
+    @Expect(frame.pixelHeight, Int64(160))
+    @Expect(frame.pixels().size, Int64(240 * 160 * 4))
+    @Expect(provider.sharedAcquireCount(), Int64(1))
+    @Expect(provider.sharedReleaseCount(), Int64(0))
+    ctx.beginSharedFrameCompositionAttempt()
+    // Headless deliberately has no SDL texture device. The widget may paint its placeholder, but
+    // it must also restore the established native-child path for this generation and must never
+    // report the provider lease as presented when its pixels were not sampled.
+    view.draw(ctx)
+    @Expect(frame.compositionAttempted())
+    @Expect(!frame.compositionSucceeded())
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(1))
+    @Expect(ctx.nativeChildFrameSurfaceAt(0).identity, "shared-scene")
+    @Expect(ctx.finishSharedFrameSurfaces("fallback"))
+    @Expect(frame.finishOutcome(), "fallback")
+    @Expect(provider.sharedReleaseCount(), Int64(1))
+    @Expect(ctx.finishSharedFrameSurfaces("presented"))
+    @Expect(frame.finishOutcome(), "fallback")
+    @Expect(provider.sharedReleaseCount(), Int64(1))
+
+    // A persistent failure does not oscillate back to a missing shared frame when the declarative
+    // body rebuilds its ephemeral Scene3DView around the same retained controller.
+    let rebuiltView = Scene3DView(controller, width: 120.0, height: 80.0)
+    ctx.beginFrameSurfaceRegistration()
+    rebuiltView.layout(ctx, Rect(10.0, 20.0, 120.0, 80.0))
+    @Expect(ctx.sharedFrameSurfaceCount(), Int64(0))
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(1))
+    @Expect(provider.sharedAcquireCount(), Int64(1))
+
+    // A new native generation is a bounded recovery point and may try shared composition again.
+    host.publish(NativeSurfaceEvent.Available(testSurface(2, 120.0, 80.0)))
+    host.publish(NativeSurfaceEvent.Frame(NativeSurfaceFrame(4, 30, 40)))
+    let recoveredView = Scene3DView(controller, width: 120.0, height: 80.0)
+    ctx.beginFrameSurfaceRegistration()
+    recoveredView.layout(ctx, Rect(10.0, 20.0, 120.0, 80.0))
+    @Expect(ctx.sharedFrameSurfaceCount(), Int64(1))
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(0))
+    @Expect(provider.sharedAcquireCount(), Int64(2))
+    @Expect(ctx.finishSharedFrameSurfaces("fallback"))
+    @Expect(provider.sharedReleaseCount(), Int64(2))
+}
+
+@Test
+func scene3DSharedFrameHeadlessMatrixPropagatesSignedRotationResizeAndFallbackOutcome(): Unit {
+    let host = FakeScene3DViewHost()
+    let provider = FakeScene3DProvider()
+    let controller = Scene3DViewController(
+        "rotation-shared-scene", host, provider, testResource(), TestFrameSource(),
+        compositionMode: Scene3DCompositionMode.PreferSharedFrame)
+    let view = Scene3DView(controller, width: 14.0, height: 12.0)
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let target = SdlSharedFrameHeadlessTarget(16, 16, clear: Color.rgb(2, 3, 4))
+
+    host.publish(NativeSurfaceEvent.Available(testSurface(1, 120.0, 80.0)))
+    host.publish(NativeSurfaceEvent.Frame(NativeSurfaceFrame(5, 30, 40)))
+
+    composeRotationLayout(
+        view, ctx, target, provider,
+        DeviceRotation.Portrait, DeviceRotation.LandscapeClockwise, 90.0,
+        "landscape-clockwise", Rect(2.0, 2.0, 12.0, 8.0))
+    composeRotationLayout(
+        view, ctx, target, provider,
+        DeviceRotation.Portrait, DeviceRotation.PortraitUpsideDown, 180.0,
+        "portrait-upside-down", Rect(3.0, 1.0, 8.0, 12.0))
+    composeRotationLayout(
+        view, ctx, target, provider,
+        DeviceRotation.Portrait, DeviceRotation.LandscapeCounterClockwise, -90.0,
+        "landscape-counter-clockwise", Rect(1.0, 3.0, 13.0, 7.0))
+    composeRotationLayout(
+        view, ctx, target, provider,
+        DeviceRotation.PortraitUpsideDown, DeviceRotation.Portrait, -180.0,
+        "portrait", Rect(4.0, 2.0, 7.0, 11.0))
+
+    @Expect(provider.sharedAcquireCount(), Int64(4))
+    @Expect(provider.sharedReleaseCount(), Int64(4))
+}
+
+@Test
+func scene3DViewControllerRejectsCrossContextReuseBeforeHostReplacement(): Unit {
+    let host = FakeScene3DViewHost()
+    let controller = Scene3DViewController(
+        "window-owned-scene", host, FakeScene3DProvider(), testResource(), TestFrameSource())
+    let view = Scene3DView(controller, width: 120.0, height: 80.0)
+    let first = UiContext(Renderer.headless(), Theme.light())
+    let second = UiContext(Renderer.headless(), Theme.light())
+    let bounds = Rect(10.0, 20.0, 120.0, 80.0)
+
+    view.layout(first, bounds)
+    @Expect(host.placementCount(), Int64(1))
+
+    var rejected = false
+    try {
+        view.layout(second, bounds)
+    } catch (_: IllegalStateException) {
+        rejected = true
+    }
+    @Expect(rejected)
+    @Expect(host.placementCount(), Int64(1))
+}
+
 private func testResource(): Scene3DResource {
     Scene3DResource("metro-scene", "memory://metro", "sha256:test", 0)
+}
+
+private func composeRotationLayout(
+    view: Scene3DView,
+    ctx: UiContext,
+    target: SdlSharedFrameHeadlessTarget,
+    provider: FakeScene3DProvider,
+    from: DeviceRotation,
+    to: DeviceRotation,
+    expectedDelta: Float32,
+    expectedCode: String,
+    bounds: Rect
+): Unit {
+    @Expect(deviceRotationDeltaDegrees(from, to), expectedDelta)
+    ctx.updateDeviceRotation(DeviceRotationEvent(
+        from, source: DeviceRotationSource.Synthetic, timestampMs: UInt64(1)))
+    ctx.updateDeviceRotation(DeviceRotationEvent(
+        to, source: DeviceRotationSource.Gyroscope, timestampMs: UInt64(2)))
+    target.clear(Color.rgb(2, 3, 4))
+    ctx.renderer.clearDrawIr()
+    ctx.beginFrameSurfaceRegistration()
+    view.layout(ctx, bounds)
+    @Expect(ctx.nativeChildFrameSurfaceCount(), Int64(0))
+    @Expect(ctx.sharedFrameSurfaceCount(), Int64(1))
+    let frame = ctx.sharedFrameSurfaceAt(0)
+    @Expect(frame.rotationCode, expectedCode)
+    @Expect(frame.bounds.x, bounds.x)
+    @Expect(frame.bounds.y, bounds.y)
+    @Expect(frame.bounds.w, bounds.w)
+    @Expect(frame.bounds.h, bounds.h)
+
+    ctx.beginSharedFrameCompositionAttempt()
+    let result = target.composite(
+        ctx.renderer,
+        frame.pixelWidth,
+        frame.pixelHeight,
+        frame.rowBytes,
+        frame.alphaMode,
+        frame.pixels(),
+        bounds,
+        cornerRadius: 2.0,
+        rotationCode: frame.rotationCode)
+    frame.recordComposition(result.ok, result.code)
+    @Expect(result.ok)
+    @Expect(ctx.sharedFrameCompositionSucceeded())
+    // A recording-headless software sample is deterministic composition proof, not a native
+    // present. The lease therefore terminates as fallback and must never manufacture Presented.
+    @Expect(ctx.finishSharedFrameSurfaces("fallback"))
+    @Expect(frame.finishOutcome(), "fallback")
+    @Expect(frame.isFinished())
+    @Expect(!frame.finishOutcome().contains("presented"))
+    @Expect(provider.sharedReleaseCount() > 0)
 }
 
 private func testSurface(generation: Int64, width: Float32, height: Float32): NativeSurfaceDescriptor {

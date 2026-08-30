@@ -1,7 +1,7 @@
 package chui.controls
 
 import sdl.{Key, Pen, Rect, Size, UiEvent}
-import chui.core.{Bindable, ControlSemantics, UiContext, Widget, resolveControlKey, drawFocusRing, emit,
+import chui.core.{Bindable, ControlSemantics, SemanticActionKind, UiContext, Widget, resolveControlKey, drawFocusRing, emit,
     handlePointerClick, recordControlSemantics, registerFocusable}
 
 private let RATING_RADIUS: Float32 = 8.0
@@ -72,7 +72,11 @@ public class Rating <: Widget {
             "rating", label: semanticLabel, value: "${selectedTo}/${count}",
             action: if (readonly) { "" } else { "Rating.set()" },
             shortcut: if (readonly) { "" } else { "Left|Down|Right|Up|Home|End" },
-            actionOwner: id
+            actionOwner: id,
+            readOnly: Some(readonly),
+            typedActions: if (readonly) { [] } else {
+                [SemanticActionKind.Focus, SemanticActionKind.Decrement, SemanticActionKind.Increment]
+            }
         ))
         for (i in 0..count) {
             let cx = frame.x + RATING_RADIUS + Float32(i) * RATING_STEP

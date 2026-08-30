@@ -4,7 +4,7 @@ import sdl.{Color, FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import chui.core.{AnimationSpec, Bindable, CUI_SMALL_H, ComponentControlAppearance,
     ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
     CursorShape, InteractionAnimation, Motion, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset, Spring,
-    State, UiContext, Widget, requireControlId,
+    SemanticActionKind, State, UiContext, Widget, requireControlId,
     advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawFocusRing,
     drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity, handlePointerClick, localState,
     recordControlSemantics, resolveComponentControlAppearance, reregisterFocusable, scrollLineIndex,
@@ -133,7 +133,8 @@ public class Checkbox <: Widget {
         drawSurface(ctx, box, appearance.surface)
         recordControlSemantics(ctx, frame, "Checkbox", ControlSemantics(
             "checkbox", label: semanticLabel, action: "Checkbox.toggle()",
-            actionOwner: controlId, selected: Some(checked.value)
+            actionOwner: controlId, selected: Some(checked.value),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         // The fill grows from the centre to fill the box as it is ticked.
         if (t > 0.001) {
@@ -316,6 +317,15 @@ public class ListView <: Widget {
             revealRow(selected.value)
             lastRevealed.value = selected.value
         }
+        let semanticValue = if (selected.value >= 0 && selected.value < items.size) {
+            items[selected.value]
+        } else {
+            ""
+        }
+        recordControlSemantics(ctx, frame, "ListView", ControlSemantics(
+            "list", value: semanticValue, action: "", shortcut: "", actionOwner: controlId,
+            typedActions: [SemanticActionKind.Focus]
+        ))
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(controlId)))
 
         let viewport = listViewport(frame)

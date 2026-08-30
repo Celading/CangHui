@@ -2,8 +2,9 @@ package chui.controls
 
 import sdl.{Key, Rect, Size, UiEvent}
 import chui.core.{AnimationSpec, Bindable, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
-    ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, Motion, UiContext,
-    Widget, drawFocusRing, drawSurface, emit, handlePointerClick, localState, recordControlSemantics,
+    ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, Motion,
+    SemanticActionKind, UiContext, Widget, drawFocusRing, drawSurface, emit, handlePointerClick, localState,
+    recordControlSemantics,
     registerFocusable, resolveComponentControlAppearance, resolveControlKey}
 
 /*
@@ -113,7 +114,8 @@ public class Chip <: Widget {
         drawSurface(ctx, frame, appearance.surface)
         recordControlSemantics(ctx, frame, "Chip", ControlSemantics(
             "checkbox", label: semanticLabel, action: "Chip.toggle()",
-            actionOwner: id, selected: Some(on)
+            actionOwner: id, selected: Some(on),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         if (ctx.showFocusRing(id)) {
             drawFocusRing(ctx, frame, appearance.focusRadius)

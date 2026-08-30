@@ -1,6 +1,7 @@
 package chui.graphics
 
 import std.collection.ArrayList
+import std.env.getVariable
 import sdl.{Color, Renderer}
 import sdl.system.PerformanceClock
 
@@ -98,6 +99,32 @@ private func sdlExecutorSceneBarrierGraph(mode: FrameExternalMode): FrameGraph {
         frameDamage: DamageRegion.full())
 }
 
+private func sdlExecutorSharedImportUiGraph(): FrameGraph {
+    let source = FrameResourceId("scene.shared", 1)
+    let target = FrameResourceId("scene.target", 1)
+    FrameGraph(
+        "sdl.shared-scene",
+        1,
+        1,
+        80,
+        60,
+        [
+            FrameResourceDescriptor(source, FrameResourceKind.Texture, FrameResourceLifetime.Imported,
+                declaredBytes: 80 * 60 * 4),
+            FrameResourceDescriptor(target, FrameResourceKind.Surface, FrameResourceLifetime.Persistent)
+        ],
+        [
+            FramePassDescriptor(
+                FramePassId("scene.acquire"), 0, FramePassKind.ExternalScene3D,
+                reads: [source], externalMode: FrameExternalMode.SharedTexture),
+            FramePassDescriptor(
+                FramePassId("ui.main"), 1, FramePassKind.Ui2D,
+                reads: [source], writes: [target], dependsOn: [FramePassId("scene.acquire")]),
+            FramePassDescriptor(
+                FramePassId("present.main"), 2, FramePassKind.Present, reads: [target])
+        ])
+}
+
 private func compiledSdlExecutorGraph(
     graph: FrameGraph,
     executor: SdlFrameGraphExecutor
@@ -131,6 +158,7 @@ func sdlExecutorKeepsRuntimeBindingsOutOfTraceAndReportsFullPresent(): Unit {
     let receipt = FrameGraphRuntime().execute(sdlExecutorRasterGraph(), executor)
     @Expect(receipt.ok)
     @Expect(receipt.presentMode == FramePresentMode.Full)
+    @Expect(receipt.presentStrategy == FramePresentStrategy.FullSurface)
     @Expect(!receipt.trace.contains("runtime-secret-action"))
     @Expect(calls.value, 1)
     @Expect(beforePresentCalls.value, 1)
@@ -138,6 +166,7 @@ func sdlExecutorKeepsRuntimeBindingsOutOfTraceAndReportsFullPresent(): Unit {
     let provider = executor.lastReceipt()
     @Expect(provider.ok)
     @Expect(provider.presentMode == FramePresentMode.Full)
+    @Expect(provider.presentStrategy == FramePresentStrategy.FullSurface)
     @Expect(!provider.deviceBacked)
     @Expect(provider.unifiedPixels)
     @Expect(!provider.legacyFallbackRequired)
@@ -167,8 +196,35 @@ func sdlExecutorFullPromotionNeverReappliesPerPassBoundedClip(): Unit {
     @Expect(promoted.ok)
     @Expect(promoted.redrawMode == FrameRedrawMode.Full)
     @Expect(promoted.presentMode == FramePresentMode.Full)
+    @Expect(promoted.presentStrategy == FramePresentStrategy.UnsupportedFallback)
     @Expect(promoted.fallbackReason, "bounded-redraw-unsupported")
     @Expect(calls.value, 2)
+    executor.close()
+}
+
+@Test
+func sdlExecutorReusesAnImmutableBindingSnapshotUntilBindingsChange(): Unit {
+    let executor = SdlFrameGraphExecutor(Renderer.headless())
+    executor.bindPass(FramePassId("ui.main"), {_ =>
+        FramePassExecutionResult(true, "accepted")
+    })
+    let first = compiledSdlExecutorGraph(sdlExecutorRasterGraph(frameId: 1), executor)
+    let firstSession = executor.begin(first)
+    firstSession.rollback()
+    @Expect(executor.bindingSnapshotBuildCount(), 1)
+
+    let second = compiledSdlExecutorGraph(sdlExecutorRasterGraph(frameId: 2), executor)
+    let secondSession = executor.begin(second)
+    secondSession.rollback()
+    @Expect(executor.bindingSnapshotBuildCount(), 1)
+
+    executor.bindPass(FramePassId("ui.main"), {_ =>
+        FramePassExecutionResult(true, "replacement")
+    })
+    let third = compiledSdlExecutorGraph(sdlExecutorRasterGraph(frameId: 3), executor)
+    let thirdSession = executor.begin(third)
+    thirdSession.rollback()
+    @Expect(executor.bindingSnapshotBuildCount(), 2)
     executor.close()
 }
 
@@ -209,6 +265,8 @@ func sdlExecutorRollsBackFailedPassAndReleasesTransientExactlyOnce(): Unit {
     @Expect(receipt.code, "executor-pass-failed")
     @Expect(resource.closeCount, 1)
     @Expect(executor.lastReceipt().code, "configured-pass-failure")
+    @Expect(executor.lastReceipt().presentMode == FramePresentMode.NotPresented)
+    @Expect(executor.lastReceipt().presentStrategy == FramePresentStrategy.NotPresented)
     @Expect(executor.lastReceipt().releasedTransientCount, 1)
     @Expect(executor.lastReceipt().legacyFallbackRequired)
     executor.close()
@@ -230,6 +288,8 @@ func sdlExecutorDoesNotRetryThrowingTransientCloseAfterCommitFailure(): Unit {
     @Expect(receipt.code, "executor-commit-failed")
     @Expect(resource.closeCount, 1)
     @Expect(executor.lastReceipt().code, "transient-release-failed")
+    @Expect(executor.lastReceipt().presentMode == FramePresentMode.NotPresented)
+    @Expect(executor.lastReceipt().presentStrategy == FramePresentStrategy.NotPresented)
     @Expect(executor.lastReceipt().releasedTransientCount, 1)
     @Expect(executor.lastReceipt().cleanupFailureCount, 1)
     executor.close()
@@ -275,6 +335,7 @@ func sdlExecutorFreezesBindingsWhenSessionBegins(): Unit {
     @Expect(fallback.code, "accepted-legacy-fallback")
     @Expect(fallback.redrawMode == FrameRedrawMode.Full)
     @Expect(fallback.presentMode == FramePresentMode.Full)
+    @Expect(fallback.presentStrategy == FramePresentStrategy.UnsupportedFallback)
     @Expect(fallback.legacyFallbackUsed)
     @Expect(!executor.markLegacyFallbackUsed())
     executor.clearPassBindings()
@@ -355,6 +416,27 @@ func sdlExecutorRejectsSharedTextureBeforeAnyRuntimeBinding(): Unit {
 }
 
 @Test
+func sdlExecutorAcceptsSharedAcquireOnlyAfterDeviceCapabilityProof(): Unit {
+    let executor = SdlFrameGraphExecutor(
+        Renderer.headless(), assumeDeviceBackedForConformance: true)
+    let sharedCalls = SdlExecutorTestCounter()
+    executor.bindPass(FramePassId("scene.acquire"), {context =>
+        @Expect(context.unifiedPixels)
+        sharedCalls.value += 1
+        FramePassExecutionResult(true, "accepted")
+    })
+    executor.bindPass(FramePassId("ui.main"), {_ =>
+        FramePassExecutionResult(true, "accepted")
+    })
+    @Expect(executor.capabilities().supportsSharedTexture)
+    let receipt = FrameGraphRuntime().execute(sdlExecutorSharedImportUiGraph(), executor)
+    @Expect(receipt.ok)
+    @Expect(sharedCalls.value, Int64(1))
+    @Expect(executor.lastReceipt().unifiedPixels)
+    executor.close()
+}
+
+@Test
 func sdlExecutorRejectsOversizedSurfaceBeforeInvokingRuntimeAction(): Unit {
     let executor = SdlFrameGraphExecutor(Renderer.headless(), maxSurfacePixels: 1024)
     let calls = SdlExecutorTestCounter()
@@ -383,6 +465,75 @@ private class FrameGraphAbCounter {
     var value: Int64 = 0
 }
 
+private class FrameGraphAbLegacySession {
+    private let renderer = Renderer.headless()
+    private let counter = FrameGraphAbCounter()
+
+    func run(iterations: Int64): UInt64 {
+        let before = counter.value
+        let started = PerformanceClock.ticksNanoseconds()
+        for (_ in 0..iterations) {
+            renderer.beginScene(64.0, 64.0, Color.rgb(0, 0, 0))
+            counter.value += 1
+            renderer.endScene()
+            renderer.present()
+        }
+        let finished = PerformanceClock.ticksNanoseconds()
+        @Expect(counter.value - before, iterations)
+        if (finished > started) { finished - started } else { UInt64(0) }
+    }
+}
+
+private class FrameGraphAbGraphSession <: Resource {
+    private let counter = FrameGraphAbCounter()
+    private let runtime = FrameGraphRuntime()
+    private let executor = SdlFrameGraphExecutor(Renderer.headless())
+    private var nextFrameId: Int64 = 1
+    private var cacheHitsValue: Int64 = 0
+    private var cacheMissesValue: Int64 = 0
+    private var closed = false
+
+    init() {
+        executor.bindPass(FramePassId("ui.main"), {_ =>
+            counter.value += 1
+            FramePassExecutionResult(true, "accepted")
+        })
+    }
+
+    func resetMeasuredCacheCounts(): Unit {
+        cacheHitsValue = 0
+        cacheMissesValue = 0
+    }
+
+    func cacheHits(): Int64 { cacheHitsValue }
+    func cacheMisses(): Int64 { cacheMissesValue }
+
+    func run(iterations: Int64): UInt64 {
+        let before = counter.value
+        let started = PerformanceClock.ticksNanoseconds()
+        for (_ in 0..iterations) {
+            let receipt = runtime.execute(frameGraphAbGraph(nextFrameId), executor)
+            nextFrameId += 1
+            if (!receipt.ok) {
+                throw Exception("same-process FrameGraph A/B failed: ${receipt.code}")
+            }
+            if (receipt.scheduleCacheHit) { cacheHitsValue += 1 } else { cacheMissesValue += 1 }
+        }
+        let finished = PerformanceClock.ticksNanoseconds()
+        @Expect(counter.value - before, iterations)
+        if (finished > started) { finished - started } else { UInt64(0) }
+    }
+
+    public func isClosed(): Bool { closed }
+
+    public func close(): Unit {
+        if (!closed) {
+            closed = true
+            executor.close()
+        }
+    }
+}
+
 /**
  * Same-process raw scheduler A/B. Both lanes execute the same headless SDL scene lifecycle and one
  * frame action; the graph lane additionally compiles and executes its protected schedule. This is
@@ -392,62 +543,69 @@ private class FrameGraphAbCounter {
 func sdlFrameGraphSameProcessAbPublishesRawSchedulerSamplesWithoutSpeedupClaim(): Unit {
     let samples: Int64 = 5
     let iterations: Int64 = 250
+    let warmupIterations: Int64 = 32
     let legacy = ArrayList<UInt64>()
     let graph = ArrayList<UInt64>()
-    for (sample in 0..samples) {
-        if (sample % 2 == 0) {
-            legacy.add(measureFrameGraphAbLegacy(iterations))
-            graph.add(measureFrameGraphAbGraph(iterations))
-        } else {
-            graph.add(measureFrameGraphAbGraph(iterations))
-            legacy.add(measureFrameGraphAbLegacy(iterations))
+    let legacySession = FrameGraphAbLegacySession()
+    try (graphSession = FrameGraphAbGraphSession()) {
+        let _ = legacySession.run(warmupIterations)
+        let _ = graphSession.run(warmupIterations)
+        graphSession.resetMeasuredCacheCounts()
+        for (sample in 0..samples) {
+            if (sample % 2 == 0) {
+                legacy.add(legacySession.run(iterations))
+                graph.add(graphSession.run(iterations))
+            } else {
+                graph.add(graphSession.run(iterations))
+                legacy.add(legacySession.run(iterations))
+            }
         }
+        @Expect(graphSession.cacheHits(), samples * iterations)
+        @Expect(graphSession.cacheMisses(), Int64(0))
+        println("@@FRAMEGRAPH_AB|cache|measured_hits=${graphSession.cacheHits()}|" +
+            "measured_misses=${graphSession.cacheMisses()}|warmup_scope=same-runtime-executor")
     }
     @Expect(legacy.size, samples)
     @Expect(graph.size, samples)
+    let benchmarkCommit = frameGraphAbMetadata("CANGHUI_BENCHMARK_COMMIT")
+    let benchmarkToolchain = frameGraphAbMetadata("CANGHUI_BENCHMARK_TOOLCHAIN")
     println("@@FRAMEGRAPH_AB|environment|same-process|renderer=headless|executor=sdl-headless|" +
-        "surface=64x64|iterations=${iterations}|samples=${samples}|" +
-        "comparison=equivalent-frame-lifecycle|scope=scheduler-overhead-only")
+        "surface=64x64|warmup_iterations=${warmupIterations}|iterations=${iterations}|" +
+        "samples=${samples}|legacy_mode=immediate-full-present|" +
+        "framegraph_mode=validated-schedule-cache|comparison=equivalent-frame-lifecycle|" +
+        "scope=scheduler-overhead-only|claim=no-speedup|commit=${benchmarkCommit}|" +
+        "toolchain=${benchmarkToolchain}|mode=debug-test")
     for (i in 0..samples) {
         println("@@FRAMEGRAPH_AB|sample=${i}|legacy_ns=${legacy[i]}|framegraph_ns=${graph[i]}")
     }
+    let legacyMin = minimumFrameGraphAbSample(legacy)
+    let legacyMax = maximumFrameGraphAbSample(legacy)
+    let graphMin = minimumFrameGraphAbSample(graph)
+    let graphMax = maximumFrameGraphAbSample(graph)
+    println("@@FRAMEGRAPH_AB|spread|legacy_min_ns=${legacyMin}|legacy_max_ns=${legacyMax}|" +
+        "legacy_spread_ns=${legacyMax - legacyMin}|framegraph_min_ns=${graphMin}|" +
+        "framegraph_max_ns=${graphMax}|framegraph_spread_ns=${graphMax - graphMin}|" +
+        "claim=raw-samples-only")
 }
 
-private func measureFrameGraphAbLegacy(iterations: Int64): UInt64 {
-    let counter = FrameGraphAbCounter()
-    let renderer = Renderer.headless()
-    let started = PerformanceClock.ticksNanoseconds()
-    for (_ in 0..iterations) {
-        renderer.beginScene(64.0, 64.0, Color.rgb(0, 0, 0))
-        counter.value += 1
-        renderer.endScene()
-        renderer.present()
-    }
-    let finished = PerformanceClock.ticksNanoseconds()
-    @Expect(counter.value, iterations)
-    if (finished > started) { finished - started } else { UInt64(0) }
+private func minimumFrameGraphAbSample(values: ArrayList<UInt64>): UInt64 {
+    var result = values[0]
+    for (value in values) { result = min(result, value) }
+    result
 }
 
-private func measureFrameGraphAbGraph(iterations: Int64): UInt64 {
-    let counter = FrameGraphAbCounter()
-    let runtime = FrameGraphRuntime()
-    let executor = SdlFrameGraphExecutor(Renderer.headless())
-    executor.bindPass(FramePassId("ui.main"), {_ =>
-        counter.value += 1
-        FramePassExecutionResult(true, "accepted")
-    })
-    let started = PerformanceClock.ticksNanoseconds()
-    for (i in 0..iterations) {
-        let receipt = runtime.execute(frameGraphAbGraph(i + 1), executor)
-        if (!receipt.ok) {
-            executor.close()
-            throw Exception("same-process FrameGraph A/B failed: ${receipt.code}")
-        }
+private func maximumFrameGraphAbSample(values: ArrayList<UInt64>): UInt64 {
+    var result = values[0]
+    for (value in values) { result = max(result, value) }
+    result
+}
+
+private func frameGraphAbMetadata(name: String): String {
+    match (getVariable(name)) {
+        case Some(value) where !value.isEmpty() && value.toArray().size <= 128 =>
+            value.replace("|", "_").replace("\n", "_").replace("\r", "_")
+        case _ => "external-gate-unset"
     }
-    let finished = PerformanceClock.ticksNanoseconds()
-    executor.close()
-    @Expect(counter.value, iterations)
-    if (finished > started) { finished - started } else { UInt64(0) }
 }
 
 private func frameGraphAbGraph(frameId: Int64): FrameGraph {

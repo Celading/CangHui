@@ -60,13 +60,16 @@ public class SdlWindow <: Resource {
     private let rendererPtr: CPointer<Unit>
     private let ownerThreadId: UInt64
     private let closeGate: WindowCloseGate
-    private let gamepads: GamepadRuntime
+    private let runtime: SdlRuntime
+    private var shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested,
+        0.0, 0.0, 0, 0)
 
     public var width: Int32
     public var height: Int32
     public let scale: Float32
     public let cornerRadius: Float32
     public let renderer: Renderer
+    public let id: WindowId
 
     /**
      * Throws `CuiException` when SDL cannot create or initialize the window, renderer, or text input.
@@ -76,33 +79,41 @@ public class SdlWindow <: Resource {
         this.height = spec.height
         this.scale = spec.scale
         this.cornerRadius = spec.cornerRadius
-
-        if (!unsafe { SDL_Init(SDL_INIT_VIDEO) }) {
-            throw CuiException("SDL_Init failed: ${lastSdlError()}")
-        }
+        this.runtime = SdlRuntime()
 
         let flags = windowCreationFlags(spec)
 
         var window = CPointer<Unit>()
         var createdRenderer = CPointer<Unit>()
+        var nativeWindowId = UInt32(0)
+        var initialShapeReceipt = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested,
+            spec.cornerRadius, 0.0, 0, 0)
         let titleText = unsafe { LibC.mallocCString(spec.title) }
         try (titleResource = titleText.asResource()) {
-            let pixelWidth = scaledDimension(spec.width, spec.scale)
-            let pixelHeight = scaledDimension(spec.height, spec.scale)
-            let ok = unsafe {
-                SDL_CreateWindowAndRenderer(titleResource.value, pixelWidth, pixelHeight, flags, inout window,
-                    inout createdRenderer)
-            }
-            if (!ok || window.isNull() || createdRenderer.isNull()) {
+            try {
+                let pixelWidth = scaledDimension(spec.width, spec.scale)
+                let pixelHeight = scaledDimension(spec.height, spec.scale)
+                let ok = unsafe {
+                    SDL_CreateWindowAndRenderer(titleResource.value, pixelWidth, pixelHeight, flags, inout window,
+                        inout createdRenderer)
+                }
+                if (!ok || window.isNull() || createdRenderer.isNull()) {
+                    throw CuiException("SDL_CreateWindowAndRenderer failed: ${lastSdlError()}")
+                }
+                configureRenderer(createdRenderer, spec.scale, spec.vsync)
+                initialShapeReceipt = applyRoundedWindowShape(window, pixelWidth, pixelHeight,
+                    spec.cornerRadius * spec.scale)
+                if (!unsafe { SDL_StartTextInput(window) }) {
+                    throw CuiException("SDL_StartTextInput failed: ${lastSdlError()}")
+                }
+                nativeWindowId = unsafe { SDL_GetWindowID(window) }
+                if (nativeWindowId == UInt32(0)) {
+                    throw CuiException("SDL_GetWindowID failed: ${lastSdlError()}")
+                }
+            } catch (error: Exception) {
                 destroyCreatedResources(window, createdRenderer)
-                throw CuiException("SDL_CreateWindowAndRenderer failed: ${lastSdlError()}")
-            }
-            configureRenderer(window, createdRenderer, spec.scale, spec.vsync)
-            applyRoundedWindowShape(window, pixelWidth, pixelHeight,
-                spec.cornerRadius * spec.scale)
-            if (!unsafe { SDL_StartTextInput(window) }) {
-                destroyCreatedResources(window, createdRenderer)
-                throw CuiException("SDL_StartTextInput failed: ${lastSdlError()}")
+                runtime.close()
+                throw error
             }
         }
 
@@ -112,7 +123,8 @@ public class SdlWindow <: Resource {
         this.ownerThreadId = nativeOwner
         this.closeGate = WindowCloseGate(nativeOwner)
         this.renderer = Renderer(createdRenderer, contentScale: spec.scale, supersample: spec.supersample)
-        this.gamepads = GamepadRuntime()
+        this.id = WindowId(nativeWindowId)
+        this.shapeReceiptValue = initialShapeReceipt
     }
 
     public func setTitle(title: String): Unit {
@@ -141,11 +153,24 @@ public class SdlWindow <: Resource {
         Size(Float32(width), Float32(height))
     }
 
-    /** Updates the logical size from an SDL pixel-size event and reapplies native shaping. */
+    /** Applies a CangHui-logical resize and rebuilds pixel-owned native shape resources. */
+    public func updateLogicalSize(logicalWidth: Int32, logicalHeight: Int32): Unit {
+        applyResizeUpdate(logicalWindowResizeUpdate(logicalWidth, logicalHeight, scale))
+    }
+
+    /** Applies an SDL drawable-pixel change without corrupting unchanged logical layout size. */
+    public func updatePixelSize(pixelWidth: Int32, pixelHeight: Int32): Unit {
+        applyResizeUpdate(backingPixelResizeUpdate(width, height, pixelWidth, pixelHeight))
+    }
+
+    /**
+     * Compatibility conversion for callers holding content-scaled window coordinates.
+     * `SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED` must use `updatePixelSize` instead.
+     */
     public func updateSizeFromPixels(pixelWidth: Int32, pixelHeight: Int32): Unit {
-        width = Int32(Float32(pixelWidth) / scale)
-        height = Int32(Float32(pixelHeight) / scale)
-        refreshRoundedShape(pixelWidth, pixelHeight)
+        let logical = windowSizeFromPixels(pixelWidth, pixelHeight, scale)
+        applyResizeUpdate(WindowResizeUpdate(
+            Int32(logical.w), Int32(logical.h), pixelWidth, pixelHeight))
     }
 
     /**
@@ -159,18 +184,32 @@ public class SdlWindow <: Resource {
     }
 
     public func pollEvent(): ?UiEvent {
+        match (pollEventEnvelope()) {
+            case Some(envelope) => Some(envelope.event)
+            case None => None
+        }
+    }
+
+    /** Compatibility polling path. Multi-window applications should pump one shared `SdlRuntime`. */
+    public func pollEventEnvelope(): ?SdlEventEnvelope {
         let currentThreadId = unsafe { SDL_GetCurrentThreadID() }
         if (!sameNativeThread(ownerThreadId, currentThreadId)) {
             throw CuiException(
                 "SDL event polling moved across native threads; create or borrow the desktop window only after blocking startup work"
             )
         }
-        var raw = SdlEvent()
-        if (!unsafe { SDL_PollEvent(inout raw) }) {
-            return None
+        match (runtime.pollEvent()) {
+            case Some(envelope) =>
+                let scaled = match (envelope.windowId) {
+                    case Some(target) => if (target == id) { scaleEventEnvelope(envelope, scale) } else { envelope }
+                    case None => envelope
+                }
+                Some(scaled)
+            case None => None
         }
-        return Some(gamepads.enrich(scaleEventCoordinates(decodeEvent(raw), scale)))
     }
+
+    public func shapeReceipt(): WindowShapeReceipt { shapeReceiptValue }
 
     public func ticks(): UInt64 {
         unsafe { SDL_GetTicks() }
@@ -199,14 +238,13 @@ public class SdlWindow <: Resource {
     /**
      * Closes native window resources exactly once on the native thread that created them.
      *
-     * A first close from another native thread fails before entering gamepad, renderer or SDL
+     * A first close from another native thread fails before entering renderer or SDL
      * teardown. Once an owner-thread close has completed, repeated calls are no-ops from any
      * thread. Applications must keep creation, event pumping and first close on one native thread.
      */
     public func close(): Unit {
         let currentThreadId = unsafe { SDL_GetCurrentThreadID() }
         let result = closeGate.close(currentThreadId, { =>
-            gamepads.close()
             renderer.releaseResources()
             unsafe {
                 if (windowPtr.isNotNull()) {
@@ -218,8 +256,8 @@ public class SdlWindow <: Resource {
                 if (windowPtr.isNotNull()) {
                     SDL_DestroyWindow(windowPtr)
                 }
-                SDL_Quit()
             }
+            runtime.close()
         })
         match (result) {
             case WindowCloseResult.WrongThread =>
@@ -232,8 +270,14 @@ public class SdlWindow <: Resource {
 
     private func refreshRoundedShape(pixelWidth: Int32, pixelHeight: Int32): Unit {
         if (cornerRadius > 0.0) {
-            applyRoundedWindowShape(windowPtr, pixelWidth, pixelHeight, cornerRadius * scale)
+            shapeReceiptValue = applyRoundedWindowShape(windowPtr, pixelWidth, pixelHeight, cornerRadius * scale)
         }
+    }
+
+    private func applyResizeUpdate(update: WindowResizeUpdate): Unit {
+        width = update.logicalWidth
+        height = update.logicalHeight
+        refreshRoundedShape(update.pixelWidth, update.pixelHeight)
     }
 }
 

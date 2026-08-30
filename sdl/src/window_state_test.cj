@@ -112,6 +112,22 @@ func windowSizeFromPixelsUsesNormalizedScale(): Unit {
 }
 
 @Test
+func windowResizeUpdatesDistinguishLogicalGeometryFromBackingPixels(): Unit {
+    let logical = logicalWindowResizeUpdate(200, 120, 2.0)
+    @Expect(logical.logicalWidth, Int32(200))
+    @Expect(logical.logicalHeight, Int32(120))
+    @Expect(logical.pixelWidth, Int32(400))
+    @Expect(logical.pixelHeight, Int32(240))
+
+    let backing = backingPixelResizeUpdate(
+        logical.logicalWidth, logical.logicalHeight, 800, 480)
+    @Expect(backing.logicalWidth, Int32(200))
+    @Expect(backing.logicalHeight, Int32(120))
+    @Expect(backing.pixelWidth, Int32(800))
+    @Expect(backing.pixelHeight, Int32(480))
+}
+
+@Test
 func windowProgressStateFromCodeMapsSdlValues(): Unit {
     @Expect(isNoProgress(windowProgressStateFromCode(SDL_PROGRESS_STATE_NONE)))
     @Expect(isIndeterminate(windowProgressStateFromCode(SDL_PROGRESS_STATE_INDETERMINATE)))

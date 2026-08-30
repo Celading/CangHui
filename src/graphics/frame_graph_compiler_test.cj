@@ -63,6 +63,8 @@ func frameGraphCompilerIsDeterministicAndUsesStableTopologicalOrder(): Unit {
     @Expect(first.scheduledPassAt(0).descriptor.id.key, "ui.main")
     @Expect(first.scheduledPassAt(1).descriptor.id.key, "present.main")
     @Expect(first.presentMode == FramePresentMode.Full)
+    @Expect(first.presentStrategy == FramePresentStrategy.FullSurface)
+    @Expect(!first.scheduleCacheHit)
     @Expect(first.trace.contains("\"protocol\":\"canghui.frame-graph.v0\""))
     @Expect(first.trace.contains("\"externalMode\":\"none\",\"unifiedPixels\":false"))
     @Expect(first.trace.contains("\"reads\":[\"surface.main.input@1\"]"))
@@ -567,5 +569,24 @@ func frameGraphCompilerDistinguishesBoundedRedrawFromFullPresent(): Unit {
         runtime.state(), executor.capabilities()))
     @Expect(bounded.redrawMode == FrameRedrawMode.Bounded)
     @Expect(bounded.presentMode == FramePresentMode.Full)
+    @Expect(bounded.presentStrategy == FramePresentStrategy.PreservedBufferBounded)
     @Expect(bounded.fallbackReason, "partial-present-unsupported")
+
+    let incremental = requireCompiledFrame(compileFrameGraph(
+        deterministicFrameGraph(
+            frameId: 2,
+            damage: DamageRegion.bounded([FrameDamageRect(1, 1, 3, 3)])),
+        runtime.state(), frameTestCapabilities(partial: true)))
+    @Expect(incremental.redrawMode == FrameRedrawMode.Bounded)
+    @Expect(incremental.presentMode == FramePresentMode.Partial)
+    @Expect(incremental.presentStrategy == FramePresentStrategy.IncrementalRegions)
+
+    let unsupported = requireCompiledFrame(compileFrameGraph(
+        deterministicFrameGraph(
+            frameId: 2,
+            damage: DamageRegion.bounded([FrameDamageRect(1, 1, 3, 3)])),
+        runtime.state(), frameTestCapabilities(bounded: false)))
+    @Expect(unsupported.redrawMode == FrameRedrawMode.Full)
+    @Expect(unsupported.presentMode == FramePresentMode.Full)
+    @Expect(unsupported.presentStrategy == FramePresentStrategy.UnsupportedFallback)
 }

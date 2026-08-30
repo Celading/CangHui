@@ -325,7 +325,12 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 ## 11. `DesktopApp`
 
 ```cangjie
-DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None, capture: None, fontScale: 1.0, deviceRotationAnimation: AnimationSpec.automatic(duration: 320), metadata: None, hints: [])
+DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None,
+    capture: None, fontScale: 1.0,
+    deviceRotationAnimation: AnimationSpec.automatic(duration: 320),
+    metadata: None, hints: [], semanticWindowId: "main",
+    semanticPolicy: SemanticInteractionPolicy(),
+    semanticLimits: SemanticRuntimeLimits(), onSemanticAction: {_ => false})
 ```
 
 | 方法 | 说明 |
@@ -339,6 +344,8 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None
 | `setWindowPosition(x, y)`、`windowPosition()` | 设置或查询桌面坐标 |
 | `windowFlags()` | 查询当前窗口状态快照 |
 | `clearRememberedState()` | 清空局部状态存储 |
+| `semanticSnapshot()`、`semanticDiff(previous)` | 读取当前窗口已提交语义树或稳定 ID 差分 |
+| `dispatchSemanticAction(request)` | 派发窗口/revision/节点/来源全部匹配的类型化动作 |
 | `deviceRotation()`、`reportedDeviceRotation()` | 分别读取布局回退后的有效方向与宿主真实报告方向 |
 | `queueDeviceRotation(...)`、`postDeviceRotation(...)` | 在 owner 上排队，或从任意线程投递规范化方向事件 |
 | `openFileDialog`、`saveFileDialog`、`openFolderDialog` | 创建异步文件对话框请求 |
@@ -369,7 +376,32 @@ VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩
 `resolve` 按精确语言、语言回退、默认语言、调用方回退和键本身的顺序解析。资源来源由应用或平台
 适配器决定。完整接法见[自绘标题栏与应用本地化](../guide/how-to/client-window-chrome-and-localization.md)。
 
-## 12. kMode 无界面控制面
+## 12. 运行时语义
+
+`SemanticRuntime` 事务式收集 `ControlSemantics`，提交后生成带窗口身份和 revision 的
+`SemanticTreeSnapshot`；`diff` 返回 added/removed/changed ID，`dispatch` 只接受
+`SemanticActionKind`。`Voice` / `Agent` 来源默认关闭，密码 value 永远清空，节点、深度与文本
+字节均有硬上限。完整类型和安全边界见[运行时语义交互](semantic-runtime.md)。
+
+## 13. `DesktopApplication` 多窗口
+
+| 方法 | 说明 |
+|---|---|
+| `openWindow(spec, body, theme:, fontScale:, semanticWindowId:, semanticPolicy:, semanticLimits:, onSemanticAction:)` | 创建、登记并先绘制一个独立原生窗口，返回 `WindowId` |
+| `focusWindow(id)`、`closeWindow(id)` | 聚焦或关闭指定托管窗口 |
+| `activeWindow()`、`sessionCount()`、`windowState(id)` | 查询活动窗口、只读 session 数或窗口本地状态 |
+| `semanticSnapshot(id)`、`semanticDiff(id, previous)` | 查询指定窗口的已提交语义树与差分 |
+| `dispatchSemanticAction(id, request)` | 仅向指定托管窗口路由精确 revision 的类型化动作 |
+| `pumpOne()`、`pump(limit:)` | 非阻塞读取并按 `SdlEventEnvelope.windowId` 路由事件 |
+| `step()` | 为全部托管窗口各构建/布局/绘制/present 一帧 |
+| `run()` | 组合 `pump` 与 `step`，直到最后一个窗口关闭 |
+
+宿主可经 `registerWindowSession` 登记自己的 `DesktopWindowSession`，内部 registry 不公开，
+避免绕过生命周期。托管多窗口已具备每窗口语义 runtime；当前仍未与单窗口 `DesktopApp` 的
+高级 FrameGraph/effects/transitions 完全同等；详见
+[桌面多窗口运行时](desktop-multi-window.md)。
+
+## 14. kMode 无界面控制面
 
 应用从 `chui.kmode.macros.*` 导入 `KModeLink`，把一个顶层 `(String) -> String` 函数注册为端点：
 

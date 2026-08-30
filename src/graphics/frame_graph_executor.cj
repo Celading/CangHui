@@ -61,7 +61,9 @@ protected class FrameExecutionReceipt {
     public let declaredResourceBytes: Int64
     public let redrawMode: FrameRedrawMode
     public let presentMode: FramePresentMode
+    public let presentStrategy: FramePresentStrategy
     public let fallbackReason: String
+    public let scheduleCacheHit: Bool
 
     init(
         ok: Bool,
@@ -76,7 +78,9 @@ protected class FrameExecutionReceipt {
         declaredResourceBytes: Int64,
         redrawMode: FrameRedrawMode,
         presentMode: FramePresentMode,
-        fallbackReason: String
+        presentStrategy: FramePresentStrategy,
+        fallbackReason: String,
+        scheduleCacheHit: Bool
     ) {
         this.ok = ok
         this.code = code
@@ -90,7 +94,9 @@ protected class FrameExecutionReceipt {
         this.declaredResourceBytes = declaredResourceBytes
         this.redrawMode = redrawMode
         this.presentMode = presentMode
+        this.presentStrategy = presentStrategy
         this.fallbackReason = fallbackReason
+        this.scheduleCacheHit = scheduleCacheHit
     }
 }
 
@@ -100,8 +106,11 @@ protected class FrameExecutionReceipt {
  */
 protected class FrameGraphRuntime {
     private var committedState = FrameGraphCompilerState()
+    private let scheduleCache = FrameGraphScheduleCache()
 
     public func state(): FrameGraphCompilerState { committedState }
+    public func scheduleCacheHitCount(): Int64 { scheduleCache.hitCount() }
+    public func scheduleCacheMissCount(): Int64 { scheduleCache.missCount() }
 
     public func execute(graph: FrameGraph, executor: FrameGraphExecutor): FrameExecutionReceipt {
         let capabilityValue = try {
@@ -109,7 +118,8 @@ protected class FrameGraphRuntime {
         } catch (_: Exception) {
             return rejectedBeforeCompile(graph, "executor-capabilities-failed")
         }
-        let compiledResult = compileFrameGraph(graph, committedState, capabilityValue)
+        let compiledResult = compileFrameGraph(
+            graph, committedState, capabilityValue, scheduleCache: Some(scheduleCache))
         if (!compiledResult.ok) {
             return rejectedBeforeCompile(graph, compiledResult.code)
         }
@@ -159,7 +169,8 @@ protected class FrameGraphRuntime {
         FrameExecutionReceipt(
             false, code, "", "", 0, 0, 0, 0,
             graph.resourceCount(), 0,
-            FrameRedrawMode.Skipped, FramePresentMode.NotPresented, code)
+            FrameRedrawMode.Skipped, FramePresentMode.NotPresented,
+            FramePresentStrategy.NotPresented, code, false)
     }
 
     private func rejectedAfterCompile(
@@ -172,7 +183,9 @@ protected class FrameGraphRuntime {
             false, code, graph.scheduleHash, graph.trace,
             completedPasses, graph.culledPassCount, graph.mergedPassCount, completedGroups,
             graph.source.resourceCount(), graph.declaredResourceBytes,
-            graph.redrawMode, graph.presentMode, code)
+            graph.redrawMode, FramePresentMode.NotPresented,
+            FramePresentStrategy.NotPresented, code,
+            graph.scheduleCacheHit)
     }
 
     private func acceptedFrameExecution(
@@ -184,7 +197,8 @@ protected class FrameGraphRuntime {
             true, "accepted", graph.scheduleHash, graph.trace,
             completedPasses, graph.culledPassCount, graph.mergedPassCount, completedGroups,
             graph.source.resourceCount(), graph.declaredResourceBytes,
-            graph.redrawMode, graph.presentMode, graph.fallbackReason)
+            graph.redrawMode, graph.presentMode, graph.presentStrategy, graph.fallbackReason,
+            graph.scheduleCacheHit)
     }
 }
 

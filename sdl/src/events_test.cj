@@ -44,6 +44,23 @@ func mouseEventsScaleCoordinates(): Unit {
 }
 
 @Test
+func windowCoordinateResizeScalesButBackingPixelResizeRemainsExact(): Unit {
+    match (scaleEventCoordinates(UiEvent.WindowResized(400, 240), 2.0)) {
+        case UiEvent.WindowResized(width, height) =>
+            @Expect(width, Int32(200))
+            @Expect(height, Int32(120))
+        case _ => @Fail("Window resize should remain a logical resize event.")
+    }
+
+    match (scaleEventCoordinates(UiEvent.WindowPixelSizeChanged(800, 480), 2.0)) {
+        case UiEvent.WindowPixelSizeChanged(width, height) =>
+            @Expect(width, Int32(800))
+            @Expect(height, Int32(480))
+        case _ => @Fail("Pixel-size change should retain exact backing dimensions.")
+    }
+}
+
+@Test
 func dropEventsDecodeFileData(): Unit {
     let event = decodeRawDrop(SDL_EVENT_DROP_FILE, "C:/tmp/note.txt", 30.0, 45.0)
 

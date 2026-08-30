@@ -46,6 +46,40 @@ func frameGraphRuntimeCommitsOnlyAfterAllGroupsAndReleasesTransientsOnce(): Unit
     @Expect(runtime.state().frameId, 1)
     @Expect(!receipt.trace.isEmpty())
     @Expect(receipt.trace.toArray().size <= executorFrameGraph().limits.maxTraceBytes)
+    @Expect(!receipt.scheduleCacheHit)
+    @Expect(runtime.scheduleCacheMissCount(), 1)
+    @Expect(runtime.scheduleCacheHitCount(), 0)
+}
+
+@Test
+func frameGraphRuntimeReusesOnlyTheImmutableScheduleAndStillRecompilesDynamicState(): Unit {
+    let runtime = FrameGraphRuntime()
+    let executor = NullFrameGraphExecutor()
+    let first = runtime.execute(executorFrameGraph(frameId: 1), executor)
+    let second = runtime.execute(executorFrameGraph(frameId: 2), executor)
+
+    @Expect(first.ok)
+    @Expect(second.ok)
+    @Expect(!first.scheduleCacheHit)
+    @Expect(second.scheduleCacheHit)
+    @Expect(runtime.scheduleCacheMissCount(), 1)
+    @Expect(runtime.scheduleCacheHitCount(), 1)
+    @Expect(!second.trace.contains("scheduleCacheHit"))
+    // A hit owns order only: frame state and the frame-specific schedule receipt still advance.
+    @Expect(runtime.state().frameId, 2)
+    @Expect(first.scheduleHash != second.scheduleHash)
+
+    let changedOutput = FrameResourceDescriptor(
+        FrameResourceId("executor.changed", 1), FrameResourceKind.Surface,
+        FrameResourceLifetime.Persistent)
+    let changedPass = FramePassDescriptor(
+        FramePassId("changed.main"), 0, FramePassKind.Ui2D,
+        writes: [changedOutput.id], bounds: Some(FrameDamageRect(0, 0, 64, 64)))
+    let changed = runtime.execute(
+        FrameGraph("executor", 1, 3, 64, 64, [changedOutput], [changedPass]), executor)
+    @Expect(changed.ok)
+    @Expect(!changed.scheduleCacheHit)
+    @Expect(runtime.scheduleCacheMissCount(), 2)
 }
 
 @Test
@@ -58,6 +92,8 @@ func frameGraphRuntimeRollsBackPassFailureWithoutAdvancingState(): Unit {
     @Expect(rejected.code, "executor-pass-failed")
     @Expect(rejected.completedPassCount, 1)
     @Expect(rejected.completedGroupCount, 1)
+    @Expect(rejected.presentMode == FramePresentMode.NotPresented)
+    @Expect(rejected.presentStrategy == FramePresentStrategy.NotPresented)
     @Expect(failing.beginCount(), 1)
     @Expect(failing.executeGroupCount(), 2)
     @Expect(failing.commitCount(), 0)
@@ -80,6 +116,8 @@ func frameGraphRuntimeRollsBackCommitFailureWithoutDoubleRelease(): Unit {
     @Expect(!rejected.ok)
     @Expect(rejected.code, "executor-commit-failed")
     @Expect(rejected.completedPassCount, 3)
+    @Expect(rejected.presentMode == FramePresentMode.NotPresented)
+    @Expect(rejected.presentStrategy == FramePresentStrategy.NotPresented)
     @Expect(failing.commitCount(), 1)
     @Expect(failing.rollbackCount(), 1)
     @Expect(failing.transientAcquireCount(), 1)

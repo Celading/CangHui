@@ -450,19 +450,19 @@ func compoundControlsExposeStableHeadlessSemantics(): Unit {
     @Expect(report.contains("\"role\":\"breadcrumb\""))
     @Expect(report.contains("\"label\":\"Document path\""))
     @Expect(report.contains("\"value\":\"Project\""))
-    @Expect(report.contains("\"action\":\"Breadcrumb.navigate()\""))
+    @Expect(!report.contains("\"action\":\"Breadcrumb.navigate()\""))
 
     @Expect(report.contains("\"id\":\"control-semantic:semantic-pages\""))
     @Expect(report.contains("\"role\":\"pagination\""))
     @Expect(report.contains("\"label\":\"Results\""))
     @Expect(report.contains("\"value\":\"page 2 of 5\""))
-    @Expect(report.contains("\"action\":\"Pagination.setPage()\""))
+    @Expect(!report.contains("\"action\":\"Pagination.setPage()\""))
 
     @Expect(report.contains("\"id\":\"control-semantic:semantic-steps\""))
     @Expect(report.contains("\"role\":\"stepindicator\""))
     @Expect(report.contains("\"label\":\"Checkout\""))
     @Expect(report.contains("\"value\":\"step 3 of 3\""))
-    @Expect(report.contains("\"action\":\"StepIndicator.select()\""))
+    @Expect(!report.contains("\"action\":\"StepIndicator.select()\""))
 
     let ascii = ComponentProbe("test.compound-control-semantics-ascii", width: 360.0, height: 120.0)
         .run("@cui-ascii 60 20") {

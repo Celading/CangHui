@@ -93,6 +93,9 @@ import chui.*
 | [`TypographyEnvironment`](core/TypographyEnvironment.md) | 容器传给 Label、RichText 与 RichSpan 的逐字段字族、字号和样式环境。 |
 | [`Tooltip`](core/Tooltip.md) | 为任意控件包上悬停提示：指针在子组件上驻留 500 毫秒后，提示文本被绘制在整棵组件树之上；其余时刻是完全透明的包装。 |
 | [`UiContext`](core/UiContext.md) | 每帧传给全部组件回调的服务枢纽：渲染器与主题、继承排版、指针与帧状态，以及共享交互协议。 |
+| [`SemanticRuntime`](core/SemanticRuntime.md) | 有界、带 revision 的每窗口语义树与类型化动作平面。 |
+| [`SemanticTreeSnapshot`](core/SemanticRuntime.md#相关类型) | 一个窗口的深拷贝隔离语义树快照。 |
+| [`SemanticTreeDiff`](core/SemanticRuntime.md#相关类型) | 两次提交之间按稳定 ID 产生的语义差分。 |
 | [`VStack`](core/VStack.md) | 沿垂直主轴排布子组件的弹性栈容器：以尾随 lambda 声明子组件，间距、主轴/交叉轴对齐与弹性参与可链式配置。 |
 | [`Widget`](core/Widget.md) | 所有组件共同实现的立即模式契约：每帧参与测量、布局、绘制与事件处理，并自带尺寸、表面、排版环境、弹性等链式修饰器。 |
 | [`ZStack`](core/ZStack.md) | 把子组件按声明顺序自底向顶叠放、并在同一框架内对齐的层叠容器。 |
@@ -168,8 +171,18 @@ import chui.*
 | 符号 | 说明 |
 |---|---|
 | [`DesktopApp`](desktop/DesktopApp.md) | 桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 `run` 的界面构建函数重建组件树、布局、分发输入、绘制。 |
+| [`DesktopApplication`](desktop/DesktopApplication.md) | 一个进程级 SDL event pump 下的隔离多窗口 runtime。 |
 | [`DesktopCaptureRequest`](desktop/DesktopCaptureRequest.md) | 由宿主或应用显式提交的一次稳定渲染采集请求。 |
 | [`FramePacing`](desktop/FramePacing.md) | 桌面渲染帧的设备同步、固定目标帧率或不封顶策略。 |
+
+**来自 [`chui.scene3d`](scene3d/index.md)**
+
+| 符号 | 说明 |
+|---|---|
+| [`Scene3DCompositionMode`](scene3d/SharedFrame.md#scene3dcompositionmode) | 默认 native child 或显式优先 shared-frame 合成。 |
+| [`Scene3DSharedFrameProvider`](scene3d/SharedFrame.md#scene3dsharedframeprovider) | provider 的可选 shared-frame acquire 扩展。 |
+| [`Scene3DSharedFrameRequest`](scene3d/SharedFrame.md#scene3dsharedframerequest) | 绑定精确 surface/frame/placement 的 acquire 请求。 |
+| [`Scene3DSharedFrameLease`](scene3d/SharedFrame.md#scene3dsharedframelease) | 有界 payload、同步事实与 exactly-once release 资源。 |
 
 ## 再导出（外部模块 sdl）
 
@@ -200,6 +213,8 @@ import chui.*
 | `sdlRevision` | 返回 SDL 构建的修订串；SDL 未提供时为空串。 |
 | `sdlVersion` | 返回链接到的 SDL 版本号（SDL_GetVersion 的数值编码）。 |
 | `SdlWindow` | 与自己的渲染器成对创建、成对关闭的 SDL 窗口。 |
+| `SdlEventEnvelope` | 保留可选 `WindowId` 的 SDL 事件封套；进程级事件不伪造窗口身份。 |
+| `SdlRuntime` | 进程级 refcount SDL 生命周期和 owner-thread 事件泵。 |
 | `Size` | 逻辑像素下的宽高尺寸，用于窗口尺寸查询与布局测量的返回值。 |
 | `SdlSurface` | CPU 侧的 RGBA 像素缓冲；这是 `sdl.Surface` 在 CangHui 伞面的非冲突别名，可新建、加载、逐像素写入并保存 BMP。 |
 | `SurfaceStyle` | 一块圆角面板的外观描述：填充色、边框色与宽度、圆角半径、阴影色与垂直偏移。 |
@@ -217,7 +232,10 @@ import chui.*
 | `WindowFlash` | 任务栏/窗口闪烁请求的方式，传给 `SdlWindow.flash`。 |
 | `WindowPosition` | 窗口左上角在屏幕坐标系中的位置，由 `SdlWindow.position` 返回。 |
 | `WindowProgressState` | 原生任务栏进度指示的状态（Windows 任务栏按钮的进度条），经 `SdlWindow.setProgressState` 设置。 |
+| `WindowShapeApplyStatus` | 原生窗口形状请求的运行时结果：未请求、已应用或失败。 |
+| `WindowShapeReceipt` | `SdlWindow.shapeReceipt()` 返回的精确请求尺寸、应用半径与运行时状态；不替代目标合成器的实机视觉验收。 |
 | `WindowSpec` | 创建窗口时的一次性选项：标题、逻辑尺寸、DPI/缩放、垂直同步、超采样，以及自绘窗口可选的原生 `cornerRadius` 形状。 |
+| `WindowId` | 非零、稳定的 SDL 原生窗口身份。 |
 
 **来自 [`sdl.dialogs`](../../../sdl/docs/api-reference.md)**
 

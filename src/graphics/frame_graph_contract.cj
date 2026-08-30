@@ -494,6 +494,36 @@ protected func framePresentModeName(value: FramePresentMode): String {
     }
 }
 
+/**
+ * Provider-neutral strategy behind the redraw/present pair. `PreservedBufferBounded`
+ * deliberately still maps to a full platform present when the provider can preserve
+ * prior pixels but cannot submit damage regions (the SDL path). The strategy is
+ * execution truth; it never upgrades a provider capability by inference.
+ */
+protected enum FramePresentStrategy <: Equatable<FramePresentStrategy> {
+    | NotPresented
+    | FullSurface
+    | PreservedBufferBounded
+    | IncrementalRegions
+    | UnsupportedFallback
+
+    public operator func ==(other: FramePresentStrategy): Bool {
+        framePresentStrategyName(this) == framePresentStrategyName(other)
+    }
+
+    public operator func !=(other: FramePresentStrategy): Bool { !(this == other) }
+}
+
+protected func framePresentStrategyName(value: FramePresentStrategy): String {
+    match (value) {
+        case FramePresentStrategy.NotPresented => "none"
+        case FramePresentStrategy.FullSurface => "full-surface"
+        case FramePresentStrategy.PreservedBufferBounded => "preserved-buffer-bounded"
+        case FramePresentStrategy.IncrementalRegions => "incremental-regions"
+        case FramePresentStrategy.UnsupportedFallback => "unsupported-fallback"
+    }
+}
+
 private func requireFrameGraphToken(value: String, label: String): Unit {
     if (value.isEmpty() || value.toArray().size > 128) {
         throw IllegalArgumentException(label + " must contain 1..128 ASCII bytes")

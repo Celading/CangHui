@@ -490,6 +490,39 @@ internal class GeometryBatch {
         flushWith(texture)
     }
 
+    /** Draws one texture in a rounded-rectangle mesh so ordinary tree paint order and clips apply. */
+    func texturedRoundedRect(
+        renderer: CPointer<Unit>,
+        texture: CPointer<Unit>,
+        rect: Rect,
+        radius: Float32,
+        opacity: Float32
+    ): Unit {
+        if (renderer.isNull() || texture.isNull() || rect.w <= 0.0 || rect.h <= 0.0 || opacity <= 0.0) {
+            return
+        }
+        buildRoundedRectPath(rect, radius)
+        let count = pathX.size
+        if (count < 3) { return }
+        let alpha = min(1.0, opacity)
+        begin(renderer, Color.rgb(255, 255, 255), count + 1, count * 3)
+        let centerX = rect.x + rect.w / 2.0
+        let centerY = rect.y + rect.h / 2.0
+        pushTexturedVertex(centerX, centerY, 0.5, 0.5, alpha)
+        for (i in 0..count) {
+            pushTexturedVertex(
+                pathX[i],
+                pathY[i],
+                (pathX[i] - rect.x) / rect.w,
+                (pathY[i] - rect.y) / rect.h,
+                alpha)
+        }
+        for (i in 0..count) {
+            pushTriangle(0, 1 + i, 1 + (i + 1) % count)
+        }
+        flushWith(texture)
+    }
+
     /** Draws a full-frame texture through a feathered circular mask. */
     func texturedCircle(
         renderer: CPointer<Unit>,

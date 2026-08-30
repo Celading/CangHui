@@ -123,7 +123,12 @@ public class InteractionSurface <: Widget {
             selected: isSelected,
             expanded: isExpanded,
             enabled: Some(state.enabled),
-            readOnly: Some(state.readOnly)
+            readOnly: Some(state.readOnly),
+            typedActions: if (state.enabled) {
+                [SemanticActionKind.Focus, SemanticActionKind.Activate]
+            } else {
+                []
+            }
         ))
         recordNestedInteractionDiagnostic()
         ctx.withControlContentEnvironment(ControlContentEnvironment(

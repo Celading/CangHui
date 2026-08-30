@@ -64,6 +64,11 @@ public class Texture <: Resource {
         ensureSdl(unsafe { SDL_SetTextureBlendMode(ptr, blendModeCode(mode)) }, "SDL_SetTextureBlendMode")
     }
 
+    /** Convenience boundary that does not leak enum constructors into importing packages. */
+    public func setAlphaBlending(enabled: Bool): Unit {
+        setBlendMode(if (enabled) { TextureBlendMode.Blend } else { TextureBlendMode.None })
+    }
+
     /** Replaces the pixels of an RGBA32 streaming texture during the renderer-owner frame. */
     public func updateRgba(pixels: CPointer<UInt8>, pitch: Int32): Unit {
         ensureOpen()
@@ -72,6 +77,28 @@ public class Texture <: Resource {
         }
         validateStreamingPixels(pixels, Int32(width), pitch)
         ensureSdl(unsafe { SDL_UpdateTexture(ptr, CPointer<SdlRect>(), pixels, pitch) }, "SDL_UpdateTexture")
+    }
+
+    /**
+     * Copies one owned RGBA32 frame into this streaming texture. The temporary native
+     * buffer exists only for the SDL call and is released on success or failure; callers
+     * never lend an Array backing address across the FFI boundary.
+     */
+    public func updateRgba(pixels: Array<UInt8>, pitch: Int32): Unit {
+        let required = validateStreamingArrayPixels(
+            pixels, Int32(width), Int32(height), pitch)
+        let native = unsafe { LibC.malloc<UInt8>(count: required) }
+        if (native.isNull()) {
+            throw CuiException("Streaming texture pixel allocation failed.")
+        }
+        try {
+            for (i in 0..required) {
+                unsafe { native.write(i, pixels[i]) }
+            }
+            updateRgba(native, pitch)
+        } finally {
+            unsafe { LibC.free(native) }
+        }
     }
 
     public func isClosed(): Bool {
@@ -154,6 +181,32 @@ extend Renderer {
         clearColor: Color,
         draw: () -> Unit
     ): Unit {
+        renderToTextureTarget(
+            texture, logicalWidth, logicalHeight, Some(clearColor), draw)
+    }
+
+    /**
+     * Continues drawing into an existing target without clearing it. This low-level
+     * primitive is used by transactional retained executors after they copied the
+     * previously committed frame exactly once; ordinary applications should use the
+     * clearing `renderToTexture` API.
+     */
+    public func renderToTexturePreserving(
+        texture: Texture,
+        logicalWidth: Float32,
+        logicalHeight: Float32,
+        draw: () -> Unit
+    ): Unit {
+        renderToTextureTarget(texture, logicalWidth, logicalHeight, None<Color>, draw)
+    }
+
+    private func renderToTextureTarget(
+        texture: Texture,
+        logicalWidth: Float32,
+        logicalHeight: Float32,
+        clearColor: ?Color,
+        draw: () -> Unit
+    ): Unit {
         if (texture.isClosed()) {
             throw CuiException("Cannot render into a closed texture.")
         }
@@ -171,7 +224,10 @@ extend Renderer {
             ensureSdl(unsafe { SDL_SetRenderTarget(ptr, texture.ptr) }, "SDL_SetRenderTarget")
             setScale(texture.width / logicalWidth, texture.height / logicalHeight)
             resetClipStack()
-            clear(clearColor)
+            match (clearColor) {
+                case Some(value) => clear(value)
+                case None => ()
+            }
             draw()
         } finally {
             let _ = unsafe { SDL_SetRenderTarget(ptr, previousTarget) }
@@ -286,6 +342,31 @@ internal func validateStreamingPixels(pixels: CPointer<UInt8>, width: Int32, pit
     if (width <= 0 || pitch < width * 4) {
         throw CuiException("Streaming texture pitch must cover one RGBA32 row.")
     }
+}
+
+internal func validateStreamingArrayPixels(
+    pixels: Array<UInt8>,
+    width: Int32,
+    height: Int32,
+    pitch: Int32
+): Int64 {
+    if (width <= 0 || height <= 0) {
+        throw CuiException("Streaming texture dimensions must be greater than 0.")
+    }
+    let minimumPitch = Int64(width) * 4
+    if (pitch <= 0 || Int64(pitch) < minimumPitch) {
+        throw CuiException("Streaming texture pitch must cover one RGBA32 row.")
+    }
+    let rowBytes = Int64(pitch)
+    let rows = Int64(height)
+    if (rowBytes > Int64.Max / rows) {
+        throw CuiException("Streaming texture pixel byte count overflowed.")
+    }
+    let required = rowBytes * rows
+    if (pixels.size < required) {
+        throw CuiException("Streaming texture pixels do not cover every row.")
+    }
+    required
 }
 
 private func blendModeCode(mode: TextureBlendMode): UInt32 {

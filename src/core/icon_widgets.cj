@@ -314,7 +314,8 @@ public class IconButton <: Widget {
         drawSurface(ctx, visualFrame, appearance.surface)
         recordControlSemantics(ctx, visualFrame, "IconButton", ControlSemantics(
             "button", label: semanticLabel, action: "IconButton.activate()",
-            actionOwner: controlId
+            actionOwner: controlId,
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         let color = appearance.foreground
         let _ = drawSymbol(ctx.renderer, symbolName, iconFrame(visualFrame), color)

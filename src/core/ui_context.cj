@@ -1,12 +1,14 @@
 package chui.core
 
 import std.collection.ArrayList
+import std.sync.AtomicInt64
 import sdl.{Color, DeviceRotation, DeviceRotationEvent, FrameInfo, Insets, Rect, Renderer, UiEvent}
 
 // A second press within this window and distance of the previous one continues a multi-click.
 private let MULTI_CLICK_MS: UInt64 = 400
 private let MULTI_CLICK_DIST: Float32 = 4.0
 private let INK_RIPPLE_MS: UInt64 = 420
+private let UI_CONTEXT_OWNERSHIP_COUNTER = AtomicInt64(1)
 
 private class InkRippleOverlay {
     let id: String
@@ -62,6 +64,7 @@ private func deviceRotationChanged(first: DeviceRotation, second: DeviceRotation
  * window stops rendering and the animation freezes.
  */
 public class UiContext {
+    private let ownershipTokenValue = UI_CONTEXT_OWNERSHIP_COUNTER.fetchAdd(1)
     public let renderer: Renderer
     public var theme: Theme
     public var focusId: String = ""
@@ -97,6 +100,7 @@ public class UiContext {
     private let interactionEnabledScopes = ArrayList<Bool>()
     // FrameGraph scheduling facts only. Native handles and provider objects never enter this list.
     private let nativeChildFrameSurfaces = ArrayList<NativeChildFrameSurface>()
+    private let sharedFrameSurfaces = ArrayList<SharedFrameSurface>()
     private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
@@ -109,9 +113,14 @@ public class UiContext {
         renderer.setThemeFontFamily(theme.fontFamily)
     }
 
+    /** Stable process-local identity used to keep retained native surfaces inside one UI owner. */
+    protected func ownershipToken(): Int64 { ownershipTokenValue }
+
     /** Clears the previous declarative build's external-surface scheduling registrations. */
     protected func beginFrameSurfaceRegistration(): Unit {
         nativeChildFrameSurfaces.clear()
+        finishSharedFrameSurfaces("abandoned")
+        sharedFrameSurfaces.clear()
     }
 
     /** Registers a Scene3D/native child surface without moving its lifecycle or input ownership. */
@@ -128,6 +137,63 @@ public class UiContext {
 
     protected func nativeChildFrameSurfaceAt(index: Int64): NativeChildFrameSurface {
         nativeChildFrameSurfaces[index]
+    }
+
+    /** Registers an immutable, handle-free shared frame acquired and released by Scene3D. */
+    protected func registerSharedFrameSurface(value: SharedFrameSurface): Unit {
+        // A view contributes exactly one composition mode per frame. Shared pixels supersede a
+        // native-child barrier with the same stable identity and generation.
+        for (i in 0..sharedFrameSurfaces.size) {
+            if (sharedFrameSurfaces[i].identity == value.identity) {
+                let _ = sharedFrameSurfaces[i].finish("replaced")
+                sharedFrameSurfaces[i] = value
+                return
+            }
+        }
+        sharedFrameSurfaces.add(value)
+    }
+
+    protected func sharedFrameSurfaceCount(): Int64 { sharedFrameSurfaces.size }
+
+    protected func sharedFrameSurfaceAt(index: Int64): SharedFrameSurface {
+        sharedFrameSurfaces[index]
+    }
+
+    protected func sharedFrameSurface(identity: String): ?SharedFrameSurface {
+        for (value in sharedFrameSurfaces) {
+            if (value.identity == identity && !value.isFinished()) { return Some(value) }
+        }
+        None
+    }
+
+    /** Resets renderer evidence for every provider frame still owned by this UI frame. */
+    protected func beginSharedFrameCompositionAttempt(): Unit {
+        for (value in sharedFrameSurfaces) { value.beginCompositionAttempt() }
+    }
+
+    /** True only when every unfinished provider frame was sampled successfully at least once. */
+    protected func sharedFrameCompositionSucceeded(): Bool {
+        for (value in sharedFrameSurfaces) {
+            if (!value.isFinished() && !value.compositionSucceeded()) { return false }
+        }
+        true
+    }
+
+    protected func unfinishedSharedFrameSurfaceCount(): Int64 {
+        var count: Int64 = 0
+        for (value in sharedFrameSurfaces) {
+            if (!value.isFinished()) { count += 1 }
+        }
+        count
+    }
+
+    /** Completes every acquired Scene3D frame after graph commit, rollback, or legacy fallback. */
+    protected func finishSharedFrameSurfaces(outcome: String): Bool {
+        var ok = true
+        for (value in sharedFrameSurfaces) {
+            if (!value.finish(outcome)) { ok = false }
+        }
+        ok
     }
 
     /** Last posture reported by a platform provider, without viewport fallback. */
@@ -388,7 +454,26 @@ public class UiContext {
      * currently on screen and in their declared order.
      */
     protected func adoptFocusRing(ids: Array<String>): Unit {
-        focusOrder = ids
+        focusOrder = ids.clone()
+    }
+
+    /** Focuses only an ID present in the latest declarative focus ring. */
+    protected func focusRegistered(id: String, viaKeyboard!: Bool = true): Bool {
+        for (candidate in focusOrder) {
+            if (candidate == id) {
+                focus(id, viaKeyboard: viaKeyboard)
+                return true
+            }
+        }
+        false
+    }
+
+    /** Build/declaration-order position used by the in-process semantic collector. */
+    internal func semanticFocusOrder(id: String): ?Int64 {
+        for (index in 0..focusOrder.size) {
+            if (focusOrder[index] == id) { return Some(index) }
+        }
+        None
     }
 
     /** Moves keyboard focus to the next focusable control, wrapping at the end. */

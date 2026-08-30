@@ -83,6 +83,7 @@ protected class SdlFrameExecutorReceipt {
     public let frameId: Int64
     public let redrawMode: FrameRedrawMode
     public let presentMode: FramePresentMode
+    public let presentStrategy: FramePresentStrategy
     public let deviceBacked: Bool
     public let unifiedPixels: Bool
     public let nativeChildBarrierCount: Int64
@@ -99,6 +100,7 @@ protected class SdlFrameExecutorReceipt {
         frameId: Int64,
         redrawMode: FrameRedrawMode,
         presentMode: FramePresentMode,
+        presentStrategy: FramePresentStrategy,
         deviceBacked: Bool,
         unifiedPixels: Bool,
         nativeChildBarrierCount: Int64,
@@ -114,6 +116,7 @@ protected class SdlFrameExecutorReceipt {
         this.frameId = frameId
         this.redrawMode = redrawMode
         this.presentMode = presentMode
+        this.presentStrategy = presentStrategy
         this.deviceBacked = deviceBacked
         this.unifiedPixels = unifiedPixels
         this.nativeChildBarrierCount = nativeChildBarrierCount
@@ -130,7 +133,8 @@ protected class SdlFrameExecutorReceipt {
  * SDL live executor.
  *
  * A device-backed session keeps the previous committed texture untouched while execution groups
- * alternate between two session-owned target textures. Only `commit` installs the final working
+ * draw into one transaction-owned staging texture. The previous frame is copied once only when a
+ * bounded redraw needs it; later groups preserve the staging target. Only `commit` installs that
  * texture and calls SDL's full-surface present. SDL has no portable partial-present primitive, so
  * `supportsPartialPresent` is always false even when pass drawing is clipped to bounded damage.
  */
@@ -142,6 +146,9 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
     private let physicalPixelScale: Float32
     private let deviceBacked: Bool
     private let bindings = ArrayList<SdlFramePassBinding>()
+    private var bindingSnapshot: Array<SdlFramePassBinding> = []
+    private var bindingsDirty = true
+    private var bindingSnapshotBuilds: Int64 = 0
     private var beforePresent: () -> Unit = { => () }
     private var committed: ?Texture = None
     private var committedSurfaceKey: String = ""
@@ -153,6 +160,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
     private var closed = false
     private var receipt = SdlFrameExecutorReceipt(
         true, "idle", 0, FrameRedrawMode.Skipped, FramePresentMode.NotPresented,
+        FramePresentStrategy.NotPresented,
         false, true, 0, 0, 0, 0, 0, false, false)
 
     public init(
@@ -160,7 +168,8 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         clearColor!: Color = Color.rgba(0, 0, 0, 0),
         physicalPixelScale!: Float32 = 1.0,
         maxSurfacePixels!: Int64 = SDL_FRAME_DEFAULT_MAX_SURFACE_PIXELS,
-        maxDeclaredResourceBytes!: Int64 = 268435456
+        maxDeclaredResourceBytes!: Int64 = 268435456,
+        assumeDeviceBackedForConformance!: Bool = false
     ) {
         if (maxSurfacePixels <= 0) {
             throw IllegalArgumentException("SDL frame executor surface-pixel cap must be positive")
@@ -175,10 +184,11 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         this.maxSurfacePixels = maxSurfacePixels
         this.maxDeclaredResourceBytes = maxDeclaredResourceBytes
         this.physicalPixelScale = physicalPixelScale
-        this.deviceBacked = renderer.driverName() != "headless"
+        this.deviceBacked = renderer.driverName() != "headless" || assumeDeviceBackedForConformance
         this.boundedAvailable = this.deviceBacked
         this.receipt = SdlFrameExecutorReceipt(
             true, "idle", 0, FrameRedrawMode.Skipped, FramePresentMode.NotPresented,
+            FramePresentStrategy.NotPresented,
             this.deviceBacked, true, 0, 0, 0, 0, 0, false, false)
     }
 
@@ -191,10 +201,12 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         for (i in 0..bindings.size) {
             if (bindings[i].id == id) {
                 bindings[i] = SdlFramePassBinding(id, action)
+                bindingsDirty = true
                 return
             }
         }
         bindings.add(SdlFramePassBinding(id, action))
+        bindingsDirty = true
     }
 
     public func unbindPass(id: FramePassId): Bool {
@@ -202,6 +214,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         for (i in 0..bindings.size) {
             if (bindings[i].id == id) {
                 bindings.remove(at: i)
+                bindingsDirty = true
                 return true
             }
         }
@@ -213,6 +226,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         ensureOpen()
         ensureNoActiveSession("clear SDL frame pass bindings")
         bindings.clear()
+        bindingsDirty = true
     }
 
     /** Updates the background used by sessions begun after this call. */
@@ -230,6 +244,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
     }
 
     public func bindingCount(): Int64 { bindings.size }
+    public func bindingSnapshotBuildCount(): Int64 { bindingSnapshotBuilds }
     public func lastReceipt(): SdlFrameExecutorReceipt { receipt }
     public func hasCommittedFrame(): Bool { committed.isSome() }
     public func isClosed(): Bool { closed }
@@ -255,6 +270,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
                 receipt.frameId,
                 FrameRedrawMode.Full,
                 FramePresentMode.Full,
+                FramePresentStrategy.UnsupportedFallback,
                 receipt.deviceBacked,
                 receipt.unifiedPixels,
                 receipt.nativeChildBarrierCount,
@@ -273,6 +289,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
             frameId,
             FrameRedrawMode.Full,
             FramePresentMode.Full,
+            FramePresentStrategy.UnsupportedFallback,
             deviceBacked,
             nativeChildBarrierCount == 0,
             nativeChildBarrierCount,
@@ -289,7 +306,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         FrameGraphExecutorCapabilities(
             supportsBoundedRedraw: boundedAvailable && !closed,
             supportsPartialPresent: false,
-            supportsSharedTexture: false,
+            supportsSharedTexture: deviceBacked && !closed,
             supportsExtendedDynamicRange: false,
             maxDeclaredResourceBytes: maxDeclaredResourceBytes)
     }
@@ -301,7 +318,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         }
         sessionActive = true
         SdlFrameGraphExecutionSession(
-            this, renderer, graph, bindings.toArray(), clearColor, beforePresent,
+            this, renderer, graph, frozenBindings(), clearColor, beforePresent,
             maxSurfacePixels, physicalPixelScale, deviceBacked)
     }
 
@@ -361,6 +378,15 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
         if (closed) { throw IllegalStateException("SDL frame executor is closed") }
     }
 
+    private func frozenBindings(): Array<SdlFramePassBinding> {
+        if (bindingsDirty) {
+            bindingSnapshot = bindings.toArray()
+            bindingsDirty = false
+            bindingSnapshotBuilds += 1
+        }
+        bindingSnapshot
+    }
+
     private func ensureNoActiveSession(operation: String): Unit {
         if (sessionActive) {
             throw IllegalStateException("Cannot ${operation} while an SDL frame session is active")
@@ -404,7 +430,6 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
     private let deviceBacked: Bool
     private let transients = ArrayList<SdlManagedFrameTransient>()
     private var working: ?Texture = None
-    private var spare: ?Texture = None
     private var sceneOpen = false
     private var closed = false
     private var failed = false
@@ -442,6 +467,7 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
         this.planCode = validateSdlFramePlan(
             graph,
             maxSurfacePixels,
+            deviceBacked,
             sdlFramePhysicalPixelCount(
                 graph.source.surfaceWidth, graph.source.surfaceHeight, physicalPixelScale))
     }
@@ -511,8 +537,6 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
                 case None => ()
             }
         }
-        closeTexture(spare)
-        spare = None
         closed = true
         owner.finishSession(receiptFor(
             true,
@@ -528,9 +552,7 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
         if (closed) { return }
         let _ = endOpenScene()
         closeTexture(working)
-        closeTexture(spare)
         working = None
-        spare = None
         releaseTransients()
         closed = true
         owner.finishSession(receiptFor(
@@ -553,7 +575,10 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
         if (group.passCount() != 1) { return fail("invalid-external-group") }
         let pass = group.passAt(0)
         if (pass.descriptor.externalMode == FrameExternalMode.SharedTexture) {
-            return fail("unsupported-shared-texture")
+            if (!deviceBacked) { return fail("shared-frame-device-unavailable") }
+            let result = invokePass(pass, true)
+            if (!result.ok) { return fail(result.code) }
+            return FramePassExecutionResult(true, "accepted-shared-frame-acquire")
         }
         if (pass.descriptor.externalMode != FrameExternalMode.NativeChildSurfaceBarrier) {
             return fail("invalid-external-mode")
@@ -581,9 +606,7 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
             return FramePassExecutionResult(true, if (legacyDirect) { "accepted-legacy-direct" } else { "accepted" })
         }
 
-        let source = if (working.isSome()) {
-            working
-        } else if (graph.redrawMode == FrameRedrawMode.Bounded) {
+        let source = if (graph.redrawMode == FrameRedrawMode.Bounded) {
             owner.committedFor(graph)
         } else {
             None<Texture>
@@ -593,7 +616,25 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
             return fail("committed-frame-missing")
         }
 
-        let target = match (takeSpareOrCreate()) {
+        match (working) {
+            case Some(target) =>
+                let passResult = SdlFramePassResultBox()
+                try {
+                    renderer.renderToTexturePreserving(
+                        target,
+                        Float32(graph.source.surfaceWidth),
+                        Float32(graph.source.surfaceHeight),
+                        { => passResult.value = invokeRasterActions(group, true) })
+                } catch (_: Exception) {
+                    return fail("sdl-render-to-texture-failed")
+                }
+                if (!passResult.value.ok) { return fail(passResult.value.code) }
+                standardGroupCount += 1
+                return FramePassExecutionResult(true, "accepted-retained-target")
+            case None => ()
+        }
+
+        let target = match (createStagingTarget()) {
             case Some(value) => value
             case None =>
                 if (canUseLegacyDirect()) {
@@ -623,17 +664,15 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
                     passResult.value = invokeRasterActions(group, true)
                 })
         } catch (_: Exception) {
-            spare = Some(target)
+            closeTexture(Some(target))
             return fail("sdl-render-to-texture-failed")
         }
         if (!passResult.value.ok) {
-            spare = Some(target)
+            closeTexture(Some(target))
             return fail(passResult.value.code)
         }
 
-        let previous = working
         working = Some(target)
-        spare = previous
         standardGroupCount += 1
         FramePassExecutionResult(true, "accepted")
     }
@@ -800,19 +839,14 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
         }
     }
 
-    private func takeSpareOrCreate(): ?Texture {
-        match (spare) {
-            case Some(texture) =>
-                spare = None
-                Some(texture)
-            case None => try {
-                let texture = createFrameGraphCopyTargetTexture(
-                    renderer,
-                    Float32(graph.source.surfaceWidth), Float32(graph.source.surfaceHeight))
-                Some(texture)
-            } catch (_: Exception) {
-                None<Texture>
-            }
+    private func createStagingTarget(): ?Texture {
+        try {
+            let texture = createFrameGraphCopyTargetTexture(
+                renderer,
+                Float32(graph.source.surfaceWidth), Float32(graph.source.surfaceHeight))
+            Some(texture)
+        } catch (_: Exception) {
+            None<Texture>
         }
     }
 
@@ -877,6 +911,13 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
             graph.source.frameId,
             graph.redrawMode,
             presentMode,
+            if (presentMode == FramePresentMode.NotPresented) {
+                FramePresentStrategy.NotPresented
+            } else if (legacyDirect) {
+                FramePresentStrategy.UnsupportedFallback
+            } else {
+                graph.presentStrategy
+            },
             deviceBacked,
             unifiedPixels,
             nativeChildBarrierCount,
@@ -899,12 +940,13 @@ private class SdlFrameGraphExecutionSession <: FrameGraphExecutionSession {
 private func validateSdlFramePlan(
     graph: CompiledFrameGraph,
     maxSurfacePixels: Int64,
+    deviceBacked: Bool,
     physicalSurfacePixels: Int64
 ): String {
     if (graph.presentMode == FramePresentMode.Partial) { return "partial-present-unsupported" }
     for (i in 0..graph.source.passCount()) {
         if (graph.source.passAt(i).externalMode == FrameExternalMode.SharedTexture) {
-            return "unsupported-shared-texture"
+            if (!deviceBacked) { return "shared-frame-device-unavailable" }
         }
     }
     let width = graph.source.surfaceWidth

@@ -3,7 +3,8 @@ package chui.controls
 import sdl.{Color, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
 import chui.core.{AnimationSpec, Animator, Bindable, CUI_SMALL_H, ComponentControlAppearance,
     ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
-    CursorShape, Motion, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget, resolveControlKey,
+    CursorShape, Motion, Overlay, ScrollBar, ScrollMotion, ScrollOptions, SemanticActionKind, State, UiContext,
+    Widget, resolveControlKey,
     advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawSurface,
     drawVerticalScrollBar, emit, handlePointerClick, localState, recordControlSemantics, registerFocusable,
@@ -151,7 +152,8 @@ public class Dropdown <: Widget {
             value: currentLabel(),
             action: "Dropdown.open()",
             actionOwner: id,
-            expanded: Some(open.value)
+            expanded: Some(open.value),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         let content = labelArea(ctx)
         ctx.renderer.pushClip(content)

@@ -14,13 +14,16 @@
 
 ## 当前自动化结果
 
-使用 Cangjie `1.1.3 (cjnative)` 在 macOS arm64 上执行：
+使用 Cangjie `1.1.3 (cjnative)` 在 macOS arm64 上于 2026-08-30 执行：
 
 | 命令 | 结果 | 覆盖 |
 |---|---:|---|
 | `cjpm build` | 通过 | CangHui 主包构建与链接 |
-| `cjpm test` | 473/473 | core、controls、text、media、desktop、host、kMode、probe、Symbol 与组件契约 |
-| `cd tools/cuic && cjpm test` | 30/30 | doctor、工程解析、缓存、脚本、kMode/probe 扫描与 Symbol 生成 |
+| `cjpm test --no-progress` | 844/844 | core、controls、text、graphics、scene3d、desktop、host、语义运行时、保留式 UI 与共享帧契约 |
+| `cjpm test -g --no-progress` | 853/853 | release 模式主包、宏链接与同组契约 |
+| `cd sdl && cjpm test --no-progress` | 118/118 | SDL 窗口、事件封装、输入、显示、文本与系统边界 |
+| `cd tools/cuic && cjpm test --no-progress` | 72/72 | debug 模式 doctor、工程解析、缓存、脚本、probe/prnt 与 Symbol 生成 |
+| `cd tools/cuic && cjpm test -g --no-progress` | 87/87 | release 模式 CUIC 与受保护能力排除契约 |
 
 链接器仍会提示部分 Cangjie/SDL 动态或静态库的最低 macOS 版本高于应用声明的 `12.0`。这不影响当前宿主测试通过，但不能据此声明可移植的 macOS 12 发布包。
 

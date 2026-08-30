@@ -1,5 +1,6 @@
 package chui.core
 
+import std.math.abs
 import sdl.{Color, Rect, Size, SurfaceStyle, UiEvent}
 
 /** Geometry shared by a surface's paint and an interaction surface's ink. */
@@ -208,6 +209,39 @@ public class Surface <: Widget {
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
         child.layout(ctx, rect)
+    }
+
+    /**
+     * A shape-clipped Surface bounds every descendant to its frame. Only framework-created material
+     * providers are eligible: an arbitrary provider can change paint extent behind the interface and
+     * therefore stays fail-full. Fixed framework styles include their actual shadow displacement.
+     */
+    internal func retainedPaintProof(ctx: UiContext, frame: Rect): ?RetainedPaintProof {
+        match (customPainter) {
+            case Some(_) => return None
+            case None => ()
+        }
+        match (clipPolicy) {
+            case ClipPolicy.Unclipped => return None
+            case ClipPolicy.Shape => ()
+        }
+        let material = match (materialProvider as ResolvingMaterialProvider) {
+            case Some(provider) => provider.resolve(
+                ctx.theme, SurfaceState(enabled: ctx.interactionsEnabled()))
+            case None => return None
+        }
+        let offset = if (Int64(material.style.shadow.a) > 0) {
+            material.style.shadowOffsetY
+        } else {
+            Float32(0.0)
+        }
+        // A finite, bounded displacement has a conservative symmetric proof. Unknown/NaN/extreme
+        // values intentionally decline the proof so retained damage promotes to the full root.
+        if (offset != offset || offset < -1000000.0 || offset > 1000000.0) { return None }
+        Some(RetainedPaintProof(
+            frame,
+            effectRadius: CUI_SHADOW_CLEARANCE + abs(offset),
+            proven: true))
     }
 
     public func draw(ctx: UiContext): Unit {

@@ -2,10 +2,11 @@ package chui.text
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
-import chui.core.{Bindable, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
-    Observable, State, UiContext, Widget, advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside,
-    clampScrollOffset, drawHorizontalScrollBar, drawSurface, drawVerticalScrollBar, emit, localState,
-    registerFocusable, resolveControlKey, scrollLineIndex, scrollLineRemainder}
+import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion,
+    ScrollOptions, SemanticActionKind, maxScrollOffset, Observable, State, UiContext, Widget, advanceScrollMotion,
+    applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawHorizontalScrollBar,
+    drawSurface, drawVerticalScrollBar, emit, localState, recordControlSemantics, registerFocusable,
+    resolveControlKey, scrollLineIndex, scrollLineRemainder}
 
 // SDL reports letter keys as their uppercase ASCII code (see the Ctrl+letter shortcuts).
 private let AREA_LETTER_A: UInt8 = 65
@@ -265,6 +266,14 @@ public class TextArea <: Widget {
     public func draw(ctx: UiContext): Unit {
         let edit = editState()
         edit.normalizeCursor()
+        recordControlSemantics(ctx, frame, "TextArea", ControlSemantics(
+            "textarea",
+            action: if (isEditable) { "TextArea.edit()" } else { "" },
+            shortcut: if (isEditable) { "TextInput" } else { "" },
+            actionOwner: id,
+            readOnly: Some(!isEditable),
+            typedActions: if (isEditable) { [SemanticActionKind.Focus] } else { [] }
+        ))
         let docLines = lines()
         let viewport = textViewport(frame)
         let contentW = contentWidth(ctx, docLines)

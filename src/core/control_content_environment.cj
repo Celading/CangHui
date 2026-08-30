@@ -60,6 +60,8 @@ public struct ControlSemantics {
     public let expanded: ?Bool
     public let enabled: ?Bool
     public let readOnly: ?Bool
+    /** Typed actions exposed to in-process semantic consumers. String actions remain probe-only. */
+    public let typedActions: Array<SemanticActionKind>
 
     public init(
         role: String,
@@ -72,7 +74,8 @@ public struct ControlSemantics {
         selected!: ?Bool = None,
         expanded!: ?Bool = None,
         enabled!: ?Bool = None,
-        readOnly!: ?Bool = None
+        readOnly!: ?Bool = None,
+        typedActions!: Array<SemanticActionKind> = []
     ) {
         if (role.isEmpty()) { throw IllegalArgumentException("control semantic role must not be empty") }
         if (actionOwner.isEmpty()) { throw IllegalArgumentException("control semantic action owner must not be empty") }
@@ -87,6 +90,9 @@ public struct ControlSemantics {
         this.expanded = expanded
         this.enabled = enabled
         this.readOnly = readOnly
+        // The semantic contract owns this list. A caller retaining its constructor input cannot
+        // mutate the actions later and silently alter a committed runtime tree.
+        this.typedActions = typedActions.clone()
     }
 }
 
@@ -100,7 +106,18 @@ public func recordControlSemantics(
     widgetType: String,
     semantics: ControlSemantics
 ): Unit {
-    recordControlSemanticsResolved(frame, widgetType, semantics, ctx.interactionsEnabled())
+    // A compound control records its one outer action before drawing decorative slot content.
+    // Descendants inside that environment are not independently routed by the outer control and
+    // therefore must not leak a second, unreachable semantic action node.
+    match (ctx.controlContentEnvironment()) {
+        // Only an environment that owns an outer interaction may suppress its decorative slot
+        // descendants. A plain Surface also supplies inherited foreground colors, but it must not
+        // erase the semantics of an independently interactive child.
+        case Some(environment) => if (!environment.interactionOwner.isEmpty()) { return }
+        case None => ()
+    }
+    recordControlSemanticsResolved(frame, widgetType, semantics, ctx.interactionsEnabled(),
+        ctx.semanticFocusOrder(semantics.actionOwner))
 }
 
 /**
@@ -112,20 +129,25 @@ public func recordControlSemantics(
     widgetType: String,
     semantics: ControlSemantics
 ): Unit {
-    recordControlSemanticsResolved(frame, widgetType, semantics, true)
+    recordControlSemanticsResolved(frame, widgetType, semantics, true, None)
 }
 
 private func recordControlSemanticsResolved(
     frame: Rect,
     widgetType: String,
     semantics: ControlSemantics,
-    interactionsEnabled: Bool
+    interactionsEnabled: Bool,
+    focusOrder: ?Int64
 ): Unit {
+    recordActiveSemanticRuntimeControl(frame, widgetType, semantics, interactionsEnabled, focusOrder)
     if (!shouldRecordAutomaticControlSemantics(semantics.actionOwner)) { return }
     let properties = ArrayList<ProbeProperty>()
     properties.add(ProbeProperty("role", semantics.role))
     if (!semantics.label.isEmpty()) { properties.add(ProbeProperty("label", semantics.label)) }
-    if (!semantics.value.isEmpty()) { properties.add(ProbeProperty("value", semantics.value)) }
+    // Password values are never exported to either runtime semantics or probe evidence.
+    if (semantics.role != "password" && !semantics.value.isEmpty()) {
+        properties.add(ProbeProperty("value", semantics.value))
+    }
     if (!semantics.placeholder.isEmpty()) { properties.add(ProbeProperty("placeholder", semantics.placeholder)) }
     var semanticallyEnabled = interactionsEnabled
     match (semantics.enabled) {

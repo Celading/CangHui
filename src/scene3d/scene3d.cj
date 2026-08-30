@@ -3,6 +3,7 @@ package chui.scene3d
 import std.collection.ArrayList
 
 public let CANGHUI_SCENE3D_PROTOCOL = "canghui.scene3d.v0"
+public let CANGHUI_SCENE3D_SHARED_FRAME_PROTOCOL = "canghui.scene3d.shared-frame.v1"
 
 /** Renderer families understood by a Scene3D provider, without exposing engine handles. */
 public enum Scene3DBackend <: Equatable<Scene3DBackend> {
@@ -298,6 +299,321 @@ public struct Scene3DReceipt {
     }
 }
 
+/** Portable color identity for a Scene3D frame offered to the compositor. */
+public enum Scene3DSharedColorSpace <: Equatable<Scene3DSharedColorSpace> {
+    | Srgb
+    | DisplayP3
+    | ExtendedLinearSrgb
+
+    public operator func ==(other: Scene3DSharedColorSpace): Bool {
+        scene3DSharedColorSpaceName(this) == scene3DSharedColorSpaceName(other)
+    }
+
+    public operator func !=(other: Scene3DSharedColorSpace): Bool { !(this == other) }
+}
+
+public func scene3DSharedColorSpaceName(value: Scene3DSharedColorSpace): String {
+    match (value) {
+        case Scene3DSharedColorSpace.Srgb => "srgb"
+        case Scene3DSharedColorSpace.DisplayP3 => "display-p3"
+        case Scene3DSharedColorSpace.ExtendedLinearSrgb => "extended-linear-srgb"
+    }
+}
+
+public enum Scene3DSharedAlphaMode <: Equatable<Scene3DSharedAlphaMode> {
+    | Opaque
+    | Premultiplied
+
+    public operator func ==(other: Scene3DSharedAlphaMode): Bool {
+        scene3DSharedAlphaModeName(this) == scene3DSharedAlphaModeName(other)
+    }
+
+    public operator func !=(other: Scene3DSharedAlphaMode): Bool { !(this == other) }
+}
+
+public func scene3DSharedAlphaModeName(value: Scene3DSharedAlphaMode): String {
+    match (value) {
+        case Scene3DSharedAlphaMode.Opaque => "opaque"
+        case Scene3DSharedAlphaMode.Premultiplied => "premultiplied"
+    }
+}
+
+/** Requested content range is not proof that a host actually activated HDR/EDR output. */
+public enum Scene3DSharedDynamicRange <: Equatable<Scene3DSharedDynamicRange> {
+    | Sdr
+    | Extended
+
+    public operator func ==(other: Scene3DSharedDynamicRange): Bool {
+        scene3DSharedDynamicRangeName(this) == scene3DSharedDynamicRangeName(other)
+    }
+
+    public operator func !=(other: Scene3DSharedDynamicRange): Bool { !(this == other) }
+}
+
+public func scene3DSharedDynamicRangeName(value: Scene3DSharedDynamicRange): String {
+    match (value) {
+        case Scene3DSharedDynamicRange.Sdr => "sdr"
+        case Scene3DSharedDynamicRange.Extended => "extended"
+    }
+}
+
+/** Payload identity stays handle-free; native providers resolve private tokens inside their executor. */
+public enum Scene3DSharedFramePayloadKind <: Equatable<Scene3DSharedFramePayloadKind> {
+    | CpuRgba8
+    | ProviderPrivateTexture
+
+    public operator func ==(other: Scene3DSharedFramePayloadKind): Bool {
+        scene3DSharedFramePayloadKindName(this) == scene3DSharedFramePayloadKindName(other)
+    }
+
+    public operator func !=(other: Scene3DSharedFramePayloadKind): Bool { !(this == other) }
+}
+
+public func scene3DSharedFramePayloadKindName(value: Scene3DSharedFramePayloadKind): String {
+    match (value) {
+        case Scene3DSharedFramePayloadKind.CpuRgba8 => "cpu-rgba8"
+        case Scene3DSharedFramePayloadKind.ProviderPrivateTexture => "provider-private-texture"
+    }
+}
+
+/** Explicit acquire synchronization fact; it is not itself proof that a provider waited. */
+public struct Scene3DSharedAcquireSync {
+    public let epoch: Int64
+    public let waitRequired: Bool
+
+    public init(epoch: Int64, waitRequired!: Bool = false) {
+        if (epoch < 0) { throw IllegalArgumentException("scene3d acquire sync epoch must be non-negative") }
+        this.epoch = epoch
+        this.waitRequired = waitRequired
+    }
+}
+
+/** Geometry/revision requested by the view at the exact layout frame being composed. */
+public struct Scene3DSharedFrameRequest {
+    public let surfaceId: String
+    public let generation: Int64
+    public let frameId: Int64
+    public let logicalWidth: Float32
+    public let logicalHeight: Float32
+    public let scale: Float32
+    public let placementRevision: Int64
+    public let rotationCode: String
+
+    public init(
+        surfaceId: String,
+        generation: Int64,
+        frameId: Int64,
+        logicalWidth: Float32,
+        logicalHeight: Float32,
+        scale: Float32,
+        placementRevision: Int64,
+        rotationCode: String
+    ) {
+        if (surfaceId.isEmpty() || generation <= 0 || frameId < 0 || logicalWidth <= 0.0 ||
+            logicalHeight <= 0.0 || scale <= 0.0 || placementRevision <= 0 || rotationCode.isEmpty()) {
+            throw IllegalArgumentException("scene3d shared frame request is invalid")
+        }
+        this.surfaceId = surfaceId
+        this.generation = generation
+        this.frameId = frameId
+        this.logicalWidth = logicalWidth
+        this.logicalHeight = logicalHeight
+        this.scale = scale
+        this.placementRevision = placementRevision
+        this.rotationCode = rotationCode
+    }
+}
+
+public enum Scene3DSharedFrameFinishReason {
+    | Presented
+    | Rejected
+    | Fallback
+    | ExecutorFailed
+    | Replaced
+    | Abandoned
+}
+
+public func scene3DSharedFrameFinishReasonName(value: Scene3DSharedFrameFinishReason): String {
+    match (value) {
+        case Scene3DSharedFrameFinishReason.Presented => "presented"
+        case Scene3DSharedFrameFinishReason.Rejected => "rejected"
+        case Scene3DSharedFrameFinishReason.Fallback => "fallback"
+        case Scene3DSharedFrameFinishReason.ExecutorFailed => "executor-failed"
+        case Scene3DSharedFrameFinishReason.Replaced => "replaced"
+        case Scene3DSharedFrameFinishReason.Abandoned => "abandoned"
+    }
+}
+
+/** Provider-visible proof that one lease release callback completed or failed. */
+public struct Scene3DSharedFrameReleaseReceipt {
+    public let ok: Bool
+    public let code: String
+    public let token: String
+    public let reason: Scene3DSharedFrameFinishReason
+
+    public init(ok: Bool, code: String, token: String, reason: Scene3DSharedFrameFinishReason) {
+        this.ok = ok
+        this.code = code
+        this.token = token
+        this.reason = reason
+    }
+}
+
+private let SCENE3D_SHARED_FRAME_HARD_MAX_BYTES: Int64 = 268435456
+
+/**
+ * Exactly-once shared-frame lease. The portable software path exposes RGBA8 bytes; a native GPU
+ * provider keeps its native texture/fence behind the provider and may use the stable token to bind
+ * a private executor resource. No native handle is present in this API.
+ */
+public class Scene3DSharedFrameLease <: Resource {
+    public let token: String
+    public let surfaceId: String
+    public let generation: Int64
+    public let frameId: Int64
+    public let pixelWidth: Int64
+    public let pixelHeight: Int64
+    public let rowBytes: Int64
+    public let colorSpace: Scene3DSharedColorSpace
+    public let alphaMode: Scene3DSharedAlphaMode
+    public let dynamicRange: Scene3DSharedDynamicRange
+    public let payloadKind: Scene3DSharedFramePayloadKind
+    public let providerPrivateToken: String
+    public let request: Scene3DSharedFrameRequest
+    public let acquireSync: Scene3DSharedAcquireSync
+    public let syncEpoch: Int64
+    public let contentCode: Int64
+    private let pixels: Array<UInt8>
+    private let releaseAction: (Scene3DSharedFrameFinishReason) -> Bool
+    private var closed = false
+    private var releaseReceiptValue: ?Scene3DSharedFrameReleaseReceipt = None
+
+    public init(
+        token: String,
+        request: Scene3DSharedFrameRequest,
+        pixelWidth: Int64,
+        pixelHeight: Int64,
+        rowBytes: Int64,
+        colorSpace: Scene3DSharedColorSpace,
+        alphaMode: Scene3DSharedAlphaMode,
+        dynamicRange: Scene3DSharedDynamicRange,
+        acquireSync: Scene3DSharedAcquireSync,
+        contentCode: Int64,
+        payloadKind!: Scene3DSharedFramePayloadKind = Scene3DSharedFramePayloadKind.CpuRgba8,
+        rgbaPixels!: Array<UInt8> = [],
+        providerPrivateToken!: String = "",
+        onFinish!: (Scene3DSharedFrameFinishReason) -> Bool = {_ => true}
+    ) {
+        if (token.isEmpty() || pixelWidth <= 0 || pixelHeight <= 0 ||
+            pixelWidth > Int64.Max / 4 || contentCode <= 0) {
+            throw IllegalArgumentException("scene3d shared frame metadata is invalid")
+        }
+        let minimumRowBytes = pixelWidth * 4
+        if (rowBytes < minimumRowBytes || rowBytes <= 0 || pixelHeight > Int64.Max / rowBytes) {
+            throw IllegalArgumentException("scene3d shared frame geometry overflows")
+        }
+        let payloadBytes = pixelHeight * rowBytes
+        if (payloadBytes > SCENE3D_SHARED_FRAME_HARD_MAX_BYTES) {
+            throw IllegalArgumentException("scene3d shared frame exceeds the hard byte limit")
+        }
+        if (payloadKind == Scene3DSharedFramePayloadKind.CpuRgba8 && rgbaPixels.size != payloadBytes) {
+            throw IllegalArgumentException("scene3d shared frame payload does not match its geometry")
+        }
+        if (payloadKind == Scene3DSharedFramePayloadKind.ProviderPrivateTexture &&
+            (!rgbaPixels.isEmpty() || providerPrivateToken.isEmpty())) {
+            throw IllegalArgumentException("scene3d private texture payload requires only an opaque token")
+        }
+        this.token = token
+        this.surfaceId = request.surfaceId
+        this.generation = request.generation
+        this.frameId = request.frameId
+        this.pixelWidth = pixelWidth
+        this.pixelHeight = pixelHeight
+        this.rowBytes = rowBytes
+        this.colorSpace = colorSpace
+        this.alphaMode = alphaMode
+        this.dynamicRange = dynamicRange
+        this.payloadKind = payloadKind
+        this.providerPrivateToken = providerPrivateToken
+        this.request = request
+        this.acquireSync = acquireSync
+        this.syncEpoch = acquireSync.epoch
+        this.contentCode = contentCode
+        this.pixels = rgbaPixels.clone()
+        this.releaseAction = onFinish
+    }
+
+    /** Returns an owned copy so provider memory never outlives the lease. */
+    public func copyRgbaPixels(): Array<UInt8> {
+        if (closed) { throw IllegalStateException("scene3d shared frame lease is closed") }
+        if (payloadKind != Scene3DSharedFramePayloadKind.CpuRgba8) {
+            throw IllegalStateException("scene3d shared frame does not expose CPU RGBA pixels")
+        }
+        pixels.clone()
+    }
+
+    public func isClosed(): Bool { closed }
+
+    public func releaseReceipt(): ?Scene3DSharedFrameReleaseReceipt { releaseReceiptValue }
+
+    public func finish(reason: Scene3DSharedFrameFinishReason): Scene3DSharedFrameReleaseReceipt {
+        match (releaseReceiptValue) {
+            case Some(value) => return value
+            case None => ()
+        }
+        closed = true
+        // Publish terminal ownership before entering provider code. A provider is allowed to
+        // inspect or close the same lease from inside its callback; that re-entry must observe the
+        // original token/reason and must never invoke the callback a second time. The outer call
+        // replaces this in-progress receipt with the callback's final result before returning.
+        releaseReceiptValue = Some(Scene3DSharedFrameReleaseReceipt(
+            false,
+            "release-in-progress",
+            token,
+            reason))
+        let released = try {
+            releaseAction(reason)
+        } catch (_: Exception) {
+            false
+        }
+        let value = Scene3DSharedFrameReleaseReceipt(
+            released,
+            if (released) { "released" } else { "release-failed" },
+            token,
+            reason)
+        releaseReceiptValue = Some(value)
+        value
+    }
+
+    public func close(): Unit {
+        let _ = finish(Scene3DSharedFrameFinishReason.Abandoned)
+    }
+}
+
+/** Optional provider extension; ordinary native-child Scene3DProvider implementations remain valid. */
+public interface Scene3DSharedFrameProvider {
+    func acquireSharedFrame(request: Scene3DSharedFrameRequest): ?Scene3DSharedFrameLease
+}
+
+/** A view remains native-child by default; shared composition is always an explicit opt-in. */
+public enum Scene3DCompositionMode <: Equatable<Scene3DCompositionMode> {
+    | NativeChild
+    | PreferSharedFrame
+
+    public operator func ==(other: Scene3DCompositionMode): Bool {
+        scene3DCompositionModeName(this) == scene3DCompositionModeName(other)
+    }
+
+    public operator func !=(other: Scene3DCompositionMode): Bool { !(this == other) }
+}
+
+public func scene3DCompositionModeName(value: Scene3DCompositionMode): String {
+    match (value) {
+        case Scene3DCompositionMode.NativeChild => "native-child"
+        case Scene3DCompositionMode.PreferSharedFrame => "prefer-shared-frame"
+    }
+}
+
 /** Engine-neutral provider boundary. Implementations own all native resources. */
 public interface Scene3DProvider {
     func attach(surface: Scene3DHostSurface, clock: Scene3DFrameClock): Scene3DReceipt
@@ -313,13 +629,17 @@ public interface Scene3DProvider {
  * Deterministic F0 implementation. It validates the lifecycle and ordering
  * rules without opening a window or linking a renderer.
  */
-public class FakeScene3DProvider <: Scene3DProvider {
+public class FakeScene3DProvider <: Scene3DProvider & Scene3DSharedFrameProvider {
     private var attached = false
     private var surfaceId = ""
     private var generation: Int64 = 0
     private var lastFrameId: Int64 = -1
     private var loadedResourceId = ""
     private var lastSceneId = ""
+    private var surfacePixelWidth: Int64 = 0
+    private var surfacePixelHeight: Int64 = 0
+    private var sharedAcquireCountValue: Int64 = 0
+    private var sharedReleaseCountValue: Int64 = 0
 
     public func attach(surface: Scene3DHostSurface, clock: Scene3DFrameClock): Scene3DReceipt {
         if (attached && (surface.id != surfaceId || surface.generation <= generation)) {
@@ -331,6 +651,8 @@ public class FakeScene3DProvider <: Scene3DProvider {
         lastFrameId = clock.frameId
         loadedResourceId = ""
         lastSceneId = ""
+        surfacePixelWidth = surface.pixelWidth
+        surfacePixelHeight = surface.pixelHeight
         Scene3DReceipt(true, "attach", "accepted", generation, clock.frameId, "fake surface attached")
     }
 
@@ -338,6 +660,8 @@ public class FakeScene3DProvider <: Scene3DProvider {
         if (!matches(surface.id, surface.generation)) {
             return reject("resize", "stale-generation", surface.generation, lastFrameId)
         }
+        surfacePixelWidth = surface.pixelWidth
+        surfacePixelHeight = surface.pixelHeight
         Scene3DReceipt(true, "resize", "accepted", generation, lastFrameId, "fake surface resized")
     }
 
@@ -377,6 +701,44 @@ public class FakeScene3DProvider <: Scene3DProvider {
         Scene3DReceipt(true, "present", "accepted", generation, clock.frameId, "fake frame presented")
     }
 
+    public func acquireSharedFrame(request: Scene3DSharedFrameRequest): ?Scene3DSharedFrameLease {
+        if (!matches(request.surfaceId, request.generation) || request.frameId != lastFrameId ||
+            request.frameId < 0 || loadedResourceId.isEmpty()) {
+            return None
+        }
+        // The fake provider is a bounded software-conformance source, not a native GPU claim.
+        let width = min(Int64(256), surfacePixelWidth)
+        let height = min(Int64(256), surfacePixelHeight)
+        if (width <= 0 || height <= 0) { return None }
+        let pixels = ArrayList<UInt8>()
+        let frameTint = UInt8(request.frameId % 251)
+        for (y in 0..height) {
+            for (x in 0..width) {
+                let light = (x / 16 + y / 16) % 2 == 0
+                pixels.add(if (light) { UInt8(48) } else { UInt8(20) })
+                pixels.add(if (light) { UInt8(132) } else { UInt8(72) })
+                pixels.add(frameTint)
+                pixels.add(UInt8(255))
+            }
+        }
+        sharedAcquireCountValue += 1
+        let token = "fake-${generation}-${request.frameId}-${sharedAcquireCountValue}"
+        Some(Scene3DSharedFrameLease(
+            token,
+            request,
+            width,
+            height,
+            width * 4,
+            Scene3DSharedColorSpace.Srgb,
+            Scene3DSharedAlphaMode.Opaque,
+            Scene3DSharedDynamicRange.Sdr,
+            Scene3DSharedAcquireSync(request.frameId),
+            fakeSharedFrameContentCode(generation, request.frameId, width, height),
+            rgbaPixels: pixels.toArray(),
+            onFinish: {_ => recordSharedFrameRelease() }
+        ))
+    }
+
     public func detach(surfaceId: String, generation: Int64): Scene3DReceipt {
         if (!matches(surfaceId, generation)) {
             return reject("detach", "stale-generation", generation, lastFrameId)
@@ -386,12 +748,16 @@ public class FakeScene3DProvider <: Scene3DProvider {
         this.generation = 0
         loadedResourceId = ""
         lastSceneId = ""
+        surfacePixelWidth = 0
+        surfacePixelHeight = 0
         Scene3DReceipt(true, "detach", "accepted", generation, lastFrameId, "fake surface detached")
     }
 
     public func isAttached(): Bool { attached }
     public func currentGeneration(): Int64 { generation }
     public func currentSceneId(): String { lastSceneId }
+    public func sharedAcquireCount(): Int64 { sharedAcquireCountValue }
+    public func sharedReleaseCount(): Int64 { sharedReleaseCountValue }
 
     private func matches(id: String, value: Int64): Bool {
         attached && id == surfaceId && value == generation
@@ -400,4 +766,26 @@ public class FakeScene3DProvider <: Scene3DProvider {
     private func reject(operation: String, code: String, value: Int64, frameId: Int64): Scene3DReceipt {
         Scene3DReceipt(false, operation, code, value, frameId, "fake provider rejected request")
     }
+
+    private func recordSharedFrameRelease(): Bool { sharedReleaseCountValue += 1; true }
+}
+
+private func fakeSharedFrameContentCode(
+    generation: Int64,
+    frameId: Int64,
+    width: Int64,
+    height: Int64
+): Int64 {
+    let modulus: Int64 = 2147483647
+    var code = positiveScene3DSharedCodePart(generation, modulus)
+    code = (code * 1009 + positiveScene3DSharedCodePart(frameId, modulus)) % modulus
+    code = (code * 31 + positiveScene3DSharedCodePart(width, modulus)) % modulus
+    code = (code * 17 + positiveScene3DSharedCodePart(height, modulus)) % modulus
+    if (code <= 0) { code += 2147483646 }
+    code
+}
+
+private func positiveScene3DSharedCodePart(value: Int64, modulus: Int64): Int64 {
+    let reduced = value % modulus
+    if (reduced < 0) { reduced + modulus } else { reduced }
 }

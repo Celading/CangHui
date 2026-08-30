@@ -78,6 +78,40 @@ frame.seal()
 macOS arm64 Metal 的当前主机验证。普通 CangHui 构建和一般消费者不会因此下载、
 编译或链接 bgfx 原生库。
 
+## Shared-frame 同树合成
+
+`Scene3DView` 默认保持 `Scene3DCompositionMode.NativeChild`。需要让 3D 像素参与普通组件树
+的 sibling z-order、祖先 clip、圆角和焦点绘制时，应用可以显式选择
+`PreferSharedFrame`，并让 provider 同时实现 `Scene3DSharedFrameProvider`：
+
+```cangjie
+let controller = Scene3DViewController(
+    "station-scene",
+    host,
+    provider,
+    resource,
+    frameSource,
+    compositionMode: Scene3DCompositionMode.PreferSharedFrame
+)
+```
+
+一次 acquire 使用 `Scene3DSharedFrameRequest` 绑定精确的 surface/generation/frame、逻辑尺寸、
+缩放、placement revision 与设备方向。provider 返回的 `Scene3DSharedFrameLease` 还必须声明
+像素尺寸、row bytes、颜色空间、alpha、动态范围、payload 类别与 acquire sync。框架会拒绝
+旧 generation、错 frame、错 placement、溢出尺寸、需要等待但当前执行器无法兑现的同步，以及
+当前路径不能安全消费的 payload。
+
+当前生产可用路径是 `CpuRgba8`：SDL compositor 把最多 256 MiB 的自有像素副本上传到同一个
+renderer device，在 `Scene3DView` 的正常 draw 位置以圆角纹理网格采样，因此不会绕过 sibling
+顺序或祖先裁剪。lease 在 present、fallback、执行器失败、替换或放弃后调用一次
+`finish(reason)`；回调异常被收敛为结构化 release receipt，不会重复释放。
+
+`ProviderPrivateTexture` 与 opaque token/acquire-sync 合同已经存在，但当前选择的 SDL executor
+没有据此声称原生 Metal/Vulkan/D3D/GLES/WebGPU 纹理与 fence 已经接通。`Extended` 动态范围
+也只是内容意图，不是宿主已激活 HDR/EDR 的证明；当前 shared-frame 生产路径只接受 SDR。
+因此这一版可用于同树 demo 与产品原型，但“零拷贝原生共享”和“实机 HDR 输出”仍需逐 backend
+provider 与宿主回执。
+
 ## macOS 嵌入式 provider
 
 需要 Metal 3D 的应用先把冻结的 bgfx 原生归档与 SDL 动态库准备到一个同机目录：

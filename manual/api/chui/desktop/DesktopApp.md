@@ -148,7 +148,8 @@ public func useBaseCursor(kind: SystemCursor): Unit
 
 ### clearRememberedState
 
-在下一次重建前丢弃全部 `rememberState` 局部值。
+在下一次重建前丢弃全部 `rememberState` 局部值。若从当前帧的事件回调调用，清理会延迟到
+该帧提交或回滚后的安全边界，不会中断正在运行的布局、绘制或事件阶段。
 
 ```cangjie
 public func clearRememberedState(): Unit
