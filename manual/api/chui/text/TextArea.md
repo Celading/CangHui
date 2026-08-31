@@ -25,6 +25,8 @@ public class TextArea <: Widget
 - **逻辑行契约**：`wrapMode: TextAreaWrapMode.NoWrap` 是当前唯一支持的模式，也是默认值。视口变窄不会把一个逻辑源代码行拆成多个视觉行；软换行和“逻辑行到视觉行”投影尚未提供，框架不会用一个看似可选但实际不完整的布尔开关暗示它们存在。
 - **双轴滚动**：`scroll` 是垂直偏移，`horizontalScroll` 是横向偏移；两者都可外部接管。触控板/侧倾滚轮的水平分量直接横移，Shift+垂直滚轮也横移，普通垂直滚轮仍纵向滚动。内容装得下时事件让给外层，不留死区。键盘编辑、导航与外部光标变化以最小距离让光标在两轴可见。
 - **统一坐标平面**：普通/装饰文本、装饰背景、选区、光标、IME 锚点和指针命中都减去或加回同一个 `horizontalScroll`；应用不应自行平移其中一层。
+- **IME 预编辑**：SDL 文本组合事件通过 [`TextCompositionSnapshot`](TextCompositionSnapshot.md) 进入控件。预编辑文本只在光标处临时绘制并更新候选框锚点，不写入绑定文本、撤销栈或文档修订；最终 `TextInput`/`Commit` 只替换捕获时的 UTF-8 字节选区一次。失焦、外部文档修订、指针跳转和普通编辑都会取消陈旧组合。
+- **无障碍语义**：`.accessibilityLabel(...)` 为编辑区提供稳定名称；语义树同时公开正式文本值、焦点、可编辑/只读状态及 UTF-8 字节选区。只读区域保留可读值，但不会声明编辑动作。
 - **滚动指示器**：`.verticalScrollBar(false)` / `.horizontalScrollBar(false)` 只隐藏对应滑块，不禁用滚动。行号 gutter 可共享正文的 `scroll` 并隐藏自己的指示器，由正文保留唯一可见滚动条。
 - **粘贴换行处理**：保留多行内容，但把 Windows 的 CRLF 和单独的 CR 统一为 `\n`；否则行尾残留的 `\r` 会干扰 End、退格和文字测量。剪贴板不可用时复制/粘贴会静默失败，不会让控件退出。
 - **撤销**：与单行控件相同——500 毫秒内连续编辑合并一步、光标跳转切分撤销组、栈上限 300 步；撤销/重做后自动滚动到光标行。
@@ -72,6 +74,7 @@ main(): Unit {
 | [`horizontalScrollBar(visible: Bool)`](#horizontalscrollbar) | 显示或隐藏横向滚动指示器，不禁用滚动。 |
 | [`chrome(value: TextAreaChrome)`](#chrome) | 选择普通字段外观或无框嵌入式表面。 |
 | [`decorations(value: Observable<TextAreaDecorationSnapshot>)`](#decorations) | 更换与文档修订绑定的绘制装饰源。 |
+| [`accessibilityLabel(value: String)`](#accessibilitylabel) | 设置供无障碍树和无图审计使用的稳定名称。 |
 | [`measure(...)`](#measure) | [`Widget`](../core/Widget.md) 协议实现：占满全部可用空间。 |
 | [`layout(...)`](#layout) | [`Widget`](../core/Widget.md) 协议实现：记录分配的框架矩形，供绘制与命中测试使用。 |
 | [`draw(...)`](#draw) | [`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、可见行、光标与右缘滚动条。 |
@@ -93,6 +96,7 @@ public init(
     horizontalScroll!: ?State<Float32> = None,
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None,
+    composition!: ?State<TextCompositionSnapshot> = None,
     editable!: Bool = true,
     chrome!: TextAreaChrome = TextAreaChrome.Field,
     wrapMode!: TextAreaWrapMode = TextAreaWrapMode.NoWrap,
@@ -108,6 +112,7 @@ public init(
 - `horizontalScroll!`: `?State<Float32>` — 外部接管的横向滚动偏移，逻辑像素；默认 `None`，控件按自身标识保留。
 - `cursor!`: `?State<Int64>` — 外部接管的光标字节偏移；默认 `None`，初值在文本末尾。
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
+- `composition!`: `?State<TextCompositionSnapshot>` — 默认 `None`；外部可观察的非持久化 IME 组合状态。应用通常不需要直接写入；宿主组合事件由控件更新它。
 - `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读：可导航选择复制，不可编辑，不进入 Tab 焦点遍历。
 - `chrome!`: `TextAreaChrome` — 默认 `Field`；传 `None` 不绘制默认字段底色和描边。
 - `wrapMode!`: [`TextAreaWrapMode`](TextAreaWrapMode.md) — 默认且当前唯一支持 `NoWrap`。
@@ -125,6 +130,16 @@ public init(
 
 ```cangjie
 public func autofocus(): TextArea
+```
+
+**返回值** `TextArea` — 控件自身。
+
+### accessibilityLabel
+
+设置编辑区在无障碍树、语义快照与 CUIC 无图审计中的稳定名称。空字符串会移除显式名称。
+
+```cangjie
+public func accessibilityLabel(value: String): TextArea
 ```
 
 **返回值** `TextArea` — 控件自身。

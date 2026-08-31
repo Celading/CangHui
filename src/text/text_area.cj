@@ -1,6 +1,7 @@
 package chui.text
 
-import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, UiEvent}
+import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, TextCompositionEvent,
+    TextCompositionPhase, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
 import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion,
     ScrollOptions, SemanticActionKind, maxScrollOffset, Observable, State, UiContext, Widget, advanceScrollMotion,
@@ -25,6 +26,40 @@ public enum TextAreaChrome {
 /** Controls how logical lines map to visual rows. Soft wrapping is intentionally not implied. */
 public enum TextAreaWrapMode {
     | NoWrap
+}
+
+/** A non-durable IME preedit transaction owned by one TextArea identity. */
+public struct TextCompositionSnapshot {
+    public let active: Bool
+    public let preedit: String
+    /** Selected/caret range inside `preedit`, counted in UTF-8 characters. */
+    public let selectionStart: Int64
+    public let selectionLength: Int64
+    /** Half-open exact UTF-8 byte range in the durable document. */
+    public let replacementStartByte: Int64
+    public let replacementEndByte: Int64
+    public let documentRevision: UInt64
+    public let generation: UInt64
+
+    public init(
+        active!: Bool = false,
+        preedit!: String = "",
+        selectionStart!: Int64 = 0,
+        selectionLength!: Int64 = 0,
+        replacementStartByte!: Int64 = 0,
+        replacementEndByte!: Int64 = 0,
+        documentRevision!: UInt64 = UInt64(0),
+        generation!: UInt64 = UInt64(0)
+    ) {
+        this.active = active
+        this.preedit = preedit
+        this.selectionStart = max(Int64(0), selectionStart)
+        this.selectionLength = max(Int64(0), selectionLength)
+        this.replacementStartByte = max(Int64(0), replacementStartByte)
+        this.replacementEndByte = max(this.replacementStartByte, replacementEndByte)
+        this.documentRevision = documentRevision
+        this.generation = generation
+    }
 }
 
 private let TEXT_AREA_CARET_RESERVE: Float32 = 2.0
@@ -94,7 +129,9 @@ public class TextArea <: Widget {
     private var horizontalScrollStateValue: State<Float32>
     private var cursorStateValue: State<Int64>
     private var anchorStateValue: State<Int64>
+    private var compositionStateValue: State<TextCompositionSnapshot>
     private var isEditable: Bool
+    private var semanticLabel: String
     private var chromeMode: TextAreaChrome
     private var wrapModeValue: TextAreaWrapMode
     private var showsVerticalScrollBar = true
@@ -120,6 +157,7 @@ public class TextArea <: Widget {
         horizontalScroll!: ?State<Float32> = None,
         cursor!: ?State<Int64> = None,
         anchor!: ?State<Int64> = None,
+        composition!: ?State<TextCompositionSnapshot> = None,
         editable!: Bool = true,
         chrome!: TextAreaChrome = TextAreaChrome.Field,
         wrapMode!: TextAreaWrapMode = TextAreaWrapMode.NoWrap,
@@ -151,7 +189,14 @@ public class TextArea <: Widget {
             case Some(value) => value
             case None => localState<Int64>("TextArea:${ident}:anchor") {caretStart}
         }
+        this.compositionStateValue = match (composition) {
+            case Some(value) => value
+            case None => localState<TextCompositionSnapshot>("TextArea:${ident}:composition") {
+                TextCompositionSnapshot()
+            }
+        }
         this.isEditable = editable
+        this.semanticLabel = ""
         this.chromeMode = chrome
         this.wrapModeValue = wrapMode
         this.scrollBar = ScrollBar("TextArea:${ident}:thumb")
@@ -219,6 +264,12 @@ public class TextArea <: Widget {
         this
     }
 
+    /** Overrides the semantic name without changing the rendered document. */
+    public func accessibilityLabel(value: String): TextArea {
+        semanticLabel = value
+        this
+    }
+
     /** Claims keyboard focus the first time an editable area appears (e.g. a compose box). */
     public func autofocus(): TextArea {
         autofocusRequested = true
@@ -266,12 +317,21 @@ public class TextArea <: Widget {
     public func draw(ctx: UiContext): Unit {
         let edit = editState()
         edit.normalizeCursor()
+        if (!ctx.hasFocus(id) && compositionStateValue.value.active) {
+            clearComposition()
+        }
         recordControlSemantics(ctx, frame, "TextArea", ControlSemantics(
             "textarea",
+            label: semanticLabel,
+            value: text.value,
             action: if (isEditable) { "TextArea.edit()" } else { "" },
             shortcut: if (isEditable) { "TextInput" } else { "" },
             actionOwner: id,
             readOnly: Some(!isEditable),
+            focused: Some(ctx.hasFocus(id)),
+            editable: Some(isEditable),
+            selectionStart: Some(edit.selectionStart()),
+            selectionEnd: Some(edit.selectionEnd()),
             typedActions: if (isEditable) { [SemanticActionKind.Focus] } else { [] }
         ))
         let docLines = lines()
@@ -301,7 +361,8 @@ public class TextArea <: Widget {
             firstLine, lastLine)
         drawTextAreaBox(ctx, frame, id, content, docLines, edit.selectionStart(), edit.selectionEnd(),
             ctx.hasFocus(id), showsVerticalScrollBar, showsHorizontalScrollBar, scrollBar.dragging(ctx),
-            hScrollBar.dragging(ctx), chromeMode, wrapModeValue, decorationRuns, contentW)
+            hScrollBar.dragging(ctx), chromeMode, wrapModeValue, decorationRuns,
+            compositionStateValue.value, text.revision, contentW)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -362,7 +423,8 @@ public class TextArea <: Widget {
                     applyWheelScroll(ctx, scrollMotion, scrollStateValue, wheelY, contentH, viewport.h, scrollPolicy)
                     return true
                 }
-            case UiEvent.TextInput(value) => return recordedEdit(ctx, {=> edit.insert(value)})
+            case UiEvent.TextComposition(value) => return handleComposition(ctx, edit, value)
+            case UiEvent.TextInput(value) => return commitComposition(ctx, edit, value)
             case UiEvent.KeyDown(Key.Enter, _) => return recordedEdit(ctx, {=> edit.insert("\n")})
             case UiEvent.KeyDown(Key.Backspace, _) => return recordedEdit(ctx, {=> edit.backspace()})
             case UiEvent.KeyDown(Key.Delete, _) => return recordedEdit(ctx, {=> edit.deleteForward()})
@@ -415,8 +477,94 @@ public class TextArea <: Widget {
         if (text.value != before.text) {
             history.commit(before, ctx.frame.elapsedMs)
         }
+        clearComposition()
         revealCaret(ctx)
         true
+    }
+
+    private func handleComposition(ctx: UiContext, edit: TextEditState, event: TextCompositionEvent): Bool {
+        if (!ctx.hasFocus(id) || !isEditable) {
+            return false
+        }
+        let replacementUnset = event.replacementStartByte == -1 && event.replacementEndByte == -1
+        if (!replacementUnset &&
+            !validCompositionReplacement(event.replacementStartByte, event.replacementEndByte)) {
+            return false
+        }
+        match (event.phase) {
+            case TextCompositionPhase.Cancel =>
+                clearComposition()
+                return true
+            case TextCompositionPhase.Commit => return commitComposition(ctx, edit, event.text)
+            case TextCompositionPhase.Begin => publishComposition(edit, event, true)
+            case TextCompositionPhase.Update => publishComposition(edit, event, false)
+        }
+        ctx.requestFrame()
+        true
+    }
+
+    private func publishComposition(
+        edit: TextEditState,
+        event: TextCompositionEvent,
+        captureCurrentRange: Bool
+    ): Unit {
+        let previous = compositionStateValue.value
+        var start = edit.selectionStart()
+        var end = edit.selectionEnd()
+        if (!captureCurrentRange && previous.active) {
+            start = previous.replacementStartByte
+            end = previous.replacementEndByte
+        }
+        if (validCompositionReplacement(event.replacementStartByte, event.replacementEndByte)) {
+            start = event.replacementStartByte
+            end = event.replacementEndByte
+        }
+        let characterCount = utf8CharacterCount(event.text)
+        let selectionStart = if (event.selectionStart < 0) {
+            characterCount
+        } else {
+            min(event.selectionStart, characterCount)
+        }
+        let selectionLength = if (event.selectionLength < 0) {
+            Int64(0)
+        } else {
+            min(event.selectionLength, characterCount - selectionStart)
+        }
+        compositionStateValue.value = TextCompositionSnapshot(
+            active: true,
+            preedit: event.text,
+            selectionStart: selectionStart,
+            selectionLength: selectionLength,
+            replacementStartByte: start,
+            replacementEndByte: end,
+            documentRevision: text.revision,
+            generation: previous.generation + UInt64(1)
+        )
+    }
+
+    private func commitComposition(ctx: UiContext, edit: TextEditState, value: String): Bool {
+        if (!ctx.hasFocus(id) || !isEditable) {
+            return false
+        }
+        let composition = compositionStateValue.value
+        if (composition.active && composition.documentRevision == text.revision &&
+            validCompositionReplacement(composition.replacementStartByte, composition.replacementEndByte)) {
+            cursorStateValue.value = composition.replacementEndByte
+            anchorStateValue.value = composition.replacementStartByte
+        }
+        return recordedEdit(ctx, {=> edit.insert(value)})
+    }
+
+    private func validCompositionReplacement(start: Int64, end: Int64): Bool {
+        start >= 0 && end >= start && end <= text.value.size &&
+            normalizedTextCursor(text.value, start) == start && normalizedTextCursor(text.value, end) == end
+    }
+
+    private func clearComposition(): Unit {
+        let previous = compositionStateValue.value
+        if (previous.active || !previous.preedit.isEmpty()) {
+            compositionStateValue.value = TextCompositionSnapshot(generation: previous.generation + UInt64(1))
+        }
     }
 
     private func snapshot(): TextSnapshot {
@@ -424,6 +572,7 @@ public class TextArea <: Widget {
     }
 
     private func applySnapshot(state: TextSnapshot): Unit {
+        clearComposition()
         text.value = state.text
         cursorStateValue.value = state.cursor
         anchorStateValue.value = state.anchor
@@ -490,6 +639,7 @@ public class TextArea <: Widget {
 
     private func pressAt(ctx: UiContext, edit: TextEditState, x: Float32, y: Float32): Bool {
         if (frame.contains(x, y)) {
+            clearComposition()
             ctx.focus(id)
             let offset = pointOffset(ctx, x, y)
             if (ctx.clickCount == 2) {
@@ -512,6 +662,7 @@ public class TextArea <: Widget {
         if (!ctx.hasFocus(id)) {
             return false
         }
+        clearComposition()
         if (Keyboard.modifiers().shift) {
             growSelection()
         } else {
@@ -606,6 +757,8 @@ private func drawTextAreaBox(
     chrome: TextAreaChrome,
     wrapMode: TextAreaWrapMode,
     decorations: Array<TextAreaDecorationRun>,
+    composition: TextCompositionSnapshot,
+    documentRevision: UInt64,
     contentW: Float32
 ): Unit {
     match (chrome) {
@@ -627,6 +780,7 @@ private func drawTextAreaBox(
             }
     }
     drawTextAreaCursor(ctx, viewport, id, content)
+    drawTextAreaComposition(ctx, viewport, id, content, composition, documentRevision)
     ctx.renderer.popClip()
     if (showVerticalScrollBar) {
         drawVerticalScrollBar(ctx, frame, content.scroll, textContentHeight(lines), viewport.h, active: barActive)
@@ -635,6 +789,67 @@ private func drawTextAreaBox(
         drawHorizontalScrollBar(ctx, frame, content.horizontalScroll, contentW, viewport.w,
             active: horizontalBarActive)
     }
+}
+
+private func drawTextAreaComposition(
+    ctx: UiContext,
+    viewport: Rect,
+    id: String,
+    content: TextAreaContent,
+    composition: TextCompositionSnapshot,
+    documentRevision: UInt64
+): Unit {
+    if (!ctx.hasFocus(id) || !composition.active || composition.preedit.isEmpty() ||
+        composition.documentRevision != documentRevision) {
+        return
+    }
+    let start = composition.replacementStartByte
+    if (start < 0 || start > content.text.size || normalizedTextCursor(content.text, start) != start) {
+        return
+    }
+    let visible = composition.preedit.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    let line = textCursorLineIndex(content.text, start)
+    let lineStart = lineStartBeforeOrAt(content.text, start)
+    let x = viewport.x - content.horizontalScroll +
+        ctx.renderer.textWidth(content.text[lineStart..start], pointSize: FontSizes.BODY)
+    let y = viewport.y + Float32(line) * CUI_SMALL_H - content.scroll
+    let width = ctx.renderer.textWidth(visible, pointSize: FontSizes.BODY)
+    let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
+    if (y + lineHeight < viewport.y || y > viewport.bottom() || x > viewport.right()) {
+        return
+    }
+    ctx.renderer.text(visible, x, y, ctx.theme.text, pointSize: FontSizes.BODY)
+    if (width > 0.0) {
+        ctx.renderer.strokeLine(x, y + lineHeight - 1.0, x + width, y + lineHeight - 1.0,
+            Pen(width: 1.0, color: ctx.theme.accent))
+    }
+    let caretCharacters = composition.selectionStart + composition.selectionLength
+    let caretByte = utf8ByteOffsetAfterCharacters(visible, caretCharacters)
+    let caretX = x + ctx.renderer.textWidth(visible[0..caretByte], pointSize: FontSizes.BODY)
+    let caret = Rect(caretX, y, TEXT_AREA_CARET_RESERVE, lineHeight)
+    ctx.setTextInputAnchor(caret)
+    ctx.requestFrame()
+}
+
+private func utf8CharacterCount(value: String): Int64 {
+    var count: Int64 = 0
+    var cursor: Int64 = 0
+    while (cursor < value.size) {
+        cursor = nextTextBoundary(value, cursor)
+        count += 1
+    }
+    count
+}
+
+private func utf8ByteOffsetAfterCharacters(value: String, characters: Int64): Int64 {
+    let target = max(Int64(0), characters)
+    var count: Int64 = 0
+    var cursor: Int64 = 0
+    while (cursor < value.size && count < target) {
+        cursor = nextTextBoundary(value, cursor)
+        count += 1
+    }
+    cursor
 }
 
 private func drawTextAreaDecorationBackgrounds(
@@ -681,20 +896,20 @@ private func drawDecoratedLines(
             let run = decorations[currentRun]
             if (cursor < run.startByte) {
                 drawTextAreaSlice(ctx, viewport, content.text, lineStart, cursor, run.startByte, y,
-                    ctx.theme.text, None, content.horizontalScroll)
+                    ctx.theme.text, None, TextAreaUnderlineShape.Straight, content.horizontalScroll)
             }
             let foreground = match (run.style.foreground) {
                 case Some(color) => color
                 case None => ctx.theme.text
             }
             drawTextAreaSlice(ctx, viewport, content.text, lineStart, run.startByte, run.endByte, y,
-                foreground, run.style.underline, content.horizontalScroll)
+                foreground, run.style.underline, run.style.underlineShape, content.horizontalScroll)
             cursor = run.endByte
             currentRun += 1
         }
         if (cursor < lineEnd || lineStart == lineEnd) {
             drawTextAreaSlice(ctx, viewport, content.text, lineStart, cursor, lineEnd, y,
-                ctx.theme.text, None, content.horizontalScroll)
+                ctx.theme.text, None, TextAreaUnderlineShape.Straight, content.horizontalScroll)
         }
         runIndex = currentRun
         if (lineEnd >= content.text.size) {
@@ -716,6 +931,7 @@ private func drawTextAreaSlice(
     y: Float32,
     foreground: Color,
     underline: ?Color,
+    underlineShape: TextAreaUnderlineShape,
     horizontalScroll: Float32
 ): Unit {
     let value = text[start..end]
@@ -726,10 +942,45 @@ private func drawTextAreaSlice(
             let width = ctx.renderer.textWidth(value, pointSize: FontSizes.BODY)
             if (width > 0.0) {
                 let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
-                ctx.renderer.strokeLine(x, y + lineHeight - 1.0, x + width, y + lineHeight - 1.0,
-                    Pen(width: 1.0, color: color))
+                drawTextAreaUnderline(ctx, x, y + lineHeight - 1.0, width, color, underlineShape)
             }
         case None => ()
+    }
+}
+
+private func drawTextAreaUnderline(
+    ctx: UiContext,
+    x: Float32,
+    baseline: Float32,
+    width: Float32,
+    color: Color,
+    shape: TextAreaUnderlineShape
+): Unit {
+    let pen = Pen(width: 1.0, color: color)
+    match (shape) {
+        case TextAreaUnderlineShape.Straight =>
+            ctx.renderer.strokeLine(x, baseline, x + width, baseline, pen)
+        case TextAreaUnderlineShape.Wave =>
+            // Keep Draw IR bounded for very long diagnostics while still spanning the exact run.
+            let step = max(Float32(3.0), width / Float32(256.0))
+            let amplitude = Float32(1.5)
+            var currentX = x
+            var currentY = baseline
+            var rising = true
+            var segments: Int64 = 0
+            while (currentX < x + width && segments < Int64(256)) {
+                let nextX = if (segments == Int64(255)) {
+                    x + width
+                } else {
+                    min(x + width, currentX + step)
+                }
+                let nextY = if (rising) { baseline - amplitude } else { baseline + amplitude }
+                ctx.renderer.strokeLine(currentX, currentY, nextX, nextY, pen)
+                currentX = nextX
+                currentY = nextY
+                rising = !rising
+                segments += 1
+            }
     }
 }
 

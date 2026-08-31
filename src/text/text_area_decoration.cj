@@ -4,20 +4,29 @@ import std.collection.ArrayList
 import sdl.Color
 import chui.core.Observable
 
+/** Paint shape for a TextArea decoration underline. */
+public enum TextAreaUnderlineShape {
+    | Straight
+    | Wave
+}
+
 /** Paint-only styling for one editable TextArea byte range. None keeps the ordinary theme value. */
 public struct TextAreaDecorationStyle {
     public let foreground: ?Color
     public let background: ?Color
     public let underline: ?Color
+    public let underlineShape: TextAreaUnderlineShape
 
     public init(
         foreground!: ?Color = None,
         background!: ?Color = None,
-        underline!: ?Color = None
+        underline!: ?Color = None,
+        underlineShape!: TextAreaUnderlineShape = TextAreaUnderlineShape.Straight
     ) {
         this.foreground = foreground
         this.background = background
         this.underline = underline
+        this.underlineShape = underlineShape
     }
 }
 

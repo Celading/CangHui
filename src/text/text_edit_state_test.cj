@@ -1,6 +1,6 @@
 package chui.text
 
-import sdl.{Key, MouseButton, Rect, Renderer, UiEvent}
+import sdl.{Key, MouseButton, Rect, Renderer, TextCompositionEvent, TextCompositionPhase, UiEvent}
 import chui.core.{CursorShape, ScrollOptions, State, StateStore, Theme, UiContext, buildRoot}
 
 private func textTestContext(): UiContext {
@@ -286,4 +286,125 @@ func textFieldImplicitCursorSurvivesKeyedRebuild(): Unit {
     let _ = second.handle(ctx, UiEvent.TextInput("X"))
 
     @Expect(text.value, "abXc")
+}
+
+@Test
+func textAreaImePreeditStaysNonDurableAndCommitsOneUtf8Replacement(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let text = State<String>("ab你cd")
+    let cursor = State<Int64>(5)
+    let anchor = State<Int64>(2)
+    let composition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    let area = TextArea(text, key: "ime-area", cursor: Some(cursor), anchor: Some(anchor),
+        composition: Some(composition))
+    area.layout(ctx, Rect(0.0, 0.0, 240.0, 90.0))
+    ctx.focus("ime-area")
+
+    @Expect(area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Update, text: "pin", selectionStart: 3, selectionLength: 0,
+        replacementStartByte: 2, replacementEndByte: 5))))
+    @Expect(text.value, "ab你cd")
+    @Expect(composition.value.active)
+    @Expect(composition.value.preedit, "pin")
+    area.draw(ctx)
+    var sawPreedit = false
+    var sawUnderline = false
+    for (command in renderer.drawIr()) {
+        sawPreedit = sawPreedit || (command.kind == "text" && command.toJson().contains("pin"))
+        sawUnderline = sawUnderline || command.kind == "paint.stroke-line"
+    }
+    @Expect(sawPreedit)
+    @Expect(sawUnderline)
+    @Expect(ctx.textInputAnchorRect().isSome())
+
+    @Expect(area.handle(ctx, UiEvent.TextInput("拼")))
+    @Expect(text.value, "ab拼cd")
+    @Expect(cursor.value, Int64(5))
+    @Expect(anchor.value, Int64(5))
+    @Expect(!composition.value.active)
+    area.undo()
+    @Expect(text.value, "ab你cd")
+}
+
+@Test
+func textAreaRejectsCompositionFromStaleFocusAndDocumentRevision(): Unit {
+    let ctx = textTestContext()
+    let text = State<String>("hello")
+    let cursor = State<Int64>(text.value.size)
+    let anchor = State<Int64>(text.value.size)
+    let composition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    let area = TextArea(text, key: "stale-ime", cursor: Some(cursor), anchor: Some(anchor),
+        composition: Some(composition))
+    area.layout(ctx, Rect(0.0, 0.0, 220.0, 80.0))
+
+    @Expect(!area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Update, text: "x"))))
+    @Expect(!composition.value.active)
+
+    ctx.focus("stale-ime")
+    @Expect(area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Update, text: "候选"))))
+    text.value = "external"
+    cursor.value = text.value.size
+    anchor.value = text.value.size
+    @Expect(area.handle(ctx, UiEvent.TextInput("定")))
+    // The old replacement range is revision-bound; after an external write, the current
+    // normalized caret owns the commit rather than replaying a stale document range.
+    @Expect(text.value, "external定")
+    @Expect(!composition.value.active)
+}
+
+@Test
+func textAreaCompositionBeginUpdateCancelAndTypedCommitAreOneBoundedTransaction(): Unit {
+    let ctx = textTestContext()
+    let text = State<String>("a你b")
+    let cursor = State<Int64>(4)
+    let anchor = State<Int64>(1)
+    let composition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    let area = TextArea(text, key: "phase-ime", cursor: Some(cursor), anchor: Some(anchor),
+        composition: Some(composition))
+    area.layout(ctx, Rect(0.0, 0.0, 220.0, 80.0))
+    ctx.focus("phase-ime")
+
+    @Expect(area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Begin, text: "n", selectionStart: 1, selectionLength: 0))))
+    @Expect(text.value, "a你b")
+    @Expect(composition.value.replacementStartByte, Int64(1))
+    @Expect(composition.value.replacementEndByte, Int64(4))
+    @Expect(area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Update, text: "ni", selectionStart: 2, selectionLength: 0))))
+    @Expect(composition.value.preedit, "ni")
+    @Expect(area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Cancel))))
+    @Expect(!composition.value.active)
+    @Expect(text.value, "a你b")
+
+    @Expect(area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Begin, text: "pin", replacementStartByte: 1,
+        replacementEndByte: 4))))
+    @Expect(area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Commit, text: "拼"))))
+    @Expect(text.value, "a拼b")
+    @Expect(!composition.value.active)
+}
+
+@Test
+func textAreaRejectsCompositionRangesOutsideExactUtf8Boundaries(): Unit {
+    let ctx = textTestContext()
+    let text = State<String>("a你b")
+    let composition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    let area = TextArea(text, key: "invalid-ime", composition: Some(composition))
+    area.layout(ctx, Rect(0.0, 0.0, 220.0, 80.0))
+    ctx.focus("invalid-ime")
+
+    @Expect(!area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Begin, text: "x", replacementStartByte: 2,
+        replacementEndByte: 4))))
+    @Expect(!composition.value.active)
+    @Expect(text.value, "a你b")
+    @Expect(!area.handle(ctx, UiEvent.TextComposition(TextCompositionEvent(
+        TextCompositionPhase.Update, text: "x", replacementStartByte: 1,
+        replacementEndByte: 99))))
+    @Expect(!composition.value.active)
 }

@@ -66,6 +66,12 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "probe") {
         return probeCommand(args, 2)
     }
+    if (command == "design") {
+        return designCommand(args, 2)
+    }
+    if (command == "ui") {
+        return uiCommand(args, 2)
+    }
     if (command == "pview") {
         return pviewCommand(args, 2)
     }
@@ -86,6 +92,12 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     }
     if (command == "package") {
         return applicationPackagingCommand(args, 2)
+    }
+    if (command == "prepare") {
+        if (args.size <= 2 || args[2] != "harmony") {
+            throw CuicError("prepare currently supports only 'harmony'")
+        }
+        return harmonyPrepareCommand(args, 3, frameworkForCurrentCommand())
     }
     if (command == "init") {
         return initProject(args, 2)
@@ -331,6 +343,8 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
+    "  cuic design snapshot [project] <probe> [--script <file>|--events <script>]\n" +
+    "  cuic ui audit [project] <probe> [--script <file>|--events <script>] [--fail-on <info|warning|error>]\n" +
     "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
     "  cuic shell click|touch [project] <x> <y>\n" +
     "  cuic shell focus [project] <component-id>\n" +
@@ -344,6 +358,7 @@ func helpText(): String {
     "  cuic dependency update [project]\n" +
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
     "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]\n" +
+    "  cuic prepare harmony [project] [--json]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +

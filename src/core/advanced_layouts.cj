@@ -406,7 +406,11 @@ public class ScrollView <: Widget {
         } else if (!preserveDynamicAnchor.value && retainedTailPadding.value != 0.0) {
             retainedTailPadding.value = 0.0
         }
-        previousRawHeight.value = rawContentHeight
+        // Layout is allowed to run repeatedly without invalidating the next frame. `State`
+        // deliberately treats an equal assignment as a write, so guard this retained metric.
+        if (previousRawHeight.value != rawContentHeight) {
+            previousRawHeight.value = rawContentHeight
+        }
         contentHeight = rawContentHeight + retainedTailPadding.value
         advanceScrollMotion(ctx, scrollMotion, scrollOffset, contentHeight, rect.h, scrollPolicy)
         // Clamp writes only on change: layout runs every frame, and the offset may be an
@@ -470,7 +474,7 @@ public class ScrollView <: Widget {
             case _ => ()
         }
         let handled = child.handle(ctx, event)
-        if (ctx.takeScrollAnchorRequest()) {
+        if (ctx.takeScrollAnchorRequest() && !preserveDynamicAnchor.value) {
             preserveDynamicAnchor.value = true
         }
         handled
@@ -489,10 +493,11 @@ public class ScrollView <: Widget {
     }
 
     private func releaseDynamicAnchor(): Unit {
-        preserveDynamicAnchor.value = false
-        retainedTailPadding.value = 0.0
+        if (preserveDynamicAnchor.value) { preserveDynamicAnchor.value = false }
+        if (retainedTailPadding.value != 0.0) { retainedTailPadding.value = 0.0 }
         contentHeight = rawContentHeight
-        scrollOffset.value = clampScrollOffset(scrollOffset.value, contentHeight, frame.h)
+        let clamped = clampScrollOffset(scrollOffset.value, contentHeight, frame.h)
+        if (scrollOffset.value != clamped) { scrollOffset.value = clamped }
         cancelScrollMotion(scrollMotion, scrollOffset)
     }
 }
@@ -526,6 +531,20 @@ internal func dispatchChildren(children: Array<Widget>, ctx: UiContext, event: U
                 let _ = child.handle(ctx, event)
             }
             return false
+        case _ => ()
+    }
+    match (event) {
+        case UiEvent.MouseMove(_, _) | UiEvent.MouseUp(_, _, _) =>
+            let owner = ctx.pointerCaptureOwner()
+            if (!owner.isEmpty()) {
+                var capturedIndex = children.size - 1
+                while (capturedIndex >= 0) {
+                    if (children[capturedIndex].interactionOwnerIds().contains(owner)) {
+                        return children[capturedIndex].handle(ctx, event)
+                    }
+                    capturedIndex -= 1
+                }
+            }
         case _ => ()
     }
     var i = children.size - 1

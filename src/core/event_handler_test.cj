@@ -104,6 +104,27 @@ func frameHandlerRequestsEveryFrameAndCannotBeConsumedByChild(): Unit {
 }
 
 @Test
+func frameHandlerMayStopAfterBoundedFrameWorkCompletes(): Unit {
+    let ctx = testContext()
+    let active = State<Bool>(true)
+    let trace = State<String>("")
+    let handler = FrameHandler(onFrame: {
+        _ =>
+        trace.value = trace.value + "hook"
+        active.value = false
+    }, keepsAlive: {=> active.value}) {
+        EventHandlerProbe(trace, "child", true)
+    }
+
+    let _ = ctx.takeFrameRequest()
+    let consumed = handler.handle(ctx, UiEvent.Frame(FrameInfo(UInt64(20), UInt64(5))))
+
+    @Expect(!consumed)
+    @Expect(!ctx.takeFrameRequest())
+    @Expect(trace.value, "hookchild")
+}
+
+@Test
 func frameHandlerOrdinaryEventsBypassHookAndReturnChildConsumption(): Unit {
     let ctx = testContext()
     let trace = State<String>("")

@@ -147,6 +147,54 @@ public struct FrameInfo {
     }
 }
 
+/** Lifecycle phase for a platform IME preedit transaction. */
+public enum TextCompositionPhase {
+    | Begin
+    | Update
+    | Commit
+    | Cancel
+}
+
+/**
+ * Portable IME composition data.
+ *
+ * `selectionStart` and `selectionLength` count UTF-8 characters in `text`, matching SDL3.
+ * A replacement range names exact UTF-8 byte boundaries in the durable document; `-1/-1`
+ * means that the focused text control captures its current selection when composition begins.
+ */
+public struct TextCompositionEvent {
+    public let phase: TextCompositionPhase
+    public let text: String
+    public let selectionStart: Int64
+    public let selectionLength: Int64
+    public let replacementStartByte: Int64
+    public let replacementEndByte: Int64
+
+    public init(
+        phase: TextCompositionPhase,
+        text!: String = "",
+        selectionStart!: Int64 = -1,
+        selectionLength!: Int64 = -1,
+        replacementStartByte!: Int64 = -1,
+        replacementEndByte!: Int64 = -1
+    ) {
+        if (selectionStart < -1 || selectionLength < -1) {
+            throw IllegalArgumentException("composition selection must use -1 or a non-negative character range")
+        }
+        let replacementUnset = replacementStartByte == -1 && replacementEndByte == -1
+        let replacementValid = replacementStartByte >= 0 && replacementEndByte >= replacementStartByte
+        if (!replacementUnset && !replacementValid) {
+            throw IllegalArgumentException("composition replacement must use -1/-1 or a non-negative byte range")
+        }
+        this.phase = phase
+        this.text = text
+        this.selectionStart = selectionStart
+        this.selectionLength = selectionLength
+        this.replacementStartByte = replacementStartByte
+        this.replacementEndByte = replacementEndByte
+    }
+}
+
 /** A normalized device posture used by layout. Raw gyroscope samples stay provider-owned. */
 public enum DeviceRotation {
     | Unknown
@@ -261,6 +309,7 @@ public enum UiEvent {
     | DeviceRotationChanged(DeviceRotationEvent)
     | KeyDown(Key, Bool)
     | KeyUp(Key)
+    | TextComposition(TextCompositionEvent)
     | TextInput(String)
     | MouseMove(Float32, Float32)
     | MouseDown(MouseButton, Float32, Float32)
@@ -355,6 +404,15 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
             } else {
                 decoded = UiEvent.KeyUp(keyFromScancode(keyEvent.scancode))
             }
+        } else if (eventType == SDL_EVENT_TEXT_EDITING) {
+            let editing = unsafe { CPointer<SdlTextEditingEvent>(eventResource.value).read() }
+            let value = if (editing.text.isNull()) { "" } else { CString(editing.text).toString() }
+            decoded = UiEvent.TextComposition(TextCompositionEvent(
+                if (value.isEmpty()) { TextCompositionPhase.Cancel } else { TextCompositionPhase.Update },
+                text: value,
+                selectionStart: Int64(editing.start),
+                selectionLength: Int64(editing.length)
+            ))
         } else if (eventType == SDL_EVENT_TEXT_INPUT) {
             let text = unsafe { CPointer<SdlTextInputEvent>(eventResource.value).read() }
             if (text.text.isNull()) {
@@ -423,6 +481,8 @@ private func rawEventWindowId(raw: SdlEvent): ?WindowId {
             rawId = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }.windowID
         } else if (eventType == SDL_EVENT_KEY_DOWN || eventType == SDL_EVENT_KEY_UP) {
             rawId = unsafe { CPointer<SdlKeyboardEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_TEXT_EDITING) {
+            rawId = unsafe { CPointer<SdlTextEditingEvent>(eventResource.value).read() }.windowID
         } else if (eventType == SDL_EVENT_TEXT_INPUT) {
             rawId = unsafe { CPointer<SdlTextInputEvent>(eventResource.value).read() }.windowID
         } else if (eventType == SDL_EVENT_MOUSE_MOTION) {

@@ -227,6 +227,30 @@ func pviewCommand(args: Array<String>, start: Int64): Int64 {
     return runProbeAscii(args, start, "pview")
 }
 
+func designCommand(args: Array<String>, start: Int64): Int64 {
+    if (start >= args.size || args[start] != "snapshot") {
+        throw CuicError("design requires snapshot")
+    }
+    requireDebugChannelBuild("cuic design snapshot")
+    let parsed = parseProbeTarget(args, start + 1, true)
+    if (parsed.json) { throw CuicError("design snapshot always emits canonical JSON") }
+    let request = "@cui-design-snapshot\n" + parsed.script
+    runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
+        parsed.name, true)
+}
+
+func uiCommand(args: Array<String>, start: Int64): Int64 {
+    if (start >= args.size || args[start] != "audit") {
+        throw CuicError("ui requires audit")
+    }
+    requireDebugChannelBuild("cuic ui audit")
+    let parsed = parseProbeTarget(args, start + 1, true, allowAudit: true)
+    if (parsed.json) { throw CuicError("ui audit always emits canonical JSON") }
+    let request = "@cui-ui-audit ${parsed.failOn}\n" + parsed.script
+    runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
+        parsed.name, true)
+}
+
 func runProbeAscii(args: Array<String>, start: Int64, commandName: String): Int64 {
     let parsed = parseProbeTarget(args, start, true, allowAscii: true)
     if (parsed.json) { throw CuicError(commandName + " does not accept --json") }
@@ -242,28 +266,42 @@ class ProbeTargetSelection {
     let json: Bool
     let columns: Int64
     let rows: Int64
+    let failOn: String
 
-    init(project: String, name: String, script: String, json: Bool, columns: Int64, rows: Int64) {
+    init(project: String, name: String, script: String, json: Bool, columns: Int64, rows: Int64,
+        failOn!: String = "warning") {
         this.project = project
         this.name = name
         this.script = script
         this.json = json
         this.columns = columns
         this.rows = rows
+        this.failOn = failOn
     }
 }
 
 func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
-    allowAscii!: Bool = false): ProbeTargetSelection {
+    allowAscii!: Bool = false, allowAudit!: Bool = false): ProbeTargetSelection {
     let positional = ArrayList<String>()
     var script = ""
     var json = false
     var columns: Int64 = 96
     var rows: Int64 = 32
+    var failOn = "warning"
     var i = start
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--fail-on") {
+            if (!allowAudit) { throw CuicError("--fail-on is only valid for ui audit") }
+            if (i + 1 >= args.size) { throw CuicError("--fail-on requires info, warning, or error") }
+            failOn = args[i + 1]
+            if (failOn != "info" && failOn != "warning" && failOn != "error") {
+                throw CuicError("--fail-on requires info, warning, or error")
+            }
+            i += 2
+            continue
+        }
         if (value == "--columns" || value == "--rows") {
             if (!allowAscii) { throw CuicError("${value} is only valid for probe ascii") }
             if (i + 1 >= args.size) { throw CuicError(value + " requires a value") }
@@ -300,7 +338,7 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
         if (columns < 20 || columns > 240) { throw CuicError("probe ascii columns must be between 20 and 240") }
         if (rows < 8 || rows > 100) { throw CuicError("probe ascii rows must be between 8 and 100") }
     }
-    ProbeTargetSelection(project, name, script, json, columns, rows)
+    ProbeTargetSelection(project, name, script, json, columns, rows, failOn: failOn)
 }
 
 func runProbeExchange(projectValue: String, endpoint: String, payload: String,
@@ -342,6 +380,8 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
         let exitCode = session.close()
         if (exitCode != 0) { throw CuicError("probe process exited with ${exitCode}") }
         if (containsText(rendered, "\"ok\":false") ||
+            (containsText(rendered, "\"protocol\":\"canghui.ui-health/v1\"") &&
+                containsText(rendered, "\"passed\":false")) ||
             startsWithText(rendered, "CUI_PROBE_ASCII_ERROR:")) { return 1 }
         0
     } catch (error: Exception) {

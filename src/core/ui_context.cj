@@ -75,6 +75,7 @@ public class UiContext {
     public var hoverId: String = ""
     public var dragId: String = ""
     public var pressedId: String = ""
+    private var pointerCaptureId: String = ""
     // Single-slot overlay: a hovered `Tooltip` registers here during draw and the shell
     // paints it above everything after the tree. Empty text means no tooltip this frame.
     public var tooltipText: String = ""
@@ -776,6 +777,21 @@ public class UiContext {
     public func clearDrag(): Unit {
         dragId = ""
         dragGrabOffset = 0.0
+    }
+
+    /** Routes subsequent primary-pointer move/up events to one stable interaction owner. */
+    public func capturePointer(id: String): Unit {
+        if (id.isEmpty()) { throw IllegalArgumentException("pointer capture owner must not be empty") }
+        pointerCaptureId = id
+    }
+
+    public func pointerCaptureOwner(): String { pointerCaptureId }
+
+    public func hasPointerCapture(id: String): Bool { pointerCaptureId == id }
+
+    /** Releases only the caller's capture, preserving a later owner's claim. */
+    public func releasePointerCapture(id: String): Unit {
+        if (pointerCaptureId == id) { pointerCaptureId = "" }
     }
 
     /** Marks a control as pressed until the primary pointer is released. */

@@ -939,6 +939,14 @@ private class ComponentProbeSession {
     }
 
     func report(output: ProbeOutputRequest): String {
+        if (output.designSnapshot) { return makeDesignSnapshot(output.script).toJson() }
+        if (output.uiAudit) {
+            let severity = if (output.auditThreshold == "error") {UiHealthSeverity.Error}
+                else if (output.auditThreshold == "info") {UiHealthSeverity.Info}
+                else {UiHealthSeverity.Warning}
+            return UiHealthAudit.analyze(makeDesignSnapshot(output.script),
+                policy: UiHealthPolicy(failOn: severity)).toJson()
+        }
         if (!output.ascii) { return reportJson() }
         if (!failures.isEmpty() || !assertionsAllPass()) {
             return "CUI_PROBE_ASCII_ERROR: component probe failed; rerun with --json for details\n" + reportJson()
@@ -946,6 +954,45 @@ private class ComponentProbeSession {
         renderDrawIrAscii(latestDrawIr, width, height,
             options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows),
             annotations: asciiAnnotations())
+    }
+
+    private func makeDesignSnapshot(script: String): DesignSnapshot {
+        let snapshotNodes = ArrayList<DesignSnapshotNode>()
+        let screenId = "screen:" + name
+        snapshotNodes.add(DesignSnapshotNode(
+            screenId, DesignSnapshotNodeKind.Screen, Rect(0.0, 0.0, width, height),
+            widgetType: "ComponentProbe", role: "screen", label: name))
+        for (node in nodes) {
+            snapshotNodes.add(DesignSnapshotNode(
+                node.id, DesignSnapshotNodeKind.Component, node.frame,
+                parentId: if (node.parent.isEmpty()) { screenId } else { node.parent },
+                order: node.order, widgetType: node.widgetType,
+                role: probePropertyValue(node.properties, "role"),
+                label: firstProbeProperty(node.properties, ["label", "title"]),
+                value: probePropertyValue(node.properties, "value"),
+                states: probeDesignSnapshotProperties(node.properties, node.focused, node.hovered, node.pressed)))
+        }
+        for (region in regions) {
+            snapshotNodes.add(DesignSnapshotNode(
+                region.id, DesignSnapshotNodeKind.Region, region.rect,
+                parentId: if (region.parent.isEmpty()) { screenId } else { region.parent },
+                order: region.order, widgetType: region.widgetType,
+                role: probePropertyValue(region.properties, "role"),
+                label: firstProbeProperty(region.properties, ["label", "title"]),
+                value: probePropertyValue(region.properties, "value"),
+                states: probeDesignSnapshotProperties(region.properties, false, false, false)))
+        }
+        let globalStates = [
+            DesignSnapshotProperty("probe.ok", (failures.isEmpty() && assertionsAllPass()).toString()),
+            DesignSnapshotProperty("probe.logicalTimeMs", logicalTimeMs.toString()),
+            DesignSnapshotProperty("probe.frames", frames.size.toString()),
+            DesignSnapshotProperty("probe.animations", animations.size.toString())
+        ]
+        DesignSnapshot(
+            name,
+            DesignSnapshotEnvironment("headless", width, height, theme: "probe", locale: "und"),
+            snapshotNodes.toArray(), drawIr: latestDrawIr, states: globalStates,
+            inputDigest: probeScriptDigest(script), generator: "CangHui/ComponentProbe")
     }
 
     private func asciiAnnotations(): Array<DrawIrAsciiAnnotation> {
@@ -1017,12 +1064,19 @@ private class ComponentProbeSession {
 
 private class ProbeOutputRequest {
     let ascii: Bool
+    let designSnapshot: Bool
+    let uiAudit: Bool
+    let auditThreshold: String
     let columns: Int64
     let rows: Int64
     let script: String
 
-    init(ascii: Bool, columns: Int64, rows: Int64, script: String) {
+    init(ascii: Bool, designSnapshot: Bool, uiAudit: Bool, auditThreshold: String,
+        columns: Int64, rows: Int64, script: String) {
         this.ascii = ascii
+        this.designSnapshot = designSnapshot
+        this.uiAudit = uiAudit
+        this.auditThreshold = auditThreshold
         this.columns = columns
         this.rows = rows
         this.script = script
@@ -1031,13 +1085,30 @@ private class ProbeOutputRequest {
 
 private func parseProbeOutput(script: String): ProbeOutputRequest {
     let lines = script.split("\n")
-    if (lines.isEmpty()) { return ProbeOutputRequest(false, 96, 32, script) }
+    if (lines.isEmpty()) { return ProbeOutputRequest(false, false, false, "warning", 96, 32, script) }
     let first = trimProbeText(lines[0])
-    if (!first.startsWith("@cui-ascii ")) { return ProbeOutputRequest(false, 96, 32, script) }
+    if (first == "@cui-design-snapshot") {
+        return ProbeOutputRequest(false, true, false, "warning", 96, 32, remainingProbeScript(lines))
+    }
+    if (first.startsWith("@cui-ui-audit ")) {
+        let parts = splitProbeWords(first)
+        requireProbeArity(parts, 2, "@cui-ui-audit")
+        if (parts[1] != "info" && parts[1] != "warning" && parts[1] != "error") {
+            throw IllegalArgumentException("UI audit threshold must be info, warning, or error")
+        }
+        return ProbeOutputRequest(false, false, true, parts[1], 96, 32, remainingProbeScript(lines))
+    }
+    if (!first.startsWith("@cui-ascii ")) {
+        return ProbeOutputRequest(false, false, false, "warning", 96, 32, script)
+    }
     let parts = splitProbeWords(first)
     requireProbeArity(parts, 3, "@cui-ascii")
     let columns = Int64.parse(parts[1])
     let rows = Int64.parse(parts[2])
+    ProbeOutputRequest(true, false, false, "warning", columns, rows, remainingProbeScript(lines))
+}
+
+private func remainingProbeScript(lines: Array<String>): String {
     let remaining = StringBuilder()
     var i: Int64 = 1
     while (i < lines.size) {
@@ -1045,7 +1116,28 @@ private func parseProbeOutput(script: String): ProbeOutputRequest {
         remaining.append(lines[i])
         i += 1
     }
-    ProbeOutputRequest(true, columns, rows, remaining.toString())
+    remaining.toString()
+}
+
+private func probeDesignSnapshotProperties(properties: Array<ProbeProperty>, focused: Bool,
+    hovered: Bool, pressed: Bool): Array<DesignSnapshotProperty> {
+    let values = ArrayList<DesignSnapshotProperty>()
+    values.add(DesignSnapshotProperty("focused", focused.toString()))
+    values.add(DesignSnapshotProperty("hovered", hovered.toString()))
+    values.add(DesignSnapshotProperty("pressed", pressed.toString()))
+    for (property in properties) {
+        if (property.name != "role" && property.name != "label" && property.name != "title" &&
+            property.name != "value") {
+            values.add(DesignSnapshotProperty(property.name, property.value))
+        }
+    }
+    values.toArray()
+}
+
+private func probeScriptDigest(value: String): String {
+    var code: Int64 = 47
+    for (byte in value.toArray()) { code = (code * 131 + Int64(byte)) % 2147483647 }
+    "probe-script:" + value.toArray().size.toString() + ":" + max(Int64(1), code).toString()
 }
 
 private func renderProbeFrame(session: ComponentProbeSession, renderer: Renderer, ctx: UiContext,

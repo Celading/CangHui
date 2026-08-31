@@ -60,7 +60,7 @@ func devicePacingUsesPresentForRenderedFramesAndLightIdlePolling(): Unit {
     @Expect(framePacingUsesVSync(pacing))
     @Expect(resolvedFramePacingName(pacing), "device")
     @Expect(framePacingDelay(pacing, UInt64(0), true), UInt32(0))
-    @Expect(framePacingDelay(pacing, UInt64(0), false), UInt32(1))
+    @Expect(framePacingDelay(pacing, UInt64(0), false), UInt32(16))
 }
 
 @Test
@@ -69,7 +69,7 @@ func kmodeDefaultsToUnboundedUnlessTheApplicationChoosesAPolicy(): Unit {
     @Expect(resolvedFramePacingName(automatic), "unbounded")
     @Expect(!framePacingUsesVSync(automatic))
     @Expect(framePacingDelay(automatic, UInt64(0), true), UInt32(0))
-    @Expect(framePacingDelay(automatic, UInt64(0), false), UInt32(1))
+    @Expect(framePacingDelay(automatic, UInt64(0), false), UInt32(16))
 
     let explicit = resolveFramePacing(Some(FramePacing.Fixed(UInt32(120))), true, UInt32(16), true)
     @Expect(resolvedFramePacingName(explicit), "fixed-120fps")

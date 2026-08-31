@@ -47,6 +47,7 @@ internal let SDL_EVENT_WINDOW_CLOSE_REQUESTED: UInt32 = UInt32(0x210)
 internal let SDL_EVENT_WINDOW_DESTROYED: UInt32 = UInt32(0x219)
 internal let SDL_EVENT_KEY_DOWN: UInt32 = UInt32(0x300)
 internal let SDL_EVENT_KEY_UP: UInt32 = UInt32(0x301)
+internal let SDL_EVENT_TEXT_EDITING: UInt32 = UInt32(0x302)
 internal let SDL_EVENT_TEXT_INPUT: UInt32 = UInt32(0x303)
 internal let SDL_EVENT_MOUSE_MOTION: UInt32 = UInt32(0x400)
 internal let SDL_EVENT_MOUSE_BUTTON_DOWN: UInt32 = UInt32(0x401)
@@ -184,6 +185,17 @@ internal struct SdlTextInputEvent {
     var timestamp: UInt64 = 0
     var windowID: UInt32 = 0
     var text = CPointer<UInt8>()
+}
+
+@C
+internal struct SdlTextEditingEvent {
+    var eventType: UInt32 = 0
+    var reserved: UInt32 = 0
+    var timestamp: UInt64 = 0
+    var windowID: UInt32 = 0
+    var text = CPointer<UInt8>()
+    var start: Int32 = -1
+    var length: Int32 = -1
 }
 
 @C

@@ -519,6 +519,26 @@ func pviewUsesSameAsciiTargetParser(): Unit {
 }
 
 @Test
+func helpPublishesDesignSnapshotExport(): Unit {
+    @Expect(helpText().contains("cuic design snapshot"))
+}
+
+@Test
+func helpPublishesUiAuditAndParsesThreshold(): Unit {
+    @Expect(helpText().contains("cuic ui audit"))
+    let parsed = parseProbeTarget(
+        ["cuic", "ui", "audit", "component-gallery", "gallery.primary-button",
+            "--fail-on", "error"], 3, true, allowAudit: true)
+    @Expect(parsed.name, "gallery.primary-button")
+    @Expect(parsed.failOn, "error")
+}
+
+@Test
+func helpPublishesHarmonyProjection(): Unit {
+    @Expect(helpText().contains("cuic prepare harmony"))
+}
+
+@Test
 func executionContextUsesExplicitTargetAndStagingRoots(): Unit {
     let context = ExecutionContext("/tmp/proj", "/tmp/fw", targetDir: "/tmp/out", stagingRoot: "/tmp/stage")
     @Expect(context.project, "/tmp/proj")

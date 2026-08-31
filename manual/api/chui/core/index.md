@@ -20,6 +20,8 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ButtonStyle`](ButtonStyle.md) | 按 hover、press、focus 与语义角色解析 Button/IconButton 外观的状态样式。 |
 | [`ComponentControlStyle`](ComponentControlStyle.md) | 按选择/展开、hover、press 与 focus 解析 Chip、Checkbox、Dropdown 和 Accordion header 外观。 |
 | [`DerivedState`](DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
+| [`DesignSnapshot`](DesignSnapshot.md) | 把稳定结构、计算几何、语义状态与 scoped Draw IR 合成为有界、可差分的 `canghui.design-snapshot/v1` 硬真相。 |
+| [`AdaptiveGrid`](AdaptiveGrid.md) | 按可用宽度和最小单元宽度稳定推导列数的等宽响应式网格。 |
 | [`Divider`](Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
 | [`DeviceRotationLayout`](DeviceRotationLayout.md) | 根据规范化设备方向选择竖屏/横屏结构；宿主统一旋转完整界面帧。 |
 | [`DeviceRotationTransition`](DeviceRotationTransition.md) | 供平台壳层复用的有向整帧设备旋转事务。 |
@@ -33,6 +35,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Icon`](Icon.md) | 以方形边长绘制的非交互矢量图标，默认 18 vp、取主题文字色。 |
 | [`IconButton`](IconButton.md) | 以图标为面、可选带文字标签的按钮，激活方式与 [`Button`](Button.md) 完全相同。 |
 | [`InteractionSurface`](InteractionSurface.md) | 为任意装饰内容提供一个焦点、按压、release-inside 动作、Ink 与 semantic owner 的交互面。 |
+| [`UiTaskScope`](UiTaskScope.md) | 在 UiOwnerQueue 上提供 single-flight、latest-only、bounded queue 与 debounce 后台准备生命周期。 |
 | [`Keyed`](Keyed.md) | 给子树赋予稳定声明式标识的透明包装组件：其下的局部状态键与控件交互标识都以该键为命名空间。 |
 | [`KeyedLayoutTransition`](KeyedLayoutTransition.md) | 让带稳定 key 的子树在重排或响应式重布局时，从当前可见矩形连续移动和变形到新槽位。 |
 | [`Label`](Label.md) | 单行或多行文本组件：默认单行、溢出以省略号截断，字体样式经链式构建器就地配置。 |
@@ -84,6 +87,9 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ComponentTypography`](ComponentTheme.md) | Chip、Checkbox、Dropdown 与 Accordion header 的 control 语义字号。 |
 | [`ControlContentEnvironment`](ControlContentEnvironment.md) | 当前装饰内容的前景、supporting 前景、role、action owner 与交互状态。 |
 | [`ControlSemantics`](ControlSemantics.md) | role、label/value、action、shortcut、owner 与可选选择/展开状态。 |
+| [`DesignSnapshotDiff`](DesignSnapshot.md#designsnapshotdiff) | 按结构、几何、样式、状态和绘制 scope 分类的稳定 ID 差分。 |
+| [`DesignSnapshotEnvironment`](DesignSnapshot.md) | 不携带本机路径、进程或句柄的可重放视口环境。 |
+| [`DesignSnapshotProperty`](DesignSnapshot.md) | 可排序、可入场脱敏的一条计算样式或状态事实。 |
 | [`Gradient`](Gradient.md) | 圆角背景用的双色线性渐变填充，默认自上而下、`vertical` 为 false 时自左向右。 |
 | [`LayoutTransitionGeometry`](LayoutTransitionGeometry.md) | 键控布局过渡的当前绘制矩形、父布局目标矩形与稳定状态回执。 |
 | [`Length`](Length.md) | 带显式单位的一维尺寸，写作 `100.px`、`24.vp` 或 `15.fp`。 |
@@ -150,6 +156,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ForEach`](functions.md#foreach) | 为每个数据项声明一棵键控子树。 |
 | [`ForEachIndexed`](functions.md#foreachindexed) | 以位置为标识、为每个数据项声明一棵键控子树。 |
 | [`LazyGrid`](functions.md#lazygrid) | 垂直滚动的虚拟化网格：`data` 排成 `columns` 等宽列并按行开窗，海量均匀单元格（照片墙、卡片网格）只花一屏的成本。 |
+| [`GestureSurface`](GestureSurface.md) | 在一个 InteractionSurface owner 下组合 tap、double tap、long press、drag、hover 与 pointer capture。 |
 | [`currentStateGeneration`](functions.md#currentstategeneration) | 原子读取进程级状态写入观察代号。 |
 | [`rememberState`](functions.md#rememberstate) | 返回由活动 [`DesktopApp`](../desktop/DesktopApp.md) 构建保留的局部状态。 |
 | `scrollBehaviorName` | 返回 `immediate` 或 `smooth` 的稳定诊断名称。 |

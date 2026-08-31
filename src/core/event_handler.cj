@@ -76,10 +76,16 @@ public class EventHandler <: Widget {
 public class FrameHandler <: Widget {
     private let child: Widget
     private let onFrame: (FrameInfo) -> Unit
+    private let keepsAlive: () -> Bool
 
-    public init(onFrame!: (FrameInfo) -> Unit, body!: () -> Unit) {
+    public init(
+        onFrame!: (FrameInfo) -> Unit,
+        keepsAlive!: () -> Bool = {=> true},
+        body!: () -> Unit
+    ) {
         this.child = buildChild(body)
         this.onFrame = onFrame
+        this.keepsAlive = keepsAlive
         emit(this)
     }
 
@@ -98,10 +104,11 @@ public class FrameHandler <: Widget {
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         match (event) {
             case UiEvent.Frame(info) =>
-                // A frame hook is a per-frame contract: keep the loop rendering so onFrame keeps
-                // firing (animations, dialog polling) instead of being frozen by dirty-frame skipping.
-                ctx.requestFrame()
                 onFrame(info)
+                // A normal frame hook is a per-frame contract. Product bridges with bounded work
+                // may opt out after the callback drains its final item, avoiding one retained
+                // FrameHandler turning an otherwise static surface into a permanent repaint loop.
+                if (keepsAlive()) { ctx.requestFrame() }
                 let _ = child.handle(ctx, event)
                 return false
             case _ => return child.handle(ctx, event)

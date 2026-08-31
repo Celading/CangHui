@@ -82,6 +82,41 @@ func componentProbeCanRenderTheLatestDrawIrAsAscii(): Unit {
     @Expect(!report.contains("\"drawIr\""))
 }
 
+@Test
+func componentProbeExportsDeterministicDesignSnapshot(): Unit {
+    let first = ComponentProbe("test.design", width: 120.0, height: 60.0).run("@cui-design-snapshot") {
+        Button("Save", { => }).key("save").probe("save", "Button", [
+            ProbeProperty("role", "button"),
+            ProbeProperty("label", "Save"),
+            ProbeProperty("action", "save()")
+        ])
+    }
+    let second = ComponentProbe("test.design", width: 120.0, height: 60.0).run("@cui-design-snapshot") {
+        Button("Save", { => }).key("save").probe("save", "Button", [
+            ProbeProperty("role", "button"),
+            ProbeProperty("label", "Save"),
+            ProbeProperty("action", "save()")
+        ])
+    }
+    @Expect(first, second)
+    @Expect(first.contains("\"protocol\":\"canghui.design-snapshot/v1\""))
+    @Expect(first.contains("\"id\":\"save\""))
+    @Expect(first.contains("\"scope\":\"save\""))
+}
+
+@Test
+func componentProbeExportsDeterministicUiHealthAudit(): Unit {
+    let report = ComponentProbe("health.button", width: 120.0, height: 80.0).run(
+        "@cui-ui-audit warning") {
+        Button("Save", {=> ()}).key("save").probe("save", "Button", [
+            ProbeProperty("role", "button"), ProbeProperty("label", "Save"),
+            ProbeProperty("actionOwner", "save")
+        ]).width(80.0).height(36.0)
+    }
+    @Expect(report.contains("\"protocol\":\"canghui.ui-health/v1\""))
+    @Expect(report.contains("\"passed\":true"))
+}
+
 private class SemanticRegionProbe <: Widget {
     private var frame = Rect.zero()
 

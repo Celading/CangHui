@@ -147,6 +147,39 @@ func gamepadDeviceEventsExposeConnectionLifecycle(): Unit {
     }
 }
 
+@Test
+func textEditingEventsExposePortableCompositionWithoutDurableInput(): Unit {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    let cText = unsafe { LibC.mallocCString("拼音") }
+    var decoded = UiEvent.Unknown(UInt32(0))
+    try (eventResource = eventPtr.asResource()) {
+        try (textResource = cText.asResource()) {
+            var raw = SdlTextEditingEvent()
+            raw.eventType = SDL_EVENT_TEXT_EDITING
+            raw.windowID = UInt32(27)
+            raw.text = textResource.value.getChars()
+            raw.start = Int32(1)
+            raw.length = Int32(1)
+            unsafe { CPointer<SdlTextEditingEvent>(eventResource.value).write(raw) }
+            let envelope = decodeEventEnvelope(unsafe { eventResource.value.read() })
+            @Expect(envelope.windowId.getOrThrow(), WindowId(UInt32(27)))
+            decoded = envelope.event
+        }
+    }
+    match (decoded) {
+        case UiEvent.TextComposition(value) =>
+            match (value.phase) {
+                case TextCompositionPhase.Update => @Expect(true)
+                case _ => @Fail("Non-empty SDL editing text should be a composition update.")
+            }
+            @Expect(value.text, "拼音")
+            @Expect(value.selectionStart, Int64(1))
+            @Expect(value.selectionLength, Int64(1))
+            @Expect(value.replacementStartByte, Int64(-1))
+        case _ => @Fail("SDL text editing should remain distinct from durable TextInput.")
+    }
+}
+
 private func decodeRawDrop(eventType: UInt32, data: String, x: Float32, y: Float32): UiEvent {
     let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
     let cData = unsafe { LibC.mallocCString(data) }

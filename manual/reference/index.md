@@ -18,3 +18,6 @@
 - [应用外壳](application-shell.zh-CN.md)
 - [应用打包](application-packaging.zh-CN.md)
 - [移动应用宿主](mobile-application-host.zh-CN.md)
+- [应用资源运行时](application-resources.zh-CN.md)
+- [HarmonyOS 应用投影](harmony-projection.zh-CN.md)
+- [CUIC UI Health Audit](ui-health-audit.zh-CN.md)

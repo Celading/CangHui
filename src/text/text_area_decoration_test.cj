@@ -6,9 +6,11 @@ import chui.core.{State, Theme, UiContext}
 private func decorationTestStyle(
     foreground!: ?Color = None,
     background!: ?Color = None,
-    underline!: ?Color = None
+    underline!: ?Color = None,
+    underlineShape!: TextAreaUnderlineShape = TextAreaUnderlineShape.Straight
 ): TextAreaDecorationStyle {
-    TextAreaDecorationStyle(foreground: foreground, background: background, underline: underline)
+    TextAreaDecorationStyle(foreground: foreground, background: background, underline: underline,
+        underlineShape: underlineShape)
 }
 
 private func drawDecoratedArea(
@@ -249,4 +251,25 @@ func textAreaEditingAndUndoRemainIndependentFromDecorations(): Unit {
     // The original snapshot is stale after edit/undo/redo assignments, but edit ownership stays intact.
     @Expect(area.handle(ctx, UiEvent.KeyDown(Key.Backspace, false)))
     @Expect(text.value, "hi")
+}
+
+@Test
+func textAreaWaveUnderlineIsDeterministicBoundedAndKeepsTextUntouched(): Unit {
+    let text = State<String>("diagnostic_identifier")
+    let underline = Color.rgb(220, 48, 64)
+    let decorations = State<TextAreaDecorationSnapshot>(TextAreaDecorationSnapshot(text.revision, [
+        TextAreaDecoration(0, text.value.size, decorationTestStyle(
+            underline: Some(underline), underlineShape: TextAreaUnderlineShape.Wave))
+    ]))
+    let (_, renderer) = drawDecoratedArea(text, decorations)
+
+    var waveSegments: Int64 = 0
+    for (command in renderer.drawIr()) {
+        if (command.kind == "paint.stroke-line" && command.toJson().contains("\"r\":220")) {
+            waveSegments += 1
+        }
+    }
+    @Expect(waveSegments > Int64(2))
+    @Expect(waveSegments <= Int64(256))
+    @Expect(text.value, "diagnostic_identifier")
 }

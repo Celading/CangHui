@@ -1,5 +1,12 @@
 package chui.desktop
 
+// Dirty-frame skipping still polls SDL and the UI-owner queue. A one-millisecond
+// idle yield turns that inexpensive poll into a 1000 Hz loop on Harmony devices,
+// where SDL_Delay(1) is too fine-grained to keep the renderer thread asleep.
+// One display interval keeps input and posted owner work responsive without
+// spending a core when the last presented frame is unchanged.
+private let IDLE_FRAME_POLL_MS = UInt32(16)
+
 /** Controls how the desktop loop waits between rendered frames. */
 public enum FramePacing {
     /** Follow the display through renderer VSync. */
@@ -78,7 +85,7 @@ internal func framePacingDelay(
     match (value) {
         // A rendered device-paced frame already waited inside present(). An idle loop has no
         // present call, so keep input polling responsive without spinning a full CPU core.
-        case ResolvedFramePacing.Device => if (rendered) { UInt32(0) } else { UInt32(1) }
+        case ResolvedFramePacing.Device => if (rendered) { UInt32(0) } else { IDLE_FRAME_POLL_MS }
         case ResolvedFramePacing.Fixed(_, budget) =>
             if (elapsedMs >= UInt64(budget)) {
                 UInt32(0)
@@ -87,7 +94,7 @@ internal func framePacingDelay(
             }
         // Unbounded applies to rendered frames. An idle dirty-frame loop still yields briefly so
         // kMode does not burn a full core while no frame has been requested.
-        case ResolvedFramePacing.Unbounded => if (rendered) { UInt32(0) } else { UInt32(1) }
+        case ResolvedFramePacing.Unbounded => if (rendered) { UInt32(0) } else { IDLE_FRAME_POLL_MS }
         case ResolvedFramePacing.LegacyDelay(delay) => delay
     }
 }

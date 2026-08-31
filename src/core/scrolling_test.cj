@@ -189,6 +189,22 @@ func scrollViewLetsWheelFallThroughWhenContentFits(): Unit {
 }
 
 @Test
+func repeatedStaticScrollViewLayoutDoesNotInvalidateAnotherFrame(): Unit {
+    let ctx = testContext()
+    let child = SizedLayoutProbe(Size(120.0, 240.0))
+    let view = ScrollView(key: "static-layout") {
+        emit(child)
+    }
+    let bounds = Rect(0.0, 0.0, 120.0, 80.0)
+
+    view.layout(ctx, bounds)
+    let settledGeneration = currentStateGeneration()
+    view.layout(ctx, bounds)
+
+    @Expect(currentStateGeneration(), settledGeneration)
+}
+
+@Test
 func scrollViewRetainsOffsetWhileDynamicContentCollapses(): Unit {
     let ctx = testContext()
     let offset = State<Float32>(200.0)
