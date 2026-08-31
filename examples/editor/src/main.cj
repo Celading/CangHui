@@ -7,9 +7,10 @@
  */
 package chui_editor
 
-import chui.{DesktopApp, WindowSpec}
+import chui.{DesktopApp, WindowSpec, runKModeStdioIfRequested}
 
 main(): Int64 {
+    if (runKModeStdioIfRequested()) { return 0 }
     let model = EditorModel()
     let app = DesktopApp(WindowSpec("CangHui 编辑器", 760, 560, scale: 1.5), theme: editorTheme())
     app.setMinimumSize(560, 420)

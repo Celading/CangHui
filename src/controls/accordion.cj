@@ -4,7 +4,7 @@ import std.collection.{ArrayList, HashSet}
 import sdl.{Color, Key, Pen, Rect, Size, UiEvent}
 import chui.core.{AnimationSpec, Animator, ComponentControlAppearance, ComponentControlKind, ComponentControlState,
     ComponentControlStyle, ControlContentEnvironment, ControlSemantics, InteractionAnimation, LAYOUT_UNBOUNDED,
-    Motion, State, UiContext, Widget,
+    Motion, SemanticActionKind, State, UiContext, Widget,
     resolveControlKey, buildKeyedChild, drawFocusRing, drawSurface, emit, focusableControlIdentity,
     handlePointerClick, localState, recordControlSemantics, resolveComponentControlAppearance}
 
@@ -305,7 +305,8 @@ public class Accordion <: Widget {
             value: if (expandedState.value.contains(index)) { "expanded" } else { "collapsed" },
             action: "Accordion.toggle(" + index.toString() + ")",
             actionOwner: headerId,
-            expanded: Some(expandedState.value.contains(index))
+            expanded: Some(expandedState.value.contains(index)),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         if (ctx.showFocusRing(headerId)) {
             drawFocusRing(ctx, rect, appearance.focusRadius)

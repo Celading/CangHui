@@ -147,12 +147,169 @@ public struct FrameInfo {
     }
 }
 
+/** Lifecycle phase for a platform IME preedit transaction. */
+public enum TextCompositionPhase {
+    | Begin
+    | Update
+    | Commit
+    | Cancel
+}
+
+/**
+ * Portable IME composition data.
+ *
+ * `selectionStart` and `selectionLength` count UTF-8 characters in `text`, matching SDL3.
+ * A replacement range names exact UTF-8 byte boundaries in the durable document; `-1/-1`
+ * means that the focused text control captures its current selection when composition begins.
+ */
+public struct TextCompositionEvent {
+    public let phase: TextCompositionPhase
+    public let text: String
+    public let selectionStart: Int64
+    public let selectionLength: Int64
+    public let replacementStartByte: Int64
+    public let replacementEndByte: Int64
+
+    public init(
+        phase: TextCompositionPhase,
+        text!: String = "",
+        selectionStart!: Int64 = -1,
+        selectionLength!: Int64 = -1,
+        replacementStartByte!: Int64 = -1,
+        replacementEndByte!: Int64 = -1
+    ) {
+        if (selectionStart < -1 || selectionLength < -1) {
+            throw IllegalArgumentException("composition selection must use -1 or a non-negative character range")
+        }
+        let replacementUnset = replacementStartByte == -1 && replacementEndByte == -1
+        let replacementValid = replacementStartByte >= 0 && replacementEndByte >= replacementStartByte
+        if (!replacementUnset && !replacementValid) {
+            throw IllegalArgumentException("composition replacement must use -1/-1 or a non-negative byte range")
+        }
+        this.phase = phase
+        this.text = text
+        this.selectionStart = selectionStart
+        this.selectionLength = selectionLength
+        this.replacementStartByte = replacementStartByte
+        this.replacementEndByte = replacementEndByte
+    }
+}
+
+/** A normalized device posture used by layout. Raw gyroscope samples stay provider-owned. */
+public enum DeviceRotation {
+    | Unknown
+    | Portrait
+    | LandscapeClockwise
+    | PortraitUpsideDown
+    | LandscapeCounterClockwise
+}
+
+/** Identifies which host surface normalized a device posture event. */
+public enum DeviceRotationSource {
+    | Gyroscope
+    | Display
+    | Host
+    | Synthetic
+}
+
+/** One stable quarter-turn reported by a platform orientation provider. */
+public struct DeviceRotationEvent {
+    public let rotation: DeviceRotation
+    public let source: DeviceRotationSource
+    public let timestampMs: UInt64
+
+    public init(
+        rotation: DeviceRotation,
+        source!: DeviceRotationSource = DeviceRotationSource.Host,
+        timestampMs!: UInt64 = UInt64(0)
+    ) {
+        this.rotation = rotation
+        this.source = source
+        this.timestampMs = timestampMs
+    }
+}
+
+public func deviceRotationName(rotation: DeviceRotation): String {
+    match (rotation) {
+        case DeviceRotation.Unknown => "unknown"
+        case DeviceRotation.Portrait => "portrait"
+        case DeviceRotation.LandscapeClockwise => "landscape-clockwise"
+        case DeviceRotation.PortraitUpsideDown => "portrait-upside-down"
+        case DeviceRotation.LandscapeCounterClockwise => "landscape-counter-clockwise"
+    }
+}
+
+public func deviceRotationSourceName(source: DeviceRotationSource): String {
+    match (source) {
+        case DeviceRotationSource.Gyroscope => "gyroscope"
+        case DeviceRotationSource.Display => "display"
+        case DeviceRotationSource.Host => "host"
+        case DeviceRotationSource.Synthetic => "synthetic"
+    }
+}
+
+/** Whether this posture uses a landscape layout. Unknown deliberately resolves to false here. */
+public func deviceRotationIsLandscape(rotation: DeviceRotation): Bool {
+    match (rotation) {
+        case DeviceRotation.LandscapeClockwise => true
+        case DeviceRotation.LandscapeCounterClockwise => true
+        case _ => false
+    }
+}
+
+/**
+ * Signed quarter-turn from one stable posture to another, in screen-clockwise degrees.
+ *
+ * Opposite postures deliberately retain direction: portrait -> upside-down is +180,
+ * while the reverse is -180; clockwise-landscape -> counter-clockwise-landscape is
+ * -180, while the reverse is +180. Unknown has no physical direction and returns zero.
+ */
+public func deviceRotationDeltaDegrees(from: DeviceRotation, to: DeviceRotation): Float32 {
+    if (deviceRotationIsUnknown(from) || deviceRotationIsUnknown(to)) {
+        return 0.0
+    }
+    var delta = deviceRotationDegrees(to) - deviceRotationDegrees(from)
+    if (delta > 180.0) { delta -= 360.0 }
+    if (delta < -180.0) { delta += 360.0 }
+    delta
+}
+
+private func deviceRotationDegrees(rotation: DeviceRotation): Float32 {
+    match (rotation) {
+        case DeviceRotation.Portrait => 0.0
+        case DeviceRotation.LandscapeClockwise => 90.0
+        case DeviceRotation.PortraitUpsideDown => 180.0
+        case DeviceRotation.LandscapeCounterClockwise => -90.0
+        case DeviceRotation.Unknown => 0.0
+    }
+}
+
+private func deviceRotationIsUnknown(rotation: DeviceRotation): Bool {
+    match (rotation) {
+        case DeviceRotation.Unknown => true
+        case _ => false
+    }
+}
+
 public enum UiEvent {
     | Frame(FrameInfo)
     | Quit
     | WindowResized(Int32, Int32)
+    | WindowShown
+    | WindowHidden
+    | WindowExposed
+    | WindowMoved(Int32, Int32)
+    | WindowPixelSizeChanged(Int32, Int32)
+    | WindowMinimized
+    | WindowMaximized
+    | WindowRestored
+    | WindowFocusChanged(Bool)
+    | WindowCloseRequested
+    | WindowDestroyed
+    | DeviceRotationChanged(DeviceRotationEvent)
     | KeyDown(Key, Bool)
     | KeyUp(Key)
+    | TextComposition(TextCompositionEvent)
     | TextInput(String)
     | MouseMove(Float32, Float32)
     | MouseDown(MouseButton, Float32, Float32)
@@ -170,6 +327,32 @@ public enum UiEvent {
     | Unknown(UInt32)
 }
 
+/** Stable SDL window identity. Zero is reserved for process-global events. */
+public struct WindowId <: Equatable<WindowId> {
+    public let raw: UInt32
+
+    public init(raw: UInt32) {
+        if (raw == UInt32(0)) { throw IllegalArgumentException("window id must be non-zero") }
+        this.raw = raw
+    }
+
+    public operator func ==(other: WindowId): Bool { raw == other.raw }
+    public operator func !=(other: WindowId): Bool { raw != other.raw }
+
+    public func toString(): String { raw.toString() }
+}
+
+/** Carries window identity without contaminating process-global gamepad and quit events. */
+public struct SdlEventEnvelope {
+    public let windowId: ?WindowId
+    public let event: UiEvent
+
+    public init(windowId: ?WindowId, event: UiEvent) {
+        this.windowId = windowId
+        this.event = event
+    }
+}
+
 internal func decodeEvent(raw: SdlEvent): UiEvent {
     let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
     var decoded = UiEvent.Unknown(UInt32(0))
@@ -184,9 +367,36 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
         // during window creation, which would otherwise flash the window shut on startup.
         if (eventType == SDL_EVENT_QUIT) {
             decoded = UiEvent.Quit
+        } else if (eventType == SDL_EVENT_WINDOW_SHOWN) {
+            decoded = UiEvent.WindowShown
+        } else if (eventType == SDL_EVENT_WINDOW_HIDDEN) {
+            decoded = UiEvent.WindowHidden
+        } else if (eventType == SDL_EVENT_WINDOW_EXPOSED) {
+            decoded = UiEvent.WindowExposed
+        } else if (eventType == SDL_EVENT_WINDOW_MOVED) {
+            let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
+            decoded = UiEvent.WindowMoved(window.data1, window.data2)
         } else if (eventType == SDL_EVENT_WINDOW_RESIZED) {
             let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
             decoded = UiEvent.WindowResized(window.data1, window.data2)
+        } else if (eventType == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED ||
+            eventType == SDL_EVENT_WINDOW_METAL_VIEW_RESIZED) {
+            let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
+            decoded = UiEvent.WindowPixelSizeChanged(window.data1, window.data2)
+        } else if (eventType == SDL_EVENT_WINDOW_MINIMIZED) {
+            decoded = UiEvent.WindowMinimized
+        } else if (eventType == SDL_EVENT_WINDOW_MAXIMIZED) {
+            decoded = UiEvent.WindowMaximized
+        } else if (eventType == SDL_EVENT_WINDOW_RESTORED) {
+            decoded = UiEvent.WindowRestored
+        } else if (eventType == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+            decoded = UiEvent.WindowFocusChanged(true)
+        } else if (eventType == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            decoded = UiEvent.WindowFocusChanged(false)
+        } else if (eventType == SDL_EVENT_WINDOW_CLOSE_REQUESTED) {
+            decoded = UiEvent.WindowCloseRequested
+        } else if (eventType == SDL_EVENT_WINDOW_DESTROYED) {
+            decoded = UiEvent.WindowDestroyed
         } else if (eventType == SDL_EVENT_KEY_DOWN || eventType == SDL_EVENT_KEY_UP) {
             let keyEvent = unsafe { CPointer<SdlKeyboardEvent>(eventResource.value).read() }
             if (eventType == SDL_EVENT_KEY_DOWN) {
@@ -194,6 +404,15 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
             } else {
                 decoded = UiEvent.KeyUp(keyFromScancode(keyEvent.scancode))
             }
+        } else if (eventType == SDL_EVENT_TEXT_EDITING) {
+            let editing = unsafe { CPointer<SdlTextEditingEvent>(eventResource.value).read() }
+            let value = if (editing.text.isNull()) { "" } else { CString(editing.text).toString() }
+            decoded = UiEvent.TextComposition(TextCompositionEvent(
+                if (value.isEmpty()) { TextCompositionPhase.Cancel } else { TextCompositionPhase.Update },
+                text: value,
+                selectionStart: Int64(editing.start),
+                selectionLength: Int64(editing.length)
+            ))
         } else if (eventType == SDL_EVENT_TEXT_INPUT) {
             let text = unsafe { CPointer<SdlTextInputEvent>(eventResource.value).read() }
             if (text.text.isNull()) {
@@ -246,6 +465,40 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
     decoded
 }
 
+internal func decodeEventEnvelope(raw: SdlEvent): SdlEventEnvelope {
+    SdlEventEnvelope(rawEventWindowId(raw), decodeEvent(raw))
+}
+
+private func rawEventWindowId(raw: SdlEvent): ?WindowId {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    var result: ?WindowId = None
+    try (eventResource = eventPtr.asResource()) {
+        unsafe { eventResource.value.write(raw) }
+        let common = unsafe { CPointer<SdlCommonEvent>(eventResource.value).read() }
+        let eventType = common.eventType
+        var rawId: UInt32 = UInt32(0)
+        if (eventType >= SDL_EVENT_WINDOW_SHOWN && eventType <= SDL_EVENT_WINDOW_DESTROYED) {
+            rawId = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_KEY_DOWN || eventType == SDL_EVENT_KEY_UP) {
+            rawId = unsafe { CPointer<SdlKeyboardEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_TEXT_EDITING) {
+            rawId = unsafe { CPointer<SdlTextEditingEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_TEXT_INPUT) {
+            rawId = unsafe { CPointer<SdlTextInputEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_MOUSE_MOTION) {
+            rawId = unsafe { CPointer<SdlMouseMotionEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_MOUSE_BUTTON_DOWN || eventType == SDL_EVENT_MOUSE_BUTTON_UP) {
+            rawId = unsafe { CPointer<SdlMouseButtonEvent>(eventResource.value).read() }.windowID
+        } else if (eventType == SDL_EVENT_MOUSE_WHEEL) {
+            rawId = unsafe { CPointer<SdlMouseWheelEvent>(eventResource.value).read() }.windowID
+        } else if (isDropEvent(eventType)) {
+            rawId = unsafe { CPointer<SdlDropEvent>(eventResource.value).read() }.windowID
+        }
+        if (rawId != UInt32(0)) { result = Some(WindowId(rawId)) }
+    }
+    result
+}
+
 internal func scaleEventCoordinates(event: UiEvent, scale: Float32): UiEvent {
     if (scale == 1.0) {
         return event
@@ -258,8 +511,16 @@ internal func scaleEventCoordinates(event: UiEvent, scale: Float32): UiEvent {
         case UiEvent.DropFile(path, x, y) => UiEvent.DropFile(path, x / scale, y / scale)
         case UiEvent.DropText(text, x, y) => UiEvent.DropText(text, x / scale, y / scale)
         case UiEvent.DropPosition(x, y) => UiEvent.DropPosition(x / scale, y / scale)
+        // SDL window-size events use window coordinates. Convert only those into CangHui logical
+        // coordinates; drawable-pixel events retain their exact backing dimensions.
+        case UiEvent.WindowResized(width, height) => UiEvent.WindowResized(
+            Int32(Float32(width) / scale), Int32(Float32(height) / scale))
         case _ => event
     }
+}
+
+internal func scaleEventEnvelope(envelope: SdlEventEnvelope, scale: Float32): SdlEventEnvelope {
+    SdlEventEnvelope(envelope.windowId, scaleEventCoordinates(envelope.event, scale))
 }
 
 internal func isDropEvent(eventType: UInt32): Bool {

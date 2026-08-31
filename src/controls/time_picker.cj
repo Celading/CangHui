@@ -1,8 +1,9 @@
 package chui.controls
 
 import sdl.{FontSizes, IconName, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent, clampF32, drawIcon}
-import chui.core.{Bindable, CUI_CONTROL_H, CursorShape, Overlay, State, UiContext, Widget, resolveControlKey,
-    claimHoverIfInside, drawSurface, emit, localState, registerFocusable}
+import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, Overlay, SemanticActionKind, State,
+    UiContext, Widget, resolveControlKey, claimHoverIfInside, drawSurface, emit, localState,
+    recordControlSemantics, registerFocusable}
 
 private let TP_FIELD_W: Float32 = 132.0
 private let TP_CELL_W: Float32 = 34.0
@@ -84,6 +85,11 @@ public class TimePicker <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        recordControlSemantics(ctx, frame, "TimePicker", ControlSemantics(
+            "time", value: currentLabel(), action: "TimePicker.open()", actionOwner: id,
+            expanded: Some(open.value),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
+        ))
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id) || open.value))
         let labelArea = Rect(frame.x + 10.0, frame.y, max(0.0, frame.w - 36.0), frame.h)
         ctx.renderer.pushClip(labelArea)

@@ -1,7 +1,69 @@
 package chui.core
 
 import std.collection.ArrayList
-import sdl.{DrawIrAsciiAnnotationKind, Key, Rect, Size, UiEvent}
+import sdl.{DrawIrAsciiAnnotationKind, GamepadButton, Key, MouseButton, Rect, Size, UiEvent}
+
+/** Optional gesture callbacks composed under an `InteractionSurface`'s single semantic owner. */
+public class GestureHandlers {
+    public let onDoubleTap: ?(() -> Unit)
+    public let onLongPress: ?(() -> Unit)
+    public let onDragStart: ?((Float32, Float32) -> Unit)
+    public let onDragUpdate: ?((Float32, Float32, Float32, Float32) -> Unit)
+    public let onDragEnd: ?((Float32, Float32) -> Unit)
+    public let onDragCancel: ?(() -> Unit)
+    public let onHoverChanged: ?((Bool) -> Unit)
+    public let longPressMs: UInt64
+    public let dragThreshold: Float32
+    public let capturePointer: Bool
+
+    public init(
+        onDoubleTap!: ?(() -> Unit) = None,
+        onLongPress!: ?(() -> Unit) = None,
+        onDragStart!: ?((Float32, Float32) -> Unit) = None,
+        onDragUpdate!: ?((Float32, Float32, Float32, Float32) -> Unit) = None,
+        onDragEnd!: ?((Float32, Float32) -> Unit) = None,
+        onDragCancel!: ?(() -> Unit) = None,
+        onHoverChanged!: ?((Bool) -> Unit) = None,
+        longPressMs!: UInt64 = UInt64(500),
+        dragThreshold!: Float32 = 6.0,
+        capturePointer!: Bool = true
+    ) {
+        this.onDoubleTap = onDoubleTap
+        this.onLongPress = onLongPress
+        this.onDragStart = onDragStart
+        this.onDragUpdate = onDragUpdate
+        this.onDragEnd = onDragEnd
+        this.onDragCancel = onDragCancel
+        this.onHoverChanged = onHoverChanged
+        this.longPressMs = max(UInt64(1), longPressMs)
+        this.dragThreshold = max(0.0, dragThreshold)
+        this.capturePointer = capturePointer
+    }
+}
+
+private class GestureSurfaceRuntime {
+    var pressStartedAt: UInt64 = 0
+    var pressX: Float32 = 0.0
+    var pressY: Float32 = 0.0
+    var lastX: Float32 = 0.0
+    var lastY: Float32 = 0.0
+    var longPressFired = false
+    var hovering = false
+
+    func begin(time: UInt64, x: Float32, y: Float32): Unit {
+        pressStartedAt = time
+        pressX = x
+        pressY = y
+        lastX = x
+        lastY = y
+        longPressFired = false
+    }
+
+    func resetPress(): Unit {
+        pressStartedAt = 0
+        longPressFired = false
+    }
+}
 
 /** Semantic role owned by one `InteractionSurface`. */
 public enum ControlRole {
@@ -42,6 +104,8 @@ public class InteractionSurface <: Widget {
     private var materialProvider: MaterialProvider
     private var surfaceShape: Shape
     private var clipPolicy: ClipPolicy
+    private var gestureHandlers = GestureHandlers()
+    private let gestureRuntime: GestureSurfaceRuntime
     private var frame = Rect.zero()
 
     public init(
@@ -70,6 +134,8 @@ public class InteractionSurface <: Widget {
         this.nestedInteractionOwnerIds = collectNestedInteractionOwnerIds(child, nestedFocusIds)
         for (id in nestedFocusIds) { unregisterFocusable(id) }
         this.controlId = resolveControlKey(key, "InteractionSurface")
+        this.gestureRuntime = localState<GestureSurfaceRuntime>(
+            "InteractionSurface:${this.controlId}:gestures") { GestureSurfaceRuntime() }.value
         if (!isReadOnly && nestedInteractionOwnerIds.isEmpty()) { registerFocusable(controlId) }
         this.materialProvider = Materials.themeSurface()
         this.surfaceShape = Shape.rectangle()
@@ -94,6 +160,12 @@ public class InteractionSurface <: Widget {
         surfaceShape = shape
         materialProvider = material
         clipPolicy = clip
+        this
+    }
+
+    /** Composes higher-level gestures without introducing a second focus/action owner. */
+    public func gestures(value: GestureHandlers): InteractionSurface {
+        gestureHandlers = value
         this
     }
 
@@ -123,7 +195,12 @@ public class InteractionSurface <: Widget {
             selected: isSelected,
             expanded: isExpanded,
             enabled: Some(state.enabled),
-            readOnly: Some(state.readOnly)
+            readOnly: Some(state.readOnly),
+            typedActions: if (state.enabled) {
+                [SemanticActionKind.Focus, SemanticActionKind.Activate]
+            } else {
+                []
+            }
         ))
         recordNestedInteractionDiagnostic()
         ctx.withControlContentEnvironment(ControlContentEnvironment(
@@ -152,10 +229,7 @@ public class InteractionSurface <: Widget {
         let state = currentState(ctx)
         if (!state.enabled) { return false }
         let material = materialProvider.resolve(ctx.theme, state)
-        if (handlePointerClick(ctx, event, frame, controlId, action,
-            inkRadius: surfaceShape.cornerRadius(), inkColor: Some(material.ink))) {
-            return true
-        }
+        if (handleGestures(ctx, event, material)) { return true }
         match (event) {
             case UiEvent.KeyDown(Key.Enter, _) =>
                 if (ctx.hasFocus(controlId)) {
@@ -163,6 +237,11 @@ public class InteractionSurface <: Widget {
                     return true
                 }
             case UiEvent.KeyDown(Key.Space, _) =>
+                if (ctx.hasFocus(controlId)) {
+                    activateFromKeyboard(ctx, material)
+                    return true
+                }
+            case UiEvent.GamepadButtonDown(_, GamepadButton.South) =>
                 if (ctx.hasFocus(controlId)) {
                     activateFromKeyboard(ctx, material)
                     return true
@@ -205,6 +284,113 @@ public class InteractionSurface <: Widget {
         action()
     }
 
+    private func handleGestures(ctx: UiContext, event: UiEvent, material: SurfaceMaterial): Bool {
+        claimHoverIfInside(ctx, event, frame, controlId, CursorShape.Interactive)
+        match (event) {
+            case UiEvent.Frame(info) =>
+                if (ctx.isPressed(controlId) && !gestureRuntime.longPressFired &&
+                    gestureHandlers.onLongPress.isSome() && info.elapsedMs >= gestureRuntime.pressStartedAt &&
+                    info.elapsedMs - gestureRuntime.pressStartedAt >= gestureHandlers.longPressMs) {
+                    gestureRuntime.longPressFired = true
+                    match (gestureHandlers.onLongPress) { case Some(callback) => callback() case None => () }
+                }
+                return false
+            case UiEvent.MouseMove(x, y) =>
+                let inside = frame.contains(x, y)
+                if (inside != gestureRuntime.hovering) {
+                    gestureRuntime.hovering = inside
+                    match (gestureHandlers.onHoverChanged) {
+                        case Some(callback) => callback(inside)
+                        case None => ()
+                    }
+                }
+                if (ctx.isPressed(controlId)) {
+                    let dx = x - gestureRuntime.lastX
+                    let dy = y - gestureRuntime.lastY
+                    let totalX = x - gestureRuntime.pressX
+                    let totalY = y - gestureRuntime.pressY
+                    if (!ctx.isDragging(controlId) && gestureHasDragCallbacks(gestureHandlers) &&
+                        totalX * totalX + totalY * totalY >=
+                            gestureHandlers.dragThreshold * gestureHandlers.dragThreshold) {
+                        ctx.beginDrag(controlId)
+                        if (gestureHandlers.capturePointer) { ctx.capturePointer(controlId) }
+                        match (gestureHandlers.onDragStart) {
+                            case Some(callback) => callback(gestureRuntime.pressX, gestureRuntime.pressY)
+                            case None => ()
+                        }
+                    }
+                    if (ctx.isDragging(controlId)) {
+                        match (gestureHandlers.onDragUpdate) {
+                            case Some(callback) => callback(x, y, dx, dy)
+                            case None => ()
+                        }
+                        gestureRuntime.lastX = x
+                        gestureRuntime.lastY = y
+                        return true
+                    } else if (!inside) {
+                        ctx.cancelPress(controlId)
+                        ctx.cancelInkRipple(controlId)
+                    }
+                    gestureRuntime.lastX = x
+                    gestureRuntime.lastY = y
+                }
+            case UiEvent.MouseDown(MouseButton.Left, x, y) => if (frame.contains(x, y)) {
+                ctx.focus(controlId)
+                ctx.press(controlId)
+                gestureRuntime.begin(ctx.frame.elapsedMs, x, y)
+                ctx.startInkRipple(controlId, frame, x, y, color: Some(material.ink),
+                    cornerRadius: surfaceShape.cornerRadius())
+                return true
+            }
+            case UiEvent.MouseUp(MouseButton.Left, x, y) => if (ctx.isPressed(controlId)) {
+                let inside = frame.contains(x, y)
+                let dragging = ctx.isDragging(controlId)
+                ctx.cancelPress(controlId)
+                if (dragging) {
+                    if (inside || gestureHandlers.capturePointer) {
+                        match (gestureHandlers.onDragEnd) {
+                            case Some(callback) => callback(x, y)
+                            case None => ()
+                        }
+                    } else {
+                        match (gestureHandlers.onDragCancel) { case Some(callback) => callback() case None => () }
+                    }
+                    ctx.clearDrag()
+                } else if (inside && !gestureRuntime.longPressFired) {
+                    if (ctx.clickCount == 2 && gestureHandlers.onDoubleTap.isSome()) {
+                        match (gestureHandlers.onDoubleTap) { case Some(callback) => callback() case None => () }
+                    } else {
+                        action()
+                    }
+                } else if (!inside) {
+                    ctx.cancelInkRipple(controlId)
+                }
+                gestureRuntime.resetPress()
+                ctx.releasePointerCapture(controlId)
+                return true
+            }
+            case UiEvent.WindowFocusChanged(false) =>
+                let owned = ctx.isPressed(controlId) || ctx.isDragging(controlId) ||
+                    ctx.hasPointerCapture(controlId)
+                if (owned) {
+                    ctx.cancelPress(controlId)
+                    ctx.cancelInkRipple(controlId)
+                    if (ctx.isDragging(controlId)) {
+                        match (gestureHandlers.onDragCancel) {
+                            case Some(callback) => callback()
+                            case None => ()
+                        }
+                        ctx.clearDrag()
+                    }
+                    ctx.releasePointerCapture(controlId)
+                    gestureRuntime.resetPress()
+                    return true
+                }
+            case _ => ()
+        }
+        false
+    }
+
     private func recordNestedInteractionDiagnostic(): Unit {
         if (nestedInteractionOwnerIds.isEmpty()) { return }
         let descendants = joinOwnerIds(nestedInteractionOwnerIds)
@@ -227,6 +413,25 @@ public class InteractionSurface <: Widget {
             )
         ]}
     }
+}
+
+/** Component-style convenience constructor for a gesture-enabled one-owner surface. */
+public func GestureSurface(
+    action!: () -> Unit,
+    gestures!: GestureHandlers = GestureHandlers(),
+    role!: ControlRole = ControlRole.Button,
+    accessibilityLabel!: String = "",
+    key!: ?String = None,
+    readOnly!: Bool = false,
+    body!: () -> Unit
+): InteractionSurface {
+    InteractionSurface(action: action, role: role, accessibilityLabel: accessibilityLabel,
+        key: key, readOnly: readOnly, body: body).gestures(gestures)
+}
+
+private func gestureHasDragCallbacks(value: GestureHandlers): Bool {
+    value.onDragStart.isSome() || value.onDragUpdate.isSome() || value.onDragEnd.isSome() ||
+        value.onDragCancel.isSome()
 }
 
 private func collectNestedFocusIds(child: Widget, registered: Array<String>): Array<String> {

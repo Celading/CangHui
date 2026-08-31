@@ -83,8 +83,7 @@ public class StepIndicator <: Widget {
         recordControlSemantics(ctx, frame, "StepIndicator", ControlSemantics(
             "stepindicator", label: semanticLabel,
             value: "step ${normalizedCurrent + 1} of ${n}",
-            action: if (onSelect.isSome()) { "StepIndicator.select()" } else { "" },
-            shortcut: if (onSelect.isSome()) { "Enter|Space" } else { "" },
+            action: "", shortcut: "",
             actionOwner: id
         ))
         let animatedCurrent = currentAnimation.animate(ctx, target: Float32(normalizedCurrent), spec: animationSpec)

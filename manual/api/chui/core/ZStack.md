@@ -4,7 +4,8 @@
 
 `chui.core` 包中的 public class
 
-把子组件按声明顺序自底向顶叠放、并在同一框架内对齐的层叠容器。后声明的子组件画在上层、事件也先送达，是模态对话框、Toast 通知层浮于主内容之上的标准写法。
+把子组件叠放在同一框架内并对齐的层叠容器。默认按声明顺序自底向顶；子组件可用
+[`Widget.zIndex`](Widget.md#zindex) 改变绘制与命中优先级，是模态对话框、Toast 通知层浮于主内容之上的标准写法。
 
 ## 声明
 
@@ -20,6 +21,9 @@ ZStack <: [`Widget`](Widget.md)
 
 每个参与布局的子组件都拿到同一块框架：接受拉伸的轴填满框架，其余轴保持测量尺寸并按 [`alignment`](#alignment) 放置（默认居中）。不参与布局的子组件（`.visible(false)`）在测量与布局中被跳过，隐藏的层不影响叠层尺寸。
 
+绘制按 `zIndex` 从低到高，命中测试从高到低；相同值保持声明顺序稳定。`zIndex` 不参与
+测量和布局，也不会改变 Tab 焦点顺序或 `Frame` 广播顺序。
+
 典型结构是"主内容在下、浮动层在上"：删除确认 [`Modal`](../controls/Modal.md) 或 [`ToastLayer`](../controls/ToastLayer.md) 放在块尾，不占布局空间、自行定位，隐藏时对下方内容零影响。
 
 ## 示例
@@ -34,7 +38,7 @@ main(): Unit {
     app.run {
         let card = ZStack {
             Label("正文内容").width(300.0).height(200.0)
-            Label("新").width(48.0).height(24.0)
+            Label("新").width(48.0).height(24.0).zIndex(10)
         }.alignment(Alignment.TopTrailing)
         // 运行时：正文卡片与“新”角标共享框架，角标叠在右上方。
     }
@@ -56,8 +60,8 @@ main(): Unit {
 | [`alignment(value: Alignment)`](#alignment) | 设置不拉伸的子组件在叠层框架内的对齐位置。 |
 | [`measure(ctx: UiContext, available: Size)`](#measure) | 测量为全部参与子组件的最大宽与最大高，限制在可用空间。 |
 | [`layout(ctx: UiContext, rect: Rect)`](#layout) | 让每个参与子组件在同一框架内布局：接受拉伸的轴填满框架，其余轴保持测量尺寸并按对齐放置。 |
-| [`draw(ctx: UiContext)`](#draw) | 按声明顺序绘制子组件：先声明者在底、后声明者在顶。 |
-| [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 把事件自顶向下派发给子组件并返回是否被消费。 |
+| [`draw(ctx: UiContext)`](#draw) | 按稳定 `zIndex` 顺序从低到高绘制子组件。 |
+| [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 按稳定 `zIndex` 逆序派发命中事件并返回是否被消费。 |
 | [`focusableIds()`](#focusableids) | 按声明顺序串联全部子组件注册的焦点项。 |
 
 ## 构造函数
@@ -120,7 +124,7 @@ public func layout(ctx: UiContext, rect: Rect): Unit
 
 ### draw
 
-按声明顺序绘制子组件：先声明者在底、后声明者在顶。
+按 `zIndex` 从低到高绘制子组件；相同值保持声明顺序。
 
 ```cangjie
 public func draw(ctx: UiContext): Unit
@@ -132,7 +136,7 @@ public func draw(ctx: UiContext): Unit
 
 ### handle
 
-把事件自顶向下派发给子组件并返回是否被消费。`Frame` 事件广播给全部子组件并返回 `false`；其余事件后声明者（视觉最上层）优先，遇到消费者即停止，上层因此天然遮挡下层的点击。
+把事件按绘制顺序的逆序派发并返回是否被消费。`Frame` 事件仍按声明顺序广播给全部子组件并返回 `false`；其余事件由最高 `zIndex` 优先，同值时后声明者优先，遇到消费者即停止。
 
 ```cangjie
 public func handle(ctx: UiContext, event: UiEvent): Bool

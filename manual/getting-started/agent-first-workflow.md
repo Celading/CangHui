@@ -32,11 +32,13 @@ cuic test <platform> .
 对已有 probe，优先运行：
 
 ```bash
+cuic shell snapshot .
 cuic pview . <probe-id> --columns 96 --rows 32
 # 等价入口：cuic probe ascii . <probe-id> --columns 96 --rows 32
 ```
 
-ASCII 用来核对区域顺序、宽高、尾随信息位置、按钮是否被纵向拉伸，以及窄视口是否溢出。
+`shell snapshot/diff` 先核对真实运行态的焦点与交互节点；需要回放时使用一次性 debug
+`shell click/focus/run`，不要接管任意已有进程。ASCII 用来核对区域顺序、宽高、尾随信息位置、按钮是否被纵向拉伸，以及窄视口是否溢出。
 需要像素、字体、裁切或主题证据时再运行：
 
 ```bash
@@ -44,7 +46,7 @@ cuic prnt <platform> . --output artifacts/ui.png
 ```
 
 若应用还没有 probe，先为关键视图提供稳定 probe/semantic id，不要直接跳过可重复验收。
-`pview`/probe 执行需要 debug cuic；发布版拒绝特权通道是安全门，不是失败。
+`shell`、`pview`/probe 执行需要 debug cuic；发布版拒绝特权通道是安全门，不是失败。
 
 ## 4. 使用框架的默认安全形状
 

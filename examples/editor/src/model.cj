@@ -6,17 +6,24 @@
  */
 package chui_editor
 
-import chui.{CalendarDate, DerivedState, State}
+import std.collection.ArrayList
+import chui.{CalendarDate, Color, DerivedState, State, TextAreaDecoration, TextAreaDecorationSnapshot,
+    TextAreaDecorationStyle}
 
 class EditorModel {
     let text = State<String>(seedText())
+    let verticalScroll = State<Float32>(0.0)
+    let horizontalScroll = State<Float32>(0.0)
     let status = State<String>("就绪")
     let chars: DerivedState<Int64>
     let lines: DerivedState<Int64>
+    let decorations: DerivedState<TextAreaDecorationSnapshot>
 
     init() {
         this.chars = this.text.map({t => charCount(t)})
         this.lines = this.text.map({t => lineCount(t)})
+        let document = this.text
+        this.decorations = document.map({value => editorDecorations(value, document.revision)})
     }
 
     func newDoc(): Unit {
@@ -67,4 +74,24 @@ class EditorModel {
         }
         status.value = "已追加"
     }
+}
+
+/*
+ * Tokenization belongs to the editor, not TextArea. This deliberately small consumer-side
+ * producer decorates complete logical-line ranges, whose offsets are exact UTF-8 boundaries.
+ */
+private func editorDecorations(text: String, revision: UInt64): TextAreaDecorationSnapshot {
+    let output = ArrayList<TextAreaDecoration>()
+    let lines = text.split("\n")
+    if (!lines.isEmpty() && !lines[0].isEmpty()) {
+        output.add(TextAreaDecoration(0, lines[0].size, TextAreaDecorationStyle(
+            foreground: Some(Color.rgb(66, 104, 210)),
+            underline: Some(Color.rgb(66, 104, 210)))))
+    }
+    if (lines.size > 2 && !lines[2].isEmpty()) {
+        let start = lines[0].size + lines[1].size + 2
+        output.add(TextAreaDecoration(start, start + lines[2].size, TextAreaDecorationStyle(
+            background: Some(Color.rgba(66, 104, 210, 24)))))
+    }
+    TextAreaDecorationSnapshot(revision, output.toArray())
 }

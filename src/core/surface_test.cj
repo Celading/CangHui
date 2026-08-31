@@ -42,3 +42,23 @@ func decorativeSurfaceForwardsChildFocusAndEventsWithoutOwningEither(): Unit {
     @Expect(surface.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 20.0, 20.0)))
     @Expect(clicks.value, Int64(1))
 }
+
+@Test
+func decorativeSurfacePainterOverridesOnlyPaintAndKeepsForeground(): Unit {
+    let capture = SurfaceEnvironmentCapture()
+    let painted = State<Bool>(false)
+    let foreground = Color.rgb(32, 48, 64)
+    let report = ComponentProbe("test.surface-painter", width: 140.0, height: 60.0).run("") {
+        Surface(
+            shape: Shape.rounded(12.0),
+            material: Materials.solid(Color.rgb(220, 230, 240), foreground: Some(foreground)),
+            painter: Some(SurfacePainter(paint: {ctx, rect, shape, material =>
+                painted.value = true
+                ctx.renderer.fillRoundedRect(rect, shape.cornerRadius(), material.style.fill)
+            }))
+        ) { emit(capture) }
+    }
+    @Expect(painted.value)
+    @Expect(report.contains("paint.fill-rounded-rect"))
+    @Expect(capture.environment.getOrThrow().foreground.r, foreground.r)
+}

@@ -1,10 +1,10 @@
 package chui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
-import chui.core.{Bindable, CUI_SMALL_H, ScrollBar, ScrollMotion, ScrollOptions, State, UiContext, Widget,
-    resolveControlKey, advanceScrollMotion, applyWheelScroll, cancelScrollMotion, clampScrollOffset,
-    maxScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, registerFocusable, scrollLineIndex,
-    scrollLineRemainder}
+import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, ScrollBar, ScrollMotion, ScrollOptions,
+    SemanticActionKind, State, UiContext, Widget, resolveControlKey, advanceScrollMotion, applyWheelScroll,
+    cancelScrollMotion, clampScrollOffset, maxScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState,
+    recordControlSemantics, registerFocusable, scrollLineIndex, scrollLineRemainder}
 
 private let TABLE_HEADER_H: Float32 = 32.0
 private let TABLE_CELL_PAD: Float32 = 10.0
@@ -178,6 +178,10 @@ public class Table <: Widget {
 
     public func draw(ctx: UiContext): Unit {
         let order = displayOrder()
+        recordControlSemantics(ctx, frame, "Table", ControlSemantics(
+            "table", value: selected.value.toString(), action: "", shortcut: "", actionOwner: id,
+            typedActions: [SemanticActionKind.Focus]
+        ))
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id)))
         let body = bodyRect()
         let clamped = clampScrollOffset(scrollOffset.value, contentHeight(), body.h)

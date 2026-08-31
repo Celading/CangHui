@@ -3,6 +3,25 @@ package chui.desktop
 import sdl.{MouseButton, UiEvent}
 import sdl.system.SdlHint
 
+private class DesktopRunTestException <: Exception {
+    public init(message: String) { super(message) }
+}
+
+@Test
+func desktopRunPreservesOriginatingFailureOverCleanupFailure(): Unit {
+    let original = DesktopRunTestException("frame-loop-origin")
+    let cleanup = DesktopRunTestException("cleanup-affinity")
+
+    @Expect(preferredDesktopRunFailure(Some(original), cleanup).message, "frame-loop-origin")
+}
+
+@Test
+func desktopRunReportsCleanupFailureWhenNoEarlierFailureExists(): Unit {
+    let cleanup = DesktopRunTestException("cleanup-affinity")
+
+    @Expect(preferredDesktopRunFailure(None, cleanup).message, "cleanup-affinity")
+}
+
 @Test
 func tickDeltaGuardsAgainstClockReset(): Unit {
     @Expect(tickDelta(UInt64(10), UInt64(25)), UInt64(15))
@@ -41,7 +60,7 @@ func devicePacingUsesPresentForRenderedFramesAndLightIdlePolling(): Unit {
     @Expect(framePacingUsesVSync(pacing))
     @Expect(resolvedFramePacingName(pacing), "device")
     @Expect(framePacingDelay(pacing, UInt64(0), true), UInt32(0))
-    @Expect(framePacingDelay(pacing, UInt64(0), false), UInt32(1))
+    @Expect(framePacingDelay(pacing, UInt64(0), false), UInt32(16))
 }
 
 @Test
@@ -50,7 +69,7 @@ func kmodeDefaultsToUnboundedUnlessTheApplicationChoosesAPolicy(): Unit {
     @Expect(resolvedFramePacingName(automatic), "unbounded")
     @Expect(!framePacingUsesVSync(automatic))
     @Expect(framePacingDelay(automatic, UInt64(0), true), UInt32(0))
-    @Expect(framePacingDelay(automatic, UInt64(0), false), UInt32(1))
+    @Expect(framePacingDelay(automatic, UInt64(0), false), UInt32(16))
 
     let explicit = resolveFramePacing(Some(FramePacing.Fixed(UInt32(120))), true, UInt32(16), true)
     @Expect(resolvedFramePacingName(explicit), "fixed-120fps")
@@ -129,4 +148,12 @@ func desktopDefaultsFirstFocusClickToReachControls(): Unit {
         case _ => @Expect(false)
     }
     @Expect(hints[0].value, "1")
+}
+
+@Test
+func frameGraphSkipsTransientZeroAreaDesktopSurfaces(): Unit {
+    @Expect(desktopFrameSurfaceUsable(Int32(1280), Int32(720)))
+    @Expect(!desktopFrameSurfaceUsable(Int32(0), Int32(720)))
+    @Expect(!desktopFrameSurfaceUsable(Int32(1280), Int32(0)))
+    @Expect(!desktopFrameSurfaceUsable(Int32(-1), Int32(720)))
 }

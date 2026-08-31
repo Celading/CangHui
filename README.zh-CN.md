@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="仓颉" />
-  <img src="https://img.shields.io/badge/version-0.16.1-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.16.1" />
+  <img src="https://img.shields.io/badge/version-0.17.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="版本 0.17.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="包名 chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="静态产物" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="多平台 GUI" />
@@ -86,9 +86,10 @@ CangHui 声明式核心  ----  状态、身份、布局、控件、覆盖层
 | 层 | 公开代码中已有 | 边界 |
 | --- | --- | --- |
 | CangHui 核心 | 声明式组合、身份、状态、布局、控件、覆盖层与文本编辑 | 平台无关的源代码 API |
-| 渲染 | 基于 SDL3 的桌面渲染器，以及 provider-neutral 的图形协商、保留资源与有界渲染包 | Metal、Vulkan、D3D11/12、OpenGL ES、WebGPU 与软件渲染只是适配器身份，不代表每个后端驱动都已交付或验证 |
-| Scene3D | 封闭语义快照、可聚焦的嵌入式 `Scene3DView`、可选 macOS bgfx4cj 打包与带版本的 HarmonyOS XComponent 宿主入口 | 已证明 macOS 有界几何与宿主接线；产品资产、拾取和其他宿主 provider 像素仍是独立门禁 |
-| 交互 | 指针捕获、焦点、键盘路由、归一化手柄连接/轴/按键事件、缓动滚动与动效力度 | 手柄事件由焦点所有者接收；实体设备映射、IME 与无障碍仍由尚未证明的平台宿主负责 |
+| 渲染 | SDL3 桌面渲染器、阶段感知保留账本、有界 damage 规划、FrameGraph 调度、provider-neutral 图形协商与有界渲染包 | SDL 当前只在内部保留/暂存 damage，仍调用整窗 `SDL_RenderPresent`；Metal、Vulkan、D3D11/12、OpenGL ES、WebGPU 与软件渲染只是适配器身份，不代表每个后端驱动都已交付或验证 |
+| Scene3D | 封闭语义快照、可聚焦的 `Scene3DView`、可选 shared-frame 合成、macOS bgfx4cj 打包与 HarmonyOS XComponent 宿主入口 | 当前 SDL 路径可在普通组件树顺序中合成有界 CPU RGBA8 帧；原生私有纹理/栅栏、实机 HDR 与其他宿主 provider 像素仍是独立门禁 |
+| 交互 | 指针捕获、焦点、键盘/手柄路由，以及有界的进程内语义 snapshot/diff 与类型化动作平面 | Voice/Agent 动作默认关闭；它不是 IPC 或远程控制通道，原生无障碍/IME 适配仍由未证明的宿主负责 |
+| 桌面多窗口 | `DesktopApp` 提供单窗口，`DesktopApplication` 以一个 SDL event pump 管理互相隔离的窗口 | 焦点、浮层、指针捕获与 Scene3D 状态按窗口隔离；进程级手柄事件分配给活动窗口，多窗口路径尚未取得 `DesktopApp` 高级 FrameGraph/effect/transition 的完整同等能力 |
 | 检查 | 仅调试构建可用的 `kMode`、`cuic probe`、组件/函数/事件报告、Draw IR 与确定性 `prnt` | 发布应用和发布 cuic 拒绝特权检查；无头报告证明语义与几何，不等于完整设备 UI 验收 |
 | 工具链 | `cuic init`、确定性无签名输入、release-exclusion/network 审计和可选 macOS Developer ID/公证门 | 运行时闭包与发布凭据仍由 owner 提供；商店发布和未证明的原生运行时继续独立验收 |
 | 移动桥接 | iOS 原生表面生命周期切片、Android 表面启动边界、阶段化 package receipt、签名包证据、安装尝试 receipt 与仅调试态 kMode 回放 | 平台签名器/安装器不会被隐式执行；安装 receipt 仍是平台 owner 外部证明，启动、渲染、真机回放与消费者验收继续分门推进 |
@@ -163,6 +164,19 @@ main() {
 - 线程安全的 `UiOwnerQueue` 与 `DesktopApp.postToUi`：worker 准备不可变结果，
   单一 UI owner 在下一次声明式构建前按 ticket 顺序提交；支持 epoch/native-surface-generation
   门、取消、关闭回执与有界排水。`State` 本身只允许 UI owner 修改。
+- `DesktopApplication` 在一个 SDL event pump 下打开、聚焦、单步驱动和关闭多个原生窗口；
+  带窗口作用域的事件保留 `WindowId`，焦点、浮层、指针捕获与 Scene3D 状态按窗口隔离；
+  进程级手柄事件由 registry 分配给活动窗口。
+- `SemanticRuntime` 为每个窗口记录有界、带 revision 的语义树，并提供确定性的 snapshot/diff
+  与类型化动作；Agent/Voice 来源只有应用显式开启后才可派发，不包含坐标、按键、进程附加、
+  socket 或命令执行面。
+- `Scene3DView` 可显式选择 `PreferSharedFrame`。当前桌面路径会在组件正常绘制位置采样有界
+  CPU RGBA8 lease，并根据最终合成结果恰好释放一次；原生 GPU 私有纹理和 acquire fence
+  仍需 provider 闭环，不能据此声称零拷贝。
+- 阶段感知保留账本记录精确状态依赖与有界 damage，FrameGraph 可复用拓扑调度；输入指纹完全
+  一致的 keyed `Label` 可复用已提交测量结果；按 shape 裁剪且使用框架可解析材质的 `Surface`
+  可约束绘制 damage。自定义材质 provider 与普通 Widget 回调仍保守执行，SDL 即使内部 damage
+  较小也仍进行整窗 present。
 - 用 `Keyed`、`rememberState`、`ForEach` 稳定控件身份；焦点、悬停、光标与点击身份
   按每帧确定的构建顺序派生。
 - 动画原语：`Spring`、时长/缓动 `Animator`、重复时间线 `Pulse`，渲染循环充当动画时钟，
@@ -217,6 +231,8 @@ Developer ID/公证证据链见
 - 响应式预览矩阵：`src/testkit/preview_matrix.cj`
 - 组件包 schema：`contracts/canghui-component-package-v0.schema.json`
 - Symbol provider：`packages/symbol-material`、`packages/symbol-ant`、`packages/symbol-arco`
+- 可选样式包：`packages/style-liquid-glass` 提供亮/暗、regular/clear/vapor、SDR 光学层、
+  内置分段控件镜片形变与无障碍降级；当前便携渲染器不宣称已实现平台原生背景采样或折射。
 
 ## 公开契约，而不是平台伪装
 
@@ -328,6 +344,8 @@ CangHui 运行时能力声明。
 - [Symbol 与可选图标 Provider](manual/reference/symbols.zh-CN.md)
 - [字体](manual/reference/fonts.zh-CN.md)
 - [Scene3D 语义投影](manual/reference/scene3d.md)
+- [运行时语义交互](manual/reference/semantic-runtime.md)
+- [桌面多窗口运行时](manual/reference/desktop-multi-window.md)
 - [Probe 与 kMode](manual/reference/probe.zh-CN.md)
 - [SDL3 Apple 宿主说明](manual/reference/sdl3-apple-host.zh-CN.md)
 - [现代 GUI 核心范式洞察辨析](manual/reference/modern-GUI-insights-and-analysis.md)

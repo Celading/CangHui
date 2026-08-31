@@ -41,6 +41,9 @@ echo "==> cuic build + test"
 echo "==> source-owned package matrix"
 bash scripts/test-chui-matrix.sh packages
 
+echo "==> external probe Option collision fixture"
+bash scripts/verify-probe-option-disambiguation.sh
+
 # 6. CLI and installed-distribution regression.
 echo "==> cuic CLI smoke"
 bash tools/cuic/scripts/test-cli.sh

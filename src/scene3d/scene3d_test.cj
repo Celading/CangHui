@@ -1,14 +1,153 @@
 package chui.scene3d
 
+private class SharedFrameReleaseCounter {
+    var calls: Int64 = 0
+    var lastReason = "none"
+    func release(reason: Scene3DSharedFrameFinishReason): Bool {
+        calls += 1
+        lastReason = scene3DSharedFrameFinishReasonName(reason)
+        true
+    }
+}
+
+private class ReentrantSharedFrameReleaseCounter {
+    var lease: ?Scene3DSharedFrameLease = None
+    var calls: Int64 = 0
+    var receiptVisible = false
+    var observedCode = "none"
+    var reentrantCode = "none"
+    var reentrantReason = "none"
+
+    func release(_: Scene3DSharedFrameFinishReason): Bool {
+        calls += 1
+        let current = lease.getOrThrow()
+        match (current.releaseReceipt()) {
+            case Some(receipt) =>
+                receiptVisible = true
+                observedCode = receipt.code
+            case None => ()
+        }
+        let reentrant = current.finish(Scene3DSharedFrameFinishReason.Presented)
+        reentrantCode = reentrant.code
+        reentrantReason = scene3DSharedFrameFinishReasonName(reentrant.reason)
+        true
+    }
+}
+
 @Test
 func scene3dNamesAndProtocolStayStable(): Unit {
     @Expect(CANGHUI_SCENE3D_PROTOCOL, "canghui.scene3d.v0")
+    @Expect(CANGHUI_SCENE3D_SHARED_FRAME_PROTOCOL, "canghui.scene3d.shared-frame.v1")
     @Expect(scene3dBackendName(Scene3DBackend.Metal), "metal")
     @Expect(scene3dBackendName(Scene3DBackend.D3D12), "d3d12")
     @Expect(scene3dEntityKindName(Scene3DEntityKind.UserMarker), "user-marker")
     @Expect(scene3dEntityKindName(Scene3DEntityKind.ExitMarker), "exit-marker")
     @Expect(scene3dDebugGeometryFamilyName(Scene3DDebugGeometryFamily.Ribbon), "ribbon")
     @Expect(scene3dSemanticColorName(Scene3DSemanticColor.RouteAccent), "route-accent")
+}
+
+@Test
+func scene3DSharedFrameLeaseCopiesPixelsAndReleasesExactlyOnce(): Unit {
+    let releases = SharedFrameReleaseCounter()
+    let request = Scene3DSharedFrameRequest(
+        "surface", 2, 7, 1.0, 1.0, 1.0, 1, "portrait")
+    let lease = Scene3DSharedFrameLease(
+        "frame-1", request, 1, 1, 4,
+        Scene3DSharedColorSpace.Srgb,
+        Scene3DSharedAlphaMode.Premultiplied,
+        Scene3DSharedDynamicRange.Sdr,
+        Scene3DSharedAcquireSync(7),
+        29,
+        rgbaPixels: [UInt8(1), UInt8(2), UInt8(3), UInt8(4)],
+        onFinish: {reason => releases.release(reason) }
+    )
+    let copied = lease.copyRgbaPixels()
+    @Expect(copied.size, Int64(4))
+    @Expect(copied[2], UInt8(3))
+    let receipt = lease.finish(Scene3DSharedFrameFinishReason.ExecutorFailed)
+    let duplicate = lease.finish(Scene3DSharedFrameFinishReason.Presented)
+    @Expect(releases.calls, Int64(1))
+    @Expect(releases.lastReason, "executor-failed")
+    @Expect(receipt.code, "released")
+    @Expect(scene3DSharedFrameFinishReasonName(duplicate.reason), "executor-failed")
+    @Expect(lease.isClosed())
+    @ExpectThrows[IllegalStateException](lease.copyRgbaPixels())
+}
+
+@Test
+func scene3DSharedFrameLeasePublishesReceiptBeforeReentrantProviderCallback(): Unit {
+    let releases = ReentrantSharedFrameReleaseCounter()
+    let request = Scene3DSharedFrameRequest(
+        "surface", 4, 12, 1.0, 1.0, 1.0, 9, "portrait")
+    let lease = Scene3DSharedFrameLease(
+        "frame-reentrant", request, 1, 1, 4,
+        Scene3DSharedColorSpace.Srgb,
+        Scene3DSharedAlphaMode.Opaque,
+        Scene3DSharedDynamicRange.Sdr,
+        Scene3DSharedAcquireSync(12),
+        41,
+        rgbaPixels: [UInt8(9), UInt8(8), UInt8(7), UInt8(255)],
+        onFinish: {reason => releases.release(reason) })
+    releases.lease = Some(lease)
+
+    let terminal = lease.finish(Scene3DSharedFrameFinishReason.ExecutorFailed)
+
+    @Expect(releases.calls, Int64(1))
+    @Expect(releases.receiptVisible)
+    @Expect(releases.observedCode, "release-in-progress")
+    @Expect(releases.reentrantCode, "release-in-progress")
+    @Expect(releases.reentrantReason, "executor-failed")
+    @Expect(terminal.ok)
+    @Expect(terminal.code, "released")
+    @Expect(scene3DSharedFrameFinishReasonName(terminal.reason), "executor-failed")
+    @Expect(lease.releaseReceipt().getOrThrow().code, "released")
+    @Expect(lease.finish(Scene3DSharedFrameFinishReason.Presented).code, "released")
+    @Expect(releases.calls, Int64(1))
+}
+
+@Test
+func fakeScene3DSharedFrameRequiresPresentedCurrentFrame(): Unit {
+    let provider = FakeScene3DProvider()
+    let surface = Scene3DHostSurface(
+        "shared", Scene3DBackend.Software, UInt64(1), 32.0, 16.0, 32, 16, 1.0, 1)
+    @Expect(provider.attach(surface, Scene3DFrameClock(0, 0, 0)).ok)
+    @Expect(provider.loadScene(Scene3DResource("scene", "memory://scene", "sha256:test", 0)).ok)
+    let request = Scene3DSharedFrameRequest(
+        "shared", 1, 1, 32.0, 16.0, 1.0, 1, "portrait")
+    @Expect(provider.acquireSharedFrame(request).isNone())
+    let snapshot = Scene3DFrameSnapshot("shared-scene")
+    @Expect(provider.submit(snapshot, Scene3DFrameClock(1, 1, 2)).ok)
+    @Expect(provider.present(Scene3DFrameClock(1, 1, 2)).ok)
+    let lease = provider.acquireSharedFrame(request).getOrThrow()
+    @Expect(lease.pixelWidth, Int64(32))
+    @Expect(lease.pixelHeight, Int64(16))
+    @Expect(provider.sharedAcquireCount(), Int64(1))
+    lease.close()
+    @Expect(provider.sharedReleaseCount(), Int64(1))
+}
+
+@Test
+func scene3DSharedFrameRejectsOverflowAndKeepsPrivatePayloadOpaque(): Unit {
+    let request = Scene3DSharedFrameRequest(
+        "surface", 1, 0, 8.0, 8.0, 1.0, 1, "portrait")
+    @ExpectThrows[IllegalArgumentException](Scene3DSharedFrameLease(
+        "overflow", request, Int64.Max, 1, Int64.Max,
+        Scene3DSharedColorSpace.Srgb,
+        Scene3DSharedAlphaMode.Opaque,
+        Scene3DSharedDynamicRange.Sdr,
+        Scene3DSharedAcquireSync(0),
+        1))
+    let privateFrame = Scene3DSharedFrameLease(
+        "native", request, 8, 8, 32,
+        Scene3DSharedColorSpace.Srgb,
+        Scene3DSharedAlphaMode.Opaque,
+        Scene3DSharedDynamicRange.Sdr,
+        Scene3DSharedAcquireSync(3, waitRequired: true),
+        7,
+        payloadKind: Scene3DSharedFramePayloadKind.ProviderPrivateTexture,
+        providerPrivateToken: "provider-token")
+    @ExpectThrows[IllegalStateException](privateFrame.copyRgbaPixels())
+    @Expect(privateFrame.finish(Scene3DSharedFrameFinishReason.Fallback).ok)
 }
 
 @Test

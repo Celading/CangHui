@@ -2,8 +2,9 @@ package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Key, MouseButton, Rect, Size, UiEvent, clampF32}
-import chui.core.{Bindable, CUI_CONTROL_H, CUI_GAP, CursorShape, Spring, UiContext, Widget, buildChildren,
-    claimHoverIfInside, drawFocusRing, drawSurface, emit, focusableControlIdentity, localState, requireControlId,
+import chui.core.{Bindable, CUI_CONTROL_H, CUI_GAP, CursorShape, SegmentedControlStyle,
+    SegmentedControlVisualState, Spring, UiContext, Widget, buildChildren, claimHoverIfInside,
+    drawFocusRing, drawSurface, emit, focusableControlIdentity, localState, requireControlId,
     unregisterFocusable}
 
 public class SegmentedControl <: Widget {
@@ -13,6 +14,9 @@ public class SegmentedControl <: Widget {
     // The selection pill slides between segments. Retained across rebuilds and started at the
     // current selection, so a static first frame is settled (snapshot-stable).
     private let indicatorSpring: Spring
+    private let indicatorFastSpring: Spring
+    private let indicatorSlowSpring: Spring
+    private var customIndicatorStyle: ?SegmentedControlStyle = None
     private var frame = Rect.zero()
 
     public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = None) {
@@ -30,7 +34,19 @@ public class SegmentedControl <: Widget {
         this.controlId = cid
         let start = Float32(clampIndex(selected.value, items.size))
         this.indicatorSpring = localState<Spring>("${cid}:indicator") {Spring(start)}.value
+        this.indicatorFastSpring = localState<Spring>("${cid}:indicator-fast") {
+            Spring(start, stiffness: 360.0, damping: 32.0)
+        }.value
+        this.indicatorSlowSpring = localState<Spring>("${cid}:indicator-slow") {
+            Spring(start, stiffness: 165.0, damping: 22.0)
+        }.value
         emit(this)
+    }
+
+    /** Overrides the theme's selection-lens painter without changing control behavior. */
+    public func indicatorStyle(value: SegmentedControlStyle): SegmentedControl {
+        customIndicatorStyle = Some(value)
+        this
     }
 
     public func measure(_: UiContext, available: Size): Size {
@@ -48,7 +64,8 @@ public class SegmentedControl <: Widget {
         }
         drawSurface(ctx, frame, ctx.theme.fieldSurface(false))
         let target = Float32(clampIndex(selected.value, items.size))
-        drawSlidingSegments(ctx, frame, items, indicatorSpring.animate(ctx, target: target))
+        drawSlidingSegments(ctx, frame, items, indicatorSpring.animate(ctx, target: target),
+            target, indicatorFastSpring, indicatorSlowSpring, customIndicatorStyle)
         if (ctx.showFocusRing(controlId)) {
             drawFocusRing(ctx, frame, ctx.theme.controlRadius)
         }
@@ -90,6 +107,9 @@ public class TabView <: Widget {
     private let pages: Array<Widget>
     private let controlId: String
     private let indicatorSpring: Spring
+    private let indicatorFastSpring: Spring
+    private let indicatorSlowSpring: Spring
+    private var customIndicatorStyle: ?SegmentedControlStyle = None
     private var frame = Rect.zero()
     private var laidOutPage: Int64 = -1
 
@@ -125,7 +145,19 @@ public class TabView <: Widget {
         // first frame is settled (snapshot-stable).
         let start = Float32(clampIndex(selected.value, labels.size))
         this.indicatorSpring = localState<Spring>("${cid}:indicator") {Spring(start)}.value
+        this.indicatorFastSpring = localState<Spring>("${cid}:indicator-fast") {
+            Spring(start, stiffness: 360.0, damping: 32.0)
+        }.value
+        this.indicatorSlowSpring = localState<Spring>("${cid}:indicator-slow") {
+            Spring(start, stiffness: 165.0, damping: 22.0)
+        }.value
         emit(this)
+    }
+
+    /** Overrides the theme's selection-lens painter without changing tab behavior. */
+    public func indicatorStyle(value: SegmentedControlStyle): TabView {
+        customIndicatorStyle = Some(value)
+        this
     }
 
     public func measure(_: UiContext, available: Size): Size {
@@ -219,7 +251,8 @@ public class TabView <: Widget {
         let header = Rect(frame.x, frame.y, frame.w, CUI_CONTROL_H)
         drawSurface(ctx, header, ctx.theme.fieldSurface(false))
         let target = Float32(clampIndex(selected.value, labels.size))
-        drawSlidingSegments(ctx, header, labels, indicatorSpring.animate(ctx, target: target))
+        drawSlidingSegments(ctx, header, labels, indicatorSpring.animate(ctx, target: target),
+            target, indicatorFastSpring, indicatorSlowSpring, customIndicatorStyle)
         if (ctx.showFocusRing(controlId)) {
             drawFocusRing(ctx, header, ctx.theme.controlRadius)
         }
@@ -254,19 +287,53 @@ public class TabView <: Widget {
 // Draws a segmented row's selection pill and labels, with the pill slid to `animatedIndex` (a
 // fractional segment index). The label the pill mostly covers is drawn in the accent-on text
 // colour; the pill is clamped to the row so a spring overshoot never escapes the control.
-private func drawSlidingSegments(ctx: UiContext, row: Rect, items: Array<String>, animatedIndex: Float32): Unit {
+private func drawSlidingSegments(
+    ctx: UiContext,
+    row: Rect,
+    items: Array<String>,
+    animatedIndex: Float32,
+    targetIndex: Float32,
+    fastSpring: Spring,
+    slowSpring: Spring,
+    styleOverride: ?SegmentedControlStyle
+): Unit {
     let count = items.size
     let segmentW = row.w / Float32(count)
     let clamped = clampF32(animatedIndex, 0.0, Float32(count - 1))
-    drawSurface(ctx, Rect(row.x + clamped * segmentW, row.y, segmentW, row.h).inset(3.0), ctx.theme.selectedSurface())
-    let highlighted = Int64(clamped + 0.5)
+    let resolvedStyle = match (styleOverride) {
+        case Some(value) => Some(value)
+        case None => ctx.theme.components.segmentedControlStyle
+    }
+    let highlighted = match (resolvedStyle) {
+        case Some(style) =>
+            let fast = clampF32(fastSpring.animate(ctx, target: targetIndex), 0.0, Float32(count - 1))
+            let slow = clampF32(slowSpring.animate(ctx, target: targetIndex), 0.0, Float32(count - 1))
+            let movingForward = targetIndex >= clamped
+            let rawLeft = min(fast, slow)
+            let rawRight = max(fast, slow) + 1.0
+            let left = clamped + (rawLeft - clamped) * style.deformation
+            let right = clamped + 1.0 + (rawRight - (clamped + 1.0)) * style.deformation
+            let indicator = Rect(row.x + left * segmentW, row.y,
+                max(segmentW * 0.5, (right - left) * segmentW), row.h).inset(3.0)
+            let stretch = min(1.0, max(0.0, right - left - 1.0))
+            style.paintIndicator(ctx, indicator, SegmentedControlVisualState(
+                animatedIndex: clamped,
+                targetIndex: Int64(targetIndex),
+                stretch: stretch,
+                movingForward: movingForward
+            ))
+            Int64(targetIndex)
+        case None =>
+            drawSurface(ctx, Rect(row.x + clamped * segmentW, row.y, segmentW, row.h).inset(3.0),
+                ctx.theme.selectedSurface())
+            Int64(clamped + 0.5)
+    }
     var i: Int64 = 0
     while (i < count) {
         let cell = Rect(row.x + Float32(i) * segmentW, row.y, segmentW, row.h)
-        let color = if (i == highlighted) {
-            ctx.theme.accentText
-        } else {
-            ctx.theme.text
+        let color = match (resolvedStyle) {
+            case Some(style) => style.foreground(ctx.theme, i == highlighted)
+            case None => if (i == highlighted) { ctx.theme.accentText } else { ctx.theme.text }
         }
         ctx.renderer.textCenter(items[i], cell, color)
         i += 1

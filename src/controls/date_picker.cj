@@ -1,8 +1,9 @@
 package chui.controls
 
 import sdl.{FontSizes, IconName, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent, clampF32, drawIcon}
-import chui.core.{Bindable, CUI_CONTROL_H, CursorShape, Overlay, State, UiContext, Widget,
-    resolveControlKey, claimHoverIfInside, drawSurface, emit, localState, registerFocusable}
+import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, Overlay, SemanticActionKind, State,
+    UiContext, Widget, resolveControlKey, claimHoverIfInside, drawSurface, emit, localState,
+    recordControlSemantics, registerFocusable}
 
 private let DP_FIELD_W: Float32 = 176.0
 private let DP_CELL_W: Float32 = 34.0
@@ -62,6 +63,11 @@ public class DatePicker <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        recordControlSemantics(ctx, frame, "DatePicker", ControlSemantics(
+            "date", value: currentLabel(), action: "DatePicker.open()", actionOwner: id,
+            expanded: Some(open.value),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
+        ))
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(id) || open.value))
         let labelArea = Rect(frame.x + 10.0, frame.y, max(0.0, frame.w - 36.0), frame.h)
         ctx.renderer.pushClip(labelArea)

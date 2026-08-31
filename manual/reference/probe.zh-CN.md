@@ -147,3 +147,14 @@ probeSemanticRegions { => [
 ```
 
 同一批子区域也会出现在 JSON 帧的 `regions` 字段中。需要验证像素、字体、媒体内容、裁切精度或平台集成时，仍应使用 `cuic prnt` 或设备截图。
+
+## DesignSnapshot 导出
+
+当下游需要的不只是 Probe 过程日志，而是可供设计工具或 CI 长期比较的稳定设计输入时，使用：
+
+```bash
+cuic design snapshot component-gallery gallery.primary-button
+cuic design snapshot component-gallery gallery.primary-button --script events.txt
+```
+
+它在同一调试门内运行显式注册的组件 Probe，把最终帧转换为 `canghui.design-snapshot/v1`：稳定节点、region、布局、状态与 scoped Draw IR 被放进一个有上限、自动脱敏且带确定性 digest 的规范 JSON。与 `probe run` 不同，它不输出事件过程；与 `prnt` 不同，它不把像素或截图推断冒充结构事实。详见 [`DesignSnapshot`](../api/chui/core/DesignSnapshot.md)。

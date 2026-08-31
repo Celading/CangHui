@@ -14,6 +14,8 @@ foreign {
 
     func SDL_DestroyWindow(window: CPointer<Unit>): Unit
 
+    func SDL_GetWindowID(window: CPointer<Unit>): UInt32
+
     func SDL_SetWindowTitle(window: CPointer<Unit>, title: CString): Bool
 
     func SDL_GetWindowTitle(window: CPointer<Unit>): CString
@@ -63,6 +65,8 @@ foreign {
     func SDL_SetWindowAlwaysOnTop(window: CPointer<Unit>, onTop: Bool): Bool
 
     func SDL_SetWindowOpacity(window: CPointer<Unit>, opacity: Float32): Bool
+
+    func SDL_SetWindowShape(window: CPointer<Unit>, shape: CPointer<Unit>): Bool
 
     func SDL_GetWindowOpacity(window: CPointer<Unit>): Float32
 

@@ -3,9 +3,10 @@ package chui.controls
 import std.collection.{ArrayList, HashSet}
 import sdl.{Color, FontSizes, IconName, Key, MouseButton, Pen, Rect, Size, UiEvent, drawIcon}
 import chui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
-    State, UiContext, Widget, requireControlId, advanceScrollMotion, applyWheelScroll, cancelScrollMotion,
+    ControlSemantics, SemanticActionKind, State, UiContext, Widget, requireControlId, advanceScrollMotion,
+    applyWheelScroll, cancelScrollMotion,
     claimHoverIfInside, clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity,
-    ellipsize, localState, scrollLineIndex, scrollLineRemainder}
+    ellipsize, localState, recordControlSemantics, scrollLineIndex, scrollLineRemainder}
 
 // Logical pixels of indentation added per depth level.
 private let TREE_INDENT: Float32 = 16.0
@@ -166,6 +167,20 @@ public class TreeView <: Widget {
             revealRowIndex(selectedIndex())
             lastRevealed.value = selected.value
         }
+        let semanticSelection = selectedIndex()
+        let semanticExpandable = semanticSelection >= 0 && rows[semanticSelection].hasChildren
+        recordControlSemantics(ctx, frame, "TreeView", ControlSemantics(
+            "tree", value: selected.value,
+            action: if (semanticExpandable) { "TreeView.toggleSelected()" } else { "" },
+            shortcut: if (semanticExpandable) { "Enter|Space" } else { "" },
+            actionOwner: controlId,
+            expanded: if (semanticExpandable) { Some(rows[semanticSelection].expanded) } else { None },
+            typedActions: if (semanticExpandable) {
+                [SemanticActionKind.Focus, SemanticActionKind.Activate]
+            } else {
+                [SemanticActionKind.Focus]
+            }
+        ))
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(controlId)))
 
         ctx.renderer.pushClip(viewport)

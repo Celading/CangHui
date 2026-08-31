@@ -7,6 +7,7 @@ import std.math.abs
 private let DEFAULT_POINT_SIZE: Float32 = 15.0
 private let FONT_SIZE_EPSILON: Float32 = 0.01
 private let MAX_NAMED_FONT_INSTANCES: Int64 = 32
+private let MAX_TEXT_MEASURE_CACHE_ENTRIES: Int64 = 2048
 private let FONT_INSTANCE_SHIFT: Int64 = 16
 private let FONT_CREATE_FILENAME_PROPERTY = "SDL_ttf.font.create.filename"
 private let FONT_CREATE_SIZE_PROPERTY = "SDL_ttf.font.create.size"
@@ -64,6 +65,10 @@ protected class NativeTextRenderer {
     // Paths that failed to open once, remembered so a bad path degrades to the system font without
     // re-attempting the open every frame.
     private let failedPaths = HashSet<String>()
+    // Layout may ask for the same label metrics through several ancestor measure passes before
+    // placing it. On device-class CPUs, repeating glyph coverage and TTF_GetStringSize for every
+    // pass dominates the first frame, so retain one bounded renderer-local metrics cache.
+    private let measureCache = HashMap<String, NativeTextMetrics>()
     private var closed: Bool = false
 
     /**
@@ -107,6 +112,11 @@ protected class NativeTextRenderer {
         styleFlags: Int32,
         facePaths: Array<String>
     ): NativeTextMetrics {
+        let cacheKey = textMeasureCacheKey(text, pointSize, styleFlags, facePaths)
+        match (measureCache.get(cacheKey)) {
+            case Some(cached) => return cached
+            case None => ()
+        }
         let font = fontForText(text, facePaths, pointSize, styleFlags)
         let cText = unsafe { LibC.mallocCString(text) }
         var metrics = NativeTextMetrics(0.0, 0.0)
@@ -118,6 +128,10 @@ protected class NativeTextRenderer {
             }, "TTF_GetStringSize")
             metrics = NativeTextMetrics(Float32(width), Float32(height))
         }
+        if (measureCache.size >= MAX_TEXT_MEASURE_CACHE_ENTRIES) {
+            measureCache.clear()
+        }
+        measureCache[cacheKey] = metrics
         metrics
     }
 
@@ -270,12 +284,26 @@ protected class NativeTextRenderer {
             face.close()
         }
         faces.clear()
+        measureCache.clear()
         unsafe {
             TTF_DestroyRendererTextEngine(engine)
             TTF_Quit()
         }
     }
 
+}
+
+private func textMeasureCacheKey(
+    text: String,
+    pointSize: Float32,
+    styleFlags: Int32,
+    facePaths: Array<String>
+): String {
+    var key = "${pointSize}|${styleFlags}"
+    for (path in facePaths) {
+        key += "|${path}"
+    }
+    key + "|${text}"
 }
 
 /*

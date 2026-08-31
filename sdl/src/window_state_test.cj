@@ -1,9 +1,63 @@
 package sdl
 
+private class NativeCloseCounter {
+    public var value = 0
+    public func increment(): Unit { value += 1 }
+}
+
 @Test
 func nativeThreadIdentityMustMatchExactly(): Unit {
     @Expect(sameNativeThread(UInt64(42), UInt64(42)))
     @Expect(!sameNativeThread(UInt64(42), UInt64(43)))
+}
+
+@Test
+func wrongThreadWindowCloseNeverEntersNativeTeardown(): Unit {
+    let gate = WindowCloseGate(UInt64(42))
+    let nativeCloseCount = NativeCloseCounter()
+
+    let result = gate.close(UInt64(43), { => nativeCloseCount.increment() })
+
+    @Expect(isWrongThreadClose(result))
+    @Expect(nativeCloseCount.value, 0)
+    @Expect(!gate.isClosed())
+}
+
+@Test
+func ownerThreadWindowCloseIsExactlyOnceAndThenThreadAgnostic(): Unit {
+    let gate = WindowCloseGate(UInt64(42))
+    let nativeCloseCount = NativeCloseCounter()
+
+    let first = gate.close(UInt64(42), { => nativeCloseCount.increment() })
+    let repeatedOwner = gate.close(UInt64(42), { => nativeCloseCount.increment() })
+    let repeatedWorker = gate.close(UInt64(99), { => nativeCloseCount.increment() })
+
+    @Expect(isCompletedClose(first))
+    @Expect(isAlreadyClosed(repeatedOwner))
+    @Expect(isAlreadyClosed(repeatedWorker))
+    @Expect(nativeCloseCount.value, 1)
+    @Expect(gate.isClosed())
+}
+
+private func isWrongThreadClose(result: WindowCloseResult): Bool {
+    match (result) {
+        case WindowCloseResult.WrongThread => true
+        case _ => false
+    }
+}
+
+private func isCompletedClose(result: WindowCloseResult): Bool {
+    match (result) {
+        case WindowCloseResult.Closed => true
+        case _ => false
+    }
+}
+
+private func isAlreadyClosed(result: WindowCloseResult): Bool {
+    match (result) {
+        case WindowCloseResult.AlreadyClosed => true
+        case _ => false
+    }
 }
 
 @Test
@@ -55,6 +109,22 @@ func windowSizeFromPixelsUsesNormalizedScale(): Unit {
     @Expect(scaled.h, 90.0)
     @Expect(fallback.w, 300.0)
     @Expect(fallback.h, 180.0)
+}
+
+@Test
+func windowResizeUpdatesDistinguishLogicalGeometryFromBackingPixels(): Unit {
+    let logical = logicalWindowResizeUpdate(200, 120, 2.0)
+    @Expect(logical.logicalWidth, Int32(200))
+    @Expect(logical.logicalHeight, Int32(120))
+    @Expect(logical.pixelWidth, Int32(400))
+    @Expect(logical.pixelHeight, Int32(240))
+
+    let backing = backingPixelResizeUpdate(
+        logical.logicalWidth, logical.logicalHeight, 800, 480)
+    @Expect(backing.logicalWidth, Int32(200))
+    @Expect(backing.logicalHeight, Int32(120))
+    @Expect(backing.pixelWidth, Int32(800))
+    @Expect(backing.pixelHeight, Int32(480))
 }
 
 @Test
@@ -145,4 +215,22 @@ func windowSpecFramelessAliasAddsBorderlessFlag(): Unit {
     @Expect((windowCreationFlags(explicitDecorated) & SDL_WINDOW_BORDERLESS) != UInt64(0))
     @Expect(explicitDecorated.frameless)
     @Expect(explicitDecorated.decorated)
+}
+
+@Test
+func windowSpecRoundedShapeAddsTransparencyAndNormalizesRadius(): Unit {
+    let shaped = WindowSpec("Shaped", 100, 80, frameless: true, cornerRadius: 18.0)
+    let invalid = WindowSpec("Invalid", 100, 80, cornerRadius: -2.0)
+
+    @Expect(shaped.cornerRadius, Float32(18.0))
+    @Expect((windowCreationFlags(shaped) & SDL_WINDOW_TRANSPARENT) != UInt64(0))
+    @Expect(invalid.cornerRadius, Float32(0.0))
+    @Expect((windowCreationFlags(invalid) & SDL_WINDOW_TRANSPARENT) == UInt64(0))
+}
+
+@Test
+func roundedWindowShapeKeepsCenterAndCutsOuterCorner(): Unit {
+    @Expect(roundedCornerAlpha(0, 0, 12.0), UInt8(0))
+    @Expect(roundedCornerAlpha(11, 11, 12.0), UInt8(255))
+    @Expect(fittedCornerRadius(20, 10, 30.0), Float32(5.0))
 }

@@ -55,6 +55,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`measure(_: UiContext, available: Size)`](#measure) | 占满全部可用尺寸（[`Widget`](../core/Widget.md) 协议）。 |
+| [`indicatorStyle(value: SegmentedControlStyle)`](#indicatorstyle) | 覆盖页签选中镜片绘制与形变量，保留页签/页面行为。 |
 | [`layout(ctx: UiContext, rect: Rect)`](#layout) | 记录框架并为活动页布局（[`Widget`](../core/Widget.md) 协议）。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制页签条与活动页（[`Widget`](../core/Widget.md) 协议）。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 页签条点击与方向键切页，其余事件转发给活动页（[`Widget`](../core/Widget.md) 协议）。 |
@@ -84,6 +85,15 @@ public init(labels: Array<String>, selected: Bindable<Int64>, key!: ?String = No
 - `IllegalArgumentException` — `key` 传入空字符串时。
 
 ## 方法
+
+### indicatorStyle
+
+```cangjie
+public func indicatorStyle(value: SegmentedControlStyle): TabView
+```
+
+为页签条覆盖主题中的 [`SegmentedControlStyle`](../core/SegmentedControlStyle.md)。页面构建、隐藏页
+焦点注销、点击/方向键切换与活动页布局仍完全由 TabView 管理。
 
 ### measure
 

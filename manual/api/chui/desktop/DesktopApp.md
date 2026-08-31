@@ -14,7 +14,7 @@ public class DesktopApp
 
 ## 说明
 
-帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，`finally` 也会关闭 owner queue、完成待处理 ticket 并执行这套清理。`cuic prnt` 会构建后直接启动应用可执行文件，并通过 [`DesktopCaptureRequest`](DesktopCaptureRequest.md) 的宿主请求采集稳定画面，不依赖 `cjpm run` 转发参数。旧应用仍兼容 `--snapshot <path.bmp>` 与 `--snapshot-frame`；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
+帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，也会关闭 owner queue、完成待处理 ticket 并执行这套清理。若清理同时报告 SDL owner-thread 错误，`run` 会继续抛出更早的帧循环异常。`cuic prnt` 会构建后直接启动应用可执行文件，并通过 [`DesktopCaptureRequest`](DesktopCaptureRequest.md) 的宿主请求采集稳定画面，不依赖 `cjpm run` 转发参数。旧应用仍兼容 `--snapshot <path.bmp>` 与 `--snapshot-frame`；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
 
 ## 示例
 
@@ -46,7 +46,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
-| [`init(...)`](#init) | 以窗口规格、主题、帧节奏、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。 |
+| [`init(...)`](#init) | 以窗口规格、主题、帧节奏、字体缩放、设备旋转动画、应用元数据与 SDL hint 创建桌面应用对象。 |
 
 **方法**
 
@@ -58,6 +58,10 @@ main(): Unit {
 | [`clearRememberedState()`](#clearrememberedstate) | 在下一次重建前丢弃全部 `rememberState` 局部值。 |
 | [`postToUi(...)`](#posttoui) | 从任意线程投递任务，在下一次声明式构建前由 UI owner 串行执行。 |
 | [`uiOwnerEpoch()`](#uiownerepoch) | 读取 owner epoch，供 worker 准备乐观提交条件。 |
+| [`deviceRotation()`](#devicerotation) | 返回供布局使用的有效方向；尚无宿主报告时按视口宽高回退。 |
+| [`reportedDeviceRotation()`](#reporteddevicerotation) | 返回宿主最后报告的方向，未报告时保持 `Unknown`。 |
+| [`queueDeviceRotation(...)`](#queuedevicerotation) | 在 UI owner 上把规范化方向排入普通事件路由。 |
+| [`postDeviceRotation(...)`](#postdevicerotation) | 从任意线程经 owner queue 投递方向事件。 |
 | [`openFileDialog(...)`](#openfiledialog) | 发起系统"打开文件"对话框，返回可轮询的请求。 |
 | [`saveFileDialog(...)`](#savefiledialog) | 发起系统"保存文件"对话框。 |
 | [`openFolderDialog(...)`](#openfolderdialog) | 发起系统"选择文件夹"对话框。 |
@@ -67,7 +71,7 @@ main(): Unit {
 
 ### init
 
-以窗口规格、主题、帧节奏、字体缩放、应用元数据与 SDL hint 创建桌面应用对象。元数据与 hint 在建窗前生效。
+以窗口规格、主题、帧节奏、字体缩放、设备旋转动画、应用元数据与 SDL hint 创建桌面应用对象。元数据与 hint 在建窗前生效。
 
 ```cangjie
 public init(
@@ -77,6 +81,7 @@ public init(
     framePacing!: ?FramePacing = None,
     capture!: ?DesktopCaptureRequest = None,
     fontScale!: Float32 = 1.0,
+    deviceRotationAnimation!: AnimationSpec = AnimationSpec.automatic(duration: UInt64(320)),
     metadata!: ?AppMetadata = None,
     hints!: Array<SdlHintSetting> = []
 )
@@ -90,6 +95,8 @@ public init(
 - `framePacing!`: `?`[`FramePacing`](FramePacing.md) — 显式帧节奏；默认 `None`，普通 VSync 窗口跟随设备，kMode 对实际渲染帧不封顶。
 - `capture!`: `?`[`DesktopCaptureRequest`](DesktopCaptureRequest.md) — 显式渲染采集请求；优先于宿主环境注入和旧命令行兼容输入，默认 `None`。
 - `fontScale!`: `Float32` — 应用到 `fp` 长度的用户字体缩放；下限 0.1。默认 `1.0`。
+- `deviceRotationAnimation!`: `AnimationSpec`（见 [`Animator`](../core/Animator.md)）— 设备方向事件触发的整页有向旋转；
+  默认 320ms 自动规格，随主题运动等级缩放，并在减弱动态效果时缩到最短时长。
 - `metadata!`: `?AppMetadata` — 应用名/版本等元数据（sdl.system）。默认 `None`。
 - `hints!`: `Array<SdlHintSetting>` — 建窗前应用的 SDL hint。默认空。
 
@@ -141,7 +148,8 @@ public func useBaseCursor(kind: SystemCursor): Unit
 
 ### clearRememberedState
 
-在下一次重建前丢弃全部 `rememberState` 局部值。
+在下一次重建前丢弃全部 `rememberState` 局部值。若从当前帧的事件回调调用，清理会延迟到
+该帧提交或回滚后的安全边界，不会中断正在运行的布局、绘制或事件阶段。
 
 ```cangjie
 public func clearRememberedState(): Unit
@@ -180,6 +188,46 @@ public func uiOwnerEpoch(): UInt64
 ```
 
 **返回值** `UInt64` — 当前 owner epoch。
+
+### deviceRotation
+
+返回供声明式布局使用的有效设备方向。平台尚未上报时，根据当前逻辑视口宽高确定竖屏/横屏回退；
+这不改变 `reportedDeviceRotation()` 的传感器事实。
+
+```cangjie
+public func deviceRotation(): DeviceRotation
+```
+
+### reportedDeviceRotation
+
+返回平台最后上报的规范化方向；首个事件到达前为 `DeviceRotation.Unknown`。
+
+```cangjie
+public func reportedDeviceRotation(): DeviceRotation
+```
+
+### queueDeviceRotation
+
+在 UI owner 上把一个方向事件排入普通 `UiEvent` 路由。可传完整事件，也可传方向、来源和时间戳。
+
+```cangjie
+public func queueDeviceRotation(event: DeviceRotationEvent): Unit
+
+public func queueDeviceRotation(
+    rotation: DeviceRotation,
+    source!: DeviceRotationSource = DeviceRotationSource.Host,
+    timestampMs!: UInt64 = UInt64(0)
+): Unit
+```
+
+### postDeviceRotation
+
+从任意线程投递方向事件。事件先由线程安全的 UI owner queue 接收，再在 owner 上进入普通事件路由；
+适合移动平台传感器或窗口方向回调。
+
+```cangjie
+public func postDeviceRotation(event: DeviceRotationEvent): UiOwnerTicket
+```
 
 ### openFileDialog
 

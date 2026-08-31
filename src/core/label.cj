@@ -1,6 +1,6 @@
 package chui.core
 
-import sdl.{Color, FontSizes, FontStyle, Rect, Size, UiEvent}
+import sdl.{Color, Fonts, FontSizes, FontStyle, Rect, Size, UiEvent}
 
 private let LABEL_LINE_GAP: Float32 = 2.0
 
@@ -209,6 +209,19 @@ public class Label <: Widget {
         let textBlock = Float32(count) * lineHeight + Float32(count - 1) * lineGap
         // widest was measured when the lines were wrapped and cached; a warm pass reuses it.
         Size(min(available.w, cachedLinesWidest), max(CUI_SMALL_H, textBlock + 6.0))
+    }
+
+    /** Complete, length-delimited identity for retained preferred-size reuse. */
+    internal func retainedMeasureInputIdentity(ctx: UiContext): String {
+        let point = resolvedPointSize(ctx)
+        let style = resolvedTextStyle(ctx)
+        let font = resolvedFontFace(ctx)
+        let fontKey = typographyFontKey(font)
+        "Label|" + text.toArray().size.toString() + ":" + text + "|" +
+            point.toString() + "|" + style.ttfFlags().toString() + "|" +
+            fontKey.toArray().size.toString() + ":" + fontKey + "|" +
+            lineLimit.toString() + "|" + lineGap.toString() + "|" +
+            Fonts.generation().toString()
     }
 
     public func layout(_: UiContext, rect: Rect): Unit {

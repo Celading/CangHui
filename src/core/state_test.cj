@@ -1,6 +1,20 @@
 package chui.core
 
+import sdl.{Rect, Renderer, Size, UiEvent}
 
+private class ClearRememberedStateDuringHandle <: Widget {
+    private let store: StateStore
+
+    init(store: StateStore) { this.store = store }
+
+    public func measure(_: UiContext, available: Size): Size { available }
+    public func layout(_: UiContext, _: Rect): Unit {}
+    public func draw(_: UiContext): Unit {}
+    public func handle(_: UiContext, _: UiEvent): Bool {
+        store.clear()
+        true
+    }
+}
 
 @Test
 func stateTracksRevisionAndCancellableObservers(): Unit {
@@ -139,6 +153,110 @@ func forEachKeyedStateFollowsItemAcrossReorder(): Unit {
     build(["b", "a"])
     @Expect(first.value.getOrThrow().value, Int64(11))
     @Expect(second.value.getOrThrow().value, Int64(22))
+}
+
+@Test
+func retainedRememberedStatePruneCommitsOnlyWithPresentedFrame(): Unit {
+    let store = StateStore()
+    let captured = State<?State<Int64>>(None)
+    let _ = buildRoot({=>
+        captured.value = Some(rememberState<Int64>("kept") {1})
+        Spacer()
+    }, store)
+    let first = captured.value.getOrThrow()
+    first.value = 41
+
+    // Omitting the state only stages its unmount. A frame that never presents restores it.
+    let _ = buildRetainedRoot({=> Spacer()}, store, 1)
+    store.cancelRetainedFrame()
+    let _ = buildRoot({=>
+        captured.value = Some(rememberState<Int64>("kept") {7})
+        Spacer()
+    }, store)
+    let restored = captured.value.getOrThrow()
+    @Expect(refEq((first as Object).getOrThrow(), (restored as Object).getOrThrow()))
+    @Expect(restored.value, Int64(41))
+
+    // Once the retained frame commits, the same omission becomes an actual unmount.
+    let _ = buildRetainedRoot({=> Spacer()}, store, 1)
+    let _ = store.finishRetainedFrame()
+    let _ = buildRoot({=>
+        captured.value = Some(rememberState<Int64>("kept") {9})
+        Spacer()
+    }, store)
+    let replaced = captured.value.getOrThrow()
+    @Expect(!refEq((first as Object).getOrThrow(), (replaced as Object).getOrThrow()))
+    @Expect(replaced.value, Int64(9))
+}
+
+@Test
+func retainedCancelledFrameRollsBackNewRememberedState(): Unit {
+    let store = StateStore()
+    let cancelled = State<?State<Int64>>(None)
+    let _ = buildRetainedRoot({=>
+        cancelled.value = Some(rememberState<Int64>("ephemeral") {3})
+        Spacer()
+    }, store, 1)
+    let abandoned = cancelled.value.getOrThrow()
+    store.cancelRetainedFrame()
+
+    let _ = buildRoot({=>
+        cancelled.value = Some(rememberState<Int64>("ephemeral") {8})
+        Spacer()
+    }, store)
+    let rebuilt = cancelled.value.getOrThrow()
+    @Expect(!refEq((abandoned as Object).getOrThrow(), (rebuilt as Object).getOrThrow()))
+    @Expect(rebuilt.value, Int64(8))
+}
+
+@Test
+func clearRememberedStateDuringRetainedHitTestDefersToSafeBoundary(): Unit {
+    let store = StateStore()
+    let captured = State<?State<Int64>>(None)
+    let _ = buildRoot({=>
+        captured.value = Some(rememberState<Int64>("value") {4})
+        Spacer()
+    }, store)
+    let previous = captured.value.getOrThrow()
+
+    let root = buildRetainedRoot({=> emit(ClearRememberedStateDuringHandle(store))}, store, 1)
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+    root.layout(ctx, Rect(0.0, 0.0, 40.0, 20.0))
+    @Expect(root.handle(ctx, UiEvent.Quit))
+    // The callback did not cancel the active HitTest phase; reset happens after this frame settles.
+    @Expect(store.retainedFrameActive())
+    let _ = store.finishRetainedFrame()
+    @Expect(!store.retainedFrameActive())
+
+    let _ = buildRoot({=>
+        captured.value = Some(rememberState<Int64>("value") {12})
+        Spacer()
+    }, store)
+    let reset = captured.value.getOrThrow()
+    @Expect(!refEq((previous as Object).getOrThrow(), (reset as Object).getOrThrow()))
+    @Expect(reset.value, Int64(12))
+}
+
+@Test
+func retainedBuildSetupFailureRestoresGlobalBuildScopeWithoutCancellingPriorFrame(): Unit {
+    let store = StateStore()
+    store.beginRetainedFrame(1)
+    var didThrow = false
+    try {
+        let _ = buildRetainedRoot({=> Spacer()}, store, 2)
+    } catch (_: IllegalStateException) {
+        didThrow = true
+    }
+    @Expect(didThrow)
+    @Expect(store.retainedFrameActive())
+
+    var leakedBuildScope = false
+    try {
+        let _ = rememberState<Int64>("outside") {1}
+        leakedBuildScope = true
+    } catch (_: IllegalStateException) {}
+    @Expect(!leakedBuildScope)
+    store.cancelRetainedFrame()
 }
 
 // `.enabled(false)` takes a control out of Tab traversal for the frame: a stop that ignores

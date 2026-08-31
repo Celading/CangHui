@@ -817,7 +817,8 @@ private class GraphicsPacketCursor {
     }
 }
 
-private func decodeGraphicsRenderPacket(packet: GraphicsRenderPacket): GraphicsSceneDelta {
+/** Module-only decoder shared by transactional replay and the internal FrameGraph bridge. */
+protected func decodeGraphicsRenderPacket(packet: GraphicsRenderPacket): GraphicsSceneDelta {
     let cursor = GraphicsPacketCursor(packet)
     let magic = cursor.readString(8)
     if (magic != GRAPHICS_PACKET_MAGIC || cursor.readInt64() != GRAPHICS_PACKET_SCHEMA) {
@@ -1097,7 +1098,8 @@ private func checkedGraphicsPacketAdd(
     total + added
 }
 
-private func graphicsPacketContentCode(bytes: Array<UInt8>): Int64 {
+/** Module-only integrity code shared by transactional replay and the internal FrameGraph bridge. */
+protected func graphicsPacketContentCode(bytes: Array<UInt8>): Int64 {
     var code: Int64 = 0
     for (i in 0..bytes.size) {
         code += Int64(bytes[i]) * ((i % 251) + 1)

@@ -1,8 +1,8 @@
 package chui.controls
 
-import sdl.{IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
-import chui.core.{Button, ComponentProbe, IconButton, ProbeProperty, Spacer, State, StateStore, Theme,
-    UiContext, VStack, Widget, buildRoot, emit}
+import sdl.{FrameInfo, IconName, Key, MouseButton, Rect, Renderer, Size, UiEvent}
+import chui.core.{Button, ComponentProbe, IconButton, ProbeProperty, SegmentedControlStyle, Spacer,
+    State, StateStore, Theme, UiContext, VStack, Widget, buildRoot, emit}
 
 private func controlTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
@@ -157,6 +157,33 @@ func segmentedControlSelectsClickedSegment(): Unit {
     control.layout(ctx, Rect(0.0, 0.0, 300.0, 38.0))
     @Expect(control.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 250.0, 12.0)))
     @Expect(selected.value, Int64(2))
+}
+
+@Test
+func segmentedControlStyleDeformsStockIndicatorWithoutReplacingInput(): Unit {
+    let ctx = controlTestContext()
+    let selected = State<Int64>(0)
+    let paintedWidth = State<Float32>(0.0)
+    let style = SegmentedControlStyle(
+        deformation: 1.0,
+        paintIndicator: {_, rect, _ => paintedWidth.value = rect.w},
+        foreground: {theme, _ => theme.text}
+    )
+    let store = StateStore()
+    let captured = State<?Widget>(None)
+    let _ = buildRoot({=>
+        captured.value = Some(SegmentedControl(["One", "Two", "Three"], selected)
+            .indicatorStyle(style))
+    }, store)
+    let control = captured.value.getOrThrow()
+    control.layout(ctx, Rect(0.0, 0.0, 300.0, 38.0))
+    control.draw(ctx)
+    @Expect(paintedWidth.value, 94.0)
+
+    selected.value = 2
+    ctx.frame = FrameInfo(UInt64(16), UInt64(16))
+    control.draw(ctx)
+    @Expect(paintedWidth.value > 94.0)
 }
 
 @Test
@@ -423,19 +450,19 @@ func compoundControlsExposeStableHeadlessSemantics(): Unit {
     @Expect(report.contains("\"role\":\"breadcrumb\""))
     @Expect(report.contains("\"label\":\"Document path\""))
     @Expect(report.contains("\"value\":\"Project\""))
-    @Expect(report.contains("\"action\":\"Breadcrumb.navigate()\""))
+    @Expect(!report.contains("\"action\":\"Breadcrumb.navigate()\""))
 
     @Expect(report.contains("\"id\":\"control-semantic:semantic-pages\""))
     @Expect(report.contains("\"role\":\"pagination\""))
     @Expect(report.contains("\"label\":\"Results\""))
     @Expect(report.contains("\"value\":\"page 2 of 5\""))
-    @Expect(report.contains("\"action\":\"Pagination.setPage()\""))
+    @Expect(!report.contains("\"action\":\"Pagination.setPage()\""))
 
     @Expect(report.contains("\"id\":\"control-semantic:semantic-steps\""))
     @Expect(report.contains("\"role\":\"stepindicator\""))
     @Expect(report.contains("\"label\":\"Checkout\""))
     @Expect(report.contains("\"value\":\"step 3 of 3\""))
-    @Expect(report.contains("\"action\":\"StepIndicator.select()\""))
+    @Expect(!report.contains("\"action\":\"StepIndicator.select()\""))
 
     let ascii = ComponentProbe("test.compound-control-semantics-ascii", width: 360.0, height: 120.0)
         .run("@cui-ascii 60 20") {

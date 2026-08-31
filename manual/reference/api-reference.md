@@ -143,6 +143,12 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 `StepIndicator` 均支持 `.animation(AnimationSpec)`；前两者另提供 `.animation(duration, easing:)`。
 `Color.lerp(other, t)` 在两色间按 `t∈[0,1]` 线性插值（用于随动画过渡颜色）。
 
+键控布局连续性：`KeyedLayoutTransition(key, animation:, clip:) { ... }` 保留同一逻辑子树上一帧的
+可见矩形，并在父级重排或 `Grid` 列数改变后，把 x/y/width/height 连续补间到新矩形。父布局、焦点和
+命中立即采用目标结构，只有绘制矩形仍在运动；动画中再次改目标会从当前可见矩形继续。首次出现和卸载后
+重新挂载保持静止，删除项不隐含退出动画。`geometry()` 返回 `LayoutTransitionGeometry(current,
+target, settled)`，`LayoutTransitionClip` 控制不裁剪、动画矩形裁剪或目标矩形裁剪。
+
 键盘焦点遍历：可聚焦控件在构建期按声明顺序登记进“焦点环”，`DesktopApp` 每帧构建后经
 `adoptFocusRing` 采纳，并在收到 `Tab`（`Shift+Tab` 反向）时调用 `focusNext` / `focusPrevious`
 环形移动焦点；`Tab` 由外壳消费，不下发给聚焦控件。只读 `TextArea` 不登记。`focusNext` /
@@ -176,7 +182,8 @@ owner epoch 仍会推进，因为任务可能已部分修改 live state。
 - `fieldSurface(active)`、`buttonSurface(role)`、`selectedSurface()`。
 
 `ButtonStyle` 按 `ButtonVisualState(hover, press, focused)` 返回表面、前景色、InkWell 色与焦点圆角；
-`ComponentTheme` 将该样式、Button 默认布局、`ComponentControlStyle`、组件排版/间距/形状和 Panel 默认表面装入 `Theme`。主题切换和插值会
+`ComponentTheme` 将该样式、Button 默认布局、`ComponentControlStyle`、可选
+`SegmentedControlStyle` 镜片、组件排版/间距/形状和 Panel 默认表面装入 `Theme`。主题切换和插值会
 保留或选择完整的组件覆盖层，而不会退回脚手架默认外观。
 
 slot Button、Chip、Checkbox、Dropdown 闭合面与 Accordion header 绘制装饰子树时会压入只读
@@ -195,6 +202,7 @@ interaction owner 与 selected/expanded/focus/hover/press 状态。作用域在�
 | `FlowRow` | `body` | `spacing`；空间不足自动换行 |
 | `ScrollView` | `id`、`body` | 垂直滚动；`scrollState` 接管偏移；`scrollOptions` 选择默认 Web 式缓动、即时模式或自定义步长/时长/曲线；溢出时为滚动条预留轨道，不遮挡内容；滑块可拖动、轨道可翻页 |
 | `Accordion` | `sections`（文本或 slot header）；可选 `single`、`expanded`、`initiallyExpanded`、`key`、`animation` | header `controlStyle`、hover/press、chevron 与高度 reveal 动画；按下后移出取消，release-inside 才切换 |
+| `Surface` | `shape`、`material`、可选 `painter`、`clip`、`body` | painter 只替换背景绘制；material 前景、child 布局/事件和 clip 仍由 Surface 管理 |
 | `Panel` | `body`（可选 `padding: LengthInsets`） | `contentPadding`、`style`、`flexible`、`hug` |
 | `Tooltip` | `text`、`body` | 悬停约 500ms 后在树上层绘制提示气泡；透明包裹，不改变布局/事件 |
 | `Dropdown` | `items`、`selected`；可选闭合面 `selectedContent(index, text)` slot | `controlStyle`；点击/Enter 打开字符串弹出列表；选中/外点/Esc 关闭，上下键移动高亮；长列表支持滚轮、滑块与键盘揭示 |
@@ -248,8 +256,8 @@ slot Button 可组合任意装饰性 CangHui 子树；外层 Button 独占焦点
 | `Slider` | `Slider(value, lower, upper, step)` | `accessibilityLabel`；拖拽或 Left/Right 调整数值 |
 | `Stepper` | `Stepper(value, lower, upper, step)` | `accessibilityLabel`；点击或方向键调整整数 |
 | `Stepper` | `Stepper(id, Bindable<Int64>, lower!, upper!, step!)` | 范围/步长可经构造参或链式 `range(lower, upper)`、`step(value)` 设置（构造参对齐 Slider/ProgressBar）；宽度按数值内容自适应（一至两位数稳定） |
-| `SegmentedControl` | `SegmentedControl(items, selected, id!: ?String = None)` | 分段单选；选中指示器弹簧滑动到新段；`Tab` 聚焦后 Left/Right 切换（端点钳制）；`id` 可选，缺省按构建序自动派生 |
-| `TabView` | `TabView(labels, selected, id!: ?String = None) { pages }` | 页面按标签顺序声明；活动标签指示器弹簧滑动；页签条为焦点停靠点（先于页内控件），聚焦后 Left/Right 切换页签；`id` 可选 |
+| `SegmentedControl` | `SegmentedControl(items, selected, id!: ?String = None)` | 分段单选；选中指示器弹簧滑动到新段；`.indicatorStyle(...)` 可替换镜片并启用独立前后缘形变；`Tab` 聚焦后 Left/Right 切换（端点钳制）；`id` 可选，缺省按构建序自动派生 |
+| `TabView` | `TabView(labels, selected, id!: ?String = None) { pages }` | 页面按标签顺序声明；活动标签指示器弹簧滑动；`.indicatorStyle(...)` 与 SegmentedControl 共用镜片样式；页签条为焦点停靠点（先于页内控件），聚焦后 Left/Right 切换页签；`id` 可选 |
 | `ListView` | `ListView(items, selected, scroll!: ?State<Float32> = None, id!: ?String = None)` | `scrollState`；点击选择、滚轮滚动，`Tab` 聚焦 + 方向键导航；选择变化即滚入可视区（含应用层改选），无外部滚动态时偏移按身份保留；滑块可拖动；`id` 可选，给定则身份稳定可寻址 |
 | `Table` | `Table(id, columns, rows, selected)` / `Table.of(id, data, columns, selected)` | 多列数据表：固定表头、窗口化滚动；点击列头排序（再次反向、数值列按数值），行选择存原始行索引故排序后跟随，`Tab` + 方向键/Home/End 导航；悬停保持默认箭头光标 |
 | `LazyColumn` | `LazyColumn(id, count, itemHeight) { i => 行 }` / `LazyColumn.of(id, data, itemHeight, key!) { item => 行 }` | 定高行、按索引或数据惰性构建的纵向列表：只物化视口附近的行，成本恒为一屏；数据形免去 `count` 与 `data[i]` 回查，`key` 令行局部状态随项走 |
@@ -279,14 +287,14 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 | 类型 | 构造函数 | 链式 API/行为 |
 |---|---|---|
 | `TextField` | `TextField(id, text, cursor!: ?State<Int64> = None, anchor!: ?State<Int64> = None, editable!: Bool = true)` | `autofocus`；单行 UTF-8 编辑；Shift 扩选、拖选、Ctrl+A/C/X/V；`undo`/`redo`（Ctrl+Z/Y）；只读（`editable: false`）忽略编辑、不参与 Tab 遍历，仍可选择/复制 |
-| `TextArea` | `TextArea(id, text, scroll!: ?State<Float32> = None, cursor!: ?State<Int64> = None, anchor!: ?State<Int64> = None, editable!: Bool = true)` | `autofocus`；多行选区、Shift+↑↓ 跨行扩选、拖选、Ctrl+A/C/X/V；`undo`/`redo`（Ctrl+Z/Y）；只读区（`editable: false`）不参与 Tab 遍历 |
+| `TextArea` | `TextArea(text, key!, scroll!, horizontalScroll!, cursor!, anchor!, editable!, chrome!, wrapMode!, decorations!)` | 显式 `TextAreaWrapMode.NoWrap`；双轴外部偏移、水平滚轮/Shift+滚轮与可拖动底部滑块；绘制/选区/光标/IME/命中共享横向坐标；`autofocus`、多行选择、undo/redo；只读区不参与 Tab 遍历 |
 | `ComboBox` | `ComboBox(id, text: Bindable<String>, options)` | 可编辑下拉：内嵌 `TextField`（完整编辑）+ 建议列表浮层；键入过滤（无匹配显示“—”占位）、点击/回车填入，自由文本亦保留。长建议列表在弹层内部滚动：滚轮、可拖动滑块、方向键揭示高亮 |
 
 外部状态（滚动、光标、锚点）均为可选命名参数；持有 `cursor!` 就应连同 `anchor!` 一并持有并
 **成对改写**——只改光标会残留“幻影选区”，下一次键入会替换它覆盖的内容。
 
 光标跟随：`TextField` 水平滑动文本窗口使光标始终可见（绘制、选区与命中测试共享同一偏移）；
-`TextArea` 在键盘编辑、导航与撤销后把光标行滚入视口。撤销合并除 500ms 时间窗外，在光标跳转
+`TextArea` 在键盘编辑、导航、撤销和外部光标变化后把光标沿双轴滚入视口。撤销合并除 500ms 时间窗外，在光标跳转
 （点击/方向键）处即时断组。
 
 插入光标与字形行等高、闪烁周期约 1.06 秒；点击定位按真实文本测量落在最近字符边界；
@@ -317,7 +325,12 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 ## 11. `DesktopApp`
 
 ```cangjie
-DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None, capture: None, fontScale: 1.0, metadata: None, hints: [])
+DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None,
+    capture: None, fontScale: 1.0,
+    deviceRotationAnimation: AnimationSpec.automatic(duration: 320),
+    metadata: None, hints: [], semanticWindowId: "main",
+    semanticPolicy: SemanticInteractionPolicy(),
+    semanticLimits: SemanticRuntimeLimits(), onSemanticAction: {_ => false})
 ```
 
 | 方法 | 说明 |
@@ -331,9 +344,16 @@ DesktopApp(spec, theme: Theme.light(), frameDelay: UInt32(16), framePacing: None
 | `setWindowPosition(x, y)`、`windowPosition()` | 设置或查询桌面坐标 |
 | `windowFlags()` | 查询当前窗口状态快照 |
 | `clearRememberedState()` | 清空局部状态存储 |
+| `semanticSnapshot()`、`semanticDiff(previous)` | 读取当前窗口已提交语义树或稳定 ID 差分 |
+| `dispatchSemanticAction(request)` | 派发窗口/revision/节点/来源全部匹配的类型化动作 |
+| `deviceRotation()`、`reportedDeviceRotation()` | 分别读取布局回退后的有效方向与宿主真实报告方向 |
+| `queueDeviceRotation(...)`、`postDeviceRotation(...)` | 在 owner 上排队，或从任意线程投递规范化方向事件 |
 | `openFileDialog`、`saveFileDialog`、`openFolderDialog` | 创建异步文件对话框请求 |
 
 `fontScale` 作用于全部 `fp` 尺寸；`WindowSpec.scale` 决定 `px` 与 `vp` 的换算。
+
+`deviceRotationAnimation` 控制宿主收到规范化方向事件后对旧/新完整界面帧播放的有向旋转；方向差保留
+`+90° / -90° / +180° / -180°`，自动规格遵循主题运动等级和减弱动态效果设置。
 
 `capture` 接受 `DesktopCaptureRequest`，用于由宿主显式请求一次稳定渲染采集。`cuic prnt`
 构建后直接启动应用并注入同一请求，不依赖 CJPM 的应用参数转发。
@@ -356,7 +376,32 @@ VSync 同步且呈现后不再额外等待，`Fixed(fps)` 关闭 VSync 并按剩
 `resolve` 按精确语言、语言回退、默认语言、调用方回退和键本身的顺序解析。资源来源由应用或平台
 适配器决定。完整接法见[自绘标题栏与应用本地化](../guide/how-to/client-window-chrome-and-localization.md)。
 
-## 12. kMode 无界面控制面
+## 12. 运行时语义
+
+`SemanticRuntime` 事务式收集 `ControlSemantics`，提交后生成带窗口身份和 revision 的
+`SemanticTreeSnapshot`；`diff` 返回 added/removed/changed ID，`dispatch` 只接受
+`SemanticActionKind`。`Voice` / `Agent` 来源默认关闭，密码 value 永远清空，节点、深度与文本
+字节均有硬上限。完整类型和安全边界见[运行时语义交互](semantic-runtime.md)。
+
+## 13. `DesktopApplication` 多窗口
+
+| 方法 | 说明 |
+|---|---|
+| `openWindow(spec, body, theme:, fontScale:, semanticWindowId:, semanticPolicy:, semanticLimits:, onSemanticAction:)` | 创建、登记并先绘制一个独立原生窗口，返回 `WindowId` |
+| `focusWindow(id)`、`closeWindow(id)` | 聚焦或关闭指定托管窗口 |
+| `activeWindow()`、`sessionCount()`、`windowState(id)` | 查询活动窗口、只读 session 数或窗口本地状态 |
+| `semanticSnapshot(id)`、`semanticDiff(id, previous)` | 查询指定窗口的已提交语义树与差分 |
+| `dispatchSemanticAction(id, request)` | 仅向指定托管窗口路由精确 revision 的类型化动作 |
+| `pumpOne()`、`pump(limit:)` | 非阻塞读取并按 `SdlEventEnvelope.windowId` 路由事件 |
+| `step()` | 为全部托管窗口各构建/布局/绘制/present 一帧 |
+| `run()` | 组合 `pump` 与 `step`，直到最后一个窗口关闭 |
+
+宿主可经 `registerWindowSession` 登记自己的 `DesktopWindowSession`，内部 registry 不公开，
+避免绕过生命周期。托管多窗口已具备每窗口语义 runtime；当前仍未与单窗口 `DesktopApp` 的
+高级 FrameGraph/effects/transitions 完全同等；详见
+[桌面多窗口运行时](desktop-multi-window.md)。
+
+## 14. kMode 无界面控制面
 
 应用从 `chui.kmode.macros.*` 导入 `KModeLink`，把一个顶层 `(String) -> String` 函数注册为端点：
 

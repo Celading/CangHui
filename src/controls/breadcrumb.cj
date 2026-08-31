@@ -90,18 +90,10 @@ public class Breadcrumb <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        var anyClickable = false
-        for (i in 0..items.size) {
-            if (isSegmentClickable(items[i])) {
-                anyClickable = true
-                break
-            }
-        }
         recordControlSemantics(ctx, frame, "Breadcrumb", ControlSemantics(
             "breadcrumb", label: semanticLabel,
             value: if (segments.isEmpty()) { "" } else { segments[activeIndex()] },
-            action: if (anyClickable) { "Breadcrumb.navigate()" } else { "" },
-            shortcut: if (anyClickable) { "Enter|Space" } else { "" },
+            action: "", shortcut: "",
             actionOwner: id
         ))
         ctx.renderer.pushClip(frame)

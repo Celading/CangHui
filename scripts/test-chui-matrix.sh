@@ -62,7 +62,9 @@ for manifest in "${MANIFESTS[@]}"; do
     echo "==> build ${package_dir}"
     (cd "${package_dir}" && cjpm build)
     echo "==> test ${package_dir}"
-    (cd "${package_dir}" && cjpm test)
+    # The interactive progress renderer can stop draining concurrent dependency-scan output when
+    # this matrix reaches large consumers. Keep CI and agent runs non-interactive and pipe-safe.
+    (cd "${package_dir}" && cjpm test --no-progress)
     passed=$((passed + 1))
 done
 

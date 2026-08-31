@@ -44,6 +44,23 @@ func mouseEventsScaleCoordinates(): Unit {
 }
 
 @Test
+func windowCoordinateResizeScalesButBackingPixelResizeRemainsExact(): Unit {
+    match (scaleEventCoordinates(UiEvent.WindowResized(400, 240), 2.0)) {
+        case UiEvent.WindowResized(width, height) =>
+            @Expect(width, Int32(200))
+            @Expect(height, Int32(120))
+        case _ => @Fail("Window resize should remain a logical resize event.")
+    }
+
+    match (scaleEventCoordinates(UiEvent.WindowPixelSizeChanged(800, 480), 2.0)) {
+        case UiEvent.WindowPixelSizeChanged(width, height) =>
+            @Expect(width, Int32(800))
+            @Expect(height, Int32(480))
+        case _ => @Fail("Pixel-size change should retain exact backing dimensions.")
+    }
+}
+
+@Test
 func dropEventsDecodeFileData(): Unit {
     let event = decodeRawDrop(SDL_EVENT_DROP_FILE, "C:/tmp/note.txt", 30.0, 45.0)
 
@@ -127,6 +144,39 @@ func gamepadDeviceEventsExposeConnectionLifecycle(): Unit {
             @Expect(device.name, "")
             @Expect(gamepadConnectionStateName(state), "connected")
         case _ => @Fail("Gamepad addition should decode as a connection lifecycle event.")
+    }
+}
+
+@Test
+func textEditingEventsExposePortableCompositionWithoutDurableInput(): Unit {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    let cText = unsafe { LibC.mallocCString("拼音") }
+    var decoded = UiEvent.Unknown(UInt32(0))
+    try (eventResource = eventPtr.asResource()) {
+        try (textResource = cText.asResource()) {
+            var raw = SdlTextEditingEvent()
+            raw.eventType = SDL_EVENT_TEXT_EDITING
+            raw.windowID = UInt32(27)
+            raw.text = textResource.value.getChars()
+            raw.start = Int32(1)
+            raw.length = Int32(1)
+            unsafe { CPointer<SdlTextEditingEvent>(eventResource.value).write(raw) }
+            let envelope = decodeEventEnvelope(unsafe { eventResource.value.read() })
+            @Expect(envelope.windowId.getOrThrow(), WindowId(UInt32(27)))
+            decoded = envelope.event
+        }
+    }
+    match (decoded) {
+        case UiEvent.TextComposition(value) =>
+            match (value.phase) {
+                case TextCompositionPhase.Update => @Expect(true)
+                case _ => @Fail("Non-empty SDL editing text should be a composition update.")
+            }
+            @Expect(value.text, "拼音")
+            @Expect(value.selectionStart, Int64(1))
+            @Expect(value.selectionLength, Int64(1))
+            @Expect(value.replacementStartByte, Int64(-1))
+        case _ => @Fail("SDL text editing should remain distinct from durable TextInput.")
     }
 }
 

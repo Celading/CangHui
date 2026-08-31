@@ -20,7 +20,11 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ButtonStyle`](ButtonStyle.md) | 按 hover、press、focus 与语义角色解析 Button/IconButton 外观的状态样式。 |
 | [`ComponentControlStyle`](ComponentControlStyle.md) | 按选择/展开、hover、press 与 focus 解析 Chip、Checkbox、Dropdown 和 Accordion header 外观。 |
 | [`DerivedState`](DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
+| [`DesignSnapshot`](DesignSnapshot.md) | 把稳定结构、计算几何、语义状态与 scoped Draw IR 合成为有界、可差分的 `canghui.design-snapshot/v1` 硬真相。 |
+| [`AdaptiveGrid`](AdaptiveGrid.md) | 按可用宽度和最小单元宽度稳定推导列数的等宽响应式网格。 |
 | [`Divider`](Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
+| [`DeviceRotationLayout`](DeviceRotationLayout.md) | 根据规范化设备方向选择竖屏/横屏结构；宿主统一旋转完整界面帧。 |
+| [`DeviceRotationTransition`](DeviceRotationTransition.md) | 供平台壳层复用的有向整帧设备旋转事务。 |
 | [`EventHandler`](EventHandler.md) | 在子树收到事件之前先把每个事件交给回调的透明包装组件，回调返回 `true` 即消费该事件。 |
 | [`Flexible`](Flexible.md) | 把内容纳入所在栈空间分配的包装组件：按权重分得剩余空间，而非按内容收缩。 |
 | [`FlowRow`](FlowRow.md) | 把子组件从左到右排布、放不下时自动换到内容高度新行的流式容器。 |
@@ -31,18 +35,23 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`Icon`](Icon.md) | 以方形边长绘制的非交互矢量图标，默认 18 vp、取主题文字色。 |
 | [`IconButton`](IconButton.md) | 以图标为面、可选带文字标签的按钮，激活方式与 [`Button`](Button.md) 完全相同。 |
 | [`InteractionSurface`](InteractionSurface.md) | 为任意装饰内容提供一个焦点、按压、release-inside 动作、Ink 与 semantic owner 的交互面。 |
+| [`UiTaskScope`](UiTaskScope.md) | 在 UiOwnerQueue 上提供 single-flight、latest-only、bounded queue 与 debounce 后台准备生命周期。 |
 | [`Keyed`](Keyed.md) | 给子树赋予稳定声明式标识的透明包装组件：其下的局部状态键与控件交互标识都以该键为命名空间。 |
+| [`KeyedLayoutTransition`](KeyedLayoutTransition.md) | 让带稳定 key 的子树在重排或响应式重布局时，从当前可见矩形连续移动和变形到新槽位。 |
 | [`Label`](Label.md) | 单行或多行文本组件：默认单行、溢出以省略号截断，字体样式经链式构建器就地配置。 |
 | [`LazyColumn`](LazyColumn.md) | 只构建视口附近行的定行高垂直滚动列表，构建、布局与绘制均为 O(可见) 而非 O(行数)。 |
 | [`LazyList`](LazyList.md) | 行高由 `heightOf` 逐行给定的惰性垂直滚动列表，是 [`LazyColumn`](LazyColumn.md) 的变高对应物。 |
 | [`LazyRow`](LazyRow.md) | 只构建视口附近列的定列宽水平滚动条带，是 [`LazyColumn`](LazyColumn.md) 的水平对应物。 |
 | [`Overlay`](Overlay.md) | 浮在整棵组件树之上的交互浮层：下拉弹出面板、菜单或对话框。 |
 | [`Panel`](Panel.md) | 带主题表面与内容内边距的卡片式容器，是划分界面区块的基础构件。 |
+| [`PageTransitionLayout`](PageTransitionLayout.md) | 在两棵页面子树之间播放横向交接并插值测量尺寸。 |
 | [`Pulse`](Pulse.md) | 永动的循环时间线——骨架屏微光、呼吸状态点、加载脉冲。 |
 | [`Reveal`](Reveal.md) | 在零与内容自然高度之间缓动过渡的展开/收起容器，切换 `shown` 即让内容滑入滑出。 |
 | [`Row`](Row.md) | ArkTS 风格的通用水平容器；以 `space`、`justifyContent`、`alignItems` 和子项 `layoutWeight` 表达布局。 |
 | [`ScrollBar`](ScrollBar.md) | 供滚动容器内部复用的垂直滚动条拖拽控制器，把命中滚动条的按下与移动转发给它，即得一致的滑块拖拽与轨道分页行为。 |
 | [`ScrollView`](ScrollView.md) | 裁剪显示、支持滚轮与拖动滚动条的垂直滚动视口，滚动位置按稳定标识跨帧保留。 |
+| [`SemanticRuntime`](SemanticRuntime.md) | 每窗口的有界、带 revision 语义树与类型化动作调度器，不创建远程控制面。 |
+| [`SegmentedControlStyle`](SegmentedControlStyle.md) | 为库存 SegmentedControl/TabView 解析可形变选中镜片及标签前景，不接管输入与布局。 |
 | [`Spacer`](Spacer.md) | 测量为零并吸收所在栈剩余空间的空白弹性组件，把兄弟组件推向两端。 |
 | [`Spacing`](Spacing.md) | 4 像素栅格上的间距尺度：七档命名间隔，以虚拟像素的 Length 值表达。 |
 | [`Radii`](Radii.md) | 圆角半径尺度，虚拟像素：小档给标签与输入框、中档给卡片、大档给醒目表面，pill 收成全圆头。 |
@@ -53,6 +62,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`StateObservation`](StateObservation.md) | 由 Observable.observe 返回的可取消的观察句柄：持有它就持续收到回调，close() 后不再收到。 |
 | [`StateStore`](StateStore.md) | 跨声明式重建保留显式键控局部状态的容器：一次完整构建未访问的条目会被移除，与视图卸载语义一致。 |
 | [`Surface`](Surface.md) | 绘制 material 并发布前景环境、但不新增交互所有者的装饰组合面。 |
+| [`SurfacePainter`](Surface.md#surfacepainter) | 只替换 Surface 背景绘制、保留 material 前景与 child 所有权的低层效果钩子。 |
 | [`Tooltip`](Tooltip.md) | 为任意控件包上悬停提示：指针在子组件上驻留 500 毫秒后，提示文本被绘制在整棵组件树之上；其余时刻是完全透明的包装。 |
 | [`UiContext`](UiContext.md) | 每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。 |
 | [`UiOwnerQueue`](UiOwnerQueue.md) | 多 producer、单 UI owner 的顺序提交队列，提供 epoch/surface generation 门、取消、关闭和完成回执。 |
@@ -77,11 +87,23 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ComponentTypography`](ComponentTheme.md) | Chip、Checkbox、Dropdown 与 Accordion header 的 control 语义字号。 |
 | [`ControlContentEnvironment`](ControlContentEnvironment.md) | 当前装饰内容的前景、supporting 前景、role、action owner 与交互状态。 |
 | [`ControlSemantics`](ControlSemantics.md) | role、label/value、action、shortcut、owner 与可选选择/展开状态。 |
+| [`DesignSnapshotDiff`](DesignSnapshot.md#designsnapshotdiff) | 按结构、几何、样式、状态和绘制 scope 分类的稳定 ID 差分。 |
+| [`DesignSnapshotEnvironment`](DesignSnapshot.md) | 不携带本机路径、进程或句柄的可重放视口环境。 |
+| [`DesignSnapshotProperty`](DesignSnapshot.md) | 可排序、可入场脱敏的一条计算样式或状态事实。 |
 | [`Gradient`](Gradient.md) | 圆角背景用的双色线性渐变填充，默认自上而下、`vertical` 为 false 时自左向右。 |
+| [`LayoutTransitionGeometry`](LayoutTransitionGeometry.md) | 键控布局过渡的当前绘制矩形、父布局目标矩形与稳定状态回执。 |
 | [`Length`](Length.md) | 带显式单位的一维尺寸，写作 `100.px`、`24.vp` 或 `15.fp`。 |
 | [`LengthInsets`](LengthInsets.md) | 四边各自携带单位的间距，供 padding 类 API 使用，布局时解析为逻辑像素的 `Insets`。 |
 | [`Shadow`](Shadow.md) | 可配置的组件阴影，包含水平/垂直偏移、模糊、扩散和颜色，作用类似 CSS `box-shadow`。 |
 | [`ScrollOptions`](ScrollOptions.md) | 可滚动组件共享的滚轮策略：选择即时或平滑行为，并配置步长、播放时长与曲线。 |
+| [`SemanticActionReceipt`](SemanticRuntime.md#相关类型) | 精确窗口/revision 绑定动作的结构化接受或拒绝结果。 |
+| [`SemanticActionRequest`](SemanticRuntime.md#相关类型) | 按窗口、revision、节点、动作和来源发起的类型化请求。 |
+| [`SemanticInteractionPolicy`](SemanticRuntime.md#相关类型) | 控制 Accessibility/Keyboard/Gamepad/Voice/Agent 来源；Voice/Agent 默认关闭。 |
+| [`SemanticNode`](SemanticRuntime.md#相关类型) | 已脱敏的一个语义节点、状态与可用动作。 |
+| [`SemanticRuntimeLimits`](SemanticRuntime.md#相关类型) | 每窗口节点、深度与文本字节上限。 |
+| [`SemanticTreeDiff`](SemanticRuntime.md#相关类型) | 两个 revision 之间的 added/removed/changed 稳定 ID 集。 |
+| [`SemanticTreeSnapshot`](SemanticRuntime.md#相关类型) | 一个窗口的一次深拷贝隔离语义树快照。 |
+| [`SegmentedControlVisualState`](SegmentedControlStyle.md#segmentedcontrolvisualstate) | 选中镜片的实时下标、目标、伸展量与运动方向。 |
 | [`Shape`](Surface.md#shape) | Surface 与 Ink 共用的矩形/圆角矩形几何。 |
 | [`SurfaceMaterial`](Surface.md#surfacematerial) | MaterialProvider 返回的表面样式、前景、supporting 前景与 Ink 颜色。 |
 | [`SurfaceState`](Surface.md#surfacestate) | MaterialProvider 接收的 enabled/readonly/selection/focus/hover/press 只读状态。 |
@@ -111,8 +133,11 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`CursorShape`](CursorShape.md) | 控件在指针悬停期间申请的语义指针形状，由宿主映射为各平台的原生光标。 |
 | [`Easing`](Easing.md) | 把 `[0, 1]` 内的动画进度映射为缓动后进度的时序曲线。 |
 | [`LengthUnit`](LengthUnit.md) | 长度值的单位：物理像素 `Px`、虚拟像素 `Vp` 或随用户字体缩放的字体像素 `Fp`。 |
+| [`LayoutTransitionClip`](LayoutTransitionClip.md) | 选择键控布局过渡不裁剪、裁剪到动画矩形或裁剪到目标矩形。 |
 | [`MainAxisAlignment`](MainAxisAlignment.md) | 栈沿主轴分配剩余空间的策略：靠端、居中或三种等分间隔。 |
 | [`ScrollBehavior`](ScrollBehavior.md) | 滚轮输入立即改变偏移，或沿保留式缓动曲线逐帧到达目标。 |
+| [`SemanticActionKind`](SemanticRuntime.md#相关类型) | Activate/Focus/Increment/Decrement/Dismiss 类型化动作。 |
+| [`SemanticActionSource`](SemanticRuntime.md#相关类型) | Accessibility/Keyboard/Gamepad/Voice/Agent 请求来源。 |
 | [`TextAlign`](TextAlign.md) | 文本在所分配框架内的水平对齐方式：行首、居中或行尾。 |
 | [`UiOwnerTaskStatus`](UiOwnerQueue.md#uiownertaskstatus) | owner task 的最终状态：提交、取消、关闭/过期拒绝或失败。 |
 
@@ -131,6 +156,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ForEach`](functions.md#foreach) | 为每个数据项声明一棵键控子树。 |
 | [`ForEachIndexed`](functions.md#foreachindexed) | 以位置为标识、为每个数据项声明一棵键控子树。 |
 | [`LazyGrid`](functions.md#lazygrid) | 垂直滚动的虚拟化网格：`data` 排成 `columns` 等宽列并按行开窗，海量均匀单元格（照片墙、卡片网格）只花一屏的成本。 |
+| [`GestureSurface`](GestureSurface.md) | 在一个 InteractionSurface owner 下组合 tap、double tap、long press、drag、hover 与 pointer capture。 |
 | [`currentStateGeneration`](functions.md#currentstategeneration) | 原子读取进程级状态写入观察代号。 |
 | [`rememberState`](functions.md#rememberstate) | 返回由活动 [`DesktopApp`](../desktop/DesktopApp.md) 构建保留的局部状态。 |
 | `scrollBehaviorName` | 返回 `immediate` 或 `smooth` 的稳定诊断名称。 |

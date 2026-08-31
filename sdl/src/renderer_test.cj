@@ -51,6 +51,30 @@ func beginSceneDropsAnyLeakedClip(): Unit {
     @Expect(renderer.currentClip().isNone())
 }
 
+@Test
+func clipStackSnapshotRestoresEveryNestedClipAfterTemporaryTargetState(): Unit {
+    let renderer = Renderer.headless()
+    renderer.pushClip(Rect(0.0, 0.0, 100.0, 100.0))
+    renderer.pushClip(Rect(20.0, 10.0, 60.0, 70.0))
+    let snapshot = renderer.snapshotClipStack()
+
+    renderer.resetClipStack()
+    @Expect(renderer.currentClip().isNone())
+    renderer.restoreClipStack(snapshot)
+
+    let nested = renderer.currentClip().getOrThrow()
+    @Expect(nested.x, Float32(20.0))
+    @Expect(nested.y, Float32(10.0))
+    @Expect(nested.w, Float32(60.0))
+    @Expect(nested.h, Float32(70.0))
+    renderer.popClip()
+    let outer = renderer.currentClip().getOrThrow()
+    @Expect(outer.x, Float32(0.0))
+    @Expect(outer.y, Float32(0.0))
+    @Expect(outer.w, Float32(100.0))
+    @Expect(outer.h, Float32(100.0))
+}
+
 // The headless contract: every rendering entry point is a no-op and every query returns a
 // neutral value, so custom shells and canvas code run unchanged in windowless tests.
 @Test

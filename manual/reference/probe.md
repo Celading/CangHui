@@ -177,3 +177,13 @@ probeSemanticRegions { => [
 The same subregions appear in JSON frame reports under `regions`. Use
 `cuic prnt` or device screenshots when pixels, fonts, media content, clipping
 fidelity, or platform integration are under test.
+
+## DesignSnapshot export
+
+Use `cuic design snapshot [project] <probe> [--script <file>|--events <script>]`
+when a design tool or CI job needs stable input instead of an event log. The
+debug-gated command maps the final explicit component-probe frame to
+`canghui.design-snapshot/v1`: bounded stable nodes, regions, geometry, state,
+and scoped Draw IR with deterministic bytes/digest and sensitive-property
+redaction. It neither infers structure from pixels nor adds a release control
+surface. See [`DesignSnapshot`](../api/chui/core/DesignSnapshot.md).

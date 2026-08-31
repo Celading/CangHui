@@ -1,6 +1,7 @@
 package chui.core
 
-import sdl.{Rect, Size, UiEvent}
+import std.collection.ArrayList
+import sdl.{MouseButton, Rect, Size, UiEvent}
 
 
 class LayoutProbe <: Widget {
@@ -63,6 +64,34 @@ class NaturallyFlexibleLayoutProbe <: Widget {
 
     public func isFlexible(): Bool {
         true
+    }
+}
+
+class ZOrderLog {
+    let values = ArrayList<String>()
+}
+
+class ZOrderProbe <: Widget {
+    let name: String
+    let log: ZOrderLog
+    let consumes: Bool
+
+    init(name: String, log: ZOrderLog, consumes!: Bool = false) {
+        this.name = name
+        this.log = log
+        this.consumes = consumes
+    }
+
+    public func measure(_: UiContext, available: Size): Size { available }
+    public func layout(_: UiContext, _: Rect): Unit {}
+    public func draw(_: UiContext): Unit { log.values.add("draw-" + name) }
+    public func handle(_: UiContext, event: UiEvent): Bool {
+        match (event) {
+            case UiEvent.MouseDown(_, _, _) =>
+                log.values.add("event-" + name)
+                consumes
+            case _ => false
+        }
     }
 }
 
@@ -408,4 +437,29 @@ func zstackCentersChainedFixedSizeBox(): Unit {
     @Expect(child.rect.y, Float32(80.0))
     @Expect(child.rect.w, Float32(100.0))
     @Expect(child.rect.h, Float32(40.0))
+}
+
+@Test
+func zIndexChangesPaintAndHitOrderWithoutChangingDeclarationTies(): Unit {
+    let ctx = testContext()
+    let log = ZOrderLog()
+    let low = ZOrderProbe("low", log, consumes: true)
+    let firstEqual = ZOrderProbe("first-equal", log, consumes: true)
+    let secondEqual = ZOrderProbe("second-equal", log, consumes: true)
+    let stack = ZStack {
+        emit(firstEqual)
+        firstEqual.zIndex(4)
+        emit(low)
+        low.zIndex(-2)
+        emit(secondEqual)
+        secondEqual.zIndex(4)
+    }
+
+    stack.layout(ctx, Rect(0.0, 0.0, 100.0, 50.0))
+    stack.draw(ctx)
+    @Expect(log.values.toArray(), ["draw-low", "draw-first-equal", "draw-second-equal"])
+
+    log.values.clear()
+    @Expect(stack.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 10.0, 10.0)))
+    @Expect(log.values.toArray(), ["event-second-equal"])
 }

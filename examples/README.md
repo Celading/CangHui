@@ -40,9 +40,17 @@
 | **disclosure** · 折叠问答<br>![disclosure](.images/disclosure.png) | **shadows** · 多重阴影<br>![shadows](.images/shadows.png) | **gradients** · 线性渐变<br>![gradients](.images/gradients.png) |
 | **stats** · 数据看板（字号混排）<br>![stats](.images/stats.png) | **links** · 可点击链接<br>![links](.images/links.png) | **highlight** · 搜索高亮<br>![highlight](.images/highlight.png) |
 | **styleguide** · 设计令牌<br>![styleguide](.images/styleguide.png) | **skeleton** · 骨架屏<br>![skeleton](.images/skeleton.png) | **stagger** · 交错入场<br>![stagger](.images/stagger.png) |
-| **corners** · 逐角圆角<br>![corners](.images/corners.png) | **dashed** · 虚线边框<br>![dashed](.images/dashed.png) | |
+| **layout_transition** · 键控重排连续性 | **corners** · 逐角圆角<br>![corners](.images/corners.png) | **dashed** · 虚线边框<br>![dashed](.images/dashed.png) |
+| **liquid-glass-effects** · 有界背景光学适配<br>![liquid-glass-effects](.images/liquid-glass-effects.png) | | |
 
 ## 示例清单
+
+### [`liquid-glass-effects`](liquid-glass-effects/README.md)：有界背景光学适配
+
+用两张标准 `Surface` 验证可选 renderer-effect adapter：SDL 首版从同一帧、同一渲染目标内有界
+采样卡片背后的色带，再由 Liquid Glass 样式绘制 SDR 边缘与高光；不支持、过预算、过期帧和降低
+透明度偏好都保持原内容树并降级。示例同时提供 debug `pview` 和原生 `prnt` 验收入口，不声称
+原生 Apple 材质身份、跨窗口采样、shape union 或其他图形后端已完成。
 
 ### [`cangcui`](cangcui/README.md)：苍翠画卷（千里江山 · 青绿山水）
 
@@ -291,6 +299,13 @@ Latin 与 CJK 一致生效。顶部四个 `Chip`
 动画原语 `Animator`：七条轨道共享同一时长、各绑一种曲线，播放后标记点并排推进，同一时刻位置不同，直观对比
 运动分布，回弹会越过终点再回落。自定义 `Widget` 逐帧推进并请求下一帧，即时模式下驱动连续动画。
 
+### [`device_rotation`](device_rotation/README.md)：设备旋转事件与自适应布局
+
+演示平台方向事件进入 `DesktopApp` 后，声明式界面读取 `deviceRotation()`，再由
+`DeviceRotationLayout(rotation:)` 选择竖屏/横屏结构，`DesktopApp` 冻结重建前后的完整帧并按
+`+90° / -90° / +180° / -180°` 有向角度旋转整页。桌面按钮使用 `Synthetic` 来源，移动宿主可从
+任意线程调用 `postDeviceRotation`；非活动子树不接收事件，也不会进入 Tab 焦点环。
+
 ### [`cards`](cards/README.md)：样式卡片（阴影 · 圆角 · 边框）
 
 一个样式属性演练场，演示通用样式修饰符 `shadow`（可配 offset/blur/spread/color 的软阴影，含 `Shadow.elevation`
@@ -351,6 +366,11 @@ RichText 保持惰性。综合演示富文本内联交互 + 状态绑定 + 派�
 一组入场卡片，演示动画 `delay`（CSS `transition-delay` 的对应物）：让第 i 行多等「i × 步进」毫秒，整组便从
 「一起弹出」变成「依次落位的瀑布」。每行标出自己等了多久，把交错的数学摆在明面上；三档步进可对比手感。
 纯函数 `staggerDelay`/`cascadeTotalMs` 承担全部时序数学，可单测。综合演示交错动效 + 缓动曲线 + 状态绑定。
+
+### [`layout_transition`](layout_transition/README.md)：键控重排与响应式换列
+
+展示 `KeyedLayoutTransition` 如何让同一批稳定 key 卡片在顺序翻转和 `3 ↔ 2` 列网格变化时保持可见几何
+连续；输入、焦点和父布局立即使用目标结构，动画中再次改目标则从当前可见位置继续。
 
 ### [`corners`](corners/README.md)：逐角圆角（Corners）
 

@@ -65,11 +65,17 @@ task explicitly owns framework development or an offline source checkout.
 Prefer deterministic framework evidence before OS capture:
 
 ```bash
+cuic shell snapshot .
 cuic pview . <probe-id> --columns 96 --rows 32
 cuic prnt <platform> . --output artifacts/ui.png
 ```
 
-`cuic probe ascii` is the pview alias. Probe/pview execution requires a debug cuic; release refusal is expected.
+Use `cuic shell click . <x> <y>` or `cuic shell focus . <id>` only when runtime interaction must be
+replayed. This launches a bounded one-shot debug child, prints semantic state, and exits; it never attaches to an
+arbitrary running process or opens a listener. Use `cuic shell run . --events '<commands>'` for a short sequence,
+then `snapshot`/`diff`; commands are a fixed UI-event whitelist, not shell text.
+
+`cuic probe ascii` is the pview alias. Shell/probe/pview execution requires a debug cuic; release refusal is expected.
 If no probe exists, add stable semantics for the changed view before claiming layout acceptance.
 
 Use an OS or device screenshot only for platform chrome, IME, native menus, system composition, or device-host

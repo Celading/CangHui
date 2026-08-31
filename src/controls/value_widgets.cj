@@ -1,8 +1,8 @@
 package chui.controls
 
 import sdl.{FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent, clampF32}
-import chui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, ControlSemantics, CursorShape, Observable, Spring,
-    UiContext, Widget, claimHoverIfInside, controlIdentity, drawSurface, emit, localState,
+import chui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, ControlSemantics, CursorShape, Observable,
+    SemanticActionKind, Spring, UiContext, Widget, claimHoverIfInside, controlIdentity, drawSurface, emit, localState,
     recordControlSemantics, registerFocusable, resolveControlKey}
 
 private let VALUE_CONTROL_W: Float32 = 180.0
@@ -124,7 +124,9 @@ public class Slider <: Widget {
         let amount = normalizedAmount(value.value, lowerBound, upperBound)
         recordControlSemantics(ctx, frame, "Slider", ControlSemantics(
             "slider", label: semanticLabel, value: value.value.toString(),
-            action: "Slider.adjust()", shortcut: "Left|Right", actionOwner: id
+            action: "Slider.adjust()", shortcut: "Left|Right", actionOwner: id,
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Decrement,
+                SemanticActionKind.Increment]
         ))
         let knobX = track.x + track.w * amount
         ctx.renderer.fillRoundedRect(track, ctx.theme.smallRadius, ctx.theme.field)

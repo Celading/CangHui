@@ -34,6 +34,8 @@ let productTheme = Theme.light().withComponents(ComponentTheme(
 - `typography`: `ComponentTypography(control)`，为这些库存控件提供统一的语义字号。
 - `spacing`: `ComponentSpacing`，包含 compact/control/selection 内边距、inline gap、最小高度和 indicator 尺寸。
 - `shape`: `ComponentShape`，可覆盖 small/control/pill 圆角；未提供的值继承 Theme。
+- `segmentedControlStyle`: 可选 [`SegmentedControlStyle`](SegmentedControlStyle.md)，只替换库存
+  SegmentedControl/TabView 的选中镜片绘制、前景解析和形变量；控件继续拥有输入、焦点与布局。
 
 ## ButtonLayoutStyle
 

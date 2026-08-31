@@ -55,3 +55,9 @@ func statsTrackEditsLive(): Unit {
     @Expect(model.chars.value, 5)
     @Expect(model.lines.value, 2)
 }
+
+@Test
+func lineNumberGutterTracksLogicalRowsWithoutVisualWrapping(): Unit {
+    @Expect(lineNumberText(""), "1")
+    @Expect(lineNumberText("a\n中文\n\tcode"), "1\n2\n3")
+}

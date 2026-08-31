@@ -101,12 +101,14 @@ public interface Bindable<T> <: Observable<T> {
  */
 public class State<T> <: Bindable<T> {
     private var storedValue: T
+    private let retainedIdentity: Int64
     private let listeners = ArrayList<StateListener<T>>()
     private var stateRevision: UInt64 = UInt64(0)
 
     /** Increases after every assignment, including assignments of an equal value. */
     public prop revision: UInt64 {
         get() {
+            recordRetainedStateRead(retainedIdentity)
             stateRevision
         }
     }
@@ -114,6 +116,7 @@ public class State<T> <: Bindable<T> {
     /** Reads or replaces the current value. */
     public mut prop value: T {
         get() {
+            recordRetainedStateRead(retainedIdentity)
             storedValue
         }
         set(next) {
@@ -121,12 +124,14 @@ public class State<T> <: Bindable<T> {
             storedValue = next
             stateRevision = nextRevision(stateRevision)
             let _ = stateWriteGeneration.fetchAdd(1)
+            notifyRetainedStateWrite(retainedIdentity)
             notify(previous, next)
         }
     }
 
     public init(value: T) {
         this.storedValue = value
+        this.retainedIdentity = allocateRetainedStateIdentity()
     }
 
     /** Replaces the value with the result of `transform`. */
@@ -203,9 +208,14 @@ public class StateStore {
     private let entries = HashMap<String, Any>()
     private let visited = HashSet<String>()
     private let addedDuringBuild = ArrayList<String>()
+    private let obsoleteDuringBuild = ArrayList<String>()
     private let scopes = ArrayList<String>()
     private let controlIdCounts = HashMap<String, Int64>()
     private let focusOrder = ArrayList<String>()
+    private let retainedUi = RetainedUiRuntime()
+    private var buildActive = false
+    private var retainedBuildPending = false
+    private var clearDeferred = false
 
     /**
      * Returns the state at the current scope and key, creating it on first use.
@@ -235,39 +245,132 @@ public class StateStore {
 
     /** Removes every retained state value. */
     public func clear(): Unit {
-        entries.clear()
+        // A callback can request a reset while RetainedWidgetNode still owns a HitTest/Paint phase.
+        // Cancelling the runtime here would make that callback's finally/endPhase throw. Preserve
+        // the current frame and perform the reset immediately after its commit/cancel boundary.
+        if (retainedUi.isFrameActive()) {
+            clearDeferred = true
+            return
+        }
+        clearImmediately()
     }
+
+    /** Begins the internal retained-metadata transaction used by DesktopApp's graph lane. */
+    protected func beginRetainedFrame(contextCode: Int64): Unit {
+        retainedUi.beginFrame(contextCode)
+    }
+
+    protected func retainedRuntime(): RetainedUiRuntime { retainedUi }
+
+    protected func retainedDamage(): RetainedUiDamage { retainedUi.damage() }
+
+    protected func finishRetainedFrame(): RetainedUiDamage {
+        let result = retainedUi.finishFrame()
+        if (retainedUi.lastFrameCommittedSuccessfully()) {
+            commitRetainedBuild()
+        } else {
+            rollbackRetainedBuild()
+        }
+        applyDeferredClear()
+        result
+    }
+
+    protected func cancelRetainedFrame(): Unit {
+        retainedUi.cancelFrame()
+        rollbackRetainedBuild()
+        applyDeferredClear()
+    }
+
+    protected func retainedFrameActive(): Bool { retainedUi.isFrameActive() }
 
     // Builds run every frame, so the per-build bookkeeping reuses its collections
     // instead of allocating fresh ones.
     func beginBuild(): Unit {
+        if (buildActive || retainedBuildPending) {
+            throw IllegalStateException("StateStore build transaction is already active")
+        }
+        buildActive = true
         visited.clear()
         addedDuringBuild.clear()
+        obsoleteDuringBuild.clear()
         scopes.clear()
         controlIdCounts.clear()
         focusOrder.clear()
     }
 
     func finishBuild(): Unit {
-        let obsolete = ArrayList<String>()
+        if (!buildActive) { throw IllegalStateException("StateStore build transaction is not active") }
         for ((key, _) in entries) {
             if (!visited.contains(key)) {
-                obsolete.add(key)
+                obsoleteDuringBuild.add(key)
             }
         }
-        for (key in obsolete) {
-            let _ = entries.remove(key)
-        }
+        buildActive = false
         scopes.clear()
+        if (retainedUi.isFrameActive()) {
+            // The declarative build is not observable until its retained frame is presented.
+            // Keep omitted entries alive so a cancelled/minimized frame can restore the old tree.
+            retainedBuildPending = true
+        } else {
+            removeObsoleteEntries()
+            clearCompletedBuildTracking()
+        }
     }
 
     /** Rolls back state created by a build that threw partway through. */
     func cancelBuild(): Unit {
-        for (key in addedDuringBuild) {
-            let _ = entries.remove(key)
-        }
-        addedDuringBuild.clear()
+        if (!buildActive) { return }
+        rollbackAddedEntries()
+        obsoleteDuringBuild.clear()
+        buildActive = false
         scopes.clear()
+    }
+
+    private func commitRetainedBuild(): Unit {
+        if (!retainedBuildPending) { return }
+        removeObsoleteEntries()
+        retainedBuildPending = false
+        clearCompletedBuildTracking()
+    }
+
+    private func rollbackRetainedBuild(): Unit {
+        if (!retainedBuildPending) { return }
+        // Omitted entries were only staged, so restoring the previous committed tree means removing
+        // just the states that were first created by the frame that never reached present.
+        rollbackAddedEntries()
+        obsoleteDuringBuild.clear()
+        retainedBuildPending = false
+        visited.clear()
+    }
+
+    private func rollbackAddedEntries(): Unit {
+        for (key in addedDuringBuild) { let _ = entries.remove(key) }
+        addedDuringBuild.clear()
+    }
+
+    private func removeObsoleteEntries(): Unit {
+        for (key in obsoleteDuringBuild) { let _ = entries.remove(key) }
+        obsoleteDuringBuild.clear()
+    }
+
+    private func clearCompletedBuildTracking(): Unit {
+        addedDuringBuild.clear()
+        visited.clear()
+    }
+
+    private func applyDeferredClear(): Unit {
+        if (!clearDeferred) { return }
+        clearDeferred = false
+        clearImmediately()
+    }
+
+    private func clearImmediately(): Unit {
+        entries.clear()
+        retainedUi.clear()
+        addedDuringBuild.clear()
+        obsoleteDuringBuild.clear()
+        retainedBuildPending = false
+        visited.clear()
     }
 
     func pushScope(key: String): Unit {
@@ -279,6 +382,11 @@ public class StateStore {
         if (!scopes.isEmpty()) {
             scopes.remove(at: scopes.size - 1)
         }
+    }
+
+    func currentScopePath(): String {
+        if (scopes.isEmpty()) { return "@root" }
+        scopedKey("@node")
     }
 
     /*

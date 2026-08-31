@@ -30,6 +30,37 @@ func applicationManifestParsesIdentityAssetsSystemsAndScripts(): Unit {
 }
 
 @Test
+func applicationManifestParsesReviewedHarmonyProjection(): Unit {
+    let manifest = parseApplicationManifest(
+        "[application]\nname = \"Demo\"\nidentifier = \"dev.example.demo\"\nversion = \"1.0.0\"\n" +
+        "[harmony]\nsource-roots = [\"src\"]\nexclude = [\"src/generated\"]\n" +
+        "target-package = \"dev.example.demo\"\noutput = \".canghui/harmony\"\n" +
+        "transforms = [\"replace:package demo=>package demo_harmony\"]\n"
+    )
+    @Expect(manifest.harmonySourceRoots, ["src"])
+    @Expect(manifest.harmonyExclude, ["src/generated"])
+    @Expect(manifest.harmonyTargetPackage, "dev.example.demo")
+    @Expect(manifest.harmonyOutput, ".canghui/harmony")
+    @Expect(manifest.harmonyTransforms.size, Int64(1))
+    validateApplicationManifest(manifest, "")
+}
+
+@Test
+func applicationManifestRejectsUnreviewedHarmonyTransform(): Unit {
+    var rejected = false
+    try {
+        validateApplicationManifest(parseApplicationManifest(
+            "[application]\nname = \"Demo\"\nidentifier = \"dev.example.demo\"\nversion = \"1.0.0\"\n" +
+            "[harmony]\nsource-roots = [\"src\"]\ntarget-package = \"dev.example.demo\"\n" +
+            "transforms = [\"regex:anything\"]\n"
+        ), "")
+    } catch (_: CuicError) {
+        rejected = true
+    }
+    @Expect(rejected)
+}
+
+@Test
 func applicationManifestRejectsMissingIdentityAndEscapingPaths(): Unit {
     var missingRejected = false
     try {

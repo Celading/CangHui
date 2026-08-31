@@ -38,7 +38,7 @@ CangHui 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建
 
 ### 4. 文本与浮层：编辑到安全快捷键
 
-[焦点、事件与浮层](concepts/focus-events-and-overlays.md) → [Modal 与 Toast](how-to/modal-and-toast.md) → [键盘与焦点](how-to/keyboard-and-focus.md) → [文本与菜单](how-to/text-editing-and-menus.md)。约 60 分钟；结束时鼠标、菜单和快捷键复用同一动作，Modal 打开时背景快捷键不会改写模型。
+[焦点、事件与浮层](concepts/focus-events-and-overlays.md) → [Modal 与 Toast](how-to/modal-and-toast.md) → [键盘与焦点](how-to/keyboard-and-focus.md) → [文本与菜单](how-to/text-editing-and-menus.md) → [可编辑文本装饰](how-to/decorate-editable-text.md)。约 75 分钟；结束时鼠标、菜单和快捷键复用同一动作，并能把应用生成的令牌与诊断安全绘制在可编辑文本上。
 
 ### 5. 桌面交付：异步集成到发布
 
@@ -84,7 +84,9 @@ CangHui 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建
 | 为危险动作加确认、普通结果加通知 | [Modal 与 Toast](how-to/modal-and-toast.md) | 删除先确认，反馈自动消失 |
 | 让全局快捷键遵守 Modal 边界 | [键盘与焦点](how-to/keyboard-and-focus.md) | Modal 打开时按 Delete，背景选择和 `pendingId` 都不改变 |
 | 组合多行编辑、菜单和快捷动作 | [文本与菜单](how-to/text-editing-and-menus.md) | 文本框保留光标移动等标准按键，菜单和快捷键调用同一个保存动作 |
+| 给可编辑文本添加语法、搜索或诊断样式 | [可编辑文本装饰](how-to/decorate-editable-text.md) | 修订过期时旧样式安全消失，新快照到达后恢复；编辑、IME 与撤销不变 |
 | 统一颜色、间距和动作角色 | [应用主题](how-to/theme-an-app.md) | 启动后多个页面读取同一组颜色、间距和动作角色令牌，切换令牌即可统一改变外观 |
+| 让布局跟随设备姿态 | [布局随设备旋转](how-to/adapt-device-rotation.md) | 平台方向事件触发竖屏/横屏布局过渡，非活动子树不接收输入或焦点 |
 
 ### 接入桌面能力、媒体并交付应用
 

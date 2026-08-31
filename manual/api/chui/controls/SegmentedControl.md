@@ -50,6 +50,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`measure(_: UiContext, available: Size)`](#measure) | 报告段数 × 96 逻辑像素、至多可用宽度的期望宽度，高度固定 38（[`Widget`](../core/Widget.md) 协议）。 |
+| [`indicatorStyle(value: SegmentedControlStyle)`](#indicatorstyle) | 覆盖选中镜片绘制与形变量，保留控件输入、焦点和布局。 |
 | [`layout(_: UiContext, rect: Rect)`](#layout) | 记录分配的矩形作为整个控件的命中与绘制区域（[`Widget`](../core/Widget.md) 协议）。 |
 | [`draw(ctx: UiContext)`](#draw) | 绘制字段底面、滑动选中块与各段标签，键盘聚焦时叠加焦点环（[`Widget`](../core/Widget.md) 协议）。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 左键按下选中命中段并获得焦点，聚焦后 Left/Right 步进选中（[`Widget`](../core/Widget.md) 协议）。 |
@@ -76,6 +77,15 @@ public init(items: Array<String>, selected: Bindable<Int64>, key!: ?String = Non
 - `IllegalArgumentException` — `key` 传入空字符串时。
 
 ## 方法
+
+### indicatorStyle
+
+```cangjie
+public func indicatorStyle(value: SegmentedControlStyle): SegmentedControl
+```
+
+为当前控件覆盖主题中的 [`SegmentedControlStyle`](../core/SegmentedControlStyle.md)。样式只接收库存
+控件算出的镜片矩形和实时伸展状态；点击、方向键、绑定、焦点环和等宽段布局不变。
 
 ### measure
 

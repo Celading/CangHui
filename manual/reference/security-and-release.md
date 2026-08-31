@@ -15,6 +15,7 @@ security boundary.
 | explicit `KModePolicy(enabled: true)` | clamped to disabled | capability policy applies |
 | `KModeChannelModule` override | refuses | admin policy required; the module still owns transport authentication |
 | `cuic kmode` / `probe` execution and `pview` | refuses | available |
+| one-shot `cuic shell` UI event script | refuses; app opt-in/result markers are absent | fixed debug-child whitelist; exits after use |
 | `cuic debug` and `prnt --device/--app` | refuses | available where the platform route is implemented |
 | `kmode diff` / `probe diff` | static source collision check remains available | available |
 
@@ -25,6 +26,12 @@ claim verification, identity binding, replay prevention, capability scope,
 rate/buffer limits and secret redaction, then pass a separate native-platform
 security review. Locality, loopback and a device forward are not
 authentication.
+
+`cuic shell` is not another transport. It does not attach to an arbitrary PID,
+read a command stream from stdin, listen on a socket/pipe, or interpret shell
+text. cuic gives only the debug child it starts a whitelist script bounded to
+128 commands and 64 KiB. The app routes ordinary hit/focus/key events, emits a
+structured observation, and exits.
 
 cuic also keeps host execution and diagnostics out of the shell-text boundary.
 Windows build arguments and environment are passed separately to `cjpm`, so

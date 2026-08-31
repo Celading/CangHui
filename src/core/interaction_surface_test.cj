@@ -1,6 +1,6 @@
 package chui.core
 
-import sdl.{Key, Rect, UiEvent}
+import sdl.{FrameInfo, GamepadButton, Key, MouseButton, Rect, UiEvent}
 import chui.symbol.SymbolName
 
 private func interactionSurfaceProbe(script: String, disabled!: Bool = false): String {
@@ -196,4 +196,75 @@ func nestedFocusOwnerIsRemovedAndValidOwnerKeepsDeclarationOrder(): Unit {
     @Expect(ring.size, Int64(2))
     @Expect(ring[0], "before")
     @Expect(ring[1], "valid")
+}
+
+@Test
+func gestureSurfaceComposesDoubleTapLongPressDragHoverAndGamepadUnderOneOwner(): Unit {
+    let taps = State<Int64>(0)
+    let doubles = State<Int64>(0)
+    let longs = State<Int64>(0)
+    let drags = State<Int64>(0)
+    let hovers = State<Int64>(0)
+    let surface = GestureSurface(
+        action: {=> taps.value += 1},
+        key: Some("gesture"),
+        gestures: GestureHandlers(
+            onDoubleTap: Some({=> doubles.value += 1}),
+            onLongPress: Some({=> longs.value += 1}),
+            onDragStart: Some({_, _ => drags.value += 1}),
+            onDragUpdate: Some({_, _, _, _ => drags.value += 1}),
+            onDragEnd: Some({_, _ => drags.value += 1}),
+            onHoverChanged: Some({_ => hovers.value += 1})
+        )
+    ) { Label("Gesture") }
+    let ctx = testContext()
+    surface.layout(ctx, Rect(0.0, 0.0, 120.0, 40.0))
+
+    let _ = surface.handle(ctx, UiEvent.MouseMove(10.0, 10.0))
+    ctx.clickCount = 2
+    let _ = surface.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 10.0, 10.0))
+    let _ = surface.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 10.0, 10.0))
+    @Expect(doubles.value, 1)
+    @Expect(taps.value, 0)
+
+    ctx.frame = FrameInfo(UInt64(100), UInt64(0))
+    let _ = surface.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 10.0, 10.0))
+    let _ = surface.handle(ctx, UiEvent.Frame(FrameInfo(UInt64(700), UInt64(600))))
+    let _ = surface.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 10.0, 10.0))
+    @Expect(longs.value, 1)
+
+    let _ = surface.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 10.0, 10.0))
+    let _ = surface.handle(ctx, UiEvent.MouseMove(30.0, 20.0))
+    @Expect(ctx.hasPointerCapture("gesture"))
+    let _ = surface.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 150.0, 50.0))
+    @Expect(drags.value, 3)
+    @Expect(!ctx.hasPointerCapture("gesture"))
+    @Expect(hovers.value >= 1)
+
+    ctx.focus("gesture", viaKeyboard: true)
+    @Expect(surface.handle(ctx, UiEvent.GamepadButtonDown(UInt32(1), GamepadButton.South)))
+    @Expect(taps.value, 1)
+    @Expect(surface.interactionOwnerIds(), ["gesture"])
+}
+
+@Test
+func gestureSurfaceCancelsCapturedDragWhenWindowLosesFocus(): Unit {
+    let cancelled = State<Int64>(0)
+    let surface = GestureSurface(
+        action: {=> ()},
+        key: Some("captured"),
+        gestures: GestureHandlers(
+            onDragUpdate: Some({_, _, _, _ => ()}),
+            onDragCancel: Some({=> cancelled.value += 1})
+        )
+    ) { Label("Drag") }
+    let ctx = testContext()
+    surface.layout(ctx, Rect(0.0, 0.0, 100.0, 40.0))
+    let _ = surface.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 10.0, 10.0))
+    let _ = surface.handle(ctx, UiEvent.MouseMove(30.0, 10.0))
+    @Expect(ctx.hasPointerCapture("captured"))
+    @Expect(surface.handle(ctx, UiEvent.WindowFocusChanged(false)))
+    @Expect(cancelled.value, 1)
+    @Expect(!ctx.hasPointerCapture("captured"))
+    @Expect(!ctx.isDragging("captured"))
 }

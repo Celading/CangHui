@@ -2,8 +2,8 @@ package chui.text
 
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
-import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, State, UiContext, Widget, claimHoverIfInside,
-    emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
+import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, SemanticActionKind, State, UiContext,
+    Widget, claimHoverIfInside, emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code, so the editing shortcuts read as
 // the familiar Ctrl+letter table.
@@ -153,7 +153,9 @@ public class TextField <: Widget {
             placeholder: placeholderText,
             action: if (isEditable) { "TextField.edit()" } else { "" },
             shortcut: if (isEditable) { "TextInput" } else { "" },
-            actionOwner: id
+            actionOwner: id,
+            readOnly: Some(!isEditable),
+            typedActions: if (isEditable) { [SemanticActionKind.Focus] } else { [] }
         ))
         drawTextBoxChrome(ctx, frame, id)
         // Values longer than the field must not paint past its surface; selection, text and

@@ -44,6 +44,11 @@ public interface Widget {
         true
     }
 
+    /** Paint order among siblings in the same stacking context. Measurement is unchanged. */
+    func stackingIndex(): Int64 {
+        0
+    }
+
     /*
      * The keyboard-focus id this widget registered during construction, or `None` for
      * non-focusable widgets and multi-control containers. Single-child wrappers forward
@@ -381,6 +386,14 @@ public interface Widget {
         flex(weight)
     }
 
+    /**
+     * Sets this widget's paint and hit-test order among siblings in the same stacking context.
+     * Higher values paint later and receive input first; equal values retain declaration order.
+     */
+    func zIndex(value: Int64): Widget {
+        applyModifier(this, WidgetModifier.ZIndex(value))
+    }
+
     /** Includes or removes this widget from layout, drawing, and event dispatch. */
     func visible(isVisible: Bool): Widget {
         if (!isVisible) {
@@ -415,15 +428,15 @@ public interface Widget {
      * dynamic public state such as selected/disabled/value on each sampled frame.
      */
     func probe(id: String): Widget {
-        applyProbeModifier(this, id, "Widget", [], None)
+        applyProbeModifier(this, id, "Widget", [], None<ProbeSemanticProvider>)
     }
 
     func probe(id: String, widgetType: String): Widget {
-        applyProbeModifier(this, id, widgetType, [], None)
+        applyProbeModifier(this, id, widgetType, [], None<ProbeSemanticProvider>)
     }
 
     func probe(id: String, widgetType: String, properties: Array<ProbeProperty>): Widget {
-        applyProbeModifier(this, id, widgetType, properties, None)
+        applyProbeModifier(this, id, widgetType, properties, None<ProbeSemanticProvider>)
     }
 
     func probe(id: String, widgetType: String, properties: Array<ProbeProperty>,

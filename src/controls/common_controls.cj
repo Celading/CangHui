@@ -2,7 +2,7 @@ package chui.controls
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
 import chui.core.{AnimationSpec, Animator, Bindable, CUI_CONTROL_H, ControlSemantics, CursorShape, Motion, Spring,
-    UiContext, Widget, requireControlId, claimHoverIfInside, drawFocusRing, drawSurface, emit,
+    SemanticActionKind, UiContext, Widget, requireControlId, claimHoverIfInside, drawFocusRing, drawSurface, emit,
     focusableControlIdentity, handlePointerClick, localState, recordControlSemantics, reregisterFocusable,
     registerFocusable, resolveControlKey}
 
@@ -125,7 +125,8 @@ public class Switch <: Widget {
             "switch", label: semanticLabel,
             value: if (checked.value) { "on" } else { "off" },
             action: "Switch.toggle()", actionOwner: controlId,
-            selected: Some(checked.value)
+            selected: Some(checked.value),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
 
         let track = trackFrame()
@@ -221,7 +222,8 @@ public class RadioButton <: Widget {
         recordControlSemantics(ctx, frame, "RadioButton", ControlSemantics(
             "radio", label: semanticLabel, value: optionValue.toString(),
             action: "RadioButton.select()", actionOwner: controlId,
-            selected: Some(isSelected())
+            selected: Some(isSelected()),
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         let centerX = frame.x + 9.0
         let centerY = frame.centerY()
@@ -306,7 +308,9 @@ public class Picker <: Widget {
         recordControlSemantics(ctx, frame, "Picker", ControlSemantics(
             "combobox", label: if (semanticLabel.isEmpty()) { label } else { semanticLabel },
             value: label, action: "Picker.move()", shortcut: "Left|Right",
-            actionOwner: id
+            actionOwner: id,
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Decrement,
+                SemanticActionKind.Increment]
         ))
         textMotion.sync(label)
         // Item text comes from application data; clip it so a long item cannot paint
@@ -466,7 +470,9 @@ public class Stepper <: Widget {
         recordControlSemantics(ctx, frame, "Stepper", ControlSemantics(
             "spinbutton", label: semanticLabel, value: value.value.toString(),
             action: "Stepper.adjust()", shortcut: "Left|Right|Up|Down",
-            actionOwner: id
+            actionOwner: id,
+            typedActions: [SemanticActionKind.Focus, SemanticActionKind.Decrement,
+                SemanticActionKind.Increment]
         ))
         ctx.renderer.textCenter("−", decrementButton(), ctx.theme.text, pointSize: FontSizes.TITLE)
         let valueArea = valueFrame()

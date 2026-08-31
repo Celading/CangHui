@@ -21,11 +21,19 @@ class ApplicationManifest {
     let statusItem: Bool
     let notifications: Bool
     let settings: Bool
+    let harmonySourceRoots: Array<String>
+    let harmonyExclude: Array<String>
+    let harmonyTargetPackage: String
+    let harmonyOutput: String
+    let harmonyTransforms: Array<String>
 
     init(name: String, identifier: String, version: String, publisher: String,
         applicationIcon: String, statusItemIcon: String, notificationIcon: String,
         documentIcon: String, monochromeIcon: String, resources: Array<String>,
-        singleInstance: Bool, statusItem: Bool, notifications: Bool, settings: Bool) {
+        singleInstance: Bool, statusItem: Bool, notifications: Bool, settings: Bool,
+        harmonySourceRoots!: Array<String> = [], harmonyExclude!: Array<String> = [],
+        harmonyTargetPackage!: String = "", harmonyOutput!: String = "",
+        harmonyTransforms!: Array<String> = []) {
         this.name = name
         this.identifier = identifier
         this.version = version
@@ -40,6 +48,11 @@ class ApplicationManifest {
         this.statusItem = statusItem
         this.notifications = notifications
         this.settings = settings
+        this.harmonySourceRoots = harmonySourceRoots
+        this.harmonyExclude = harmonyExclude
+        this.harmonyTargetPackage = harmonyTargetPackage
+        this.harmonyOutput = harmonyOutput
+        this.harmonyTransforms = harmonyTransforms
     }
 }
 
@@ -164,6 +177,11 @@ func parseApplicationManifest(text: String): ApplicationManifest {
     var statusItem = false
     var notifications = false
     var settings = false
+    var harmonySourceRoots = ArrayList<String>()
+    var harmonyExclude = ArrayList<String>()
+    var harmonyTargetPackage = ""
+    var harmonyOutput = ""
+    var harmonyTransforms = ArrayList<String>()
     let seen = ArrayList<String>()
     var lineNumber: Int64 = 0
     for (rawLine in text.split("\n")) {
@@ -173,7 +191,8 @@ func parseApplicationManifest(text: String): ApplicationManifest {
         if (startsWithText(line, "[")) {
             if (!endsWithText(line, "]")) { throw CuicError("invalid application manifest section at line ${lineNumber}") }
             section = substringTo(substringFrom(line, 1), Int64(substringFrom(line, 1).toRuneArray().size - 1))
-            if (section != "application" && section != "assets" && section != "system" && section != "scripts") {
+            if (section != "application" && section != "assets" && section != "system" && section != "scripts" &&
+                section != "harmony") {
                 throw CuicError("unsupported application manifest section '${section}' at line ${lineNumber}")
             }
             continue
@@ -213,11 +232,27 @@ func parseApplicationManifest(text: String): ApplicationManifest {
             else if (key == "notifications") { notifications = parsed }
             else if (key == "settings") { settings = parsed }
             else { throw CuicError("unsupported system key '${key}' at line ${lineNumber}") }
+        } else if (section == "harmony") {
+            if (key == "source-roots") {
+                harmonySourceRoots = ArrayList<String>(parseManifestStringArray(value, lineNumber))
+            } else if (key == "exclude") {
+                harmonyExclude = ArrayList<String>(parseManifestStringArray(value, lineNumber))
+            } else if (key == "transforms") {
+                harmonyTransforms = ArrayList<String>(parseManifestStringArray(value, lineNumber))
+            } else {
+                let parsed = parseManifestString(value, lineNumber)
+                if (key == "target-package") { harmonyTargetPackage = parsed }
+                else if (key == "output") { harmonyOutput = parsed }
+                else { throw CuicError("unsupported harmony key '${key}' at line ${lineNumber}") }
+            }
         }
     }
     ApplicationManifest(name, identifier, version, publisher, applicationIcon,
         statusItemIcon, notificationIcon, documentIcon, monochromeIcon,
-        resources.toArray(), singleInstance, statusItem, notifications, settings)
+        resources.toArray(), singleInstance, statusItem, notifications, settings,
+        harmonySourceRoots: harmonySourceRoots.toArray(), harmonyExclude: harmonyExclude.toArray(),
+        harmonyTargetPackage: harmonyTargetPackage, harmonyOutput: harmonyOutput,
+        harmonyTransforms: harmonyTransforms.toArray())
 }
 
 func validateApplicationManifest(manifest: ApplicationManifest, project: String): Unit {
@@ -254,6 +289,39 @@ func validateApplicationManifest(manifest: ApplicationManifest, project: String)
             ensurePackagingInputTreeStaysInsideProject(
                 projectRoot, asset, "declared application asset")
         }
+    }
+    validateHarmonyProjectionManifest(manifest, project)
+}
+
+func validateHarmonyProjectionManifest(manifest: ApplicationManifest, project: String): Unit {
+    let configured = !manifest.harmonySourceRoots.isEmpty() || !manifest.harmonyTargetPackage.isEmpty() ||
+        !manifest.harmonyOutput.isEmpty() || !manifest.harmonyTransforms.isEmpty() || !manifest.harmonyExclude.isEmpty()
+    if (!configured) { return }
+    if (manifest.harmonySourceRoots.isEmpty()) { throw CuicError("harmony.source-roots is required") }
+    if (manifest.harmonyTargetPackage.isEmpty() || !isApplicationIdentifier(manifest.harmonyTargetPackage)) {
+        throw CuicError("harmony.target-package must be a safe package identifier")
+    }
+    let output = if (manifest.harmonyOutput.isEmpty()) {".canghui/generated/harmony"} else {manifest.harmonyOutput}
+    validateManifestRelativePath(output, "harmony output")
+    for (path in manifest.harmonySourceRoots) {
+        validateManifestRelativePath(path, "harmony source root")
+        if (!project.isEmpty() && !exists(joinPath(project, path))) {
+            throw CuicError("harmony source root is missing: ${path}")
+        }
+    }
+    for (path in manifest.harmonyExclude) { validateManifestRelativePath(path, "harmony exclude") }
+    for (rule in manifest.harmonyTransforms) { validateHarmonyTransformRule(rule) }
+}
+
+func validateHarmonyTransformRule(rule: String): Unit {
+    if (!startsWithText(rule, "replace:") || !containsText(rule, "=>")) {
+        throw CuicError("harmony transform must use replace:<exact>=> <replacement> syntax")
+    }
+    let body = substringFrom(rule, Int64("replace:".toRuneArray().size))
+    let separator = indexOfText(body, "=>")
+    let source = if (separator < 0) {""} else {substringTo(body, separator)}
+    if (source.isEmpty() || source.contains("\n") || source.contains("\r")) {
+        throw CuicError("harmony transform source must be a non-empty single-line token")
     }
 }
 

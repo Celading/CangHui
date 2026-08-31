@@ -131,6 +131,7 @@ main(): Unit {
 | [`dashedBorder(...)`](#dashedborder) | 在组件的填充与内容之上描一圈虚线圆角边框。 |
 | [`flex(...)`](#flex) | 让组件按权重分享所在栈的剩余空间。 |
 | [`layoutWeight(...)`](#layoutweight) | `flex` 的 ArkTS 风格别名，常用于 [`Row`](Row.md) 子项。 |
+| [`zIndex(value: Int64)`](#zindex) | 设置同一叠层中的绘制与命中优先级，不改变布局和焦点顺序。 |
 | [`visible(isVisible: Bool)`](#visible) | 控制组件是否参与布局、绘制与事件派发。 |
 | [`enabled(isEnabled: Bool)`](#enabled) | 保留组件的布局与绘制、按 `isEnabled` 屏蔽其输入。 |
 
@@ -694,6 +695,21 @@ func layoutWeight(weight: Float32): Widget
 **参数**
 
 - `weight`: `Float32` — 相对权重；无参数重载为 `1.0`。
+
+**返回值** `Widget` — 包装后的新节点，供继续链式调用。
+
+### zIndex
+
+设置组件在最近叠层容器中的绘制与命中优先级。高值后绘制并优先接收普通输入；相同值
+保持声明顺序稳定。该修饰器不改变测量、布局、Tab 焦点顺序或 `Frame` 事件广播。
+
+```cangjie
+func zIndex(value: Int64): Widget
+```
+
+**参数**
+
+- `value`: `Int64` — 有符号叠层顺序；默认值为 `0`。
 
 **返回值** `Widget` — 包装后的新节点，供继续链式调用。
 

@@ -101,17 +101,59 @@ protected func buildChild(body: () -> Unit): Widget {
 /** Builds an application root while retaining and pruning its keyed local state. */
 protected func buildRoot(body: () -> Unit, stateStore: StateStore): Widget {
     let previous = activeStateStore
-    activeStateStore = Some(stateStore)
-    stateStore.beginBuild()
+    var buildStarted = false
     try {
-        try {
-            let root = buildChild(body)
-            stateStore.finishBuild()
-            root
-        } catch (error: Exception) {
-            stateStore.cancelBuild()
-            throw error
-        }
+        activeStateStore = Some(stateStore)
+        stateStore.beginBuild()
+        buildStarted = true
+        let root = buildChild(body)
+        stateStore.finishBuild()
+        buildStarted = false
+        semanticParentScopeWidget("@root", root)
+    } catch (error: Exception) {
+        if (buildStarted) { stateStore.cancelBuild() }
+        throw error
+    } finally {
+        activeStateStore = previous
+    }
+}
+
+/**
+ * Builds the Desktop FrameGraph root inside one retained-metadata transaction. The transaction
+ * remains active through measure/layout/event/paint and is committed by DesktopApp only after a
+ * successful present (or successful legacy fallback).
+ */
+protected func buildRetainedRoot(
+    body: () -> Unit,
+    stateStore: StateStore,
+    contextCode: Int64
+): Widget {
+    let previous = activeStateStore
+    var buildStarted = false
+    var retainedStarted = false
+    try {
+        activeStateStore = Some(stateStore)
+        stateStore.beginBuild()
+        buildStarted = true
+        stateStore.beginRetainedFrame(contextCode)
+        retainedStarted = true
+        let runtime = stateStore.retainedRuntime()
+        runtime.declareNode("@root", "", Int64(1))
+        let _ = runtime.beginPhase("@root", RetainedUiPhase.Build, Int64(1))
+        let child = buildChild(body)
+        runtime.endPhase()
+        // Desktop assigns the root exact viewport bounds instead of asking it for a preferred
+        // size. Record that fixed-root measure decision explicitly so the uncalled Widget
+        // `measure` callback does not remain dirty forever.
+        let _ = runtime.beginPhase("@root", RetainedUiPhase.Measure, contextCode)
+        runtime.endPhase()
+        stateStore.finishBuild()
+        buildStarted = false
+        RetainedWidgetNode("@root", semanticParentScopeWidget("@root", child), runtime)
+    } catch (error: Exception) {
+        if (buildStarted) { stateStore.cancelBuild() }
+        if (retainedStarted) { stateStore.cancelRetainedFrame() }
+        throw error
     } finally {
         activeStateStore = previous
     }
@@ -123,7 +165,29 @@ protected func buildKeyedChild(key: String, body: () -> Unit): Widget {
         case Some(store) =>
             store.pushScope(key)
             try {
-                buildChild(body)
+                let runtime = store.retainedRuntime()
+                let semanticId = semanticBuildScopeId(store.currentScopePath())
+                if (!runtime.isFrameActive()) {
+                    semanticParentScopeWidget(semanticId, buildChild(body))
+                } else {
+                    let id = store.currentScopePath()
+                    let parentId = runtime.currentNodeId()
+                    runtime.declareNode(
+                        id,
+                        parentId,
+                        retainedUiStableCode(id),
+                        layoutIsolated: false)
+                    let _ = runtime.beginPhase(
+                        id, RetainedUiPhase.Build, retainedUiStableCode(id))
+                    try {
+                        let child = buildChild(body)
+                        runtime.endPhase()
+                        RetainedWidgetNode(id, semanticParentScopeWidget(semanticId, child), runtime)
+                    } catch (error: Exception) {
+                        runtime.endPhase()
+                        throw error
+                    }
+                }
             } finally {
                 store.popScope()
             }

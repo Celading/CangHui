@@ -179,7 +179,28 @@ func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
     @Expect(isKModeLauncherNoise(
         "Warning: field 'profile.build.combined' only supports 'Linux/OHOS/Windows'"
     ))
+    @Expect(isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '/tmp/project/datalog', and its subdirectories will not be scanned as source code"
+    ))
+    @Expect(!isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '', and its subdirectories will not be scanned as source code"
+    ))
+    @Expect(!isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '/tmp/project/datalog'"
+    ))
+    @Expect(!isKModeLauncherNoise(
+        "Warning: there is no '.cj' file in directory '/tmp/project/datalog', and its subdirectories will not be scanned as source code; application output"
+    ))
     @Expect(!isKModeLauncherNoise("application wrote unexpected stdout"))
+}
+
+@Test
+func uiShellParsesBoundedOneShotActions(): Unit {
+    let click = parseUiShellSelection(["cuic", "shell", "click", "12.5", "30"], 2)
+    let focus = parseUiShellSelection(["cuic", "shell", "focus", "search-field"], 2)
+
+    @Expect(click.script, "click 12.5 30")
+    @Expect(focus.script, "focus search-field")
 }
 
 @Test
@@ -495,6 +516,26 @@ func pviewUsesSameAsciiTargetParser(): Unit {
     @Expect(parsed.columns, Int64(100))
     @Expect(parsed.rows, Int64(30))
     @Expect(parsed.script, "move-in 10 10")
+}
+
+@Test
+func helpPublishesDesignSnapshotExport(): Unit {
+    @Expect(helpText().contains("cuic design snapshot"))
+}
+
+@Test
+func helpPublishesUiAuditAndParsesThreshold(): Unit {
+    @Expect(helpText().contains("cuic ui audit"))
+    let parsed = parseProbeTarget(
+        ["cuic", "ui", "audit", "component-gallery", "gallery.primary-button",
+            "--fail-on", "error"], 3, true, allowAudit: true)
+    @Expect(parsed.name, "gallery.primary-button")
+    @Expect(parsed.failOn, "error")
+}
+
+@Test
+func helpPublishesHarmonyProjection(): Unit {
+    @Expect(helpText().contains("cuic prepare harmony"))
 }
 
 @Test

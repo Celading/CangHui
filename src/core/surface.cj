@@ -1,5 +1,6 @@
 package chui.core
 
+import std.math.abs
 import sdl.{Color, Rect, Size, SurfaceStyle, UiEvent}
 
 /** Geometry shared by a surface's paint and an interaction surface's ink. */
@@ -86,6 +87,19 @@ public interface MaterialProvider {
     func resolve(theme: Theme, state: SurfaceState): SurfaceMaterial
 }
 
+/** Optional low-level paint hook for effect packages while Surface keeps layout and content ownership. */
+public class SurfacePainter {
+    private let painter: (UiContext, Rect, Shape, SurfaceMaterial) -> Unit
+
+    public init(paint!: (UiContext, Rect, Shape, SurfaceMaterial) -> Unit) {
+        painter = paint
+    }
+
+    public func paint(ctx: UiContext, frame: Rect, shape: Shape, material: SurfaceMaterial): Unit {
+        painter(ctx, frame, shape, material)
+    }
+}
+
 private class ResolvingMaterialProvider <: MaterialProvider {
     private let resolver: (Theme, SurfaceState) -> SurfaceMaterial
 
@@ -150,18 +164,21 @@ public class Surface <: Widget {
     private let child: Widget
     private var surfaceShape: Shape
     private var materialProvider: MaterialProvider
+    private var customPainter: ?SurfacePainter
     private var clipPolicy: ClipPolicy
     private var frame = Rect.zero()
 
     public init(
         shape!: Shape = Shape.rectangle(),
         material!: MaterialProvider = Materials.themeSurface(),
+        painter!: ?SurfacePainter = None,
         clip!: ClipPolicy = ClipPolicy.Unclipped,
         body!: () -> Unit
     ) {
         this.child = buildChild(body)
         this.surfaceShape = shape
         this.materialProvider = material
+        this.customPainter = painter
         this.clipPolicy = clip
         emit(this)
     }
@@ -173,6 +190,12 @@ public class Surface <: Widget {
 
     public func material(value: MaterialProvider): Surface {
         materialProvider = value
+        this
+    }
+
+    /** Overrides only the background paint; Surface still owns material foreground and child layout. */
+    public func painter(value: SurfacePainter): Surface {
+        customPainter = Some(value)
         this
     }
 
@@ -188,10 +211,46 @@ public class Surface <: Widget {
         child.layout(ctx, rect)
     }
 
+    /**
+     * A shape-clipped Surface bounds every descendant to its frame. Only framework-created material
+     * providers are eligible: an arbitrary provider can change paint extent behind the interface and
+     * therefore stays fail-full. Fixed framework styles include their actual shadow displacement.
+     */
+    internal func retainedPaintProof(ctx: UiContext, frame: Rect): ?RetainedPaintProof {
+        match (customPainter) {
+            case Some(_) => return None
+            case None => ()
+        }
+        match (clipPolicy) {
+            case ClipPolicy.Unclipped => return None
+            case ClipPolicy.Shape => ()
+        }
+        let material = match (materialProvider as ResolvingMaterialProvider) {
+            case Some(provider) => provider.resolve(
+                ctx.theme, SurfaceState(enabled: ctx.interactionsEnabled()))
+            case None => return None
+        }
+        let offset = if (Int64(material.style.shadow.a) > 0) {
+            material.style.shadowOffsetY
+        } else {
+            Float32(0.0)
+        }
+        // A finite, bounded displacement has a conservative symmetric proof. Unknown/NaN/extreme
+        // values intentionally decline the proof so retained damage promotes to the full root.
+        if (offset != offset || offset < -1000000.0 || offset > 1000000.0) { return None }
+        Some(RetainedPaintProof(
+            frame,
+            effectRadius: CUI_SHADOW_CLEARANCE + abs(offset),
+            proven: true))
+    }
+
     public func draw(ctx: UiContext): Unit {
         let state = SurfaceState(enabled: ctx.interactionsEnabled())
         let material = materialProvider.resolve(ctx.theme, state)
-        drawMaterialSurface(ctx, frame, surfaceShape, material)
+        match (customPainter) {
+            case Some(value) => value.paint(ctx, frame, surfaceShape, material)
+            case None => drawMaterialSurface(ctx, frame, surfaceShape, material)
+        }
         ctx.withControlContentEnvironment(ControlContentEnvironment(
             material.foreground,
             supportingForeground: Some(material.supportingForeground),
