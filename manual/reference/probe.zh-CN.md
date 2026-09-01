@@ -154,7 +154,12 @@ probeSemanticRegions { => [
 
 ```bash
 cuic design snapshot component-gallery gallery.primary-button
+cuic design snapshot component-gallery gallery.primary-button --version 2
 cuic design snapshot component-gallery gallery.primary-button --script events.txt
 ```
 
 它在同一调试门内运行显式注册的组件 Probe，把最终帧转换为 `canghui.design-snapshot/v1`：稳定节点、region、布局、状态与 scoped Draw IR 被放进一个有上限、自动脱敏且带确定性 digest 的规范 JSON。与 `probe run` 不同，它不输出事件过程；与 `prnt` 不同，它不把像素或截图推断冒充结构事实。详见 [`DesignSnapshot`](../api/chui/core/DesignSnapshot.md)。
+
+`--version 2` 会完整嵌入上述 v1，再携带 Probe 显式提供的 typed 组件/源码定位、交互边与
+Multiplatform 场景；省略时仍是原有 v1。详见
+[`DesignSnapshotV2`](../api/chui/core/DesignSnapshotV2.md)。

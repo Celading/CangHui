@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canghui.dev/contracts/canghui-design-snapshot-v2.schema.json",
+  "title": "CangHui Design Snapshot v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "contentDigest", "content"],
+  "properties": {
+    "protocol": { "const": "canghui.design-snapshot/v2" },
+    "contentDigest": {
+      "type": "string",
+      "pattern": "^chui-hash-v2:[0-9]+:[0-9]+$"
+    },
+    "content": { "$ref": "#/$defs/content" }
+  },
+  "$defs": {
+    "portablePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/|\\./|~)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)(?!.*://)(?!.*:).+$"
+    },
+    "sourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "package", "symbol", "relativePath", "line", "column",
+        "sourceDigest", "resourceDigest"
+      ],
+      "properties": {
+        "package": { "type": "string", "minLength": 1 },
+        "symbol": { "type": "string", "minLength": 1 },
+        "relativePath": { "$ref": "#/$defs/portablePath" },
+        "line": { "type": "integer", "minimum": 0 },
+        "column": { "type": "integer", "minimum": 0 },
+        "sourceDigest": {
+          "type": "string",
+          "pattern": "^(?:|sha256:[0-9a-f]{64})$"
+        },
+        "resourceDigest": {
+          "type": "string",
+          "pattern": "^(?:|sha256:[0-9a-f]{64})$"
+        }
+      }
+    },
+    "componentBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodeId", "componentSymbol", "source", "publicProperties", "variants", "slots"
+      ],
+      "properties": {
+        "nodeId": { "type": "string", "minLength": 1 },
+        "componentSymbol": { "type": "string", "minLength": 1 },
+        "source": { "$ref": "#/$defs/sourceBinding" },
+        "publicProperties": {
+          "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 }
+        },
+        "variants": {
+          "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 }
+        },
+        "slots": {
+          "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "ownerNodeId", "trigger", "targetKind", "targetId",
+        "handlerPackage", "handlerSymbol", "handlerRelativePath",
+        "handlerSourceDigest", "shortcut", "enabled"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "ownerNodeId": { "type": "string", "minLength": 1 },
+        "trigger": {
+          "enum": [
+            "click", "double-click", "long-press", "hover-enter", "hover-exit",
+            "focus", "blur", "key", "submit", "value-change",
+            "drag-start", "drag-update", "drag-end", "gamepad-activate"
+          ]
+        },
+        "targetKind": { "enum": ["action", "route", "state", "component", "external-intent"] },
+        "targetId": { "type": "string", "minLength": 1 },
+        "handlerPackage": { "type": "string" },
+        "handlerSymbol": { "type": "string" },
+        "handlerRelativePath": { "type": "string" },
+        "handlerSourceDigest": {
+          "type": "string", "pattern": "^(?:|sha256:[0-9a-f]{64})$"
+        },
+        "shortcut": { "type": "string" },
+        "enabled": { "type": "boolean" }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "handlerPackage": { "const": "" },
+            "handlerSymbol": { "const": "" },
+            "handlerRelativePath": { "const": "" },
+            "handlerSourceDigest": { "const": "" }
+          }
+        },
+        {
+          "properties": {
+            "handlerPackage": { "minLength": 1 },
+            "handlerSymbol": { "minLength": 1 },
+            "handlerRelativePath": { "$ref": "#/$defs/portablePath" }
+          }
+        }
+      ]
+    },
+    "safeArea": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["top", "right", "bottom", "left"],
+      "properties": {
+        "top": { "type": "number", "minimum": 0 },
+        "right": { "type": "number", "minimum": 0 },
+        "bottom": { "type": "number", "minimum": 0 },
+        "left": { "type": "number", "minimum": 0 }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimumTargetWidth", "minimumTargetHeight", "minimumInteractiveGap",
+        "recommendedColumns", "navigationPattern"
+      ],
+      "properties": {
+        "minimumTargetWidth": { "type": "number", "exclusiveMinimum": 0 },
+        "minimumTargetHeight": { "type": "number", "exclusiveMinimum": 0 },
+        "minimumInteractiveGap": { "type": "number", "minimum": 0 },
+        "recommendedColumns": { "type": "integer", "minimum": 1 },
+        "navigationPattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "scene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "deviceClass", "orientation", "viewportWidth", "viewportHeight",
+        "densityScale", "fontScale", "safeArea", "inputClasses", "styleProfile",
+        "recommendation"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "deviceClass": { "enum": ["phone", "tablet", "desktop", "foldable", "two-in-one"] },
+        "orientation": { "enum": ["portrait", "landscape", "adaptive"] },
+        "viewportWidth": { "type": "number", "exclusiveMinimum": 0 },
+        "viewportHeight": { "type": "number", "exclusiveMinimum": 0 },
+        "densityScale": { "type": "number", "exclusiveMinimum": 0 },
+        "fontScale": { "type": "number", "exclusiveMinimum": 0 },
+        "safeArea": { "$ref": "#/$defs/safeArea" },
+        "inputClasses": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["touch", "pointer", "keyboard", "gamepad"] }
+        },
+        "styleProfile": { "type": "string", "minLength": 1 },
+        "recommendation": { "$ref": "#/$defs/recommendation" }
+      }
+    },
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "base", "componentBindings", "interactions", "scenes"],
+      "properties": {
+        "schemaVersion": { "const": 2 },
+        "base": { "$ref": "canghui-design-snapshot-v1.schema.json" },
+        "componentBindings": {
+          "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/componentBinding" }
+        },
+        "interactions": {
+          "type": "array", "maxItems": 8192, "items": { "$ref": "#/$defs/interaction" }
+        },
+        "scenes": {
+          "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/scene" }
+        }
+      }
+    }
+  }
+}

@@ -343,7 +343,7 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
-    "  cuic design snapshot [project] <probe> [--script <file>|--events <script>]\n" +
+    "  cuic design snapshot [project] <probe> [--version <1|2>] [--script <file>|--events <script>]\n" +
     "  cuic ui audit [project] <probe> [--script <file>|--events <script>] [--fail-on <info|warning|error>]\n" +
     "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
     "  cuic shell click|touch [project] <x> <y>\n" +

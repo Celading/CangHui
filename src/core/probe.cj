@@ -244,12 +244,18 @@ public class ComponentProbe {
     public let width: Float32
     public let height: Float32
     public let theme: Theme
+    public let designBindings: Array<DesignComponentBinding>
+    public let designInteractions: Array<DesignInteractionBinding>
+    public let designScenes: Array<DesignAdaptiveScene>
 
     public init(
         name: String,
         width!: Float32 = 640.0,
         height!: Float32 = 360.0,
-        theme!: Theme = Theme.light()
+        theme!: Theme = Theme.light(),
+        designBindings!: Array<DesignComponentBinding> = [],
+        designInteractions!: Array<DesignInteractionBinding> = [],
+        designScenes!: Array<DesignAdaptiveScene> = []
     ) {
         if (name.isEmpty()) { throw IllegalArgumentException("component probe name must not be empty") }
         if (width <= 0.0 || height <= 0.0) {
@@ -259,6 +265,9 @@ public class ComponentProbe {
         this.width = width
         this.height = height
         this.theme = theme
+        this.designBindings = designBindings.clone()
+        this.designInteractions = designInteractions.clone()
+        this.designScenes = designScenes.clone()
     }
 
     public func run(script: String, body: () -> Unit): String {
@@ -268,7 +277,8 @@ public class ComponentProbe {
         ctx.viewportWidth = width
         ctx.viewportHeight = height
         let store = StateStore()
-        let session = ComponentProbeSession(name, width, height)
+        let session = ComponentProbeSession(name, width, height,
+            designBindings, designInteractions, designScenes)
         let previous = activeComponentProbeSession
         activeComponentProbeSession = Some(session)
         try {
@@ -642,11 +652,20 @@ private class ComponentProbeSession {
     private var currentEvent: ?ProbeEventRecord = None
     private var logicalTimeMs: UInt64 = 0
     private var frameIndex: Int64 = 0
+    private let designBindings: Array<DesignComponentBinding>
+    private let designInteractions: Array<DesignInteractionBinding>
+    private let designScenes: Array<DesignAdaptiveScene>
 
-    init(name: String, width: Float32, height: Float32) {
+    init(name: String, width: Float32, height: Float32,
+        designBindings: Array<DesignComponentBinding>,
+        designInteractions: Array<DesignInteractionBinding>,
+        designScenes: Array<DesignAdaptiveScene>) {
         this.name = name
         this.width = width
         this.height = height
+        this.designBindings = designBindings.clone()
+        this.designInteractions = designInteractions.clone()
+        this.designScenes = designScenes.clone()
     }
 
     func beginBuild(): Unit {
@@ -939,6 +958,12 @@ private class ComponentProbeSession {
     }
 
     func report(output: ProbeOutputRequest): String {
+        if (output.designSnapshotV2) {
+            return DesignSnapshotV2(makeDesignSnapshot(output.script),
+                componentBindings: designBindings,
+                interactions: designInteractions,
+                scenes: designScenes).toJson()
+        }
         if (output.designSnapshot) { return makeDesignSnapshot(output.script).toJson() }
         if (output.uiAudit) {
             let severity = if (output.auditThreshold == "error") {UiHealthSeverity.Error}
@@ -1065,16 +1090,18 @@ private class ComponentProbeSession {
 private class ProbeOutputRequest {
     let ascii: Bool
     let designSnapshot: Bool
+    let designSnapshotV2: Bool
     let uiAudit: Bool
     let auditThreshold: String
     let columns: Int64
     let rows: Int64
     let script: String
 
-    init(ascii: Bool, designSnapshot: Bool, uiAudit: Bool, auditThreshold: String,
+    init(ascii: Bool, designSnapshot: Bool, designSnapshotV2: Bool, uiAudit: Bool, auditThreshold: String,
         columns: Int64, rows: Int64, script: String) {
         this.ascii = ascii
         this.designSnapshot = designSnapshot
+        this.designSnapshotV2 = designSnapshotV2
         this.uiAudit = uiAudit
         this.auditThreshold = auditThreshold
         this.columns = columns
@@ -1085,10 +1112,13 @@ private class ProbeOutputRequest {
 
 private func parseProbeOutput(script: String): ProbeOutputRequest {
     let lines = script.split("\n")
-    if (lines.isEmpty()) { return ProbeOutputRequest(false, false, false, "warning", 96, 32, script) }
+    if (lines.isEmpty()) { return ProbeOutputRequest(false, false, false, false, "warning", 96, 32, script) }
     let first = trimProbeText(lines[0])
     if (first == "@cui-design-snapshot") {
-        return ProbeOutputRequest(false, true, false, "warning", 96, 32, remainingProbeScript(lines))
+        return ProbeOutputRequest(false, true, false, false, "warning", 96, 32, remainingProbeScript(lines))
+    }
+    if (first == "@cui-design-snapshot-v2") {
+        return ProbeOutputRequest(false, false, true, false, "warning", 96, 32, remainingProbeScript(lines))
     }
     if (first.startsWith("@cui-ui-audit ")) {
         let parts = splitProbeWords(first)
@@ -1096,16 +1126,16 @@ private func parseProbeOutput(script: String): ProbeOutputRequest {
         if (parts[1] != "info" && parts[1] != "warning" && parts[1] != "error") {
             throw IllegalArgumentException("UI audit threshold must be info, warning, or error")
         }
-        return ProbeOutputRequest(false, false, true, parts[1], 96, 32, remainingProbeScript(lines))
+        return ProbeOutputRequest(false, false, false, true, parts[1], 96, 32, remainingProbeScript(lines))
     }
     if (!first.startsWith("@cui-ascii ")) {
-        return ProbeOutputRequest(false, false, false, "warning", 96, 32, script)
+        return ProbeOutputRequest(false, false, false, false, "warning", 96, 32, script)
     }
     let parts = splitProbeWords(first)
     requireProbeArity(parts, 3, "@cui-ascii")
     let columns = Int64.parse(parts[1])
     let rows = Int64.parse(parts[2])
-    ProbeOutputRequest(true, false, false, "warning", columns, rows, remainingProbeScript(lines))
+    ProbeOutputRequest(true, false, false, false, "warning", columns, rows, remainingProbeScript(lines))
 }
 
 private func remainingProbeScript(lines: Array<String>): String {

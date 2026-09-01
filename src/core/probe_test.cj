@@ -102,6 +102,29 @@ func componentProbeExportsDeterministicDesignSnapshot(): Unit {
     @Expect(first.contains("\"protocol\":\"canghui.design-snapshot/v1\""))
     @Expect(first.contains("\"id\":\"save\""))
     @Expect(first.contains("\"scope\":\"save\""))
+    @Expect(!first.contains("componentBindings"))
+}
+
+@Test
+func componentProbeExportsBoundDesignSnapshotV2(): Unit {
+    let source = DesignSourceBinding("gallery", "PrimaryButton", "src/gallery.cj")
+    let report = ComponentProbe("test.design-v2", width: 120.0, height: 60.0,
+        designBindings: [DesignComponentBinding("save", "Button", source,
+            publicProperties: ["label", "variant"], variants: ["primary"])],
+        designInteractions: [DesignInteractionBinding("save.click", "save",
+            DesignInteractionTrigger.Click, DesignInteractionTargetKind.Action, "gallery.save",
+            handlerPackage: "gallery", handlerSymbol: "save", handlerRelativePath: "src/gallery.cj")],
+        designScenes: cangHuiRecommendedDesignScenes()).run("@cui-design-snapshot-v2") {
+        Button("Save", { => }).key("save").probe("save", "Button", [
+            ProbeProperty("role", "button"),
+            ProbeProperty("label", "Save"),
+            ProbeProperty("action", "save()")
+        ])
+    }
+    @Expect(report.contains("\"protocol\":\"canghui.design-snapshot/v2\""))
+    @Expect(report.contains("\"protocol\":\"canghui.design-snapshot/v1\""))
+    @Expect(report.contains("\"handlerSymbol\":\"save\""))
+    @Expect(report.contains("\"id\":\"phone-compact-3x\""))
 }
 
 @Test

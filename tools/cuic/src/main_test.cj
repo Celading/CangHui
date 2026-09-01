@@ -521,6 +521,12 @@ func pviewUsesSameAsciiTargetParser(): Unit {
 @Test
 func helpPublishesDesignSnapshotExport(): Unit {
     @Expect(helpText().contains("cuic design snapshot"))
+    @Expect(helpText().contains("--version <1|2>"))
+    let parsed = parseProbeTarget(
+        ["cuic", "design", "snapshot", "component-gallery", "gallery.primary-button",
+            "--version", "2"], 3, true, allowDesignVersion: true)
+    @Expect(parsed.name, "gallery.primary-button")
+    @Expect(parsed.designVersion, Int64(2))
 }
 
 @Test

@@ -232,9 +232,10 @@ func designCommand(args: Array<String>, start: Int64): Int64 {
         throw CuicError("design requires snapshot")
     }
     requireDebugChannelBuild("cuic design snapshot")
-    let parsed = parseProbeTarget(args, start + 1, true)
+    let parsed = parseProbeTarget(args, start + 1, true, allowDesignVersion: true)
     if (parsed.json) { throw CuicError("design snapshot always emits canonical JSON") }
-    let request = "@cui-design-snapshot\n" + parsed.script
+    let request = (if (parsed.designVersion == 2) { "@cui-design-snapshot-v2\n" }
+        else { "@cui-design-snapshot\n" }) + parsed.script
     runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
         parsed.name, true)
 }
@@ -267,9 +268,10 @@ class ProbeTargetSelection {
     let columns: Int64
     let rows: Int64
     let failOn: String
+    let designVersion: Int64
 
     init(project: String, name: String, script: String, json: Bool, columns: Int64, rows: Int64,
-        failOn!: String = "warning") {
+        failOn!: String = "warning", designVersion!: Int64 = 1) {
         this.project = project
         this.name = name
         this.script = script
@@ -277,21 +279,31 @@ class ProbeTargetSelection {
         this.columns = columns
         this.rows = rows
         this.failOn = failOn
+        this.designVersion = designVersion
     }
 }
 
 func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
-    allowAscii!: Bool = false, allowAudit!: Bool = false): ProbeTargetSelection {
+    allowAscii!: Bool = false, allowAudit!: Bool = false, allowDesignVersion!: Bool = false): ProbeTargetSelection {
     let positional = ArrayList<String>()
     var script = ""
     var json = false
     var columns: Int64 = 96
     var rows: Int64 = 32
     var failOn = "warning"
+    var designVersion: Int64 = 1
     var i = start
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--version") {
+            if (!allowDesignVersion) { throw CuicError("--version is only valid for design snapshot") }
+            if (i + 1 >= args.size) { throw CuicError("--version requires 1 or 2") }
+            designVersion = Int64.parse(args[i + 1])
+            if (designVersion != 1 && designVersion != 2) { throw CuicError("--version requires 1 or 2") }
+            i += 2
+            continue
+        }
         if (value == "--fail-on") {
             if (!allowAudit) { throw CuicError("--fail-on is only valid for ui audit") }
             if (i + 1 >= args.size) { throw CuicError("--fail-on requires info, warning, or error") }
@@ -338,7 +350,8 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
         if (columns < 20 || columns > 240) { throw CuicError("probe ascii columns must be between 20 and 240") }
         if (rows < 8 || rows > 100) { throw CuicError("probe ascii rows must be between 8 and 100") }
     }
-    ProbeTargetSelection(project, name, script, json, columns, rows, failOn: failOn)
+    ProbeTargetSelection(project, name, script, json, columns, rows,
+        failOn: failOn, designVersion: designVersion)
 }
 
 func runProbeExchange(projectValue: String, endpoint: String, payload: String,

@@ -23,7 +23,17 @@ func galleryViewportClass(value: String): String {
 @CuiProbe["gallery.primary-button"]
 func galleryPrimaryButtonProbe(script: String): String {
     let clicks = State<Int64>(0)
-    ComponentProbe("gallery.primary-button", width: 320.0, height: 120.0).run(script) {
+    let source = DesignSourceBinding("chui.core", "Button", "src/core/widget.cj")
+    let binding = DesignComponentBinding("primary-button", "Button", source,
+        publicProperties: ["label", "role", "style"],
+        variants: ["primary", "secondary", "text"], slots: ["content"])
+    let interaction = DesignInteractionBinding("primary-button.activate", "primary-button",
+        DesignInteractionTrigger.Click, DesignInteractionTargetKind.Action, "gallery.primary-button.activate",
+        handlerPackage: "canghui_component_gallery", handlerSymbol: "galleryPrimaryButtonProbe",
+        handlerRelativePath: "src/main.cj")
+    ComponentProbe("gallery.primary-button", width: 320.0, height: 120.0,
+        designBindings: [binding], designInteractions: [interaction],
+        designScenes: cangHuiRecommendedDesignScenes()).run(script) {
         ProbeNode("gallery-root", widgetType: "VStack",
             properties: [ProbeProperty("role", "fixture")]) {
             VStack(padding: LengthInsets(16.vp)) {

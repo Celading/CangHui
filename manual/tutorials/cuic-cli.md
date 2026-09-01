@@ -59,12 +59,14 @@ cuic pview [project] <probe> [--columns <20..240>] [--rows <8..100>] [--script <
 ## 设计硬真相导出
 
 ```bash
-cuic design snapshot [project] <probe> [--script <file>|--events <script>]
+cuic design snapshot [project] <probe> [--version <1|2>] [--script <file>|--events <script>]
 ```
 
 - 复用已有 `ComponentProbe`，从最终采样帧导出 `canghui.design-snapshot/v1` 规范 JSON。
 - 输出对齐稳定组件 ID、层级、布局、语义状态和 scoped Draw IR；相同输入的字节与 digest 稳定。
 - 敏感属性入场脱敏，且命令仍受 debug 门保护；它不读取系统截图，也不开放发布态输入隧道。
+- `--version 2` 在完整 v1 之上输出 typed 组件/函数跳转、声明式交互和跨端多 DPI 场景；
+  省略版本时保持 v1，不会悄然改变既有 CI 字节。
 
 ## 一次性界面事件与无图观察
 
