@@ -1,5 +1,6 @@
 package chui.core
 
+import std.collection.ArrayList
 import sdl.{Color, Fonts, FontSizes, FontStyle, Rect, Size, UiEvent}
 
 private let LABEL_LINE_GAP: Float32 = 2.0
@@ -267,6 +268,63 @@ public class Label <: Widget {
         false
     }
 
+    /** Runtime typography and overflow facts for DesignSnapshot v2 computed truth. */
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        let facts = ArrayList<DesignComputedFact>()
+        let size = resolvedPointSize(ctx)
+        let style = resolvedTextStyle(ctx)
+        let font = resolvedFontFace(ctx)
+        let resolution = ctx.renderer.fontResolutionForText(text, pointSize: size, style: style, font: font)
+        facts.add(DesignComputedFact(DesignComputedCategory.Typography, "font.size",
+            DesignComputedValueKind.Length, size.toString(), unit: "logical-pixel",
+            sourceValue: match (pointSize) {
+                case Some(value) => value.toString()
+                case None => "inherited-or-theme"
+            }, provenance: DesignComputedProvenance.Semantic))
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Typography, "font.resolved-family",
+            resolution.family, DesignComputedProvenance.Semantic))
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Typography, "font.source",
+            resolution.sourceName(), DesignComputedProvenance.Semantic))
+        match (font) {
+            case Some(value) => facts.add(computedDesignTokenFact(DesignComputedCategory.Typography,
+                "font.requested-family", value, DesignComputedProvenance.Semantic))
+            case None => ()
+        }
+        facts.add(computedDesignBoolFact(DesignComputedCategory.Typography, "font.bold", style.bold,
+            DesignComputedProvenance.Semantic))
+        facts.add(computedDesignBoolFact(DesignComputedCategory.Typography, "font.italic", style.italic,
+            DesignComputedProvenance.Semantic))
+        facts.add(computedDesignBoolFact(DesignComputedCategory.Typography, "font.underline", style.underline,
+            DesignComputedProvenance.Semantic))
+        facts.add(computedDesignBoolFact(DesignComputedCategory.Typography, "font.strikethrough",
+            style.strikethrough, DesignComputedProvenance.Semantic))
+        facts.add(DesignComputedFact(DesignComputedCategory.Typography, "line.height",
+            DesignComputedValueKind.Length,
+            ctx.renderer.textHeight(pointSize: size, style: style, font: font).toString(),
+            unit: "logical-pixel", provenance: DesignComputedProvenance.Semantic))
+        facts.add(DesignComputedFact(DesignComputedCategory.Typography, "line.spacing",
+            DesignComputedValueKind.Length, lineGap.toString(), unit: "logical-pixel",
+            provenance: DesignComputedProvenance.Semantic))
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Typography, "text.align",
+            designTextAlignName(alignment), DesignComputedProvenance.Semantic))
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Typography, "text.overflow",
+            if (lineLimit == Int64.Max) { "wrap" } else { "ellipsis" },
+            DesignComputedProvenance.Semantic))
+        if (lineLimit == Int64.Max) {
+            facts.add(computedDesignTokenFact(DesignComputedCategory.Typography, "text.line-limit",
+                "unbounded", DesignComputedProvenance.Semantic))
+        } else {
+            facts.add(computedDesignIntegerFact(DesignComputedCategory.Typography, "text.line-limit",
+                lineLimit, DesignComputedProvenance.Semantic))
+        }
+        facts.add(computedDesignBoolFact(DesignComputedCategory.State, "text.muted", isMuted,
+            DesignComputedProvenance.Semantic))
+        facts.add(DesignComputedFact(DesignComputedCategory.Typography, "text.foreground",
+            DesignComputedValueKind.Color, computedDesignColor(drawColor(ctx)), unit: "rgba8",
+            provenance: DesignComputedProvenance.Semantic))
+        facts.toArray()
+    }
+
     private func drawColor(ctx: UiContext): Color {
         match (textColor) {
             case Some(value) => value
@@ -350,5 +408,13 @@ public class Label <: Widget {
                 let lineW = ctx.renderer.textWidth(line, pointSize: ps, style: style, font: font)
                 frame.right() - lineW
         }
+    }
+}
+
+private func designTextAlignName(value: TextAlign): String {
+    match (value) {
+        case TextAlign.Leading => "leading"
+        case TextAlign.Center => "center"
+        case TextAlign.Trailing => "trailing"
     }
 }

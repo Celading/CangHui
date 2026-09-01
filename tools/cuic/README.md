@@ -203,11 +203,14 @@ opening a window.
 ./bin/cuic probe run component-gallery gallery.primary-button \
   --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
   --json
+./bin/cuic design snapshot component-gallery gallery.primary-button --version 2 --computed
 ```
 
 The scanner follows recursive local path dependencies plus the resolved framework cache and reports every duplicate source location before the
 child build. Macro-generated symbols and the runtime registry remain fail-closed backstops. See
 [`manual/reference/probe.md`](../../manual/reference/probe.md) for annotation, scripting, assertion, and report details.
+The optional `--computed` v2 export groups resolved layout/style/typography/resource facts and exact scoped
+Draw IR under stable node IDs. It is still a debug-only structural evidence path; use `cuic prnt` for pixels.
 
 ## Platform Matrix
 

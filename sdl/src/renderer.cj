@@ -273,6 +273,15 @@ public class Renderer {
         drawIrLog.add(DrawIrCommand(kind, scope, data: data))
     }
 
+    /** Records a path-private logical image reference for headless design evidence. */
+    public func recordImageResource(name: String, role: String, provenance: String,
+        destination: Rect, fit: String): Unit {
+        recordDrawIr("resource.image", drawIrRect(destination) +
+            ",\"name\":" + drawIrQuote(name) + ",\"role\":" + drawIrQuote(role) +
+            ",\"provenance\":" + drawIrQuote(provenance) +
+            ",\"fit\":" + drawIrQuote(fit))
+    }
+
     /**
      * The SDL render backend actually chosen (for example "direct3d11", "direct3d12", "opengl",
      * "vulkan", or "software"). A hardware/software tell: "software" means every pixel is drawn on

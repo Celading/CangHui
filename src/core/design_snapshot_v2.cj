@@ -1,12 +1,15 @@
 package chui.core
 
 import std.collection.{ArrayList, HashSet}
+import sdl.DrawIrCommand
 
 /** Additive editable-design envelope. V1 remains embedded byte-for-byte and keeps its own protocol. */
 public const CANGHUI_DESIGN_SNAPSHOT_V2_PROTOCOL: String = "canghui.design-snapshot/v2"
 public const DESIGN_SNAPSHOT_V2_HARD_MAX_COMPONENT_BINDINGS: Int64 = 4096
 public const DESIGN_SNAPSHOT_V2_HARD_MAX_INTERACTIONS: Int64 = 8192
 public const DESIGN_SNAPSHOT_V2_HARD_MAX_SCENES: Int64 = 64
+public const DESIGN_SNAPSHOT_V2_HARD_MAX_COMPUTED_NODES: Int64 = DESIGN_SNAPSHOT_HARD_MAX_NODES
+public const DESIGN_SNAPSHOT_V2_HARD_MAX_COMPUTED_FACTS: Int64 = DESIGN_SNAPSHOT_HARD_MAX_PROPERTIES
 
 /** Project-neutral source location used for design-to-code navigation, never execution. */
 public struct DesignSourceBinding {
@@ -357,6 +360,7 @@ public class DesignSnapshotV2 {
     public let componentBindings: Array<DesignComponentBinding>
     public let interactions: Array<DesignInteractionBinding>
     public let scenes: Array<DesignAdaptiveScene>
+    public let computedNodes: Array<DesignComputedNode>
     public let contentDigest: String
     private let canonicalContent: String
 
@@ -364,22 +368,27 @@ public class DesignSnapshotV2 {
         base: DesignSnapshot,
         componentBindings!: Array<DesignComponentBinding> = [],
         interactions!: Array<DesignInteractionBinding> = [],
-        scenes!: Array<DesignAdaptiveScene> = []
+        scenes!: Array<DesignAdaptiveScene> = [],
+        computedNodes!: Array<DesignComputedNode> = []
     ) {
         if (componentBindings.size > DESIGN_SNAPSHOT_V2_HARD_MAX_COMPONENT_BINDINGS ||
             interactions.size > DESIGN_SNAPSHOT_V2_HARD_MAX_INTERACTIONS ||
-            scenes.size > DESIGN_SNAPSHOT_V2_HARD_MAX_SCENES) {
+            scenes.size > DESIGN_SNAPSHOT_V2_HARD_MAX_SCENES ||
+            computedNodes.size > DESIGN_SNAPSHOT_V2_HARD_MAX_COMPUTED_NODES) {
             throw IllegalArgumentException("design snapshot v2 extension exceeds a hard item limit")
         }
         let ownedBindings = sortedDesignComponentBindings(componentBindings)
         let ownedInteractions = sortedDesignInteractionBindings(interactions)
         let ownedScenes = sortedDesignAdaptiveScenes(scenes)
-        validateDesignSnapshotV2References(base, ownedBindings, ownedInteractions)
+        let ownedComputedNodes = sortedDesignComputedNodes(computedNodes)
+        validateDesignSnapshotV2References(base, ownedBindings, ownedInteractions, ownedComputedNodes)
         this.base = base
         this.componentBindings = ownedBindings
         this.interactions = ownedInteractions
         this.scenes = ownedScenes
-        this.canonicalContent = renderDesignSnapshotV2Content(base, ownedBindings, ownedInteractions, ownedScenes)
+        this.computedNodes = ownedComputedNodes
+        this.canonicalContent = renderDesignSnapshotV2Content(
+            base, ownedBindings, ownedInteractions, ownedScenes, ownedComputedNodes)
         if (canonicalContent.toArray().size > DESIGN_SNAPSHOT_HARD_MAX_TEXT_BYTES) {
             throw IllegalArgumentException("design snapshot v2 exceeds the hard text byte limit")
         }
@@ -395,7 +404,7 @@ public class DesignSnapshotV2 {
 
 private func renderDesignSnapshotV2Content(base: DesignSnapshot,
     bindings: Array<DesignComponentBinding>, interactions: Array<DesignInteractionBinding>,
-    scenes: Array<DesignAdaptiveScene>): String {
+    scenes: Array<DesignAdaptiveScene>, computedNodes: Array<DesignComputedNode>): String {
     let out = StringBuilder()
     out.append("{\"schemaVersion\":2,\"base\":")
     out.append(base.toJson())
@@ -420,7 +429,19 @@ private func renderDesignSnapshotV2Content(base: DesignSnapshot,
         first = false
         out.append(renderDesignAdaptiveScene(value))
     }
-    out.append("]}")
+    out.append("]")
+    // Optional by design: omitting this member preserves every existing v2 canonical byte.
+    if (!computedNodes.isEmpty()) {
+        out.append(",\"computedNodes\":[")
+        first = true
+        for (value in computedNodes) {
+            if (!first) { out.append(",") }
+            first = false
+            out.append(value.toJson())
+        }
+        out.append("]")
+    }
+    out.append("}")
     out.toString()
 }
 
@@ -505,7 +526,8 @@ private func renderDesignAdaptiveScene(value: DesignAdaptiveScene): String {
 }
 
 private func validateDesignSnapshotV2References(base: DesignSnapshot,
-    bindings: Array<DesignComponentBinding>, interactions: Array<DesignInteractionBinding>): Unit {
+    bindings: Array<DesignComponentBinding>, interactions: Array<DesignInteractionBinding>,
+    computedNodes: Array<DesignComputedNode>): Unit {
     let nodeIds = HashSet<String>()
     let stateIds = HashSet<String>()
     for (node in base.nodes) {
@@ -547,6 +569,72 @@ private func validateDesignSnapshotV2References(base: DesignSnapshot,
             case _ => ()
         }
     }
+    if (!computedNodes.isEmpty()) {
+        if (computedNodes.size != base.nodes.size) {
+            throw IllegalArgumentException("computed design truth must cover every base node")
+        }
+        var factCount: Int64 = 0
+        var drawCount: Int64 = 0
+        let computedIds = HashSet<String>()
+        for (computed in computedNodes) {
+            if (!nodeIds.contains(computed.nodeId)) {
+                throw IllegalArgumentException("computed design truth references an unknown node")
+            }
+            if (computedIds.contains(computed.nodeId)) {
+                throw IllegalArgumentException("duplicate computed design node id")
+            }
+            computedIds.add(computed.nodeId)
+            factCount += computed.facts.size
+            drawCount += computed.drawIr.size
+            for (command in computed.drawIr) {
+                if (command.scope.isEmpty() && !designSnapshotV2ScreenNode(base, computed.nodeId)) {
+                    throw IllegalArgumentException("unscoped Draw IR may only belong to the screen node")
+                }
+            }
+            validateComputedDrawIrExactlyMatchesBase(base, computed)
+        }
+        if (factCount > DESIGN_SNAPSHOT_V2_HARD_MAX_COMPUTED_FACTS) {
+            throw IllegalArgumentException("computed design truth exceeds the hard fact limit")
+        }
+        if (drawCount != base.drawIr.size) {
+            throw IllegalArgumentException("computed design truth must account for every Draw IR command")
+        }
+        for (command in base.drawIr) {
+            if (!command.scope.isEmpty() && !nodeIds.contains(command.scope)) {
+                throw IllegalArgumentException("DesignSnapshot v2 contains an orphan Draw IR scope")
+            }
+        }
+    }
+}
+
+private func validateComputedDrawIrExactlyMatchesBase(base: DesignSnapshot,
+    computed: DesignComputedNode): Unit {
+    let expected = ArrayList<DrawIrCommand>()
+    let screen = designSnapshotV2ScreenNode(base, computed.nodeId)
+    for (command in base.drawIr) {
+        if ((command.scope.isEmpty() && screen) || command.scope == computed.nodeId) {
+            expected.add(command)
+        }
+    }
+    if (expected.size != computed.drawIr.size) {
+        throw IllegalArgumentException("computed node Draw IR does not match its base scope")
+    }
+    for (i in 0..expected.size) {
+        let left = expected[i]
+        let right = computed.drawIr[i]
+        if (left.kind != right.kind || left.scope != right.scope || left.data != right.data) {
+            throw IllegalArgumentException("computed node Draw IR changed base command bytes or order")
+        }
+    }
+}
+
+private func designSnapshotV2ScreenNode(base: DesignSnapshot, nodeId: String): Bool {
+    for (node in base.nodes) {
+        if (node.id == nodeId) {
+            return match (node.kind) { case DesignSnapshotNodeKind.Screen => true case _ => false }
+        }
+    }
+    false
 }
 
 private func sortedDesignComponentBindings(values: Array<DesignComponentBinding>): Array<DesignComponentBinding> {
@@ -589,6 +677,22 @@ private func sortedDesignAdaptiveScenes(values: Array<DesignAdaptiveScene>): Arr
     for (value in result) {
         if (value.id == previous) { throw IllegalArgumentException("duplicate design adaptive scene id") }
         previous = value.id
+    }
+    result
+}
+
+private func sortedDesignComputedNodes(values: Array<DesignComputedNode>): Array<DesignComputedNode> {
+    let result = values.clone()
+    var i: Int64 = 1
+    while (i < result.size) {
+        let value = result[i]
+        var j = i
+        while (j > 0 && result[j - 1].nodeId > value.nodeId) {
+            result[j] = result[j - 1]
+            j -= 1
+        }
+        result[j] = value
+        i += 1
     }
     result
 }

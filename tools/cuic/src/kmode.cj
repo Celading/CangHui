@@ -234,7 +234,9 @@ func designCommand(args: Array<String>, start: Int64): Int64 {
     requireDebugChannelBuild("cuic design snapshot")
     let parsed = parseProbeTarget(args, start + 1, true, allowDesignVersion: true)
     if (parsed.json) { throw CuicError("design snapshot always emits canonical JSON") }
-    let request = (if (parsed.designVersion == 2) { "@cui-design-snapshot-v2\n" }
+    let request = (if (parsed.designVersion == 2 && parsed.computedTruth) {
+            "@cui-design-snapshot-v2-computed\n"
+        } else if (parsed.designVersion == 2) { "@cui-design-snapshot-v2\n" }
         else { "@cui-design-snapshot\n" }) + parsed.script
     runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
         parsed.name, true)
@@ -269,9 +271,10 @@ class ProbeTargetSelection {
     let rows: Int64
     let failOn: String
     let designVersion: Int64
+    let computedTruth: Bool
 
     init(project: String, name: String, script: String, json: Bool, columns: Int64, rows: Int64,
-        failOn!: String = "warning", designVersion!: Int64 = 1) {
+        failOn!: String = "warning", designVersion!: Int64 = 1, computedTruth!: Bool = false) {
         this.project = project
         this.name = name
         this.script = script
@@ -280,6 +283,7 @@ class ProbeTargetSelection {
         this.rows = rows
         this.failOn = failOn
         this.designVersion = designVersion
+        this.computedTruth = computedTruth
     }
 }
 
@@ -292,6 +296,7 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
     var rows: Int64 = 32
     var failOn = "warning"
     var designVersion: Int64 = 1
+    var computedTruth = false
     var i = start
     while (i < args.size) {
         let value = args[i]
@@ -302,6 +307,12 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
             designVersion = Int64.parse(args[i + 1])
             if (designVersion != 1 && designVersion != 2) { throw CuicError("--version requires 1 or 2") }
             i += 2
+            continue
+        }
+        if (value == "--computed") {
+            if (!allowDesignVersion) { throw CuicError("--computed is only valid for design snapshot") }
+            computedTruth = true
+            i += 1
             continue
         }
         if (value == "--fail-on") {
@@ -350,8 +361,11 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
         if (columns < 20 || columns > 240) { throw CuicError("probe ascii columns must be between 20 and 240") }
         if (rows < 8 || rows > 100) { throw CuicError("probe ascii rows must be between 8 and 100") }
     }
+    if (computedTruth && designVersion != 2) {
+        throw CuicError("--computed requires --version 2")
+    }
     ProbeTargetSelection(project, name, script, json, columns, rows,
-        failOn: failOn, designVersion: designVersion)
+        failOn: failOn, designVersion: designVersion, computedTruth: computedTruth)
 }
 
 func runProbeExchange(projectValue: String, endpoint: String, payload: String,
@@ -363,7 +377,11 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let boot = bootstrap(hostPlatform(), framework, stagingRoot: context.stagingRoot)
+    // JSON probe/design commands are machine-readable contracts. Keep bootstrap
+    // progress off stdout so their output remains directly consumable by jq and
+    // other protocol clients.
+    let boot = bootstrap(hostPlatform(), framework,
+        stagingRoot: context.stagingRoot, quiet: json)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
     var buildCode = 0

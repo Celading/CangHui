@@ -163,6 +163,51 @@
         "recommendation": { "$ref": "#/$defs/recommendation" }
       }
     },
+    "computedFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category", "name", "valueKind", "value", "unit", "sourceValue", "provenance"
+      ],
+      "properties": {
+        "category": {
+          "enum": ["layout", "style", "typography", "paint", "resource", "clip", "transform", "state"]
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "valueKind": {
+          "enum": ["boolean", "integer", "number", "length", "color", "token", "text", "json"]
+        },
+        "value": { "type": "string", "maxLength": 16384 },
+        "unit": { "type": "string", "maxLength": 4096 },
+        "sourceValue": { "type": "string", "maxLength": 16384 },
+        "provenance": {
+          "enum": ["runtime-layout", "widget-modifier", "container", "draw-ir", "semantic"]
+        }
+      }
+    },
+    "computedDraw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "command"],
+      "properties": {
+        "category": { "enum": ["typography", "paint", "resource", "clip", "transform"] },
+        "command": { "type": "object" }
+      }
+    },
+    "computedNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nodeId", "facts", "drawIr"],
+      "properties": {
+        "nodeId": { "type": "string", "minLength": 1 },
+        "facts": {
+          "type": "array", "maxItems": 16384, "items": { "$ref": "#/$defs/computedFact" }
+        },
+        "drawIr": {
+          "type": "array", "maxItems": 65536, "items": { "$ref": "#/$defs/computedDraw" }
+        }
+      }
+    },
     "content": {
       "type": "object",
       "additionalProperties": false,
@@ -178,6 +223,9 @@
         },
         "scenes": {
           "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/scene" }
+        },
+        "computedNodes": {
+          "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/computedNode" }
         }
       }
     }

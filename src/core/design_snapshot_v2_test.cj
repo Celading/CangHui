@@ -1,6 +1,6 @@
 package chui.core
 
-import sdl.Rect
+import sdl.{DrawIrCommand, Rect}
 
 private let DESIGN_TEST_SHA = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
@@ -108,4 +108,39 @@ func recommendedDesignScenesCoverMultiplatformDensityAndInput(): Unit {
         }
     }
     @Expect(hasPhone && hasTablet && hasDesktop1x && hasDesktop2x && hasFoldable && hasGamepad)
+}
+
+@Test
+func computedTruthIsOptionalTypedAndAccountsForExactDrawIr(): Unit {
+    let commands = [
+        DrawIrCommand("scene.begin", ""),
+        DrawIrCommand("text", "title", data: "\"text\":\"Hello\",\"pointSize\":15")
+    ]
+    let base = DesignSnapshot("computed", DesignSnapshotEnvironment("headless", 200.0, 80.0), [
+        DesignSnapshotNode("screen", DesignSnapshotNodeKind.Screen, Rect(0.0, 0.0, 200.0, 80.0)),
+        DesignSnapshotNode("title", DesignSnapshotNodeKind.Component, Rect(8.0, 8.0, 80.0, 24.0),
+            parentId: "screen")
+    ], drawIr: commands)
+    let value = DesignSnapshotV2(base, computedNodes: [
+        DesignComputedNode("screen", facts: [DesignComputedFact(DesignComputedCategory.Layout,
+            "frame.width", DesignComputedValueKind.Length, "200", unit: "logical-pixel",
+            provenance: DesignComputedProvenance.RuntimeLayout)], drawIr: [commands[0]]),
+        DesignComputedNode("title", facts: [DesignComputedFact(DesignComputedCategory.Typography,
+            "font.family", DesignComputedValueKind.Token, "HarmonyOS Sans",
+            provenance: DesignComputedProvenance.DrawIr)], drawIr: [commands[1]])
+    ])
+    @Expect(value.toJson().contains("\"computedNodes\":"))
+    @Expect(value.toJson().contains("\"category\":\"typography\""))
+    @Expect(value.toJson().contains("\"provenance\":\"draw-ir\""))
+    @Expect(!designSnapshotV2Fixture().toJson().contains("\"computedNodes\":"))
+
+    var changedCommandRejected = false
+    try {
+        let _ = DesignSnapshotV2(base, computedNodes: [
+            DesignComputedNode("screen", drawIr: [commands[0]]),
+            DesignComputedNode("title", drawIr: [DrawIrCommand("text", "title",
+                data: "\"text\":\"Changed\",\"pointSize\":15")])
+        ])
+    } catch (_: IllegalArgumentException) { changedCommandRejected = true }
+    @Expect(changedCommandRejected)
 }

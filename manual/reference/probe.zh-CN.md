@@ -155,6 +155,7 @@ probeSemanticRegions { => [
 ```bash
 cuic design snapshot component-gallery gallery.primary-button
 cuic design snapshot component-gallery gallery.primary-button --version 2
+cuic design snapshot component-gallery gallery.primary-button --version 2 --computed
 cuic design snapshot component-gallery gallery.primary-button --script events.txt
 ```
 
@@ -163,3 +164,9 @@ cuic design snapshot component-gallery gallery.primary-button --script events.tx
 `--version 2` 会完整嵌入上述 v1，再携带 Probe 显式提供的 typed 组件/源码定位、交互边与
 Multiplatform 场景；省略时仍是原有 v1。详见
 [`DesignSnapshotV2`](../api/chui/core/DesignSnapshotV2.md)。
+
+`--computed` 只适用于 v2。它从同一运行时布局和 scoped Draw IR 生成 node 级计算事实，
+包括最终 frame、解析后的 modifier/container 属性、Label 排版、ImageView 逻辑资源身份及
+实际绘制命令。默认 v2 不带该字段，旧 digest 保持稳定。它用于设计往返和结构差异定位；
+像素结果仍由 `cuic prnt` 证明。为了覆盖完整 modifier 链，应把 `.probe("stable.id")`
+放在链尾。

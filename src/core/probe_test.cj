@@ -106,6 +106,37 @@ func componentProbeExportsDeterministicDesignSnapshot(): Unit {
 }
 
 @Test
+func componentProbeExportsOptionalComputedRuntimeTruthWithoutChangingDefaultV2(): Unit {
+    let render = { computed: Bool =>
+        ComponentProbe("test.computed", width: 240.0, height: 120.0).run(
+            if (computed) { "@cui-design-snapshot-v2-computed" } else { "@cui-design-snapshot-v2" }) {
+            VStack(spacing: 12.vp, padding: LengthInsets(8.vp), flexible: false) {
+                Button("Save", { => }).key("computed-save")
+                    .width(180.vp)
+                    .background(Color.rgb(20, 40, 60), 10.vp)
+                    .probe("computed.save", "Button", [
+                        ProbeProperty("role", "button"),
+                        ProbeProperty("label", "Save")
+                    ])
+            }.mainAxisAlignment(MainAxisAlignment.SpaceBetween)
+                .crossAxisAlignment(CrossAxisAlignment.Center)
+                .probe("computed.root", "VStack")
+        }
+    }
+    let first = render(true)
+    let second = render(true)
+    let plain = render(false)
+    @Expect(first, second)
+    @Expect(first.contains("\"computedNodes\":"))
+    @Expect(first.contains("\"name\":\"container.gap\""))
+    @Expect(first.contains("\"name\":\"constraint.width\""))
+    @Expect(first.contains("\"sourceValue\":\"180.000000vp\""))
+    @Expect(first.contains("\"category\":\"typography\""))
+    @Expect(first.contains("\"scope\":\"computed.save\""))
+    @Expect(!plain.contains("\"computedNodes\":"))
+}
+
+@Test
 func componentProbeExportsBoundDesignSnapshotV2(): Unit {
     let source = DesignSourceBinding("gallery", "PrimaryButton", "src/gallery.cj")
     let report = ComponentProbe("test.design-v2", width: 120.0, height: 60.0,

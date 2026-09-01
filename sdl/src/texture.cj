@@ -271,6 +271,13 @@ extend Renderer {
         if (texture.isClosed()) {
             throw CuiException("Cannot render a closed texture.")
         }
+        let sourceData = match (source) {
+            case Some(rect) => ",\"source\":{" + drawIrRect(rect) + "}"
+            case None => ""
+        }
+        recordDrawIr("resource.texture", drawIrRect(destination) +
+            ",\"intrinsicWidth\":" + texture.width.toString() +
+            ",\"intrinsicHeight\":" + texture.height.toString() + sourceData)
         var dst = destination.toSdlFRect()
         match (source) {
             case Some(rect) =>

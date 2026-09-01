@@ -117,6 +117,8 @@ public import chui.core.DESIGN_SNAPSHOT_HARD_MAX_TEXT_BYTES
 public import chui.core.DESIGN_SNAPSHOT_V2_HARD_MAX_COMPONENT_BINDINGS
 public import chui.core.DESIGN_SNAPSHOT_V2_HARD_MAX_INTERACTIONS
 public import chui.core.DESIGN_SNAPSHOT_V2_HARD_MAX_SCENES
+public import chui.core.DESIGN_SNAPSHOT_V2_HARD_MAX_COMPUTED_NODES
+public import chui.core.DESIGN_SNAPSHOT_V2_HARD_MAX_COMPUTED_FACTS
 public import chui.core.DesignSnapshot
 public import chui.core.DesignSnapshotV2
 public import chui.core.DesignSnapshotDiff
@@ -125,6 +127,14 @@ public import chui.core.DesignSnapshotNode
 public import chui.core.DesignSnapshotNodeKind
 public import chui.core.DesignSnapshotProperty
 public import chui.core.designSnapshotNodeKindName
+public import chui.core.DesignComputedCategory
+public import chui.core.DesignComputedValueKind
+public import chui.core.DesignComputedProvenance
+public import chui.core.DesignComputedFact
+public import chui.core.DesignComputedNode
+public import chui.core.designComputedCategoryName
+public import chui.core.designComputedValueKindName
+public import chui.core.designComputedProvenanceName
 public import chui.core.DesignSourceBinding
 public import chui.core.DesignComponentBinding
 public import chui.core.DesignInteractionBinding

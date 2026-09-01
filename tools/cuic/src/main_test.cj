@@ -522,11 +522,23 @@ func pviewUsesSameAsciiTargetParser(): Unit {
 func helpPublishesDesignSnapshotExport(): Unit {
     @Expect(helpText().contains("cuic design snapshot"))
     @Expect(helpText().contains("--version <1|2>"))
+    @Expect(helpText().contains("--computed"))
     let parsed = parseProbeTarget(
         ["cuic", "design", "snapshot", "component-gallery", "gallery.primary-button",
             "--version", "2"], 3, true, allowDesignVersion: true)
     @Expect(parsed.name, "gallery.primary-button")
     @Expect(parsed.designVersion, Int64(2))
+    let computed = parseProbeTarget(
+        ["cuic", "design", "snapshot", "component-gallery", "gallery.primary-button",
+            "--version", "2", "--computed"], 3, true, allowDesignVersion: true)
+    @Expect(computed.computedTruth)
+    var v1ComputedRejected = false
+    try {
+        let _ = parseProbeTarget(
+            ["cuic", "design", "snapshot", "component-gallery", "gallery.primary-button",
+                "--version", "1", "--computed"], 3, true, allowDesignVersion: true)
+    } catch (_: CuicError) { v1ComputedRejected = true }
+    @Expect(v1ComputedRejected)
 }
 
 @Test

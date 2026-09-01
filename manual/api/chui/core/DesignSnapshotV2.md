@@ -88,10 +88,39 @@ ComponentProbe(
 
 ```bash
 cuic design snapshot . explorer.files --version 2
+cuic design snapshot . explorer.files --version 2 --computed
 ```
 
 `--version 1` 或省略 `--version` 仍输出 v1。所有设计导出和 probe 执行继续受 CUIC debug
 通道约束。
+
+### 计算布局、样式与绘制证据
+
+`--computed` 是 v2 的显式可选扩展。它为每个稳定 node ID 增加 `computedNodes`，包含：
+
+- 最终 frame、测量结果、flex/stretch、`zIndex` 与布局参与状态；
+- Row/HStack/VStack 实际解析后的轴、gap、padding 与对齐；
+- 尺寸约束、背景、圆角、border、gradient、shadow、可见/可用状态；
+- Label 的实际字号、解析字体族/来源、字形样式、行高、行距、对齐、换行/省略规则；
+- ImageView 的 fit 与可选逻辑资源身份；
+- 按 node ID 分组且保持绘制顺序的原始 scoped Draw IR，包括文字、纹理、clip、transform
+  与 paint 命令。
+
+每个 fact 都有 `category`、`valueKind`、`value`、`unit`、`sourceValue` 与 `provenance`。
+`value` 是运行时解析结果，`sourceValue` 在可用时保留 `.vp/.fp/.px` 等声明值。默认 v2
+不输出 `computedNodes`，因此原有 canonical bytes/digest 不受影响；`--computed` 必须与
+`--version 2` 同时使用。
+
+探针应放在完整 modifier 链的最后，例如：
+
+```cangjie
+Label("保存").fontSize(15.fp).padding(horizontal: 12.vp).probe("toolbar.save")
+```
+
+这样 probe 包住最终 widget，能同时观察内部语义与外层 modifier。对图片优先使用
+`ImageView.fromResource(resources.resolve("hero"))`，导出只携带逻辑名称、角色和 package
+provenance，不泄漏机器绝对路径。资源内容摘要目前仍需由设计绑定所有者通过
+`DesignSourceBinding.resourceDigest` 提供；computed truth 不会把未验证摘要冒充运行时事实。
 
 公开 JSON 约束见
 [`canghui-design-snapshot-v2.schema.json`](../../../../contracts/canghui-design-snapshot-v2.schema.json)。
@@ -101,5 +130,7 @@ v2 schema 通过相对 `$ref` 复用 v1 schema，避免复制或悄然改变 v1 
 
 - v2 是 provider-neutral 交换合同，不包含 HaomoNav/HaomoDesign 治理字段或私有能力矩阵；
 - design scene 和 style profile 不代表跨平台逐像素相同，平台像素仍需分别由 `cuic prnt` 验收；
-- 本版建立绑定、交互和 adaptation 底座；反向 change-plan、三方冲突与完整 motion/resource
-  往返属于 CK-CANGHUI-095 后续切片，不能因 v2 包络存在而宣称已完成。
+- computed truth 提供运行时事实和精确 Draw IR，不等于平台最终像素；macOS、Windows、
+  HarmonyOS/Linux 的字体栅格、原生壳和 GPU 合成仍需分别用 `cuic prnt`/设备证据验收；
+- 本版建立绑定、交互、adaptation 与 computed evidence 底座；反向 change-plan、三方冲突、
+  完整 motion token 与资源内容摘要自动核验仍属于 CK-CANGHUI-095 后续切片。

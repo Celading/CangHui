@@ -1,5 +1,6 @@
 package chui.core
 
+import std.collection.ArrayList
 import sdl.{Color, Pen, Rect, Size, SurfaceStyle, UiEvent}
 
 /**
@@ -277,6 +278,78 @@ class ModifiedWidget <: Widget {
         }
     }
 
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        let additions = ArrayList<DesignComputedFact>()
+        match (modifier) {
+            case WidgetModifier.Width(value) =>
+                additions.add(computedDesignLengthFact("constraint.width", exact(ctx, value), value.toString()))
+            case WidgetModifier.Height(value) =>
+                additions.add(computedDesignLengthFact("constraint.height", exact(ctx, value), value.toString()))
+            case WidgetModifier.MinWidth(value) =>
+                additions.add(computedDesignLengthFact("constraint.min-width", exact(ctx, value), value.toString()))
+            case WidgetModifier.MaxWidth(value) =>
+                additions.add(computedDesignLengthFact("constraint.max-width", exact(ctx, value), value.toString()))
+            case WidgetModifier.MinHeight(value) =>
+                additions.add(computedDesignLengthFact("constraint.min-height", exact(ctx, value), value.toString()))
+            case WidgetModifier.MaxHeight(value) =>
+                additions.add(computedDesignLengthFact("constraint.max-height", exact(ctx, value), value.toString()))
+            case WidgetModifier.FillWidth => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.Layout, "constraint.fill-width", true,
+                DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.FillHeight => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.Layout, "constraint.fill-height", true,
+                DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Padding(value) =>
+                appendComputedPadding(additions, ctx, value, "padding", DesignComputedProvenance.WidgetModifier)
+            case WidgetModifier.Surface(value) => appendComputedSurface(additions, value)
+            case WidgetModifier.Background(color, radius) =>
+                additions.add(computedDesignColorFact("background.color", color))
+                additions.add(computedDesignLengthFact(
+                    "background.corner-radius", exact(ctx, radius), radius.toString()))
+            case WidgetModifier.PerCornerBackground(corners, color) =>
+                additions.add(computedDesignColorFact("background.color", color))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.top-left", corners.topLeft, DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.top-right", corners.topRight, DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.bottom-right", corners.bottomRight, DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.bottom-left", corners.bottomLeft, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.GradientBackground(gradient, radius) =>
+                additions.add(computedDesignColorFact("gradient.start", gradient.start))
+                additions.add(computedDesignColorFact("gradient.end", gradient.end))
+                additions.add(computedDesignTokenFact(DesignComputedCategory.Style, "gradient.axis",
+                    if (gradient.vertical) { "vertical" } else { "horizontal" },
+                    DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignLengthFact(
+                    "gradient.corner-radius", exact(ctx, radius), radius.toString()))
+            case WidgetModifier.DropShadow(shadow, radius) =>
+                appendComputedShadow(additions, shadow, 0)
+                additions.add(computedDesignLengthFact(
+                    "shadow.corner-radius", exact(ctx, radius), radius.toString()))
+            case WidgetModifier.MultiShadow(layers, radius) =>
+                for (i in 0..layers.size) { appendComputedShadow(additions, layers[i], i) }
+                additions.add(computedDesignLengthFact(
+                    "shadow.corner-radius", exact(ctx, radius), radius.toString()))
+            case WidgetModifier.Border(color, width, radius) =>
+                appendComputedBorder(additions, ctx, color, width, radius, false, 0.0, 0.0)
+            case WidgetModifier.DashedBorder(color, width, radius, dash, gap) =>
+                appendComputedBorder(additions, ctx, color, width, radius, true, dash, gap)
+            case WidgetModifier.Flex(weight) => additions.add(computedDesignNumberFact(
+                DesignComputedCategory.Layout, "flex.weight", weight, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.ZIndex(value) => additions.add(computedDesignIntegerFact(
+                DesignComputedCategory.Layout, "stacking.z-index", value,
+                DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Visible(value) => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.State, "visible", value, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Enabled(value) => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.State, "enabled", value, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Typography(value) => appendComputedTypography(additions, ctx, value)
+        }
+        mergeDesignComputedFacts(child.designComputedFacts(ctx), additions.toArray())
+    }
+
     /** Resolves an exact-size length, clamped to non-negative logical pixels. */
     private func exact(ctx: UiContext, length: Length): Float32 {
         max(0.0, ctx.resolve(length))
@@ -293,6 +366,88 @@ class ModifiedWidget <: Widget {
             min(available.w, childSize.w + resolved.horizontal()),
             min(available.h, childSize.h + resolved.vertical())
         )
+    }
+}
+
+private func appendComputedPadding(target: ArrayList<DesignComputedFact>, ctx: UiContext,
+    value: LengthInsets, prefix: String, provenance: DesignComputedProvenance): Unit {
+    target.add(computedDesignLengthFact(prefix + ".top", ctx.resolve(value.top), value.top.toString(),
+        provenance: provenance))
+    target.add(computedDesignLengthFact(prefix + ".right", ctx.resolve(value.right), value.right.toString(),
+        provenance: provenance))
+    target.add(computedDesignLengthFact(prefix + ".bottom", ctx.resolve(value.bottom), value.bottom.toString(),
+        provenance: provenance))
+    target.add(computedDesignLengthFact(prefix + ".left", ctx.resolve(value.left), value.left.toString(),
+        provenance: provenance))
+}
+
+private func appendComputedSurface(target: ArrayList<DesignComputedFact>, value: SurfaceStyle): Unit {
+    target.add(computedDesignColorFact("surface.fill", value.fill))
+    target.add(computedDesignColorFact("surface.border", value.border))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "surface.corner-radius", value.radius,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "surface.border-width", value.borderWidth,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignColorFact("surface.shadow", value.shadow))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "surface.shadow-offset-y",
+        value.shadowOffsetY, DesignComputedProvenance.WidgetModifier))
+}
+
+private func appendComputedShadow(target: ArrayList<DesignComputedFact>, value: Shadow, index: Int64): Unit {
+    let prefix = "shadow.layer." + index.toString()
+    target.add(computedDesignColorFact(prefix + ".color", value.color))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".offset-x", value.offsetX,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".offset-y", value.offsetY,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".blur", value.blur,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".spread", value.spread,
+        DesignComputedProvenance.WidgetModifier))
+}
+
+private func appendComputedBorder(target: ArrayList<DesignComputedFact>, ctx: UiContext, color: Color,
+    width: Float32, radius: Length, dashed: Bool, dash: Float32, gap: Float32): Unit {
+    target.add(computedDesignColorFact("border.color", color))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "border.width", width,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignLengthFact("border.corner-radius", ctx.resolve(radius), radius.toString()))
+    target.add(computedDesignBoolFact(DesignComputedCategory.Style, "border.dashed", dashed,
+        DesignComputedProvenance.WidgetModifier))
+    if (dashed) {
+        target.add(computedDesignNumberFact(DesignComputedCategory.Style, "border.dash", dash,
+            DesignComputedProvenance.WidgetModifier))
+        target.add(computedDesignNumberFact(DesignComputedCategory.Style, "border.gap", gap,
+            DesignComputedProvenance.WidgetModifier))
+    }
+}
+
+private func appendComputedTypography(target: ArrayList<DesignComputedFact>, ctx: UiContext,
+    value: TypographyEnvironment): Unit {
+    match (value.fontFamily) {
+        case Some(family) => target.add(computedDesignTokenFact(DesignComputedCategory.Typography,
+            "font.family", family, DesignComputedProvenance.WidgetModifier))
+        case None => ()
+    }
+    match (value.fontSize) {
+        case Some(size) => target.add(DesignComputedFact(DesignComputedCategory.Typography,
+            "font.size", DesignComputedValueKind.Length, ctx.resolve(size).toString(),
+            unit: "logical-pixel", sourceValue: size.toString(),
+            provenance: DesignComputedProvenance.WidgetModifier))
+        case None => ()
+    }
+    appendOptionalComputedTypographyBool(target, "font.bold", value.bold)
+    appendOptionalComputedTypographyBool(target, "font.italic", value.italic)
+    appendOptionalComputedTypographyBool(target, "font.underline", value.underline)
+    appendOptionalComputedTypographyBool(target, "font.strikethrough", value.strikethrough)
+}
+
+private func appendOptionalComputedTypographyBool(target: ArrayList<DesignComputedFact>, name: String,
+    value: ?Bool): Unit {
+    match (value) {
+        case Some(actual) => target.add(computedDesignBoolFact(DesignComputedCategory.Typography,
+            name, actual, DesignComputedProvenance.WidgetModifier))
+        case None => ()
     }
 }
 

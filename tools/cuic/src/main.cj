@@ -343,7 +343,7 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
-    "  cuic design snapshot [project] <probe> [--version <1|2>] [--script <file>|--events <script>]\n" +
+    "  cuic design snapshot [project] <probe> [--version <1|2>] [--computed] [--script <file>|--events <script>]\n" +
     "  cuic ui audit [project] <probe> [--script <file>|--events <script>] [--fail-on <info|warning|error>]\n" +
     "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
     "  cuic shell click|touch [project] <x> <y>\n" +
@@ -518,7 +518,7 @@ func resolveProject(requested: String, frameworkHint: String): String {
     throw CuicError("no cjpm.toml found in ${direct}")
 }
 
-func bootstrap(platform: String, framework: String, stagingRoot!: String = ""): Int64 {
+func bootstrap(platform: String, framework: String, stagingRoot!: String = "", quiet!: Bool = false): Int64 {
     if (platform == "android") {
         throw CuicError("Android backend is not implemented: no cjpm target, SDL activity bridge, NDK packaging, or APK runner")
     }
@@ -530,7 +530,9 @@ func bootstrap(platform: String, framework: String, stagingRoot!: String = ""): 
     if (platform == "windows") {
         requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3.dll"), "SDL3.dll is missing")
         requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3_ttf.dll"), "SDL3_ttf.dll is missing")
-        println("Windows SDL libraries are ready in ${joinPath(effectiveStaging, "sdl/.sdl3")}")
+        if (!quiet) {
+            println("Windows SDL libraries are ready in ${joinPath(effectiveStaging, "sdl/.sdl3")}")
+        }
         return 0
     }
     let sdlDirectory = joinPath(effectiveStaging, "sdl/.sdl3")
@@ -546,7 +548,7 @@ func bootstrap(platform: String, framework: String, stagingRoot!: String = ""): 
         copyNativeLibrary(sdl3, joinPath(sdlDirectory, "libSDL3.so"))
         copyNativeLibrary(sdl3Ttf, joinPath(sdlDirectory, "libSDL3_ttf.so"))
     }
-    println("${platform} SDL libraries are ready in ${sdlDirectory}")
+    if (!quiet) { println("${platform} SDL libraries are ready in ${sdlDirectory}") }
     0
 }
 

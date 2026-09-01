@@ -90,6 +90,15 @@ public interface Widget {
         true
     }
 
+    /**
+     * Runtime-resolved design facts consumed only by ComponentProbe/DesignSnapshot v2.
+     * Widgets return no facts by default; wrappers and layout containers expose the
+     * values they actually resolved without changing normal rendering behavior.
+     */
+    func designComputedFacts(_: UiContext): Array<DesignComputedFact> {
+        emptyDesignComputedFacts()
+    }
+
     /** Supplies independently optional typography values to descendant semantic text leaves. */
     func typography(value: TypographyEnvironment): Widget {
         applyModifier(this, WidgetModifier.Typography(value))

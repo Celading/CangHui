@@ -1,7 +1,10 @@
 package chui.media
 
+import std.collection.ArrayList
 import sdl.{Rect, Size, Texture, UiEvent}
-import chui.core.{Length, LengthUnit, UiContext, Widget, emit}
+import chui.core.{DesignComputedCategory, DesignComputedFact, DesignComputedProvenance,
+    DesignComputedValueKind, Length, LengthUnit, UiContext, Widget, emit}
+import chui.system.{ApplicationResourceReceipt, applicationResourceRoleName}
 
 public enum ImageFit {
     | Stretch
@@ -23,6 +26,9 @@ public class ImageView <: Widget & Resource {
     private var imageFit: ImageFit
     private let preferredWidth: ?Length
     private let preferredHeight: Length
+    private let logicalResourceName: String
+    private let logicalResourceRole: String
+    private let logicalResourceProvenance: String
     private var frame = Rect.zero()
     private var closed = false
 
@@ -30,13 +36,32 @@ public class ImageView <: Widget & Resource {
         path: String,
         fit!: ImageFit = ImageFit.Contain,
         preferredWidth!: ?Length = None,
-        preferredHeight!: Length = Length(96.0, LengthUnit.Vp)
+        preferredHeight!: Length = Length(96.0, LengthUnit.Vp),
+        logicalResourceName!: String = "",
+        logicalResourceRole!: String = "",
+        logicalResourceProvenance!: String = ""
     ) {
         this.path = path
         this.imageFit = fit
         this.preferredWidth = preferredWidth
         this.preferredHeight = preferredHeight
+        this.logicalResourceName = logicalResourceName
+        this.logicalResourceRole = logicalResourceRole
+        this.logicalResourceProvenance = logicalResourceProvenance
         emit(this)
+    }
+
+    /** Builds a path-private image view from an ApplicationResources receipt. */
+    public static func fromResource(
+        receipt: ApplicationResourceReceipt,
+        fit!: ImageFit = ImageFit.Contain,
+        preferredWidth!: ?Length = None,
+        preferredHeight!: Length = Length(96.0, LengthUnit.Vp)
+    ): ImageView {
+        ImageView(receipt.path, fit: fit, preferredWidth: preferredWidth, preferredHeight: preferredHeight,
+            logicalResourceName: receipt.name,
+            logicalResourceRole: applicationResourceRoleName(receipt.role),
+            logicalResourceProvenance: receipt.provenance())
     }
 
     /** Selects how image pixels are fitted into the assigned frame. */
@@ -63,6 +88,10 @@ public class ImageView <: Widget & Resource {
         if (closed) {
             return
         }
+        if (!logicalResourceName.isEmpty()) {
+            ctx.renderer.recordImageResource(logicalResourceName, logicalResourceRole,
+                logicalResourceProvenance, frame, imageFitName(imageFit))
+        }
         match (sharedTexture(ctx.renderer, path)) {
             case Some(image) =>
                 let destination = fittedRect(Size(image.width, image.height), frame, imageFit)
@@ -81,12 +110,49 @@ public class ImageView <: Widget & Resource {
         false
     }
 
+    /** Exposes fit and logical resource identity without serializing an absolute filesystem path. */
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        let result = ArrayList<DesignComputedFact>()
+        result.add(DesignComputedFact(DesignComputedCategory.Resource, "image.fit",
+            DesignComputedValueKind.Token, imageFitName(imageFit), provenance: DesignComputedProvenance.Semantic))
+        result.add(DesignComputedFact(DesignComputedCategory.Layout, "image.preferred-height",
+            DesignComputedValueKind.Length, ctx.resolve(preferredHeight).toString(), unit: "logical-pixel",
+            sourceValue: preferredHeight.toString(), provenance: DesignComputedProvenance.Semantic))
+        match (preferredWidth) {
+            case Some(value) => result.add(DesignComputedFact(DesignComputedCategory.Layout,
+                "image.preferred-width", DesignComputedValueKind.Length, ctx.resolve(value).toString(),
+                unit: "logical-pixel", sourceValue: value.toString(),
+                provenance: DesignComputedProvenance.Semantic))
+            case None => ()
+        }
+        if (!logicalResourceName.isEmpty()) {
+            result.add(DesignComputedFact(DesignComputedCategory.Resource, "resource.name",
+                DesignComputedValueKind.Token, logicalResourceName,
+                provenance: DesignComputedProvenance.Semantic))
+            result.add(DesignComputedFact(DesignComputedCategory.Resource, "resource.role",
+                DesignComputedValueKind.Token, logicalResourceRole,
+                provenance: DesignComputedProvenance.Semantic))
+            result.add(DesignComputedFact(DesignComputedCategory.Resource, "resource.provenance",
+                DesignComputedValueKind.Token, logicalResourceProvenance,
+                provenance: DesignComputedProvenance.Semantic))
+        }
+        result.toArray()
+    }
+
     public func isClosed(): Bool {
         closed
     }
 
     public func close(): Unit {
         closed = true
+    }
+}
+
+private func imageFitName(value: ImageFit): String {
+    match (value) {
+        case ImageFit.Stretch => "stretch"
+        case ImageFit.Contain => "contain"
+        case ImageFit.Cover => "cover"
     }
 }
 

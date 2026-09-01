@@ -1,5 +1,6 @@
 package chui.core
 
+import std.collection.ArrayList
 import sdl.{Rect, Size, UiEvent}
 
 /** Aggregates of the fixed-measure pass, shared between the layout passes. */
@@ -219,6 +220,32 @@ class Stack <: Widget {
         collectInteractionOwnerIds(children)
     }
 
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        let facts = ArrayList<DesignComputedFact>()
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Layout, "container.kind", "stack",
+            DesignComputedProvenance.Container))
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Layout, "container.axis",
+            match (axis) { case Axis.Horizontal => "horizontal" case Axis.Vertical => "vertical" },
+            DesignComputedProvenance.Container))
+        facts.add(computedDesignLengthFact("container.gap", resolvedGap(ctx), spacing.toString(),
+            provenance: DesignComputedProvenance.Container))
+        facts.add(computedDesignLengthFact("container.padding.top", ctx.resolve(contentPadding.top),
+            contentPadding.top.toString(), provenance: DesignComputedProvenance.Container))
+        facts.add(computedDesignLengthFact("container.padding.right", ctx.resolve(contentPadding.right),
+            contentPadding.right.toString(), provenance: DesignComputedProvenance.Container))
+        facts.add(computedDesignLengthFact("container.padding.bottom", ctx.resolve(contentPadding.bottom),
+            contentPadding.bottom.toString(), provenance: DesignComputedProvenance.Container))
+        facts.add(computedDesignLengthFact("container.padding.left", ctx.resolve(contentPadding.left),
+            contentPadding.left.toString(), provenance: DesignComputedProvenance.Container))
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Layout, "container.main-alignment",
+            computedMainAxisAlignmentName(mainAlignment), DesignComputedProvenance.Container))
+        facts.add(computedDesignTokenFact(DesignComputedCategory.Layout, "container.cross-alignment",
+            computedCrossAxisAlignmentName(crossAlignment), DesignComputedProvenance.Container))
+        facts.add(computedDesignBoolFact(DesignComputedCategory.Layout, "container.flexible", flexible,
+            DesignComputedProvenance.Container))
+        facts.toArray()
+    }
+
     /** Leading inset and per-gap step realising the configured main-axis alignment. */
     private func arrangementPlan(
         available: Float32,
@@ -359,5 +386,25 @@ class Stack <: Widget {
             case Axis.Vertical => Rect(crossPos, mainPos, crossSize, mainSize)
             case Axis.Horizontal => Rect(mainPos, crossPos, mainSize, crossSize)
         }
+    }
+}
+
+private func computedMainAxisAlignmentName(value: MainAxisAlignment): String {
+    match (value) {
+        case MainAxisAlignment.Start => "start"
+        case MainAxisAlignment.Center => "center"
+        case MainAxisAlignment.End => "end"
+        case MainAxisAlignment.SpaceBetween => "space-between"
+        case MainAxisAlignment.SpaceAround => "space-around"
+        case MainAxisAlignment.SpaceEvenly => "space-evenly"
+    }
+}
+
+private func computedCrossAxisAlignmentName(value: CrossAxisAlignment): String {
+    match (value) {
+        case CrossAxisAlignment.Start => "start"
+        case CrossAxisAlignment.Center => "center"
+        case CrossAxisAlignment.End => "end"
+        case CrossAxisAlignment.Stretch => "stretch"
     }
 }
