@@ -27,7 +27,7 @@ Label("已保存").background(Color.rgb(223, 240, 216), 6.0).padding(8.0) // 背
 
 **布局、焦点与交互所有权协议。**[`isFlexible`](#isflexible)/[`flexWeight`](#flexweight) 决定组件在 [`VStack`](VStack.md)/[`HStack`](HStack.md) 剩余空间分配中的角色，[`acceptsStretch`](#acceptsstretch) 回答交叉轴可否拉伸，[`participatesInLayout`](#participatesinlayout) 决定是否占位；[`focusableId`](#focusableid)/[`focusableIds`](#focusableids) 把子树的焦点项交给焦点遍历（Tab / Shift+Tab），[`interactionOwnerIds`](#interactionownerids) 则独立报告普通输入或辅助语义动作的所有者。焦点与交互所有权并不等价：无焦点的指针/事件组件必须覆盖后者，容器与包装器必须转发子树列表。
 
-**容器排版环境。**[`typography`](#typography) 及 `fontFamily` / `fontSize` / `fontStyle` / `bold` / `italic` / `underline` / `strikethrough` 把逐字段的排版值传给后代 [`Label`](Label.md)、[`RichText`](../controls/RichText.md) 与 `RichSpan`。最近内层只覆盖自己提供的字段，叶子显式值再逐字段覆盖环境；环境在测量、布局、绘制和事件四阶段一致生效。自绘控件的内部文字尚不自动消费这套环境。
+**容器排版环境。**[`typography`](#typography) 及 `fontFamily` / `fontSize` / `fontStyle` / `bold` / `italic` / `underline` / `strikethrough` 把逐字段的排版值传给后代 [`Label`](Label.md)、[`RichText`](../controls/RichText.md)、`RichSpan` 与 [`TextField`](../text/TextField.md)。最近内层只覆盖自己提供的字段，叶子显式值再逐字段覆盖环境；环境在测量、布局、绘制和事件四阶段一致生效。普通自绘控件的内部文字不会自动消费这套环境；TextField 已显式让文字、点击定位、选区与光标共用同一有效环境。
 
 ## 示例
 

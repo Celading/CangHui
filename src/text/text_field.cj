@@ -138,6 +138,7 @@ public class TextField <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        let typography = resolvedTypography(ctx)
         let edit = editState()
         edit.normalizeCursor()
         let visibleText = if (secureEntryEnabled) { secureMask(text.value) } else { text.value }
@@ -160,7 +161,7 @@ public class TextField <: Widget {
         drawTextBoxChrome(ctx, frame, id)
         // Values longer than the field must not paint past its surface; selection, text and
         // caret are clipped together, and all three share the same follow shift.
-        let shift = followCursorShift(ctx, visibleText, visibleCursor)
+        let shift = followCursorShift(ctx, visibleText, visibleCursor, typography)
         ctx.renderer.pushClip(frame.inset(2.0))
         if (ctx.hasFocus(id)) {
             let selectionStart = if (secureEntryEnabled) {
@@ -173,14 +174,15 @@ public class TextField <: Widget {
             } else {
                 edit.selectionEnd()
             }
-            drawTextFieldSelection(ctx, frame, visibleText, selectionStart, selectionEnd, xShift: shift)
+            drawTextFieldSelection(ctx, frame, visibleText, selectionStart, selectionEnd, xShift: shift,
+                typography: typography)
         }
         if (text.value.isEmpty() && !placeholderText.isEmpty()) {
-            drawTextFieldPlaceholder(ctx, frame, placeholderText, shift)
+            drawTextFieldPlaceholder(ctx, frame, placeholderText, shift, typography)
         } else {
-            drawTextFieldText(ctx, frame, visibleText, shift)
+            drawTextFieldText(ctx, frame, visibleText, shift, typography)
         }
-        drawTextFieldCursor(ctx, frame, id, visibleText, visibleCursor, xShift: shift)
+        drawTextFieldCursor(ctx, frame, id, visibleText, visibleCursor, xShift: shift, typography: typography)
         ctx.renderer.popClip()
     }
 
@@ -190,11 +192,14 @@ public class TextField <: Widget {
      * is clamped so the text's tail never detaches from the right edge. Runs in draw, so
      * every way the caret moves — keys, clicks, undo, an external state write — is followed.
      */
-    private func followCursorShift(ctx: UiContext, visibleText: String, visibleCursor: Int64): Float32 {
+    private func followCursorShift(ctx: UiContext, visibleText: String, visibleCursor: Int64,
+        typography: TextFieldTypography): Float32 {
         let innerW = max(1.0, frame.w - 16.0)
         let position = normalizedTextCursor(visibleText, visibleCursor)
-        let caretX = ctx.renderer.textWidth(visibleText[0..position], pointSize: FontSizes.BODY)
-        let textW = ctx.renderer.textWidth(visibleText, pointSize: FontSizes.BODY)
+        let caretX = ctx.renderer.textWidth(visibleText[0..position], pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)
+        let textW = ctx.renderer.textWidth(visibleText, pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)
         var shift = min(xOffset.value, max(0.0, textW - innerW))
         if (caretX < shift) {
             shift = caretX
@@ -212,12 +217,13 @@ public class TextField <: Widget {
         if (isEditable) {
             claimHoverIfInside(ctx, event, frame, id, CursorShape.Text)
         }
+        let typography = resolvedTypography(ctx)
         let edit = editState()
         match (event) {
-            case UiEvent.MouseDown(MouseButton.Left, x, y) => return pressAt(ctx, edit, x, y)
+            case UiEvent.MouseDown(MouseButton.Left, x, y) => return pressAt(ctx, edit, x, y, typography)
             case UiEvent.MouseMove(x, _) =>
                 if (ctx.isDragging(id) && ctx.leftMouseDown) {
-                    edit.extendTo(sourceCursorForPoint(ctx, x))
+                    edit.extendTo(sourceCursorForPoint(ctx, x, typography))
                     return true
                 }
             case UiEvent.TextInput(value) => return recordedEdit(ctx, {=> edit.insert(value)})
@@ -248,10 +254,11 @@ public class TextField <: Widget {
         TextEditState(text, cursor: Some(cursorStateValue), anchor: Some(anchorStateValue))
     }
 
-    private func pressAt(ctx: UiContext, edit: TextEditState, x: Float32, y: Float32): Bool {
+    private func pressAt(ctx: UiContext, edit: TextEditState, x: Float32, y: Float32,
+        typography: TextFieldTypography): Bool {
         if (frame.contains(x, y)) {
             ctx.focus(id)
-            let offset = sourceCursorForPoint(ctx, x)
+            let offset = sourceCursorForPoint(ctx, x, typography)
             if (ctx.clickCount == 2) {
                 edit.selectWordAt(offset)
             } else if (ctx.clickCount >= 3) {
@@ -378,13 +385,25 @@ public class TextField <: Widget {
         }
     }
 
-    private func sourceCursorForPoint(ctx: UiContext, x: Float32): Int64 {
+    private func sourceCursorForPoint(ctx: UiContext, x: Float32, typography: TextFieldTypography): Int64 {
         if (!secureEntryEnabled) {
-            return textFieldCursorForPoint(ctx, frame, text.value, x, xShift: xOffset.value)
+            return textFieldCursorForPoint(ctx, frame, text.value, x, xShift: xOffset.value,
+                typography: typography)
         }
         let visible = secureMask(text.value)
-        let displayOffset = textFieldCursorForPoint(ctx, frame, visible, x, xShift: xOffset.value)
+        let displayOffset = textFieldCursorForPoint(ctx, frame, visible, x, xShift: xOffset.value,
+            typography: typography)
         secureSourceOffset(text.value, displayOffset)
+    }
+
+    private func resolvedTypography(ctx: UiContext): TextFieldTypography {
+        let environment = ctx.typographyEnvironment()
+        let pointSize = match (environment.fontSize) {
+            case Some(value) => max(1.0, ctx.resolve(value))
+            case None => FontSizes.BODY
+        }
+        TextFieldTypography(pointSize: pointSize, style: environment.resolvedFontStyle(),
+            font: environment.fontFamily)
     }
 }
 
@@ -440,12 +459,18 @@ private func flattenLines(value: String): String {
     builder.toString()
 }
 
-private func drawTextFieldText(ctx: UiContext, frame: Rect, text: String, xShift: Float32): Unit {
-    let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.BODY) / 2.0
-    ctx.renderer.text(text, frame.x + 8.0 - xShift, textY, ctx.theme.text, pointSize: FontSizes.BODY)
+private func drawTextFieldText(ctx: UiContext, frame: Rect, text: String, xShift: Float32,
+    typography: TextFieldTypography): Unit {
+    let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: typography.pointSize,
+        style: typography.style, font: typography.font) / 2.0
+    ctx.renderer.text(text, frame.x + 8.0 - xShift, textY, ctx.theme.text,
+        pointSize: typography.pointSize, style: typography.style, font: typography.font)
 }
 
-private func drawTextFieldPlaceholder(ctx: UiContext, frame: Rect, text: String, xShift: Float32): Unit {
-    let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.BODY) / 2.0
-    ctx.renderer.text(text, frame.x + 8.0 - xShift, textY, ctx.theme.mutedText, pointSize: FontSizes.BODY)
+private func drawTextFieldPlaceholder(ctx: UiContext, frame: Rect, text: String, xShift: Float32,
+    typography: TextFieldTypography): Unit {
+    let textY = frame.centerY() - ctx.renderer.textHeight(pointSize: typography.pointSize,
+        style: typography.style, font: typography.font) / 2.0
+    ctx.renderer.text(text, frame.x + 8.0 - xShift, textY, ctx.theme.mutedText,
+        pointSize: typography.pointSize, style: typography.style, font: typography.font)
 }

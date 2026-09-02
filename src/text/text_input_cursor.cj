@@ -1,12 +1,33 @@
 package chui.text
 
-import sdl.{FontSizes, Point, Rect}
+import sdl.{FontSizes, FontStyle, Point, Rect}
 import chui.core.{CUI_SMALL_H, UiContext, scrollLineIndex, scrollLineRemainder}
 
 private let TEXT_CURSOR_W: Float32 = 1.5
 private let TEXT_FIELD_PAD_X: Float32 = 8.0
 /* Half a standard blink cycle: the caret is visible for this long, then hidden as long. */
 private let TEXT_CURSOR_BLINK_MS: UInt64 = 530
+
+/*
+ * One resolved typography snapshot shared by every glyph-dependent TextField
+ * operation in a lifecycle pass. Keeping the values together prevents measurement,
+ * hit-testing, selection and paint from silently resolving different environments.
+ */
+internal struct TextFieldTypography {
+    let pointSize: Float32
+    let style: FontStyle
+    let font: ?String
+
+    init(
+        pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>
+    ) {
+        this.pointSize = pointSize
+        this.style = style
+        this.font = font
+    }
+}
 
 internal struct TextAreaContent {
     let text: String
@@ -45,13 +66,15 @@ private func textCursorForOffset(
     text: String,
     lineStart: Int64,
     lineEnd: Int64,
-    targetX: Float32
+    targetX: Float32,
+    typography!: TextFieldTypography = TextFieldTypography()
 ): Int64 {
     var current = lineStart
     var previousWidth: Float32 = 0.0
     while (current < lineEnd) {
         let next = nextTextBoundary(text, current)
-        let nextWidth = ctx.renderer.textWidth(text[lineStart..next], pointSize: FontSizes.BODY)
+        let nextWidth = ctx.renderer.textWidth(text[lineStart..next], pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)
         if (targetX < (previousWidth + nextWidth) / 2.0) {
             return current
         }
@@ -64,9 +87,11 @@ private func textCursorForOffset(
 // `xShift` is the field's horizontal follow offset: the text window slides left by this many
 // pixels when the caret runs past the inner width, so hit-testing adds it back.
 internal func textFieldCursorForPoint(ctx: UiContext, frame: Rect, text: String, x: Float32,
-    xShift!: Float32 = 0.0): Int64 {
+    xShift!: Float32 = 0.0,
+    typography!: TextFieldTypography = TextFieldTypography()): Int64 {
     let lineEnd = lineEndAfterOrAt(text, 0)
-    textCursorForOffset(ctx, text, 0, lineEnd, x - frame.x - TEXT_FIELD_PAD_X + xShift)
+    textCursorForOffset(ctx, text, 0, lineEnd, x - frame.x - TEXT_FIELD_PAD_X + xShift,
+        typography: typography)
 }
 
 internal func textAreaCursorForPoint(
@@ -89,15 +114,19 @@ internal func textAreaCursorForPoint(
  * fill is translucent so the selected text stays legible on top.
  */
 internal func drawTextFieldSelection(ctx: UiContext, frame: Rect, text: String, selStart: Int64, selEnd: Int64,
-    xShift!: Float32 = 0.0): Unit {
+    xShift!: Float32 = 0.0,
+    typography!: TextFieldTypography = TextFieldTypography()): Unit {
     if (selStart >= selEnd) {
         return
     }
-    let startW = ctx.renderer.textWidth(text[0..selStart], pointSize: FontSizes.BODY)
-    let endW = ctx.renderer.textWidth(text[0..selEnd], pointSize: FontSizes.BODY)
+    let startW = ctx.renderer.textWidth(text[0..selStart], pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)
+    let endW = ctx.renderer.textWidth(text[0..selEnd], pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)
     let xStart = frame.x + TEXT_FIELD_PAD_X - xShift + startW
     let xEnd = frame.x + TEXT_FIELD_PAD_X - xShift + endW
-    let lineHeight = ctx.renderer.textHeight(pointSize: FontSizes.BODY)
+    let lineHeight = ctx.renderer.textHeight(pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)
     // Opaque enough to read as a selection over the focused field's tinted surface, still
     // translucent so the glyphs drawn on top stay legible.
     ctx.renderer.fill(Rect(xStart, frame.centerY() - lineHeight / 2.0, xEnd - xStart, lineHeight),
@@ -105,7 +134,8 @@ internal func drawTextFieldSelection(ctx: UiContext, frame: Rect, text: String, 
 }
 
 internal func drawTextFieldCursor(ctx: UiContext, frame: Rect, id: String, text: String, cursor: Int64,
-    xShift!: Float32 = 0.0): Unit {
+    xShift!: Float32 = 0.0,
+    typography!: TextFieldTypography = TextFieldTypography()): Unit {
     if (!ctx.hasFocus(id)) {
         return
     }
@@ -113,11 +143,13 @@ internal func drawTextFieldCursor(ctx: UiContext, frame: Rect, id: String, text:
     // screen is otherwise idle; without this the dirty-frame loop (档 0) would freeze the blink.
     ctx.requestFrame()
     let position = normalizedTextCursor(text, cursor)
-    let prefixW = ctx.renderer.textWidth(text[0..position], pointSize: FontSizes.BODY)
+    let prefixW = ctx.renderer.textWidth(text[0..position], pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)
     let x = frame.x + TEXT_FIELD_PAD_X - xShift + prefixW
     // The caret spans exactly the glyph row: same height and vertical center as the
     // text the field draws, instead of the field's padding box.
-    let lineHeight = ctx.renderer.textHeight(pointSize: FontSizes.BODY)
+    let lineHeight = ctx.renderer.textHeight(pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)
     let caret = Rect(x, frame.centerY() - lineHeight / 2.0, TEXT_CURSOR_W, lineHeight)
     // The IME anchors its candidate window at the caret whenever the field has focus;
     // the blink phase only gates painting.
