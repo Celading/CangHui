@@ -20,4 +20,6 @@
 - [移动应用宿主](mobile-application-host.zh-CN.md)
 - [应用资源运行时](application-resources.zh-CN.md)
 - [HarmonyOS 应用投影](harmony-projection.zh-CN.md)
+- [Harmony provider SDK 接入](harmony-provider-sdk.zh-CN.md)
+- [输入坐标与动态 DPI](input-coordinates-and-dpi.zh-CN.md)
 - [CUIC UI Health Audit](ui-health-audit.zh-CN.md)

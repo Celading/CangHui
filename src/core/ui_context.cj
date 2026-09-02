@@ -2,7 +2,7 @@ package chui.core
 
 import std.collection.ArrayList
 import std.sync.AtomicInt64
-import sdl.{Color, DeviceRotation, DeviceRotationEvent, FrameInfo, Insets, Rect, Renderer, UiEvent}
+import sdl.{Color, DeviceRotation, DeviceRotationEvent, FrameInfo, Insets, PointerEvent, Rect, Renderer, UiEvent}
 
 // A second press within this window and distance of the previous one continues a multi-click.
 private let MULTI_CLICK_MS: UInt64 = 400
@@ -105,6 +105,10 @@ public class UiContext {
     private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
+    /** Monotonic coordinate transform revision paired with `displayScale`. */
+    public var inputTransformRevision: UInt64 = UInt64(1)
+    /** Last rich pointer sample; compatibility widgets receive its lowered mouse event. */
+    public var lastPointerEvent: ?PointerEvent = None
     /** User font scale applied to `fp` lengths; `1.0` keeps `fp` equal to `vp`. */
     public var fontScale: Float32 = 1.0
 

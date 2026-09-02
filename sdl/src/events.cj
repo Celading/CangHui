@@ -300,6 +300,8 @@ public enum UiEvent {
     | WindowExposed
     | WindowMoved(Int32, Int32)
     | WindowPixelSizeChanged(Int32, Int32)
+    | WindowDisplayScaleChanged
+    | WindowMetricsChanged(WindowMetrics)
     | WindowMinimized
     | WindowMaximized
     | WindowRestored
@@ -315,6 +317,7 @@ public enum UiEvent {
     | MouseDown(MouseButton, Float32, Float32)
     | MouseUp(MouseButton, Float32, Float32)
     | MouseWheel(Float32, Float32, Float32, Float32)
+    | Pointer(PointerEvent)
     | GamepadConnectionChanged(GamepadDevice, GamepadConnectionState)
     | GamepadAxisMotion(UInt32, GamepadAxis, Float32)
     | GamepadButtonDown(UInt32, GamepadButton)
@@ -383,6 +386,8 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
             eventType == SDL_EVENT_WINDOW_METAL_VIEW_RESIZED) {
             let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
             decoded = UiEvent.WindowPixelSizeChanged(window.data1, window.data2)
+        } else if (eventType == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED) {
+            decoded = UiEvent.WindowDisplayScaleChanged
         } else if (eventType == SDL_EVENT_WINDOW_MINIMIZED) {
             decoded = UiEvent.WindowMinimized
         } else if (eventType == SDL_EVENT_WINDOW_MAXIMIZED) {

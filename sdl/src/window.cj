@@ -61,12 +61,15 @@ public class SdlWindow <: Resource {
     private let ownerThreadId: UInt64
     private let closeGate: WindowCloseGate
     private let runtime: SdlRuntime
+    private var backingPixelWidth: Int32
+    private var backingPixelHeight: Int32
     private var shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested,
         0.0, 0.0, 0, 0)
 
     public var width: Int32
     public var height: Int32
-    public let scale: Float32
+    public var scale: Float32
+    public var transformRevision: UInt64
     public let cornerRadius: Float32
     public let renderer: Renderer
     public let id: WindowId
@@ -78,6 +81,9 @@ public class SdlWindow <: Resource {
         this.width = spec.width
         this.height = spec.height
         this.scale = spec.scale
+        this.transformRevision = UInt64(1)
+        this.backingPixelWidth = scaledDimension(spec.width, spec.scale)
+        this.backingPixelHeight = scaledDimension(spec.height, spec.scale)
         this.cornerRadius = spec.cornerRadius
         this.runtime = SdlRuntime()
 
@@ -127,6 +133,45 @@ public class SdlWindow <: Resource {
         this.shapeReceiptValue = initialShapeReceipt
     }
 
+    /** Snapshot used by render, input and probes to agree on one transform revision. */
+    public func currentMetrics(): WindowMetrics {
+        WindowMetrics(width, height, backingPixelWidth, backingPixelHeight, scale, transformRevision)
+    }
+
+    /**
+     * Atomically publishes a provider scale/backing-size change. Logical layout remains stable;
+     * the renderer and physical shape resources switch before the new revision is returned.
+     */
+    public func applyDisplayScale(
+        displayScale: Float32,
+        pixelWidth: Int32,
+        pixelHeight: Int32
+    ): WindowMetrics {
+        let next = nextWindowMetrics(currentMetrics(), displayScale, pixelWidth, pixelHeight)
+        if (next.displayScale != scale) {
+            renderer.setScale(next.displayScale)
+        }
+        scale = next.displayScale
+        transformRevision = next.transformRevision
+        backingPixelWidth = next.pixelWidth
+        backingPixelHeight = next.pixelHeight
+        refreshRoundedShape(next.pixelWidth, next.pixelHeight)
+        next
+    }
+
+    /** Queries SDL only after its display-scale event has been observed. */
+    public func refreshDisplayScale(): WindowMetrics {
+        var pixelWidth: Int32 = 0
+        var pixelHeight: Int32 = 0
+        ensureSdl(unsafe { SDL_GetWindowSizeInPixels(windowPtr, inout pixelWidth, inout pixelHeight) },
+            "SDL_GetWindowSizeInPixels")
+        let nextScale = unsafe { SDL_GetWindowDisplayScale(windowPtr) }
+        if (nextScale <= 0.0) {
+            throw CuiException("SDL_GetWindowDisplayScale failed: ${lastSdlError()}")
+        }
+        applyDisplayScale(nextScale, pixelWidth, pixelHeight)
+    }
+
     public func setTitle(title: String): Unit {
         let cTitle = unsafe { LibC.mallocCString(title) }
         try (titleResource = cTitle.asResource()) {
@@ -140,6 +185,8 @@ public class SdlWindow <: Resource {
         ensureSdl(unsafe { SDL_SetWindowSize(windowPtr, pixelWidth, pixelHeight) }, "SDL_SetWindowSize")
         this.width = width
         this.height = height
+        this.backingPixelWidth = pixelWidth
+        this.backingPixelHeight = pixelHeight
         refreshRoundedShape(pixelWidth, pixelHeight)
     }
 
@@ -149,6 +196,8 @@ public class SdlWindow <: Resource {
         ensureSdl(unsafe { SDL_GetWindowSize(windowPtr, inout w, inout h) }, "SDL_GetWindowSize")
         width = Int32(Float32(w) / scale)
         height = Int32(Float32(h) / scale)
+        backingPixelWidth = w
+        backingPixelHeight = h
         refreshRoundedShape(w, h)
         Size(Float32(width), Float32(height))
     }
@@ -201,7 +250,14 @@ public class SdlWindow <: Resource {
         match (runtime.pollEvent()) {
             case Some(envelope) =>
                 let scaled = match (envelope.windowId) {
-                    case Some(target) => if (target == id) { scaleEventEnvelope(envelope, scale) } else { envelope }
+                    case Some(target) =>
+                        if (target == id) {
+                            match (envelope.event) {
+                                case UiEvent.WindowDisplayScaleChanged =>
+                                    SdlEventEnvelope(envelope.windowId, UiEvent.WindowMetricsChanged(refreshDisplayScale()))
+                                case _ => scaleEventEnvelope(envelope, scale)
+                            }
+                        } else { envelope }
                     case None => envelope
                 }
                 Some(scaled)
@@ -277,6 +333,8 @@ public class SdlWindow <: Resource {
     private func applyResizeUpdate(update: WindowResizeUpdate): Unit {
         width = update.logicalWidth
         height = update.logicalHeight
+        backingPixelWidth = update.pixelWidth
+        backingPixelHeight = update.pixelHeight
         refreshRoundedShape(update.pixelWidth, update.pixelHeight)
     }
 }

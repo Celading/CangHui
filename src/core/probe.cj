@@ -662,6 +662,8 @@ private class ComponentProbeSession {
     private var currentEvent: ?ProbeEventRecord = None
     private var logicalTimeMs: UInt64 = 0
     private var frameIndex: Int64 = 0
+    private var displayScale: Float32 = 1.0
+    private var inputTransformRevision: UInt64 = UInt64(1)
     private let designBindings: Array<DesignComponentBinding>
     private let designInteractions: Array<DesignInteractionBinding>
     private let designScenes: Array<DesignAdaptiveScene>
@@ -713,6 +715,8 @@ private class ComponentProbeSession {
         node.focused = ctx.hasFocus(node.focusId)
         node.hovered = ctx.isHovered(node.focusId) || ctx.isHovered(id)
         node.pressed = ctx.isPressed(node.focusId) || ctx.isPressed(id)
+        displayScale = ctx.displayScale
+        inputTransformRevision = ctx.inputTransformRevision
         let merged = ArrayList<ProbeProperty>()
         for (property in base) { putProbeProperty(merged, property) }
         match (semantics) {
@@ -937,6 +941,10 @@ private class ComponentProbeSession {
         out.append(width)
         out.append(",\"height\":")
         out.append(height)
+        out.append("},\"inputTransform\":{\"displayScale\":")
+        out.append(displayScale)
+        out.append(",\"revision\":")
+        out.append(inputTransformRevision)
         out.append("},\"frames\":[")
         var first = true
         for (frame in frames) {

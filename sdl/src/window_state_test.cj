@@ -128,6 +128,28 @@ func windowResizeUpdatesDistinguishLogicalGeometryFromBackingPixels(): Unit {
 }
 
 @Test
+func mixedDpiMetricsKeepLogicalGeometryAndAdvanceOnlyOnScaleChange(): Unit {
+    var metrics = WindowMetrics(800, 600, 800, 600, 1.0, UInt64(7))
+    let scales: Array<Float32> = [1.25, 1.5, 2.0, 1.0]
+    var expectedRevision = UInt64(7)
+    for (scale in scales) {
+        expectedRevision = expectedRevision + UInt64(1)
+        metrics = nextWindowMetrics(metrics, scale,
+            Int32(Float32(metrics.logicalWidth) * scale),
+            Int32(Float32(metrics.logicalHeight) * scale))
+        @Expect(metrics.logicalWidth, Int32(800))
+        @Expect(metrics.logicalHeight, Int32(600))
+        @Expect(metrics.displayScale, scale)
+        @Expect(metrics.transformRevision, expectedRevision)
+    }
+
+    let backingOnly = nextWindowMetrics(metrics, 1.0, 801, 601)
+    @Expect(backingOnly.transformRevision, expectedRevision)
+    @Expect(backingOnly.pixelWidth, Int32(801))
+    @Expect(backingOnly.pixelHeight, Int32(601))
+}
+
+@Test
 func windowProgressStateFromCodeMapsSdlValues(): Unit {
     @Expect(isNoProgress(windowProgressStateFromCode(SDL_PROGRESS_STATE_NONE)))
     @Expect(isIndeterminate(windowProgressStateFromCode(SDL_PROGRESS_STATE_INDETERMINATE)))

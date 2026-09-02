@@ -133,4 +133,4 @@ v2 schema 通过相对 `$ref` 复用 v1 schema，避免复制或悄然改变 v1 
 - computed truth 提供运行时事实和精确 Draw IR，不等于平台最终像素；macOS、Windows、
   HarmonyOS/Linux 的字体栅格、原生壳和 GPU 合成仍需分别用 `cuic prnt`/设备证据验收；
 - 本版建立绑定、交互、adaptation 与 computed evidence 底座；反向 change-plan、三方冲突、
-  完整 motion token 与资源内容摘要自动核验仍属于 CK-CANGHUI-095 后续切片。
+  完整 motion token 与资源内容摘要自动核验仍是后续能力。

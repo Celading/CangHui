@@ -1,6 +1,7 @@
 package chui.core
 
-import sdl.{MouseButton, UiEvent}
+import sdl.{InputTransform, MouseButton, PointerEvent, PointerNormalizationReceipt, UiEvent,
+    normalizePointerEvent}
 
 /**
  * Thread-safe pointer input bridge that collects synthetic platform pointer
@@ -33,6 +34,19 @@ public class PointerInputBridge {
     public func pushClick(x: Float32, y: Float32): Unit {
         pushDown(x, y)
         pushUp(x, y)
+    }
+
+    /**
+     * Normalizes one rich provider sample at the bridge boundary and retains its metadata.
+     * Rejected stale samples never enter the UI queue.
+     */
+    public func push(event: PointerEvent, transform: InputTransform): PointerNormalizationReceipt {
+        let receipt = normalizePointerEvent(event, transform)
+        match (receipt.event) {
+            case Some(normalized) => mailbox.push(UiEvent.Pointer(normalized))
+            case None => ()
+        }
+        receipt
     }
 
     /** Removes and returns all buffered events in FIFO order. */

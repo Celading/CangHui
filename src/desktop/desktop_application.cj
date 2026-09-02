@@ -2,7 +2,8 @@ package chui.desktop
 
 import std.collection.ArrayList
 import sdl.{FrameInfo, GamepadButton, GamepadConnectionState, GamepadDevice, Key, MouseButton, Rect,
-    SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowSpec, gamepadButtonName}
+    SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowMetrics, WindowSpec,
+    gamepadButtonName, pointerEventToLegacyUiEvent}
 import sdl.input.Keyboard
 import chui.core.{SemanticActionHandler, SemanticActionReceipt, SemanticActionRequest,
     SemanticInteractionPolicy, SemanticRuntime, SemanticRuntimeLimits, SemanticTreeDiff,
@@ -78,6 +79,8 @@ public struct DesktopWindowStateReceipt {
     public let nativeChildSurfaceCount: Int64
     public let sharedFrameSurfaceCount: Int64
     public let closeRequested: Bool
+    public let displayScale: Float32
+    public let transformRevision: UInt64
 
     public init(
         windowId: WindowId,
@@ -88,7 +91,9 @@ public struct DesktopWindowStateReceipt {
         pointerCaptureId: String,
         nativeChildSurfaceCount: Int64,
         sharedFrameSurfaceCount: Int64,
-        closeRequested: Bool
+        closeRequested: Bool,
+        displayScale!: Float32 = 1.0,
+        transformRevision!: UInt64 = UInt64(1)
     ) {
         this.windowId = windowId
         this.logicalWidth = logicalWidth
@@ -99,6 +104,8 @@ public struct DesktopWindowStateReceipt {
         this.nativeChildSurfaceCount = nativeChildSurfaceCount
         this.sharedFrameSurfaceCount = sharedFrameSurfaceCount
         this.closeRequested = closeRequested
+        this.displayScale = displayScale
+        this.transformRevision = transformRevision
     }
 }
 
@@ -651,7 +658,9 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             capture,
             ctx.nativeChildFrameSurfaceCount(),
             ctx.sharedFrameSurfaceCount(),
-            closeRequested())
+            closeRequested(),
+            displayScale: ctx.displayScale,
+            transformRevision: ctx.inputTransformRevision)
     }
 
     func semanticSnapshot(): SemanticTreeSnapshot { semanticRuntime.snapshot() }
@@ -686,6 +695,19 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             case UiEvent.WindowPixelSizeChanged(width, height) =>
                 window.updatePixelSize(width, height)
                 widget.handle(ctx, event)
+            case UiEvent.WindowDisplayScaleChanged =>
+                applyWindowMetrics(window.refreshDisplayScale())
+                widget.handle(ctx, UiEvent.WindowMetricsChanged(window.currentMetrics()))
+            case UiEvent.WindowMetricsChanged(metrics) =>
+                applyWindowMetrics(metrics)
+                widget.handle(ctx, event)
+            case UiEvent.Pointer(pointer) =>
+                ctx.lastPointerEvent = Some(pointer)
+                let legacy = pointerEventToLegacyUiEvent(pointer)
+                preparePointer(legacy)
+                let consumed = routeEvent(widget, legacy)
+                completePointer(legacy)
+                consumed
             case UiEvent.DeviceRotationChanged(rotation) =>
                 ctx.updateDeviceRotation(rotation)
                 widget.handle(ctx, event)
@@ -718,6 +740,14 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                 }
             case _ => if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
         }
+    }
+
+    private func applyWindowMetrics(metrics: WindowMetrics): Unit {
+        ctx.displayScale = metrics.displayScale
+        ctx.inputTransformRevision = metrics.transformRevision
+        ctx.viewportWidth = Float32(metrics.logicalWidth)
+        ctx.viewportHeight = Float32(metrics.logicalHeight)
+        ctx.requestFrame()
     }
 
     private func preparePointer(event: UiEvent): Unit {

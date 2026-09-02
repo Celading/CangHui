@@ -4,7 +4,7 @@ import std.collection.ArrayList
 import std.convert.*
 import std.env.{getCommandLine, getVariable}
 import sdl.{DeviceRotation, DeviceRotationEvent, DeviceRotationSource, FrameInfo, Key, MouseButton, Rect,
-    SdlWindow, UiEvent, WindowFlags, WindowPosition, WindowSpec}
+    SdlWindow, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, pointerEventToLegacyUiEvent}
 import sdl.input.{Cursor, Keyboard, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
@@ -544,6 +544,18 @@ public class DesktopApp {
                 window.updateLogicalSize(w, h)
             case UiEvent.WindowPixelSizeChanged(w, h) =>
                 window.updatePixelSize(w, h)
+            case UiEvent.WindowDisplayScaleChanged =>
+                applyWindowMetrics(window.refreshDisplayScale())
+                dispatchEvent(widget, UiEvent.WindowMetricsChanged(window.currentMetrics()))
+            case UiEvent.WindowMetricsChanged(metrics) =>
+                applyWindowMetrics(metrics)
+                dispatchEvent(widget, event)
+            case UiEvent.Pointer(pointer) =>
+                ctx.lastPointerEvent = Some(pointer)
+                let legacy = pointerEventToLegacyUiEvent(pointer)
+                preparePointer(legacy)
+                routeEvent(widget, legacy)
+                completePointer(legacy)
             case UiEvent.DeviceRotationChanged(rotation) =>
                 let previous = ctx.deviceRotation()
                 ctx.updateDeviceRotation(rotation)
@@ -587,6 +599,14 @@ public class DesktopApp {
                     dispatchEvent(widget, event)
                 }
         }
+    }
+
+    private func applyWindowMetrics(metrics: WindowMetrics): Unit {
+        ctx.displayScale = metrics.displayScale
+        ctx.inputTransformRevision = metrics.transformRevision
+        ctx.viewportWidth = Float32(metrics.logicalWidth)
+        ctx.viewportHeight = Float32(metrics.logicalHeight)
+        ctx.requestFrame()
     }
 
     /**

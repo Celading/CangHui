@@ -22,10 +22,17 @@ private class HarmonyProjectionSource {
 
 func harmonyPrepareCommand(args: Array<String>, start: Int64, framework: String): Int64 {
     var requested = ""
+    var provider = ""
     var json = false
     var i = start
     while (i < args.size) {
         if (args[i] == "--json") { json = true; i += 1; continue }
+        if (args[i] == "--provider") {
+            if (i + 1 >= args.size) { throw CuicError("--provider requires a directory") }
+            provider = args[i + 1]
+            i += 2
+            continue
+        }
         if (startsWithText(args[i], "-")) { throw CuicError("unknown prepare harmony option '${args[i]}'") }
         if (!requested.isEmpty()) { throw CuicError("prepare harmony accepts one project") }
         requested = args[i]
@@ -36,7 +43,7 @@ func harmonyPrepareCommand(args: Array<String>, start: Int64, framework: String)
     if (manifest.harmonySourceRoots.isEmpty()) {
         throw CuicError("canghui.toml does not declare a [harmony] projection")
     }
-    let receipt = prepareHarmonyProjection(project, framework, manifest)
+    let receipt = prepareHarmonyProjection(project, framework, manifest, providerRoot: provider)
     if (json) { println(receipt) }
     else {
         println("Harmony projection ready (${HARMONY_PROJECTION_PROTOCOL})")
@@ -46,12 +53,15 @@ func harmonyPrepareCommand(args: Array<String>, start: Int64, framework: String)
     0
 }
 
-func prepareHarmonyProjection(project: String, framework: String, manifest: ApplicationManifest): String {
+func prepareHarmonyProjection(project: String, framework: String, manifest: ApplicationManifest,
+    providerRoot!: String = ""): String {
     validateHarmonyProjectionManifest(manifest, project)
     let output = harmonyProjectionOutput(project, manifest)
     ensureHarmonyOutputInsideProject(project, output)
     let sources = collectHarmonySources(project, manifest, output)
-    let inputDigest = harmonyProjectionInputDigest(project, framework, manifest, sources)
+    let provider = if (providerRoot.isEmpty()) { None<HarmonyProviderPack> }
+        else { Some(loadHarmonyProviderPack(providerRoot)) }
+    let inputDigest = harmonyProjectionInputDigest(project, framework, manifest, sources, provider)
     let receiptPath = joinPath(output, "canghui-harmony-projection-receipt.json")
     if (exists(output)) {
         if (!exists(receiptPath)) {
@@ -73,9 +83,13 @@ func prepareHarmonyProjection(project: String, framework: String, manifest: Appl
         generated.add("cangjie/${source.relativePath}")
     }
     copyHarmonyTemplates(framework, output, generated)
+    match (provider) {
+        case Some(pack) => copyHarmonyProviderPack(pack, output, generated)
+        case None => ()
+    }
     copyHarmonyResources(project, manifest.resources, output, generated)
     let receipt = renderHarmonyProjectionReceipt(
-        output, manifest, inputDigest, sources, generated.toArray())
+        output, manifest, inputDigest, sources, generated.toArray(), provider)
     writeHarmonyGeneratedFile(receiptPath, receipt)
     receipt
 }
@@ -165,6 +179,9 @@ private func copyHarmonyTemplates(framework: String, output: String, generated: 
     let header = joinPath(framework, "platform/harmony/include/CangHuiHarmonyXComponentHost.h")
     copyPackagingFile(header, joinPath(output, "native/include/CangHuiHarmonyXComponentHost.h"))
     generated.add("native/include/CangHuiHarmonyXComponentHost.h")
+    let contract = joinPath(framework, "platform/harmony/provider/canghui-harmony-provider-contract.env")
+    copyPackagingFile(contract, joinPath(output, "native/provider/framework-contract.env"))
+    generated.add("native/provider/framework-contract.env")
 }
 
 private func copyHarmonyResources(project: String, resources: Array<String>, output: String,
@@ -178,7 +195,8 @@ private func copyHarmonyResources(project: String, resources: Array<String>, out
 }
 
 private func harmonyProjectionInputDigest(project: String, framework: String,
-    manifest: ApplicationManifest, sources: Array<HarmonyProjectionSource>): String {
+    manifest: ApplicationManifest, sources: Array<HarmonyProjectionSource>,
+    provider: ?HarmonyProviderPack): String {
     let value = StringBuilder()
     value.append(manifest.harmonyTargetPackage)
     value.append("|")
@@ -199,11 +217,19 @@ private func harmonyProjectionInputDigest(project: String, framework: String,
     value.append("header=")
     value.append(harmonyPathDigest(joinPath(
         framework, "platform/harmony/include/CangHuiHarmonyXComponentHost.h")))
+    value.append("|provider-contract=")
+    value.append(harmonyPathDigest(joinPath(
+        framework, "platform/harmony/provider/canghui-harmony-provider-contract.env")))
+    match (provider) {
+        case Some(pack) => value.append("|provider-pack="); value.append(harmonyProviderDigest(pack))
+        case None => value.append("|provider-pack=none")
+    }
     harmonyStableDigest(value.toString())
 }
 
 private func renderHarmonyProjectionReceipt(output: String, manifest: ApplicationManifest,
-    inputDigest: String, sources: Array<HarmonyProjectionSource>, generated: Array<String>): String {
+    inputDigest: String, sources: Array<HarmonyProjectionSource>, generated: Array<String>,
+    provider: ?HarmonyProviderPack): String {
     let out = StringBuilder()
     out.append("{\"protocol\":\""); out.append(HARMONY_PROJECTION_PROTOCOL)
     out.append("\",\"inputDigest\":\""); out.append(inputDigest)
@@ -223,6 +249,16 @@ private func renderHarmonyProjectionReceipt(output: String, manifest: Applicatio
     }
     out.append("],\"outputDigest\":")
     out.append(cuicJsonQuote(harmonyPathDigest(output)))
+    match (provider) {
+        case Some(pack) =>
+            out.append(",\"provider\":{\"schema\":"); out.append(cuicJsonQuote(HARMONY_PROVIDER_SCHEMA))
+            out.append(",\"version\":"); out.append(cuicJsonQuote(pack.providerVersion))
+            out.append(",\"frameworkCommit\":"); out.append(cuicJsonQuote(pack.frameworkCommit))
+            out.append(",\"targetAbi\":"); out.append(cuicJsonQuote(pack.targetAbi))
+            out.append(",\"digest\":"); out.append(cuicJsonQuote(harmonyProviderDigest(pack)))
+            out.append("}")
+        case None => out.append(",\"provider\":null")
+    }
     out.append(",\"resourceMapping\":\"ApplicationResources.mobileRawfile\",")
     out.append("\"limitations\":[\"accessibility-actions-field-gated\",\"device-ime-field-gated\",")
     out.append("\"signing-and-product-permissions-owned-by-consumer\"]}")
@@ -282,7 +318,7 @@ private func sortHarmonySourcePaths(values: Array<(String, String)>): Array<(Str
     result
 }
 
-private func harmonyStableDigest(value: String): String {
+func harmonyStableDigest(value: String): String {
     var code: Int64 = 71
     for (byte in value.toArray()) { code = (code * 131 + Int64(byte)) % 2147483647 }
     "chui-harmony-v1:${value.toArray().size}:${max(Int64(1), code)}"
@@ -320,7 +356,7 @@ private func collectHarmonyDigestFiles(root: String, path: String,
     output.add((relative, path))
 }
 
-private func harmonyByteDigest(bytes: Array<UInt8>): String {
+func harmonyByteDigest(bytes: Array<UInt8>): String {
     var code: Int64 = 71
     for (byte in bytes) { code = (code * 131 + Int64(byte)) % 2147483647 }
     "chui-harmony-bytes-v1:${bytes.size}:${max(Int64(1), code)}"

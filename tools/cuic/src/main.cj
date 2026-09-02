@@ -358,7 +358,7 @@ func helpText(): String {
     "  cuic dependency update [project]\n" +
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
     "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]\n" +
-    "  cuic prepare harmony [project] [--json]\n" +
+    "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
     "  cuic build [platform] [project]\n" +
     "  cuic test [platform] [project]\n" +
     "  cuic run [platform] [project|example]\n" +

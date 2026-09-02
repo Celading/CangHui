@@ -7,6 +7,13 @@
 - `TextField` 现在一致消费继承的字号、字族与字体样式；水平跟随、点击定位、
   选区、光标、placeholder 与值绘制共享同一组字体度量，默认 15 fp、固定标准控件高和
   secure-entry UTF-8 字节偏移语义保持不变。
+- 新增统一 rich pointer 坐标合同和动态 DPI 事务：窗口/Surface 物理像素只在输入桥转换，
+  捕获 scale、transform/orientation revision 与 Surface generation 可区分重投影和拒绝；
+  SDL 窗口跨显示器时同步更新 renderer、backing metrics、运行时状态与 probe 回执。
+- `cuic prepare harmony --provider <pack-dir>` 可把经过 framework version/commit、native/input
+  ABI、投影协议与 arm64-v8a 校验的 provider SDK 包（原生库、linkage、头文件、许可证），
+  与应用投影、host 模板和资源一起材料化为防漂移生成树。产品身份、权限、签名、HAP
+  组装与真机证明仍由消费者拥有。
 
 ## 0.17.0 (2026-08-30)
 
