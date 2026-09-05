@@ -310,6 +310,9 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
 `Expanded` layout classes without importing a platform host.
 
 - Reference package: `packages/gallery-components`
+- Optional design recipes: [CangHuiKit](manual/reference/canghui-kit.md), including
+  choice/settings/step compositions and Editorial, Focused and Guided intros;
+  [property motion](manual/guide/how-to/animate-properties.md) follows ordinary modifier values.
 - Desktop gallery: `examples/component-gallery`
 - Responsive preview matrix: `src/testkit/preview_matrix.cj`
 - Component-package schema: `contracts/canghui-component-package-v0.schema.json`

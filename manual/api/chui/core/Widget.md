@@ -1,5 +1,9 @@
 [chui](../../index.md) › [chui.core](index.md) › Widget
 
+新增属性动画：`animateProperties(key: String): Widget` 与
+`animateProperties(key: String, spec: AnimationSpec): Widget` 配置调用前的尺寸、padding、
+背景和边框修饰器；不修改子组件的自有属性。详见[属性驱动动画](../../../guide/how-to/animate-properties.md)。
+
 # Widget
 
 `chui.core` 包中的 public interface

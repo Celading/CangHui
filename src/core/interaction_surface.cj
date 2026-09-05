@@ -105,7 +105,7 @@ public class InteractionSurface <: Widget {
     private var surfaceShape: Shape
     private var clipPolicy: ClipPolicy
     private var gestureHandlers = GestureHandlers()
-    private let gestureRuntime: GestureSurfaceRuntime
+    private var gestureRuntime: GestureSurfaceRuntime
     private var frame = Rect.zero()
 
     public init(
@@ -148,6 +148,8 @@ public class InteractionSurface <: Widget {
         requireControlId(value, "InteractionSurface")
         if (!isReadOnly && nestedInteractionOwnerIds.isEmpty()) { reregisterFocusable(controlId, value) }
         controlId = value
+        gestureRuntime = localState<GestureSurfaceRuntime>(
+            "InteractionSurface:${controlId}:gestures") { GestureSurfaceRuntime() }.value
         this
     }
 
@@ -227,7 +229,10 @@ public class InteractionSurface <: Widget {
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         let state = currentState(ctx)
-        if (!state.enabled) { return false }
+        if (!state.enabled) {
+            cancelGesture(ctx)
+            return false
+        }
         let material = materialProvider.resolve(ctx.theme, state)
         if (handleGestures(ctx, event, material)) { return true }
         match (event) {
@@ -288,11 +293,15 @@ public class InteractionSurface <: Widget {
         claimHoverIfInside(ctx, event, frame, controlId, CursorShape.Interactive)
         match (event) {
             case UiEvent.Frame(info) =>
-                if (ctx.isPressed(controlId) && !gestureRuntime.longPressFired &&
-                    gestureHandlers.onLongPress.isSome() && info.elapsedMs >= gestureRuntime.pressStartedAt &&
-                    info.elapsedMs - gestureRuntime.pressStartedAt >= gestureHandlers.longPressMs) {
-                    gestureRuntime.longPressFired = true
-                    match (gestureHandlers.onLongPress) { case Some(callback) => callback() case None => () }
+                if (ctx.isPressed(controlId) && !ctx.isDragging(controlId) &&
+                    !gestureRuntime.longPressFired && gestureHandlers.onLongPress.isSome()) {
+                    if (info.elapsedMs >= gestureRuntime.pressStartedAt &&
+                        info.elapsedMs - gestureRuntime.pressStartedAt >= gestureHandlers.longPressMs) {
+                        gestureRuntime.longPressFired = true
+                        match (gestureHandlers.onLongPress) { case Some(callback) => callback() case None => () }
+                    } else {
+                        ctx.requestFrame()
+                    }
                 }
                 return false
             case UiEvent.MouseMove(x, y) =>
@@ -338,6 +347,7 @@ public class InteractionSurface <: Widget {
                 ctx.focus(controlId)
                 ctx.press(controlId)
                 gestureRuntime.begin(ctx.frame.elapsedMs, x, y)
+                if (gestureHandlers.onLongPress.isSome()) { ctx.requestFrame() }
                 ctx.startInkRipple(controlId, frame, x, y, color: Some(material.ink),
                     cornerRadius: surfaceShape.cornerRadius())
                 return true
@@ -370,25 +380,27 @@ public class InteractionSurface <: Widget {
                 return true
             }
             case UiEvent.WindowFocusChanged(false) =>
-                let owned = ctx.isPressed(controlId) || ctx.isDragging(controlId) ||
-                    ctx.hasPointerCapture(controlId)
-                if (owned) {
-                    ctx.cancelPress(controlId)
-                    ctx.cancelInkRipple(controlId)
-                    if (ctx.isDragging(controlId)) {
-                        match (gestureHandlers.onDragCancel) {
-                            case Some(callback) => callback()
-                            case None => ()
-                        }
-                        ctx.clearDrag()
-                    }
-                    ctx.releasePointerCapture(controlId)
-                    gestureRuntime.resetPress()
-                    return true
-                }
+                return cancelGesture(ctx)
             case _ => ()
         }
         false
+    }
+
+    private func cancelGesture(ctx: UiContext): Bool {
+        let owned = ctx.isPressed(controlId) || ctx.isDragging(controlId) || ctx.hasPointerCapture(controlId)
+        ctx.cancelPress(controlId)
+        if (owned) { ctx.cancelInkRipple(controlId) }
+        if (ctx.isDragging(controlId)) {
+            match (gestureHandlers.onDragCancel) { case Some(callback) => callback() case None => () }
+            ctx.clearDrag()
+        }
+        ctx.releasePointerCapture(controlId)
+        gestureRuntime.resetPress()
+        if (gestureRuntime.hovering) {
+            gestureRuntime.hovering = false
+            match (gestureHandlers.onHoverChanged) { case Some(callback) => callback(false) case None => () }
+        }
+        owned
     }
 
     private func recordNestedInteractionDiagnostic(): Unit {

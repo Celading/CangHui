@@ -1,0 +1,10 @@
+[package]
+cjc-version = "1.0.5"
+name = "canghui_kit_workbench"
+version = "0.1.0"
+output-type = "executable"
+description = "CangHuiKit composition, gestures and property motion workbench."
+
+[dependencies]
+chui = { path = "../.." }
+canghui_kit = { path = "../../packages/kit" }

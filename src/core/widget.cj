@@ -160,6 +160,21 @@ public interface Widget {
         typography(TypographyEnvironment(strikethrough: value))
     }
 
+    /**
+     * Animates supported generic modifiers preceding this call when their values change on rebuild.
+     * Use a stable unique key and stable modifier-chain shape. Initial placement is immediate; sizes,
+     * padding, background and border interpolate in actual layout, so input follows visible geometry.
+     * Child-specific properties and modifiers added after this call are not implicitly animated.
+     */
+    func animateProperties(key: String): Widget {
+        animateProperties(key, AnimationSpec.automatic(duration: Motion.normal))
+    }
+
+    /** Uses an explicit curve/duration; reduced motion still snaps these property transitions. */
+    func animateProperties(key: String, spec: AnimationSpec): Widget {
+        applyPropertyAnimation(this, key, spec)
+    }
+
     /** Constrains this widget to an exact width, e.g. `.width(160.vp)`. */
     func width(value: Length): Widget {
         applyModifier(this, WidgetModifier.Width(value))

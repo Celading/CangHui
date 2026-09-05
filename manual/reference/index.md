@@ -1,6 +1,8 @@
 # Reference
 
 - [API 概览](api-reference.md)
+- [CangHuiKit 设计套件](canghui-kit.md)
+- [属性驱动动画](../guide/how-to/animate-properties.md)
 - [架构](architecture.md)
 - [探针/probe](probe.zh-CN.md)
 - [doctor](doctor.zh-CN.md)

@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- `Widget.animateProperties(key[, spec])` 可为调用前的尺寸/约束、padding、背景和边框
+  修饰器添加属性驱动动画；首次放置立即生效，中途改向保持连续，布局和命中区域同步。
+- `Button` / `IconButton` 可直接配置 `GestureHandlers`；长按等待持续续帧，拖拽不误触
+  长按，稳定键重建保留手势状态，禁用或失焦时取消捕获。
+- 可选 `canghui_kit` 提供选择卡、设置开关行、步骤、显式控件密度与三种响应式入口结构；
+  `examples/kit-workbench` 可独立构建并通过 probe / prnt 验证。
 - `TextField` 现在一致消费继承的字号、字族与字体样式；水平跟随、点击定位、
   选区、光标、placeholder 与值绘制共享同一组字体度量，默认 15 fp、固定标准控件高和
   secure-entry UTF-8 字节偏移语义保持不变。

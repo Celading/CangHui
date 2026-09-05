@@ -1,0 +1,33 @@
+# CangHuiKit workbench
+
+Run from this directory. Use a debug-built CUIC for semantic inspection:
+
+`CANGHUI_CUIC=/absolute/path/to/debug-cuic bash capture-matrix.sh /path/to/evidence`
+replays the full matrix below. It writes only to the chosen output and normal CUIC/CJPM build caches.
+
+```bash
+cjpm build
+cuic pview . kit.editorial --columns 100 --rows 32
+cuic probe run . kit.editorial --events $'focus reshape\nkey Enter\nadvance 230'
+cuic prnt macos . --output editorial.png -- --profile 0
+cuic prnt macos . --output focused.png -- --profile 1
+cuic prnt macos . --output guided-dark.png -- --profile 2 --theme dark
+cuic prnt macos . --output compact.png -- --width 390 --height 844
+cuic prnt macos . --output reshaping.png --frames 12 -- --auto-reshape true
+```
+
+The process supports `--profile 0|1|2`, `--width`, `--height`, `--theme light|dark`
+and `--auto-reshape true`. Auto-reshape is a bounded acceptance fixture: it changes
+the same property target once after four frames and stops its frame hook. It is
+not an external input/control channel. Frame 12 is a sampled frame, not a promise
+of a hardware-independent millisecond timestamp; probe `advance` supplies exact time.
+
+Click **Reshape** repeatedly to reverse width, height, padding, color and radius
+mid-flight. Hold it to increment the long-press counter without clicking. Change
+selection, toggle reduced motion, resize, scroll and keyboard-focus each action.
+The screenshot matrix is three compositions × two themes × compact/wide, plus
+in-flight/settled motion. These are desktop logical-layout previews, not device proof.
+
+The waveform is original vector drawing code, not a screenshot or external asset.
+No runtime Animator is held in the page model: ordinary widget attributes are the
+animation targets. `kitIntro` and the stock adaptive grid consume the same model.
