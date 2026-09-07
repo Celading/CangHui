@@ -14,6 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate default SDK package identity
+        run: python3 scripts/check-sdk-default.py
       - name: git diff check
         run: git diff --check
       - name: Public surface scan

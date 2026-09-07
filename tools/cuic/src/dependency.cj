@@ -4,7 +4,9 @@ import std.env.getVariable
 import std.fs.{File, exists}
 
 let DEFAULT_CANGHUI_GIT = "https://github.com/Celading/CangHui.git"
-let DEFAULT_CANGHUI_COMMIT = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02"
+// Published chui 0.17.0 baseline; validate package identity with scripts/check-sdk-default.py.
+// Do not substitute an unpublished local HEAD or the historical cui package.
+let DEFAULT_CANGHUI_COMMIT = "8a22a7f501499b005816242b62d1067cac78256f"
 
 class FrameworkDependencySpec {
     let path: String

@@ -277,7 +277,8 @@ func probeTargetParserAcceptsBoundedAsciiDimensions(): Unit {
 func remoteDependencyRenderingPinsPublicCommitWithoutLocalPath(): Unit {
     let rendered = renderFrameworkDependency(defaultFrameworkDependencySpec())
     @Expect(rendered.contains("git = \"https://github.com/Celading/CangHui.git\""))
-    @Expect(rendered.contains("commitId = \"a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02\""))
+    @Expect(rendered.contains("commitId = \"8a22a7f501499b005816242b62d1067cac78256f\""))
+    @Expect(generatedMain("sdk_identity").contains("import chui.{"))
     @Expect(rendered.contains("/Users/"), false)
 }
 

@@ -38,6 +38,12 @@ import chui.*
 `cuic build` 会以 manifest/lock 指向的框架根准备隔离的 SDL3 原生缓存，并同时提供编译期和
 运行期库搜索路径；不需要、也不应手工修改 CJPM 中的 CangHui 源码缓存。
 
+当前默认模板固定公开 `chui 0.17.0` 提交
+`8a22a7f501499b005816242b62d1067cac78256f`，不是框架开发分支的自动追踪入口。
+如旧版 CUIC 生成了 `a15593d…`，该提交仍是历史 `cui` 包，不能与 `import chui` 混用；
+升级 CUIC 后重新创建空项目，或明确更新应用的依赖提交并重新解析 lock。
+框架维护者可运行 `python3 scripts/check-sdk-default.py`，验证默认提交的公开包身份。
+
 ## 什么时候才需要本地源码路径
 
 仅在修改 CangHui 本身，或使用已经准备好的离线源码目录时使用：
