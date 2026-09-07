@@ -54,7 +54,8 @@ func sourceSdkMacAppDependencyPolicyRejectsHostLeaksAndTraversal(): Unit {
 @Test
 func sourceSdkTemplateResolvesPackagedFontBeforeProbeOrWindowLaunch(): Unit {
     let source = generatedSdkMain("sdk_demo")
-    @Expect(source.contains("import sdl.system.ApplicationPaths"))
+    @Expect(!source.contains("import sdl."))
+    @Expect(source.contains("ApplicationPaths.basePath()"))
     @Expect(source.contains("base + \"" + SOURCE_SDK_BUNDLED_FONT + "\""))
     @Expect(indexOfText(source, "Fonts.registerBundledFallback") < indexOfText(source, "runKModeStdioIfRequested"))
 }

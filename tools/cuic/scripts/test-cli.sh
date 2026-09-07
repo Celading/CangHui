@@ -81,7 +81,7 @@ if "${ROOT_DIR}/bin/cuic" package build linux "${FIXTURE_DIR}" \
 fi
 "${ROOT_DIR}/bin/cuic" init "${REMOTE_FIXTURE_DIR}" --name canghui_cli_remote_smoke --platform macos
 grep -q 'git = "https://github.com/Celading/CangHui.git"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
-grep -q 'commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
+grep -q 'commitId = "8a22a7f501499b005816242b62d1067cac78256f"' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
 grep -q -- '--set-runtime-rpath' "${REMOTE_FIXTURE_DIR}/cjpm.toml"
 if grep -q '/Users/' "${REMOTE_FIXTURE_DIR}/cjpm.toml"; then
     echo "error: generated remote consumer leaked a local absolute path" >&2
@@ -131,7 +131,7 @@ fi
 mkdir -p "${FAKE_BIN_DIR}"
 printf '%s\n' \
     '[requires]' \
-    'chui = { git = "https://github.com/Celading/CangHui.git", commitId = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02" }' \
+    'chui = { git = "https://github.com/Celading/CangHui.git", commitId = "8a22a7f501499b005816242b62d1067cac78256f" }' \
     > "${FAKE_LOCK_FILE}"
 printf '%s\n' \
     '#!/usr/bin/env bash' \
@@ -142,9 +142,9 @@ printf '%s\n' \
 chmod +x "${FAKE_BIN_DIR}/cjpm"
 CANGHUI_TEST_LOCK_SOURCE="${FAKE_LOCK_FILE}" PATH="${FAKE_BIN_DIR}:${PATH}" \
     "${ROOT_DIR}/bin/cuic" dependency update "${REMOTE_FIXTURE_DIR}" |
-    grep -q 'CangHui dependency locked at a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02'
+    grep -q 'CangHui dependency locked at 8a22a7f501499b005816242b62d1067cac78256f'
 
-sed -i.bak 's/a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02/deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/' \
+sed -i.bak 's/8a22a7f501499b005816242b62d1067cac78256f/deadbeefdeadbeefdeadbeefdeadbeefdeadbeef/' \
     "${REMOTE_FIXTURE_DIR}/cjpm.toml"
 LOCK_BEFORE_MISMATCH="$(shasum -a 256 "${REMOTE_FIXTURE_DIR}/cjpm.lock" | awk '{print $1}')"
 set +e

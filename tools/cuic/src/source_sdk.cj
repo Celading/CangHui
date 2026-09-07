@@ -161,7 +161,7 @@ func sourceSdkBuildArguments(args: Array<String>): Array<String> {
 let SOURCE_SDK_BUNDLED_FONT = "canghui-sdk/fonts/HarmonyOS_Sans_SC.ttf"
 
 func generatedSdkMain(packageName: String): String {
-    "package ${packageName}\n\nimport chui.*\nimport chui.kmode.macros.*\nimport sdl.system.ApplicationPaths\n\n" +
+    "package ${packageName}\n\nimport chui.*\nimport chui.kmode.macros.*\n\n" +
     "func welcomeContent(message: State<String>): Unit {\n" +
     "    VStack(spacing: 12.vp) {\n" +
     "        Label(message.value).fontSize(26.fp).probe(\"welcome.message\", \"Label\", [ProbeProperty(\"label\", message.value)])\n" +
