@@ -1,7 +1,8 @@
 package sdl
 
 import std.collection.{ArrayList, HashMap}
-import sdl.text.{NativeTextColor, NativeTextException, NativeTextMetrics, NativeTextRenderer, fontPathChainKey}
+import sdl.text.{NativeTextColor, NativeTextException, NativeTextMetrics, NativeTextRenderer,
+    NativeTextLineSpec, fontPathChainKey}
 
 /**
  * Standard text sizes shared by the renderer, widgets, and applications.
@@ -259,6 +260,126 @@ public class Renderer {
             }
         }
         None
+    }
+
+    /** Size of the actual colored native line; None when the selected backend/style is unsupported. */
+    public func textSize(spec: NativeTextLineSpec, pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular, font!: ?String = None<String>): ?Size {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(metrics) <- backend.platformMeasure(spec, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some(Size(metrics.width / scale, metrics.height / scale))
+            }
+        }
+        None
+    }
+
+    /** Colored-line counterpart of the plain native UTF16 caret query. */
+    public func textCaretPositionsUtf16(spec: NativeTextLineSpec, index: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?(Float32, Float32) {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some((primary, secondary)) <- backend.platformCaret(spec.text, index,
+                pointSize * scale, style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))) {
+                return Some((primary / scale, secondary / scale))
+            }
+        }
+        None
+    }
+
+    /** Batched query against the same immutable colored line used for painting. */
+    public func textCaretPositionsUtf16(spec: NativeTextLineSpec, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(values) <- backend.platformCarets(spec.text, indices, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))) {
+                return Some(Array<(Float32, Float32)>(values.size, {i =>
+                    (values[i][0] / scale, values[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
+    public func textHitUtf16(spec: NativeTextLineSpec, x: Float32,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Int64 {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            return backend.platformHit(spec.text, x * scale, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))
+        }
+        None
+    }
+
+    public func textSelectionSpansUtf16(spec: NativeTextLineSpec, start: Int64, end: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(spans) <- backend.platformSelection(spec.text, start, end, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))) {
+                return Some(Array<(Float32, Float32)>(spans.size, {i =>
+                    (spans[i][0] / scale, spans[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
+    /**
+     * Draws a complete native colored line. False means nothing was drawn: caller
+     * must choose one consistent fallback for BOTH painting and geometry.
+     */
+    public func text(spec: NativeTextLineSpec, x: Float32, y: Float32,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): Bool {
+        if ((style.ttfFlags() & 0x0E) != 0) { return false }
+        if (let Some(backend) <- textBackend) {
+            if (!backend.platformLayoutEnabled()) { return false }
+            let resolutions = resolveFontChain(font)
+            let paths = fontPaths(resolutions)
+            let flags = style.ttfFlags()
+            let color = Color.rgba(Int64(spec.red), Int64(spec.green), Int64(spec.blue), Int64(spec.alpha))
+            let native = NativeTextColor(color.r, color.g, color.b, color.a)
+            drawTextCount += 1
+            if (recordsDrawIr) {
+                let spans = StringBuilder()
+                var first = true
+                for (span in spec.colors()) {
+                    if (!first) { spans.append(",") }; first = false
+                    spans.append("{\"start\":${span.start},\"end\":${span.end},\"r\":${span.red}," +
+                        "\"g\":${span.green},\"b\":${span.blue},\"a\":${span.alpha}}")
+                }
+                recordDrawIr("text", "\"text\":" + drawIrQuote(spec.text) + ",\"x\":${x},\"y\":${y}," +
+                    "\"pointSize\":${pointSize},\"nativeColorsUtf16\":[" + spans.toString() + "]," +
+                    "\"font\":" + drawIrQuote(match (font) { case Some(value) => value case None => "" }) +
+                    ",\"bold\":" + style.bold.toString() + ",\"italic\":false,\"resolvedFamily\":" +
+                    drawIrQuote(resolutions[0].family) + ",\"fontSource\":" +
+                    drawIrQuote(resolutions[0].sourceName()) + "," + drawIrColor(color))
+            }
+            if (scaleX == 1.0 && scaleY == 1.0) {
+                return backend.platformDraw(spec, snapPixel(x, 1.0), snapPixel(y, 1.0),
+                    pointSize, flags, paths, native)
+            }
+            let step = if (ssEnabled) { Float32(ssFactor) } else { Float32(1.0) }
+            let rasterScale = max(scaleX, scaleY)
+            let glyphScaleX = scaleX / rasterScale
+            let glyphScaleY = scaleY / rasterScale
+            try {
+                ensureSdl(unsafe { SDL_SetRenderScale(ptr, glyphScaleX, glyphScaleY) },
+                    "SDL_SetRenderScale attributed text")
+                applyClipForTextPass(rasterScale)
+                return backend.platformDraw(spec, snapPixel(x * scaleX, step) / glyphScaleX,
+                    snapPixel(y * scaleY, step) / glyphScaleY, pointSize * rasterScale, flags, paths, native)
+            } finally {
+                let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
+                applyClip()
+            }
+        }
+        false
     }
 
     public func drawIrEnabled(): Bool {

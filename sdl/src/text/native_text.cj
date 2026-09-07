@@ -119,7 +119,7 @@ protected class NativeTextRenderer {
         facePaths: Array<String>
     ): NativeTextMetrics {
         if ((styleFlags & 0x0E) == 0) {
-            if (let Some(native) <- platform) { return native.measure(text, pointSize, styleFlags, facePaths) }
+            if (let Some(native) <- platform) { return native.measure(text, pointSize, styleFlags, facePaths, paint: None) }
         }
         let cacheKey = textMeasureCacheKey(text, pointSize, styleFlags, facePaths)
         match (measureCache.get(cacheKey)) {
@@ -191,7 +191,7 @@ protected class NativeTextRenderer {
         }
         if ((styleFlags & 0x0E) == 0) {
             if (let Some(native) <- platform) {
-                native.draw(text, x, y, pointSize, styleFlags, facePaths, color)
+                native.draw(text, x, y, pointSize, styleFlags, facePaths, color, paint: None)
                 return
             }
         }
@@ -336,34 +336,55 @@ protected class NativeTextRenderer {
 
     public func platformLayoutEnabled(): Bool { platform.isSome() }
 
-    public func platformCaret(text: String, index: Int64, size: Float32, flags: Int32,
-        paths: Array<String>): ?(Float32, Float32) {
+    public func platformMeasure(spec: NativeTextLineSpec, size: Float32, flags: Int32,
+        paths: Array<String>): ?NativeTextMetrics {
         if ((flags & 0x0E) == 0) {
-            if (let Some(native) <- platform) { return Some(native.caret(text, index, size, flags, paths)) }
+            if (let Some(native) <- platform) {
+                return Some(native.measure(spec.text, size, flags, paths, paint: Some(spec)))
+            }
+        }
+        None
+    }
+
+    public func platformDraw(spec: NativeTextLineSpec, x: Float32, y: Float32, size: Float32,
+        flags: Int32, paths: Array<String>, color: NativeTextColor): Bool {
+        if ((flags & 0x0E) == 0) {
+            if (let Some(native) <- platform) {
+                native.draw(spec.text, x, y, size, flags, paths, color, paint: Some(spec))
+                return true
+            }
+        }
+        false
+    }
+
+    public func platformCaret(text: String, index: Int64, size: Float32, flags: Int32,
+        paths: Array<String>, paint!: ?NativeTextLineSpec = None): ?(Float32, Float32) {
+        if ((flags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return Some(native.caret(text, index, size, flags, paths, paint: paint)) }
         }
         None
     }
 
     public func platformHit(text: String, x: Float32, size: Float32, flags: Int32,
-        paths: Array<String>): ?Int64 {
+        paths: Array<String>, paint!: ?NativeTextLineSpec = None): ?Int64 {
         if ((flags & 0x0E) == 0) {
-            if (let Some(native) <- platform) { return Some(native.hit(text, x, size, flags, paths)) }
+            if (let Some(native) <- platform) { return Some(native.hit(text, x, size, flags, paths, paint: paint)) }
         }
         None
     }
 
     public func platformCarets(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
-        paths: Array<String>): ?Array<(Float32, Float32)> {
+        paths: Array<String>, paint!: ?NativeTextLineSpec = None): ?Array<(Float32, Float32)> {
         if ((flags & 0x0E) == 0) {
-            if (let Some(native) <- platform) { return Some(native.carets(text, indices, size, flags, paths)) }
+            if (let Some(native) <- platform) { return Some(native.carets(text, indices, size, flags, paths, paint: paint)) }
         }
         None
     }
 
     public func platformSelection(text: String, start: Int64, end: Int64, size: Float32, flags: Int32,
-        paths: Array<String>): ?Array<(Float32, Float32)> {
+        paths: Array<String>, paint!: ?NativeTextLineSpec = None): ?Array<(Float32, Float32)> {
         if ((flags & 0x0E) == 0) {
-            if (let Some(native) <- platform) { return Some(native.selection(text, start, end, size, flags, paths)) }
+            if (let Some(native) <- platform) { return Some(native.selection(text, start, end, size, flags, paths, paint: paint)) }
         }
         None
     }

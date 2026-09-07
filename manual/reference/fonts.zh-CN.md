@@ -104,6 +104,36 @@ SDL_ttf；预览不保证所有字体的样式一致性。
 原生组合文本、输入法候选窗实测与读屏接线仍需另行完成。多窗口宿主尚无该启动选项。
 无设备 probe 的矩形不证明原生字形正确，像素仍需用 `cuic prnt` 验证。
 
+在 Cangjie 1.1.3 / macOS arm64 上重复执行原生文本测试，也发现了间歇性的运行时
+GC 崩溃；不含下述着色行扩展的版本同样可复现。根因仍在定位，不能将此预览视为
+生产编辑器的稳定性认证。
+
+### 自定义宿主的着色行
+
+直接依赖 `sdl` 的高级宿主可使用 `sdl.text.NativeTextLineSpec`，把单行原始文本、
+默认 RGBA 和局部着色范围固定成一份不可变请求：
+
+```cangjie
+import sdl.text.{NativeTextLineSpec, NativeTextColorSpan}
+
+let line = NativeTextLineSpec("abc אבג def", red: 30, green: 30, blue: 30,
+    colors: [NativeTextColorSpan(1, 5, 230, 70, 40, 255)])
+let size = renderer.textSize(line, pointSize: 24.0)
+let caret = renderer.textCaretPositionsUtf16(line, Int64(3), pointSize: 24.0)
+let drawn = renderer.text(line, 12.0, 20.0, pointSize: 24.0)
+```
+
+范围使用 UTF-16 码点边界，不能切断代理对；非法范围抛出 `IllegalArgumentException`。
+数组被复制，重叠时后项覆盖前项。默认色也属于请求，绘制时不能临时换色。
+更换颜色可能改变连字、emoji 组合及光标位置，因此测量、绘制、单个／批量光标、
+`textHitUtf16` 和 `textSelectionSpansUtf16` 必须使用相同请求、字号、样式和字体。
+编辑器仍需把原生索引转换为自己的 UTF-8 字素位置，不应直接保存 UTF-16 值。
+
+请求不持有原生指针；原生行及纹理仍由原渲染器缓存和释放。请在文本或颜色改变时
+重建请求，不要在逐个光标查询中重建。不支持的样式／后端返回 `None` 或绘制 `false`，
+不会绘制替代内容。调用者须同时选择绘制与几何的回退方式。这只是原生着色行接口，
+不是 `TextArea` 装饰、自动换行或跨样式编辑的完成声明。
+
 ## 原生文本仍有的限制
 
 混合字体回退不等于完整 Unicode 塑形或双向排版。需要整体切到回退字体的复杂

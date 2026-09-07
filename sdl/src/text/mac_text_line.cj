@@ -3,6 +3,28 @@ package sdl.text
 import std.math.{ceil, floor}
 import std.collection.ArrayList
 
+@When[os == "macOS"]
+private func applyMacTextColor(api: MacTextApi, attributed: MacRef, span: NativeTextColorSpan): Unit {
+    if (span.start == span.end) { return }
+    var range = MacTextRange()
+    range.location = span.start; range.length = span.end - span.start
+    let color = MacTextApi.require(unsafe {
+        CFunc<(Float64, Float64, Float64, Float64) -> MacRef>(api.symbol(2,
+            "CGColorCreateGenericRGB"))(Float64(span.red) / 255.0, Float64(span.green) / 255.0,
+                Float64(span.blue) / 255.0, Float64(span.alpha) / 255.0) }, "span color")
+    try {
+        unsafe {
+            CFunc<(MacRef, MacTextRange, MacRef, MacRef) -> Unit>(api.symbol(0,
+                "CFAttributedStringSetAttribute"))(attributed, range,
+                    api.constant(1, "kCTForegroundColorFromContextAttributeName"),
+                    api.constant(0, "kCFBooleanFalse"))
+            CFunc<(MacRef, MacTextRange, MacRef, MacRef) -> Unit>(api.symbol(0,
+                "CFAttributedStringSetAttribute"))(attributed, range,
+                    api.constant(1, "kCTForegroundColorAttributeName"), color)
+        }
+    } finally { api.release(color) }
+}
+
 /** Pixel data owns its bytes; offsets place the padded image relative to the text's top-left. */
 protected struct NativeTextRaster {
     public let pixels: Array<UInt8>
@@ -30,8 +52,11 @@ internal class MacTextLine {
     let sourcePath: String
 
     init(api: MacTextApi, text: String, paths: Array<String>, defaultPath: String,
-        pointSize: Float32, bold: Bool) {
+        pointSize: Float32, bold: Bool, paint!: ?NativeTextLineSpec = None) {
         this.api = api
+        if (let Some(spec) <- paint) {
+            if (spec.text != text) { throw NativeTextException("Native line paint belongs to different text") }
+        }
         var font = MacRef()
         var attrs = MacRef()
         var content = MacRef()
@@ -49,6 +74,20 @@ internal class MacTextLine {
             content = api.string(text)
             attributed = MacTextApi.require(unsafe { CFunc<(MacRef, MacRef, MacRef) -> MacRef>(
                 api.symbol(0, "CFAttributedStringCreate"))(MacRef(), content, attrs) }, "attributed string")
+            if (let Some(spec) <- paint) {
+                let mutable = MacTextApi.require(unsafe { CFunc<(MacRef, Int64, MacRef) -> MacRef>(
+                    api.symbol(0, "CFAttributedStringCreateMutableCopy"))(MacRef(), 0, attributed) },
+                    "mutable attributed string")
+                api.release(attributed)
+                attributed = mutable
+                // A context-colored run can inherit the preceding run's graphics state.
+                // Freeze the base color as an attribute too, in the same layout identity.
+                applyMacTextColor(api, attributed, NativeTextColorSpan(0, spec.utf16Length,
+                    spec.red, spec.green, spec.blue, spec.alpha))
+                for (span in spec.layoutColors()) {
+                    applyMacTextColor(api, attributed, span)
+                }
+            }
             created = MacTextApi.require(unsafe { CFunc<(MacRef) -> MacRef>(api.symbol(1,
                 "CTLineCreateWithAttributedString"))(attributed) }, "line")
             var a = 0.0

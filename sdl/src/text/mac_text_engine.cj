@@ -57,22 +57,31 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
         this.renderer = renderer; this.defaultPath = defaultPath
     }
 
-    private func key(text: String, size: Float32, flags: Int32, paths: Array<String>): String {
-        "${size}|${flags}|" + fontPathChainKey(paths) + "|${text.size}:${text}"
+    private func key(text: String, size: Float32, flags: Int32, paths: Array<String>,
+        paint!: ?NativeTextLineSpec = None): String {
+        let base = "${size}|${flags}|" + fontPathChainKey(paths) + "|${text.size}:${text}"
+        match (paint) {
+            case Some(spec) =>
+                if (spec.text != text) { throw NativeTextException("Native line paint belongs to different text") }
+                base + "|paint" + spec.colorKey
+            case None => base
+        }
     }
 
-    private func line(text: String, size: Float32, flags: Int32, paths: Array<String>): MacTextLine {
+    private func line(text: String, size: Float32, flags: Int32, paths: Array<String>,
+        paint!: ?NativeTextLineSpec = None): MacTextLine {
         if (closed) { throw NativeTextException("Platform text engine is closed") }
-        let cacheKey = key(text, size, flags, paths)
+        let cacheKey = key(text, size, flags, paths, paint: paint)
         if (let Some(cached) <- lines.get(cacheKey)) { return cached }
-        let created = MacTextLine(api, text, paths, defaultPath, size, (flags & 1) != 0)
+        let created = MacTextLine(api, text, paths, defaultPath, size, (flags & 1) != 0, paint: paint)
         lines.put(cacheKey, created)
         shaped++
         created
     }
 
-    public func measure(text: String, size: Float32, flags: Int32, paths: Array<String>): NativeTextMetrics {
-        line(text, size, flags, paths).metrics
+    public func measure(text: String, size: Float32, flags: Int32, paths: Array<String>,
+        paint!: ?NativeTextLineSpec): NativeTextMetrics {
+        line(text, size, flags, paths, paint: paint).metrics
     }
 
     public func resolvedPath(text: String, size: Float32, flags: Int32, paths: Array<String>): String {
@@ -80,23 +89,24 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
     }
 
     public func caret(text: String, index: Int64, size: Float32, flags: Int32,
-        paths: Array<String>): (Float32, Float32) {
-        line(text, size, flags, paths).caretUtf16(index)
+        paths: Array<String>, paint!: ?NativeTextLineSpec): (Float32, Float32) {
+        line(text, size, flags, paths, paint: paint).caretUtf16(index)
     }
 
-    public func hit(text: String, x: Float32, size: Float32, flags: Int32, paths: Array<String>): Int64 {
-        line(text, size, flags, paths).hitUtf16(x)
+    public func hit(text: String, x: Float32, size: Float32, flags: Int32, paths: Array<String>,
+        paint!: ?NativeTextLineSpec): Int64 {
+        line(text, size, flags, paths, paint: paint).hitUtf16(x)
     }
 
     public func carets(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
-        paths: Array<String>): Array<(Float32, Float32)> {
-        let layout = line(text, size, flags, paths)
+        paths: Array<String>, paint!: ?NativeTextLineSpec): Array<(Float32, Float32)> {
+        let layout = line(text, size, flags, paths, paint: paint)
         Array<(Float32, Float32)>(indices.size, {i => layout.caretUtf16(indices[i])})
     }
 
     public func selection(text: String, start: Int64, end: Int64, size: Float32, flags: Int32,
-        paths: Array<String>): Array<(Float32, Float32)> {
-        line(text, size, flags, paths).selectionUtf16(start, end)
+        paths: Array<String>, paint!: ?NativeTextLineSpec): Array<(Float32, Float32)> {
+        line(text, size, flags, paths, paint: paint).selectionUtf16(start, end)
     }
 
     private func upload(raster: NativeTextRaster): MacTextTexture {
@@ -117,14 +127,14 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
     }
 
     public func draw(text: String, x: Float32, y: Float32, size: Float32, flags: Int32,
-        paths: Array<String>, color: NativeTextColor): Unit {
+        paths: Array<String>, color: NativeTextColor, paint!: ?NativeTextLineSpec): Unit {
         if (text.isEmpty()) { return }
-        let cacheKey = key(text, size, flags, paths) +
+        let cacheKey = key(text, size, flags, paths, paint: paint) +
             "|${color.red},${color.green},${color.blue},${color.alpha}"
         let texture = match (textures.get(cacheKey)) {
             case Some(value) => value
             case None =>
-                let raster = line(text, size, flags, paths).raster(color)
+                let raster = line(text, size, flags, paths, paint: paint).raster(color)
                 if (textures.size >= 128 || textureBytes + raster.pixels.size > 16777216) { clearTextures() }
                 let created = upload(raster)
                 textures[cacheKey] = created

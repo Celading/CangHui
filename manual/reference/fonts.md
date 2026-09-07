@@ -136,6 +136,40 @@ candidate-window testing and screen-reader integration still need separate work.
 The multi-window host does not yet expose this startup setting.
 Headless probe rectangles do not verify native glyphs; use `cuic prnt` for pixels.
 
+Repeated native text tests on Cangjie 1.1.3 / macOS arm64 have also exposed an
+intermittent runtime GC crash, including without the colored-line extension below.
+Its cause is still under investigation; this preview is not production-editor certification.
+
+### Colored lines for custom hosts
+
+Advanced hosts with a direct `sdl` dependency can use
+`sdl.text.NativeTextLineSpec` to freeze one line's source, default RGBA and
+foreground ranges into an immutable request:
+
+```cangjie
+import sdl.text.{NativeTextLineSpec, NativeTextColorSpan}
+
+let line = NativeTextLineSpec("abc אבג def", red: 30, green: 30, blue: 30,
+    colors: [NativeTextColorSpan(1, 5, 230, 70, 40, 255)])
+let size = renderer.textSize(line, pointSize: 24.0)
+let caret = renderer.textCaretPositionsUtf16(line, Int64(3), pointSize: 24.0)
+let drawn = renderer.text(line, 12.0, 20.0, pointSize: 24.0)
+```
+
+Ranges use UTF-16 scalar boundaries, never surrogate interiors. Invalid ranges
+throw `IllegalArgumentException`. Arrays are copied and later overlapping ranges
+win. Default color also belongs to the request; drawing cannot override it.
+Color boundaries can change ligatures, emoji clusters and caret positions. Use
+the same spec, size, style and font for measurement, drawing, scalar/batched
+carets, `textHitUtf16` and `textSelectionSpansUtf16`. Editors must still convert
+native indices into their UTF-8 grapheme positions.
+
+Specs hold no native pointers; the existing renderer owns line and texture caches.
+Rebuild a spec when source or colors change, not for each caret query. Unsupported
+backends/styles return `None` or draw `false` without substituting content. Choose
+a fallback for both paint and geometry together. This is a native colored-line
+interface, not completed TextArea decorations, wrapping or cross-style editing.
+
 ## Remaining native-text limits
 
 Mixed-font fallback is not a guarantee of complete Unicode shaping or bidi layout.
