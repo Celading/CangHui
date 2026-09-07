@@ -7,7 +7,9 @@ replays the full matrix below. It writes only to the chosen output and normal CU
 
 ```bash
 cjpm build
-cuic pview . kit.editorial --columns 100 --rows 32
+cuic prntx . kit.editorial
+cuic prntx . kit.editorial --format ascii --columns 100 --rows 32
+cuic prntx . kit.editorial --format diff --events $'focus profiles\nkey Right\nfocus start\nkey Enter'
 cuic probe run . kit.editorial --events $'focus reshape\nkey Enter\nadvance 230'
 cuic prnt macos . --output editorial.png -- --profile 0
 cuic prnt macos . --output focused.png -- --profile 1
@@ -31,3 +33,15 @@ in-flight/settled motion. These are desktop logical-layout previews, not device 
 The waveform is original vector drawing code, not a screenshot or external asset.
 No runtime Animator is held in the page model: ordinary widget attributes are the
 animation targets. `kitIntro` and the stock adaptive grid consume the same model.
+
+`cjpm test` replays selection, interrupted/reversed property targets, composition
+switching and the primary action at seven widths (including both sides of the
+760/840 breakpoints), all three profiles and both initial themes. A separate
+editorial pointer flow checks long-press suppression, move-out cancellation and
+keyboard activation against the same model. These are deterministic headless
+flows, not physical touch/gamepad or native IME certification. The `profiles`
+probe ID addresses the selector without relying on its generated focus key.
+
+The current probe keeps its initial host Theme: toggling a setting in headless
+replay alone does not prove live theme/reduced-motion propagation. Verify that
+transition in the desktop application, whose event handler updates the host Theme.

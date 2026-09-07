@@ -88,6 +88,9 @@ public func workbenchView(state: WorkbenchState): Unit {
             }).key("theme").accessibilityLabel("Change theme").buttonStyle(ButtonStyle.quiet())
         }.hug().padding(16.vp)
         SegmentedControl(["Editorial", "Focused", "Guided"], state.profile, key: "profiles").padding(16.vp, 0.vp)
+            .probe("profiles", "SegmentedControl", [ProbeProperty("role", "tablist"),
+                ProbeProperty("label", "Intro composition"), ProbeProperty("shortcut", "Left|Right")],
+                {=> [ProbeProperty("selected-index", state.profile.value.toString())]})
         ScrollView(key: "workbench-scroll") {
             VStack(spacing: 12.vp) {
                 kitIntro("welcome", context, profile, "DESIGNED TO RESPOND", "Your next idea, in motion.",
