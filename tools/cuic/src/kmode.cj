@@ -58,13 +58,16 @@ class CuicKModeSession {
     private var nextRequestId: Int64 = 1
     private var closed = false
 
-    init(project: String, framework: String) {
+    init(context: ExecutionContext) {
         requireDebugChannelBuild("cuic kMode/probe runtime")
-        let environment = kModeChildEnvironment(framework)
+        let environment = kModeChildEnvironment(context.framework, nativeDirectory: context.sdlDirectory())
+        // The caller already built this exact debug target under its lease.
+        // cjpm run would rebuild another target without the verified native paths.
+        let executable = canonicalPackagingPath(debugUiExecutable(context.targetDir), "debug executable")
         this.process = launch(
-            "cjpm",
-            ["run", "-g"],
-            workingDirectory: Path(project),
+            executable,
+            [],
+            workingDirectory: Path(context.project),
             environment: environment,
             stdIn: ProcessRedirect.Pipe,
             stdOut: ProcessRedirect.Pipe,
@@ -384,41 +387,40 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
         stagingRoot: context.stagingRoot, quiet: json || quiet)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
-    var buildCode = 0
     try {
-        buildCode = if (json || quiet) {
+        let buildCode = if (json || quiet) {
             executeCjpmQuiet(context, ["build", "-g"])
         } else {
             executeCjpm(context, ["build", "-g"])
         }
+        if (buildCode != 0) { return buildCode }
+        let session = CuicKModeSession(context)
+        try {
+            let response = session.exchange("invoke", endpoint: endpoint, payload: payload)
+            if (!response.ok) {
+                throw CuicError("probe ${response.status} (${response.errorCode}): ${response.errorMessage}")
+            }
+            let rendered = if (json && !startsWithText(trimAscii(response.payload), "{")) {
+                "{\"protocol\":\"cui.probe.v0\",\"probe\":" + cuicJsonQuote(probeName) +
+                    ",\"ok\":true,\"result\":" + cuicJsonQuote(response.payload) + "}"
+            } else {
+                response.payload
+            }
+            if (!rendered.isEmpty()) { println(rendered) }
+            let exitCode = session.close()
+            if (exitCode != 0) { throw CuicError("probe process exited with ${exitCode}") }
+            if (containsText(rendered, "\"ok\":false") ||
+                (containsText(rendered, "\"protocol\":\"canghui.ui-health/v1\"") &&
+                    containsText(rendered, "\"passed\":false")) ||
+                startsWithText(rendered, "CUI_PROBE_ASCII_ERROR:")) { return 1 }
+            if (startsWithText(rendered, "CangHui prntx | ok=false")) { return 1 }
+            0
+        } catch (error: Exception) {
+            session.abort()
+            throw error
+        }
     } finally {
         context.releaseLease(lease)
-    }
-    if (buildCode != 0) { return buildCode }
-    let session = CuicKModeSession(project, framework)
-    try {
-        let response = session.exchange("invoke", endpoint: endpoint, payload: payload)
-        if (!response.ok) {
-            throw CuicError("probe ${response.status} (${response.errorCode}): ${response.errorMessage}")
-        }
-        let rendered = if (json && !startsWithText(trimAscii(response.payload), "{")) {
-            "{\"protocol\":\"cui.probe.v0\",\"probe\":" + cuicJsonQuote(probeName) +
-                ",\"ok\":true,\"result\":" + cuicJsonQuote(response.payload) + "}"
-        } else {
-            response.payload
-        }
-        if (!rendered.isEmpty()) { println(rendered) }
-        let exitCode = session.close()
-        if (exitCode != 0) { throw CuicError("probe process exited with ${exitCode}") }
-        if (containsText(rendered, "\"ok\":false") ||
-            (containsText(rendered, "\"protocol\":\"canghui.ui-health/v1\"") &&
-                containsText(rendered, "\"passed\":false")) ||
-            startsWithText(rendered, "CUI_PROBE_ASCII_ERROR:")) { return 1 }
-        if (startsWithText(rendered, "CangHui prntx | ok=false")) { return 1 }
-        0
-    } catch (error: Exception) {
-        session.abort()
-        throw error
     }
 }
 
@@ -473,37 +475,36 @@ func runKModeExchange(projectValue: String, operation: String, endpoint: String,
     let boot = bootstrap(hostPlatform(), framework, stagingRoot: context.stagingRoot)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
-    var buildCode = 0
     try {
-        buildCode = executeCjpm(context, ["build", "-g"])
+        let buildCode = executeCjpm(context, ["build", "-g"])
+        if (buildCode != 0) { return buildCode }
+        let session = CuicKModeSession(context)
+        try {
+            let response = session.exchange(operation, endpoint: endpoint, payload: payload)
+            if (!response.ok) {
+                throw CuicError("kMode ${response.status} (${response.errorCode}): ${response.errorMessage}")
+            }
+            if (!response.payload.isEmpty()) {
+                println(response.payload)
+            } else {
+                println(response.status)
+            }
+            let exitCode = session.close()
+            if (exitCode != 0) {
+                throw CuicError("kMode process exited with ${exitCode}")
+            }
+            0
+        } catch (error: Exception) {
+            session.abort()
+            throw error
+        }
     } finally {
         context.releaseLease(lease)
-    }
-    if (buildCode != 0) { return buildCode }
-    let session = CuicKModeSession(project, framework)
-    try {
-        let response = session.exchange(operation, endpoint: endpoint, payload: payload)
-        if (!response.ok) {
-            throw CuicError("kMode ${response.status} (${response.errorCode}): ${response.errorMessage}")
-        }
-        if (!response.payload.isEmpty()) {
-            println(response.payload)
-        } else {
-            println(response.status)
-        }
-        let exitCode = session.close()
-        if (exitCode != 0) {
-            throw CuicError("kMode process exited with ${exitCode}")
-        }
-        0
-    } catch (error: Exception) {
-        session.abort()
-        throw error
     }
 }
 
 @When[debug]
-func kModeChildEnvironment(framework: String): HashMap<String, String> {
+func kModeChildEnvironment(framework: String, nativeDirectory!: String = ""): HashMap<String, String> {
     requireDebugChannelBuild("cuic kMode/probe runtime")
     let environment = HashMap<String, String>()
     for ((key, value) in getVariables()) {
@@ -512,7 +513,7 @@ func kModeChildEnvironment(framework: String): HashMap<String, String> {
     environment.add("CANGHUI_KMODE", "1")
     environment.add("CANGHUI_KMODE_TRANSPORT", "stdio")
     environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
-    let sdl = joinPath(framework, "sdl/.sdl3")
+    let sdl = if (nativeDirectory.isEmpty()) { joinPath(framework, "sdl/.sdl3") } else { nativeDirectory }
     if (hostPlatform() == "macos") {
         environment.add("DYLD_LIBRARY_PATH", sdl + ":" + readEnv("DYLD_LIBRARY_PATH"))
     } else if (hostPlatform() == "linux") {
@@ -524,7 +525,7 @@ func kModeChildEnvironment(framework: String): HashMap<String, String> {
 }
 
 @When[!debug]
-func kModeChildEnvironment(_framework: String): HashMap<String, String> {
+func kModeChildEnvironment(_framework: String, nativeDirectory!: String = ""): HashMap<String, String> {
     requireDebugChannelBuild("cuic kMode/probe runtime")
     HashMap<String, String>()
 }

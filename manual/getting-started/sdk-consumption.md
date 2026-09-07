@@ -20,6 +20,19 @@ cuic build macos .
 cuic run macos .
 ```
 
+新版 CUIC 生成的欢迎页同时提供 `welcome.main` probe。使用配对的 debug 工具验证交互：
+
+```bash
+cuic-debug probe run . welcome.main --events "focus welcome.ready
+key Enter
+draw" --json
+cuic-debug pview . welcome.main
+```
+
+最后一帧的欢迎文字应变为“CangHui 已准备好”。事件每行一条，不用分号连接。
+Probe 启动本次构建的 debug 二进制，沿用指定的 `CUIC_TARGET_DIR` 和原生库缓存；
+release 工具仍拒绝执行 probe。公开锁定版本可使用 `pview`，新的 `prntx` 还需要对应框架支持。
+
 生成的依赖形态是：
 
 ```toml
@@ -55,6 +68,9 @@ CUIC 和原生依赖按同一提交成套交付。当前只覆盖经过验证的
 ```bash
 cuic init HelloCangHuiDev --canghui-path ../CangHui
 ```
+
+相对框架路径以执行 `init` 的目录为准，生成时解析为绝对路径。
+应用目录必须放在不可变源码 SDK 之外，避免污染 SDK 校验内容。
 
 不要为了调整应用界面而进入依赖缓存修改框架；能在应用层完成的主题、组件组合与业务状态都留在应用。
 需要框架能力时，以最小复现向 CangHui 提交需求，再升级锁定提交。

@@ -116,6 +116,19 @@ func prntUsesVerifiedNativeStagingWithoutRetargetingFrameworkResources(): Unit {
     @Expect(environment.get("CANGHUI_CAPTURE_PATH") ?? "", "/tmp/capture.bmp")
 }
 
+@When[debug]
+@Test
+func probeRuntimeUsesVerifiedStagingAndOriginalFontRoot(): Unit {
+    let framework = "/tmp/framework"
+    let native = "/tmp/verified-native"
+    let environment = kModeChildEnvironment(framework, nativeDirectory: native)
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect(startsWithText(environment.get(key) ?? "", native))
+    @Expect(environment.get("CANGHUI_HARMONYOS_SANS") ?? "", runtimeHarmonyFont(framework))
+    @Expect(environment.get("CANGHUI_KMODE_TRANSPORT") ?? "", "stdio")
+}
+
 @Test
 func packageNamesAreCompilerFriendly(): Unit {
     @Expect(sanitizePackageName("Hello-CangUI"), "hello_cangui")
@@ -259,7 +272,7 @@ func consumerDependencyRootWinsOverIntegratedCheckout(): Unit {
         File.writeTo(joinPath(framework, "src/chui.cj"), "package chui\n".toArray())
         File.writeTo(joinPath(project, "cjpm.toml"),
             ("[dependencies]\nchui = { path = \"${framework}\" }\n").toArray())
-        @Expect(resolveFrameworkRoot(project), framework)
+        @Expect(resolveFrameworkRoot(project), canonicalPackagingPath(framework, "fixture"))
     } finally {
         _ = removeIfExists(fixture, recursive: true)
     }

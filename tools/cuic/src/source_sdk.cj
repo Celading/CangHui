@@ -7,6 +7,16 @@ import std.process.executeWithOutput
 
 let SOURCE_SDK_MANIFEST = "canghui-sdk.env"
 
+func protectSourceSdkDestination(framework: String, destination: String): Unit {
+    let root = canonicalPackagingPath(joinPath(framework, ".."), "source SDK root")
+    let absolute = if (startsWithText(destination, "/") || isWindowsAbsolute(destination)) { destination }
+        else { joinPath(currentDirectory(), destination) }
+    let candidate = canonicalPackagingPathIfExists(absolute, "application destination")
+    if (candidate == root || startsWithText(candidate, root + "/")) {
+        throw CuicError("application destination must be outside the immutable source SDK")
+    }
+}
+
 // A source SDK is an immutable delivery directory, not a writable framework checkout.
 // Checksums detect corruption; they do not authenticate a publisher.
 func sourceSdkFields(text: String, revision: String, cliVersion: String, target: String): HashMap<String, String> {
@@ -161,7 +171,15 @@ func sourceSdkBuildArguments(args: Array<String>): Array<String> {
 let SOURCE_SDK_BUNDLED_FONT = "canghui-sdk/fonts/HarmonyOS_Sans_SC.ttf"
 
 func generatedSdkMain(packageName: String): String {
-    "package ${packageName}\n\nimport chui.*\nimport chui.kmode.macros.*\n\n" +
+    generatedWelcomeMain(packageName, true)
+}
+
+func generatedWelcomeMain(packageName: String, sdkMode: Bool): String {
+    "package ${packageName}\n\n" +
+    "import chui.{ApplicationPaths, Button, ButtonRole, ComponentProbe, DesktopApp, Fonts, Label, " +
+    "LengthUnits, ProbeProperty, State, VStack, WindowSpec, runKModeStdioIfRequested}\n" +
+    (if (sdkMode) { "import chui.WindowScaleSettings\n" } else { "" }) +
+    "import chui.kmode.macros.*\n\n" +
     "func welcomeContent(message: State<String>): Unit {\n" +
     "    VStack(spacing: 12.vp) {\n" +
     "        Label(message.value).fontSize(26.fp).probe(\"welcome.message\", \"Label\", [ProbeProperty(\"label\", message.value)])\n" +
@@ -177,6 +195,7 @@ func generatedSdkMain(packageName: String): String {
     "        case None => ()\n    }\n" +
     "    if (runKModeStdioIfRequested()) { return }\n" +
     "    let message = State<String>(\"你好，CangHui\")\n" +
-    "    DesktopApp(WindowSpec(\"${packageName}\", 720, 480, scaling: Some(WindowScaleSettings()))).run {\n" +
+    "    DesktopApp(WindowSpec(\"${packageName}\", 720, 480" +
+    (if (sdkMode) { ", scaling: Some(WindowScaleSettings())" } else { "" }) + ")).run {\n" +
     "        welcomeContent(message)\n    }\n}\n"
 }

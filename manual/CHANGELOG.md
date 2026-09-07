@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- CUIC 默认欢迎页补齐共享状态和 `welcome.main` probe，移除模板写死的 1.5 倍缩放。
+  本地依赖路径在生成时解析，禁止在不可变源码 SDK 内创建应用。
+- Probe/kMode 直接运行已构建的 debug target，复用已准备的原生库目录，并在会话结束前
+  保持 target 锁；不再二次调用 `cjpm run` 构建另一份程序。
 - `Widget.animateProperties(key[, spec])` 可为调用前的尺寸/约束、padding、背景和边框
   修饰器添加属性驱动动画；首次放置立即生效，中途改向保持连续，布局和命中区域同步。
 - `Button` / `IconButton` 可直接配置 `GestureHandlers`；长按等待持续续帧，拖拽不误触

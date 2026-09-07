@@ -508,7 +508,7 @@ func validateFramework(path: String): String {
     if (!frameworkRootCandidate(normalized)) {
         throw CuicError("CangHui not found at ${path}; set CANGHUI_FRAMEWORK_ROOT")
     }
-    normalized
+    canonicalPackagingPath(normalized, "CangHui framework")
 }
 
 func resolveProject(requested: String, frameworkHint: String): String {
@@ -883,6 +883,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         throw CuicError("Git initialization requires both a CangHui URL and commit")
     }
     let sdkMode = !frameworkPath.isEmpty() && exists(joinPath(frameworkPath, SOURCE_SDK_MANIFEST))
+    if (sdkMode) { protectSourceSdkDestination(frameworkPath, directory) }
     if (exists(directory)) {
         for (_ in Directory.readFrom(directory)) { throw CuicError("destination is not empty: ${directory}") }
     } else {
@@ -925,19 +926,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
 }
 
 func generatedMain(packageName: String): String {
-    "package ${packageName}\n\n" +
-    "import chui.{Button, ButtonRole, DesktopApp, Label, LengthUnits, State, VStack, WindowSpec, runKModeStdioIfRequested}\n\n" +
-    "main(): Unit {\n" +
-    "    if (runKModeStdioIfRequested()) { return }\n" +
-    "    let message = State<String>(\"你好，CangHui\")\n" +
-    "    let app = DesktopApp(WindowSpec(\"${packageName}\", 720, 480, scale: 1.5))\n" +
-    "    app.run {\n" +
-    "        VStack {\n" +
-    "            Label(message.value)\n" +
-    "            Button(\"更新状态\", {=> message.value = \"CangHui 已准备好\"}).role(ButtonRole.Primary)\n" +
-    "        }.spacing(12.vp).padding(24.vp)\n" +
-    "    }\n" +
-    "}\n"
+    generatedWelcomeMain(packageName, false)
 }
 
 func deviceCommand(args: Array<String>, start: Int64): Int64 {

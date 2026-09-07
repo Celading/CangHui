@@ -1,10 +1,46 @@
 package cuic
 
-import std.fs.{Directory, File, removeIfExists}
+import std.fs.{Directory, File, exists, removeIfExists}
 import std.process.executeWithOutput
 
 private func sdkRejects(action: () -> Unit): Bool {
     try { action(); false } catch (_: CuicError) { true }
+}
+
+@Test
+func defaultTemplateHasTheSameObservableWelcomeFlowAsSdk(): Unit {
+    let source = generatedMain("welcome_test")
+    @Expect(source.contains("@CuiProbe[\"welcome.main\"]"))
+    @Expect(source.contains(".key(\"welcome.ready\")"))
+    @Expect(source.contains("welcomeContent(message)"))
+    @Expect(!source.contains("scale: 1.5"))
+    // The default published pin predates WindowScaleSettings.
+    @Expect(!source.contains("WindowScaleSettings"))
+}
+
+@Test
+func initLocalDependencyResolvesFromCallerAndProtectsSdkRoot(): Unit {
+    let relative = "target/source-sdk-init-fixture"
+    let root = joinPath(currentDirectory(), relative)
+    _ = removeIfExists(root, recursive: true)
+    let framework = joinPath(root, "framework")
+    for (directory in ["sdl", "src", "assets/fonts"]) {
+        Directory.create(joinPath(framework, directory), recursive: true)
+    }
+    for (file in ["cjpm.toml", "src/chui.cj", "assets/fonts/HarmonyOS_Sans_SC.ttf",
+        "assets/fonts/HARMONYOS_SANS_LICENSE.txt", "assets/fonts/HARMONYOS_SANS_SOURCE.txt"]) {
+        File.writeTo(joinPath(framework, file), "fixture".toArray())
+    }
+    let app = joinPath(root, "app")
+    @Expect(initProject([app, "--canghui-path", relative + "/framework"], 0), 0)
+    @Expect(String.fromUtf8(File.readFrom(joinPath(app, "cjpm.toml"))).contains(
+        "path = \"" + canonicalPackagingPath(framework, "fixture") + "\""))
+    File.writeTo(joinPath(framework, SOURCE_SDK_MANIFEST), "fixture".toArray())
+    protectSourceSdkDestination(framework, "ck103-nonexistent-relative-app")
+    let forbidden = joinPath(root, "new-app")
+    @Expect(sdkRejects({=> let _ = initProject([forbidden, "--canghui-path", framework], 0) }))
+    @Expect(!exists(forbidden))
+    _ = removeIfExists(root, recursive: true)
 }
 
 @Test
@@ -57,7 +93,7 @@ func sourceSdkTemplateResolvesPackagedFontBeforeProbeOrWindowLaunch(): Unit {
     @Expect(!source.contains("import sdl."))
     @Expect(source.contains("ApplicationPaths.basePath()"))
     @Expect(source.contains("base + \"" + SOURCE_SDK_BUNDLED_FONT + "\""))
-    @Expect(indexOfText(source, "Fonts.registerBundledFallback") < indexOfText(source, "runKModeStdioIfRequested"))
+    @Expect(indexOfText(source, "Fonts.registerBundledFallback") < indexOfText(source, "if (runKModeStdioIfRequested()"))
 }
 
 @Test

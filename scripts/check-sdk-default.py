@@ -24,7 +24,7 @@ def check(root: pathlib.Path) -> None:
     # The root marker is also used by the CLI to discover the resolved dependency.
     git_file("src/chui.cj")
     git_file("sdl/cjpm.toml")
-    template = (root / "tools/cuic/src/main.cj").read_text()
+    template = (root / "tools/cuic/src/source_sdk.cj").read_text()
     if "import chui.{" not in template:
         raise ValueError("SDK template does not use the declared public package")
     print(f"SDK default identity passed: {commit} / chui")
