@@ -33,6 +33,12 @@ text. cuic gives only the debug child it starts a whitelist script bounded to
 128 commands and 64 KiB. The app routes ordinary hit/focus/key events, emits a
 structured observation, and exits.
 
+A command failure stops the remaining script. The final `complete` receipt retains
+`ok=false`, and the failure propagates through normal application cleanup. A custom
+main that catches it should return a nonzero exit code. Consumers must also check
+each receipt and business state: dispatched events do not prove effective actions.
+Release exclusion is unchanged.
+
 cuic also keeps host execution and diagnostics out of the shell-text boundary.
 Windows build arguments and environment are passed separately to `cjpm`, so
 project-controlled `cmd.exe` metacharacters are not expanded as a second

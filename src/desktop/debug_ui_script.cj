@@ -25,12 +25,18 @@ class DebugUiScriptRunner {
     private var index: Int64 = 0
     private var finishing = false
     private var completed = false
+    private var failure: ?String = None
     private var revision: UInt64 = 0
     private var previous: ?DebugUiObservation = None
     private var current: ?DebugUiObservation = None
 
     init() {
         commands = parseDebugUiScript(debugUiScriptText())
+    }
+
+    // Deterministic in-process tests use the same bounded parser, never a new transport.
+    init(script: String) {
+        commands = parseDebugUiScript(script)
     }
 
     func active(): Bool {
@@ -55,9 +61,15 @@ class DebugUiScriptRunner {
     func executeNext(ctx: UiContext, dispatch: (UiEvent) -> Unit): Unit {
         if (!active() || current.isNone()) { return }
         if (finishing) {
-            emitDebugUiResult("complete", true, current.getOrThrow().snapshotJson(), 0, "")
             completed = true
             ctx.requestClose()
+            if (let Some(message) <- failure) {
+                emitDebugUiResult("complete", false, current.getOrThrow().snapshotJson(), 2, message)
+                // DesktopApp preserves this failure while disposing its resources and window.
+                // Reporting completion must not turn a failed script into a successful process.
+                throw Exception("debug UI script failed: ${message}")
+            }
+            emitDebugUiResult("complete", true, current.getOrThrow().snapshotJson(), 0, "")
             return
         }
 
@@ -66,6 +78,7 @@ class DebugUiScriptRunner {
         try {
             executeDebugUiCommand(line, ctx, dispatch)
         } catch (error: Exception) {
+            failure = Some(error.message)
             emitDebugUiResult("command-error", false, "", 2, error.message)
             index = commands.size
         }
@@ -226,7 +239,13 @@ func requireDebugUiArity(parts: Array<String>, expected: Int64, operation: Strin
 }
 
 @When[debug]
-func parseDebugUiKey(value: String): Key {
+func parseDebugUiKey(input: String): Key {
+    // Fold only named ASCII keys. Letter events retain their original code below.
+    let folded = input.toArray()
+    for (i in 0..folded.size) {
+        if (folded[i] >= UInt8(65) && folded[i] <= UInt8(90)) { folded[i] += UInt8(32) }
+    }
+    let value = String.fromUtf8(folded)
     if (value == "escape") { return Key.Escape }
     if (value == "backspace") { return Key.Backspace }
     if (value == "enter") { return Key.Enter }
@@ -239,7 +258,7 @@ func parseDebugUiKey(value: String): Key {
     if (value == "right") { return Key.Right }
     if (value == "up") { return Key.Up }
     if (value == "down") { return Key.Down }
-    let bytes = value.toArray()
+    let bytes = input.toArray()
     if (bytes.size == 1 && ((bytes[0] >= UInt8(65) && bytes[0] <= UInt8(90)) ||
         (bytes[0] >= UInt8(97) && bytes[0] <= UInt8(122)))) {
         return Key.Letter(bytes[0])
@@ -298,6 +317,13 @@ func debugUiJsonQuote(value: String): String {
         else if (r == r'\n') { out.append("\\n") }
         else if (r == r'\r') { out.append("\\r") }
         else if (r == r'\t') { out.append("\\t") }
+        else if (UInt32(r) < UInt32(32)) {
+            let digits = "0123456789abcdef".toRuneArray()
+            let code = Int64(UInt32(r))
+            out.append("\\u00")
+            out.append(digits[code / 16].toString())
+            out.append(digits[code % 16].toString())
+        }
         else { out.append(r.toString()) }
     }
     out.append("\"")

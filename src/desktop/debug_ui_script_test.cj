@@ -1,6 +1,78 @@
 package chui.desktop
 
 @When[debug]
+import chui.core.{State, Theme, UiContext, VStack}
+@When[debug]
+import sdl.{Key, Renderer}
+
+@When[debug]
+@Test
+func debugUiFailureStopsDispatchAndFailsCompletion(): Unit {
+    let runner = DebugUiScriptRunner("key unsupported\ntext must-not-run")
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+    let root = VStack {}
+    let dispatches = State<Int64>(0)
+    runner.observe(root, ctx, 400, 200)
+    runner.executeNext(ctx, {_ => dispatches.value++})
+    @Expect(runner.active())
+    @Expect(!ctx.shouldClose)
+    runner.observe(root, ctx, 400, 200)
+    var rejected = false
+    try { runner.executeNext(ctx, {_ => dispatches.value++}) }
+    catch (e: Exception) { rejected = e.message.contains("unsupported key") }
+    @Expect(rejected)
+    @Expect(!runner.active())
+    @Expect(ctx.shouldClose)
+    @Expect(dispatches.value, 0)
+    // Completed failure is terminal, not emitted or dispatched a second time.
+    runner.executeNext(ctx, {_ => dispatches.value++})
+    @Expect(dispatches.value, 0)
+}
+
+@When[debug]
+@Test
+func debugUiDispatchExceptionIsStickyAndSuccessRemainsSuccessful(): Unit {
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+    let root = VStack {}
+    let failed = DebugUiScriptRunner("text x\ntext y")
+    failed.observe(root, ctx, 400, 200)
+    failed.executeNext(ctx, {_ => throw Exception("consumer failure")})
+    var rejected = false
+    try { failed.executeNext(ctx, {_ => ()}) }
+    catch (e: Exception) { rejected = e.message.contains("consumer failure") }
+    @Expect(rejected)
+    let goodCtx = UiContext(Renderer.headless(), Theme.light())
+    let good = DebugUiScriptRunner("key Home\ntext x")
+    let dispatches = State<Int64>(0)
+    good.observe(root, goodCtx, 400, 200)
+    good.executeNext(goodCtx, {_ => dispatches.value++})
+    good.observe(root, goodCtx, 400, 200)
+    good.executeNext(goodCtx, {_ => dispatches.value++})
+    @Expect(good.active())
+    good.executeNext(goodCtx, {_ => dispatches.value++})
+    @Expect(!good.active())
+    @Expect(goodCtx.shouldClose)
+    @Expect(dispatches.value, 3) // KeyDown + KeyUp + TextInput.
+}
+
+@When[debug]
+@Test
+func debugUiNamedKeyCaseDoesNotAlterLetterCodes(): Unit {
+    @Expect(match (parseDebugUiKey("HOME")) { case Key.Home => true; case _ => false })
+    @Expect(match (parseDebugUiKey("Left")) { case Key.Left => true; case _ => false })
+    @Expect(match (parseDebugUiKey("A")) { case Key.Letter(c) => c == UInt8(65); case _ => false })
+    @Expect(match (parseDebugUiKey("a")) { case Key.Letter(c) => c == UInt8(97); case _ => false })
+}
+
+@When[debug]
+@Test
+func debugUiReceiptEscapesControlCharactersWithoutChangingUnicode(): Unit {
+    @Expect(debugUiJsonQuote("\u{0}\u{1}\u{8}\u{c}\u{1f}仓"),
+        "\"\\u0000\\u0001\\u0008\\u000c\\u001f仓\"")
+    @Expect(debugUiJsonQuote("\n\r\t\"\\"), "\"\\n\\r\\t\\\"\\\\\"")
+}
+
+@When[debug]
 @Test
 func debugUiScriptParserKeepsOnlyBoundedCommands(): Unit {
     let commands = parseDebugUiScript("click 12 20\n\n focus field \n")
