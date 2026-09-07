@@ -43,7 +43,7 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
 新源码配对支持 [`prntx` 有界摘要与差分](reference/prntx.zh-CN.md)，旧 `pview` 入口继续保留。
 
 ```bash
-cuic doctor macos .
+cuic doctor macos --project .
 cuic shell snapshot .
 cuic prntx . <probe-id>
 cuic pview . <probe-id> --columns 96 --rows 32

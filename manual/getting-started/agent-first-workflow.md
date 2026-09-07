@@ -19,7 +19,7 @@
 
 ```bash
 cuic version
-cuic doctor <platform> .
+cuic doctor <platform> --project .
 cuic build <platform> .
 cuic test <platform> .
 ```

@@ -15,7 +15,7 @@ cuic version
 cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
 cuic dependency update
-cuic doctor macos .
+cuic doctor macos --project .
 cuic build macos .
 cuic run macos .
 ```

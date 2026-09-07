@@ -25,7 +25,7 @@ Run from the consumer root and record the real results:
 
 ```bash
 cuic version
-cuic doctor <platform> .
+cuic doctor <platform> --project .
 cuic build <platform> .
 cuic test <platform> .
 ```
