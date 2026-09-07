@@ -103,7 +103,8 @@ private class TextMetricsCache {
 
 public class Renderer {
     internal let ptr: CPointer<Unit>
-    private let contentScale: Float32
+    // Persistent scene scale; temporary render-target scales must not replace it.
+    private var contentScale: Float32
     private var ssTarget: CPointer<Unit> = CPointer<Unit>()
     private var ssWidth: Int32 = 0
     private var ssHeight: Int32 = 0
@@ -316,6 +317,7 @@ public class Renderer {
         recordDrawIr("scene.begin", "\"width\":" + logicalWidth.toString() +
             ",\"height\":" + logicalHeight.toString() + "," + drawIrColor(clearColor))
         if (ptr.isNull()) {
+            restoreContentScale()
             this.beginEffectFrame(logicalWidth, logicalHeight)
             return
         }
@@ -377,10 +379,16 @@ public class Renderer {
         let _ = unsafe { SDL_RenderTexture(ptr, ssTarget, CPointer<SdlFRect>(), inout dst) }
     }
 
-    private func drawDirect(clearColor: Color): Unit {
-        let _ = unsafe { SDL_SetRenderScale(ptr, contentScale, contentScale) }
+    private func restoreContentScale(): Unit {
+        if (!ptr.isNull()) {
+            ensureSdl(unsafe { SDL_SetRenderScale(ptr, contentScale, contentScale) }, "SDL_SetRenderScale")
+        }
         scaleX = contentScale
         scaleY = contentScale
+    }
+
+    private func drawDirect(clearColor: Color): Unit {
+        restoreContentScale()
         clear(clearColor)
     }
 
@@ -535,6 +543,7 @@ public class Renderer {
         if (!ptr.isNull()) {
             ensureSdl(unsafe { SDL_SetRenderScale(ptr, scale, scale) }, "SDL_SetRenderScale")
         }
+        contentScale = scale
         scaleX = scale
         scaleY = scale
         recordDrawIr("transform.scale", "\"x\":" + scale.toString() + ",\"y\":" + scale.toString())

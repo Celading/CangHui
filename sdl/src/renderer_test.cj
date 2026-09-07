@@ -1,5 +1,19 @@
 package sdl
 
+@Test
+func sceneRestoresLatestPersistentScaleAfterTemporaryTargetScale(): Unit {
+    let renderer = Renderer.headless()
+    for (scale in [Float32(1.0), Float32(1.25), Float32(1.5), Float32(2.0), Float32(1.0)]) {
+        renderer.setScale(scale)
+        // Effects/supersampling temporarily use target-pixel coordinates.
+        renderer.setScale(6.0, 4.0)
+        renderer.beginScene(400.0, 300.0, Color.rgb(0, 0, 0))
+        @Expect(renderer.rendererEffectFrame.scaleX, scale)
+        @Expect(renderer.rendererEffectFrame.scaleY, scale)
+        renderer.endScene()
+    }
+}
+
 /*
  * Clip bookkeeping is renderer-side state independent of any SDL device, so a headless
  * renderer exercises the stack semantics directly: push intersects with the active clip,
