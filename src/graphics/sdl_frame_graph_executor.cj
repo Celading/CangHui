@@ -143,7 +143,7 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
     private var clearColor: Color
     private let maxSurfacePixels: Int64
     private let maxDeclaredResourceBytes: Int64
-    private let physicalPixelScale: Float32
+    private var physicalPixelScale: Float32
     private let deviceBacked: Bool
     private let bindings = ArrayList<SdlFramePassBinding>()
     private var bindingSnapshot: Array<SdlFramePassBinding> = []
@@ -190,6 +190,19 @@ protected class SdlFrameGraphExecutor <: FrameGraphExecutor & Resource {
             true, "idle", 0, FrameRedrawMode.Skipped, FramePresentMode.NotPresented,
             FramePresentStrategy.NotPresented,
             this.deviceBacked, true, 0, 0, 0, 0, 0, false, false)
+    }
+
+    /** DPI/zoom transaction between frames; old-density persistent textures cannot be reused. */
+    public func setPhysicalPixelScale(scale: Float32): Unit {
+        ensureOpen()
+        ensureNoActiveSession("change SDL frame pixel scale")
+        if (!(scale > 0.0 && scale <= 1024.0)) {
+            throw IllegalArgumentException("SDL frame pixel scale must be finite and positive")
+        }
+        if (scale != physicalPixelScale) {
+            closeCommitted()
+            physicalPixelScale = scale
+        }
     }
 
     /** Replaces any earlier runtime action for the same stable pass ID. */

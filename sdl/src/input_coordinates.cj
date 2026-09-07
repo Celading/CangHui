@@ -4,6 +4,8 @@ package sdl
 public enum InputCoordinateSpace {
     | LogicalViewport
     | WindowPixel
+    /** SDL window units (points on macOS); distinct from physical WindowPixel. */
+    | WindowCoordinates
     | SurfacePixel
     | ScreenPixel
 }
@@ -32,12 +34,14 @@ public struct InputTransform {
     public let revision: UInt64
     public let orientationRevision: UInt64
     public let surfaceGeneration: UInt64
+    public let pixelDensity: Float32
 
     public init(
         displayScale: Float32,
         revision: UInt64,
         orientationRevision!: UInt64 = UInt64(0),
-        surfaceGeneration!: UInt64 = UInt64(0)
+        surfaceGeneration!: UInt64 = UInt64(0),
+        pixelDensity!: Float32 = 1.0
     ) {
         if (displayScale <= 0.0) {
             throw IllegalArgumentException("input display scale must be greater than zero")
@@ -49,6 +53,8 @@ public struct InputTransform {
         this.revision = revision
         this.orientationRevision = orientationRevision
         this.surfaceGeneration = surfaceGeneration
+        let _ = WindowCoordinateTransform(displayScale, pixelDensity)
+        this.pixelDensity = pixelDensity
     }
 }
 
@@ -60,6 +66,8 @@ public struct WindowMetrics {
     public let pixelHeight: Int32
     public let displayScale: Float32
     public let transformRevision: UInt64
+    /** Backing pixels per SDL window coordinate; not the event divisor. */
+    public let pixelDensity: Float32
 
     public init(
         logicalWidth: Int32,
@@ -67,7 +75,8 @@ public struct WindowMetrics {
         pixelWidth: Int32,
         pixelHeight: Int32,
         displayScale: Float32,
-        transformRevision: UInt64
+        transformRevision: UInt64,
+        pixelDensity!: Float32 = 1.0
     ) {
         if (logicalWidth < 0 || logicalHeight < 0 || pixelWidth < 0 || pixelHeight < 0) {
             throw IllegalArgumentException("window metrics dimensions must not be negative")
@@ -81,10 +90,12 @@ public struct WindowMetrics {
         this.pixelHeight = pixelHeight
         this.displayScale = displayScale
         this.transformRevision = transformRevision
+        let _ = WindowCoordinateTransform(displayScale, pixelDensity)
+        this.pixelDensity = pixelDensity
     }
 
     public func inputTransform(): InputTransform {
-        InputTransform(displayScale, transformRevision)
+        InputTransform(displayScale, transformRevision, pixelDensity: pixelDensity)
     }
 }
 
@@ -107,6 +118,7 @@ public struct PointerEvent {
     public let tiltY: Float32
     public let timestampNs: UInt64
     public let capturedDisplayScale: Float32
+    public let capturedPixelDensity: Float32
     public let transformRevision: UInt64
     public let orientationRevision: UInt64
     public let surfaceGeneration: UInt64
@@ -127,6 +139,7 @@ public struct PointerEvent {
         tiltY!: Float32 = 0.0,
         timestampNs!: UInt64 = UInt64(0),
         capturedDisplayScale!: Float32 = 1.0,
+        capturedPixelDensity!: Float32 = 1.0,
         transformRevision!: UInt64 = UInt64(1),
         orientationRevision!: UInt64 = UInt64(0),
         surfaceGeneration!: UInt64 = UInt64(0),
@@ -156,6 +169,8 @@ public struct PointerEvent {
         this.tiltY = tiltY
         this.timestampNs = timestampNs
         this.capturedDisplayScale = capturedDisplayScale
+        let _ = WindowCoordinateTransform(capturedDisplayScale, capturedPixelDensity)
+        this.capturedPixelDensity = capturedPixelDensity
         this.transformRevision = transformRevision
         this.orientationRevision = orientationRevision
         this.surfaceGeneration = surfaceGeneration
@@ -214,6 +229,17 @@ public func normalizePointerEvent(
         case InputCoordinateSpace.WindowPixel =>
             logicalX = logicalX / event.capturedDisplayScale
             logicalY = logicalY / event.capturedDisplayScale
+        case InputCoordinateSpace.WindowCoordinates =>
+            if (event.transformRevision != current.revision ||
+                event.capturedPixelDensity != current.pixelDensity ||
+                event.capturedDisplayScale != current.displayScale) {
+                return PointerNormalizationReceipt(PointerNormalizationDisposition.Rejected,
+                    "stale-window-coordinate-transform")
+            }
+            let transform = WindowCoordinateTransform(event.capturedDisplayScale, event.capturedPixelDensity)
+            let point = transform.windowToLogical(Point(logicalX, logicalY))
+            logicalX = point.x
+            logicalY = point.y
         case InputCoordinateSpace.SurfacePixel =>
             logicalX = logicalX / event.capturedDisplayScale
             logicalY = logicalY / event.capturedDisplayScale
@@ -233,6 +259,7 @@ public func normalizePointerEvent(
         tiltY: event.tiltY,
         timestampNs: event.timestampNs,
         capturedDisplayScale: event.capturedDisplayScale,
+        capturedPixelDensity: event.capturedPixelDensity,
         transformRevision: current.revision,
         orientationRevision: current.orientationRevision,
         surfaceGeneration: current.surfaceGeneration,

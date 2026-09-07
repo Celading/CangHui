@@ -76,6 +76,8 @@ public import sdl.WindowId
 public import sdl.WindowShapeApplyStatus
 public import sdl.WindowShapeReceipt
 public import sdl.WindowSpec
+public import sdl.WindowScaleSettings
+public import sdl.WindowCoordinateTransform
 public import sdl.clampF32
 public import sdl.drawIcon
 public import sdl.deviceRotationDeltaDegrees

@@ -3,7 +3,7 @@ package chui.desktop
 import std.env.getVariable
 import std.collection.ArrayList
 import sdl.{GamepadAxis, GamepadButton, GamepadConnectionState, GamepadDevice, Key, SdlEventEnvelope,
-    MouseButton, Rect, Renderer, UiEvent, WindowId, WindowSpec, gamepadButtonName,
+    MouseButton, Rect, Renderer, UiEvent, WindowId, WindowSpec, WindowScaleSettings, gamepadButtonName,
     gamepadConnectionStateName}
 import chui.core.{Button, Label, SemanticActionKind, SemanticActionRequest, SemanticActionSource,
     SharedFrameSurface, Theme, UiContext, VStack}
@@ -509,16 +509,31 @@ private func runDesktopNativeDoubleWindowSmoke(): DesktopNativeSmokeReceipt {
                 "scene-surface-isolation-failed", "Scene3D native-child registration crossed a window owner")
         }
 
-        let resize = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowResized(240, 150)))
+        // Resize the actual native window. A fabricated size payload is not native resize proof.
+        let didResize = app.setWindowSize(first, 240, 150)
+        // Old queued notifications must not restore old geometry after a newer transaction.
+        let resize = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowResized(200, 140)))
         let resizedFirst = app.windowState(first).getOrThrow()
         let untouchedSecond = app.windowState(second).getOrThrow()
-        if (!resize.ok || resizedFirst.logicalWidth != 240 || resizedFirst.logicalHeight != 150 ||
+        if (!didResize || !resize.ok || resizedFirst.logicalWidth != 240 || resizedFirst.logicalHeight != 150 ||
             untouchedSecond.logicalWidth != 180 || untouchedSecond.logicalHeight != 140) {
             app.close()
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
                 "window-resize-isolation-failed", "resize escaped its exact WindowId")
         }
 
+        let didZoom = app.setWindowScaling(first, WindowScaleSettings(followSystem: false, zoom: 1.25))
+        let zoomedFirst = app.windowState(first).getOrThrow()
+        let unzoomedSecond = app.windowState(second).getOrThrow()
+        if (!didZoom || zoomedFirst.logicalWidth != 192 || zoomedFirst.logicalHeight != 120 ||
+            unzoomedSecond.logicalWidth != untouchedSecond.logicalWidth ||
+            unzoomedSecond.displayScale != untouchedSecond.displayScale ||
+            zoomedFirst.transformRevision <= resizedFirst.transformRevision) {
+            app.close()
+            return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
+                "window-zoom-isolation-failed", "UI zoom did not remain within its exact WindowId")
+        }
+        let _ = app.setWindowScaling(first, WindowScaleSettings(followSystem: false))
         let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(true)))
         let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.MouseDown(MouseButton.Left, 20.0, 95.0)))
         let capturedFirst = app.windowState(first).getOrThrow()

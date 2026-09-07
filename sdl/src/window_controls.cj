@@ -14,13 +14,15 @@ extend SdlWindow {
 
     public func setMinimumSize(width: Int32, height: Int32): Unit {
         ensureSdl(unsafe {
-            SDL_SetWindowMinimumSize(windowPtr, scaledDimension(width, scale), scaledDimension(height, scale))
+            SDL_SetWindowMinimumSize(windowPtr, scaledDimension(width, coordinateTransform().windowScale),
+                scaledDimension(height, coordinateTransform().windowScale))
         }, "SDL_SetWindowMinimumSize")
     }
 
     public func setMaximumSize(width: Int32, height: Int32): Unit {
         ensureSdl(unsafe {
-            SDL_SetWindowMaximumSize(windowPtr, scaledDimension(width, scale), scaledDimension(height, scale))
+            SDL_SetWindowMaximumSize(windowPtr, scaledDimension(width, coordinateTransform().windowScale),
+                scaledDimension(height, coordinateTransform().windowScale))
         }, "SDL_SetWindowMaximumSize")
     }
 

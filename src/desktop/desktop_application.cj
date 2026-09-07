@@ -2,7 +2,7 @@ package chui.desktop
 
 import std.collection.ArrayList
 import sdl.{FrameInfo, GamepadButton, GamepadConnectionState, GamepadDevice, Key, MouseButton, Rect,
-    SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowMetrics, WindowSpec,
+    SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowMetrics, WindowSpec, WindowScaleSettings,
     gamepadButtonName, pointerEventToLegacyUiEvent}
 import sdl.input.Keyboard
 import chui.core.{SemanticActionHandler, SemanticActionReceipt, SemanticActionRequest,
@@ -627,7 +627,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     /** Routes one already-window-scoped event against this window's current tree. */
     public func dispatch(rawEvent: UiEvent): Bool {
         if (closed) { return false }
-        let event = scaleManagedWindowEvent(rawEvent, window.scale)
+        let event = window.normalizeWindowEvent(rawEvent)
         match (event) {
             case UiEvent.WindowDestroyed => wantsClose = true
             case _ => ()
@@ -644,6 +644,15 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     }
 
     func focusNativeWindow(): Unit { window.raiseWindow() }
+
+    func setScaling(settings: WindowScaleSettings): Unit {
+        applyWindowMetrics(window.setScaling(settings))
+    }
+
+    func setSize(width: Int32, height: Int32): Unit {
+        window.setSize(width, height)
+        applyWindowMetrics(window.currentMetrics())
+    }
 
     func delay(ms: UInt32): Unit { window.delay(ms) }
 
@@ -743,6 +752,11 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     }
 
     private func applyWindowMetrics(metrics: WindowMetrics): Unit {
+        if (ctx.inputTransformRevision != metrics.transformRevision) {
+            ctx.leftMouseDown = false
+            ctx.clearDrag()
+            ctx.clearPress()
+        }
         ctx.displayScale = metrics.displayScale
         ctx.inputTransformRevision = metrics.transformRevision
         ctx.viewportWidth = Float32(metrics.logicalWidth)
@@ -788,23 +802,6 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             }
             case None => ()
         }
-    }
-}
-
-/** Applies the same physical-to-logical pointer conversion as SdlWindow.pollEventEnvelope. */
-private func scaleManagedWindowEvent(event: UiEvent, scale: Float32): UiEvent {
-    if (scale == 1.0) { return event }
-    match (event) {
-        case UiEvent.MouseMove(x, y) => UiEvent.MouseMove(x / scale, y / scale)
-        case UiEvent.MouseDown(button, x, y) => UiEvent.MouseDown(button, x / scale, y / scale)
-        case UiEvent.MouseUp(button, x, y) => UiEvent.MouseUp(button, x / scale, y / scale)
-        case UiEvent.MouseWheel(dx, dy, x, y) => UiEvent.MouseWheel(dx, dy, x / scale, y / scale)
-        case UiEvent.DropFile(path, x, y) => UiEvent.DropFile(path, x / scale, y / scale)
-        case UiEvent.DropText(text, x, y) => UiEvent.DropText(text, x / scale, y / scale)
-        case UiEvent.DropPosition(x, y) => UiEvent.DropPosition(x / scale, y / scale)
-        case UiEvent.WindowResized(width, height) => UiEvent.WindowResized(
-            Int32(Float32(width) / scale), Int32(Float32(height) / scale))
-        case _ => event
     }
 }
 
@@ -902,6 +899,22 @@ public class DesktopApplication <: Resource {
     }
 
     public func activeWindow(): ?WindowId { windows.activeWindow() }
+
+    /** Changes content zoom in exactly one managed window on the UI owner. */
+    public func setWindowScaling(id: WindowId, settings: WindowScaleSettings): Bool {
+        match (findManagedWindow(id)) {
+            case Some(session) => session.setScaling(settings); true
+            case None => false
+        }
+    }
+
+    /** Resizes one native window in logical content units, then adopts measured geometry. */
+    public func setWindowSize(id: WindowId, width: Int32, height: Int32): Bool {
+        match (findManagedWindow(id)) {
+            case Some(session) => session.setSize(width, height); true
+            case None => false
+        }
+    }
 
     /** Read-only count of application-owned sessions; registry mutation stays lifecycle-gated. */
     public func sessionCount(): Int64 { windows.sessionCount() }

@@ -153,7 +153,7 @@ internal func nextWindowMetrics(
         current.transformRevision + UInt64(1)
     }
     WindowMetrics(current.logicalWidth, current.logicalHeight, pixelWidth, pixelHeight,
-        nextScale, nextRevision)
+        nextScale, nextRevision, pixelDensity: current.pixelDensity)
 }
 
 internal func rectFromSdlRect(raw: SdlRect): Rect {

@@ -4,7 +4,7 @@ import std.collection.ArrayList
 import std.convert.*
 import std.env.{getCommandLine, getVariable}
 import sdl.{DeviceRotation, DeviceRotationEvent, DeviceRotationSource, FrameInfo, Key, MouseButton, Rect,
-    SdlWindow, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, pointerEventToLegacyUiEvent}
+    SdlWindow, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, WindowScaleSettings, pointerEventToLegacyUiEvent}
 import sdl.input.{Cursor, Keyboard, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
@@ -236,6 +236,11 @@ public class DesktopApp {
     /** Effective layout posture, using viewport aspect ratio until a provider reports. */
     public func deviceRotation(): DeviceRotation {
         ctx.deviceRotation()
+    }
+
+    /** UI-owner content zoom; does not resize the native window or simulate input. */
+    public func setScaling(settings: WindowScaleSettings): Unit {
+        applyWindowMetrics(window.setScaling(settings))
     }
 
     /** Last posture reported by a provider, or `Unknown` before the first report. */
@@ -602,6 +607,13 @@ public class DesktopApp {
     }
 
     private func applyWindowMetrics(metrics: WindowMetrics): Unit {
+        frameGraphExecutor.setPhysicalPixelScale(metrics.displayScale * Float32(ctx.renderer.supersampleFactor()))
+        if (ctx.inputTransformRevision != metrics.transformRevision) {
+            ctx.leftMouseDown = false
+            ctx.clearDrag()
+            ctx.clearPress()
+        }
+        appliedInputAnchor = None
         ctx.displayScale = metrics.displayScale
         ctx.inputTransformRevision = metrics.transformRevision
         ctx.viewportWidth = Float32(metrics.logicalWidth)

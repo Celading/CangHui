@@ -322,11 +322,20 @@ func sdlExecutorFreezesBindingsWhenSessionBegins(): Unit {
     }
     @Expect(colorRejected)
 
+    var scaleRejected = false
+    try {
+        executor.setPhysicalPixelScale(2.0)
+    } catch (_: IllegalStateException) {
+        scaleRejected = true
+    }
+    @Expect(scaleRejected)
+
     let result = session.execute(compiled.executionGroupAt(0))
     @Expect(!result.ok)
     @Expect(result.code, "missing-runtime-binding")
     session.rollback()
     session.rollback()
+    executor.setPhysicalPixelScale(2.0)
     @Expect(calls.value, 0)
     @Expect(executor.lastReceipt().legacyFallbackRequired)
     @Expect(executor.markLegacyFallbackUsed())

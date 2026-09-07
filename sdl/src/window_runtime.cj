@@ -31,14 +31,14 @@ extend SdlWindow {
         var w: Int32 = 0
         var h: Int32 = 0
         ensureSdl(unsafe { SDL_GetWindowMinimumSize(windowPtr, inout w, inout h) }, "SDL_GetWindowMinimumSize")
-        windowSizeFromPixels(w, h, scale)
+        windowSizeFromPixels(w, h, coordinateTransform().windowScale)
     }
 
     public func maximumSize(): Size {
         var w: Int32 = 0
         var h: Int32 = 0
         ensureSdl(unsafe { SDL_GetWindowMaximumSize(windowPtr, inout w, inout h) }, "SDL_GetWindowMaximumSize")
-        windowSizeFromPixels(w, h, scale)
+        windowSizeFromPixels(w, h, coordinateTransform().windowScale)
     }
 
     public func borderSize(): WindowBorderSize {

@@ -345,8 +345,10 @@ public class Renderer {
             return
         }
         ensureSdl(unsafe { SDL_SetRenderTarget(ptr, ssTarget) }, "SDL_SetRenderTarget")
-        let sx = Float32(targetWidth) / max(1.0, logicalWidth)
-        let sy = Float32(targetHeight) / max(1.0, logicalHeight)
+        // Integer viewport rounding must not introduce a second, nonuniform input transform.
+        // Keep the same logical-to-pixel scale as direct rendering; clear covers residual edge pixels.
+        let sx = contentScale * Float32(ssFactor)
+        let sy = sx
         ensureSdl(unsafe { SDL_SetRenderScale(ptr, sx, sy) }, "SDL_SetRenderScale")
         scaleX = sx
         scaleY = sy
