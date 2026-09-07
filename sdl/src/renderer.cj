@@ -82,6 +82,8 @@ private class TextMetricsCache {
         this.capacityPerSize = capacityPerSize
     }
 
+    func clear(): Unit { bySize.clear() }
+
     func get(sizeKey: Int64, text: String): ?NativeTextMetrics {
         match (bySize.get(sizeKey)) {
             case Some(generation) => generation.get(text)
@@ -177,6 +179,30 @@ public class Renderer {
     /** A device-free renderer that records stable clip/transform/paint/text/symbol commands. */
     public static func recordingHeadless(): Renderer {
         Renderer(CPointer<Unit>(), recordDrawIr: true)
+    }
+
+    /**
+     * Opts into platform text layout where available. Currently macOS CoreText supports
+     * regular/bold runs; decorated styles retain SDL_ttf. Returns false when unavailable.
+     * Call on the renderer owner thread before measuring a frame. SDL remains the default.
+     */
+    public func usePlatformTextLayout(enabled: Bool): Bool {
+        match (textBackend) {
+            case Some(backend) =>
+                if (backend.platformLayoutEnabled() == enabled) { return true }
+                if (!backend.usePlatformLayout(ptr, enabled)) { return false }
+                metricsCache.clear()
+                namedMetricsCaches.clear()
+                true
+            case None => !enabled
+        }
+    }
+
+    public func platformTextLayoutEnabled(): Bool {
+        match (textBackend) {
+            case Some(backend) => backend.platformLayoutEnabled()
+            case None => false
+        }
     }
 
     public func drawIrEnabled(): Bool {

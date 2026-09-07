@@ -80,11 +80,42 @@ primary face, **not** a complete per-glyph font map. The recording renderer incl
 The stable machine-readable contract is
 [`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json).
 
+## macOS native layout preview
+
+Custom renderer hosts can explicitly enable CoreText before measuring and drawing:
+
+```cangjie
+let enabled = renderer.usePlatformTextLayout(true)
+// Inspect enabled; false means this renderer cannot provide the native path.
+```
+
+`platformTextLayoutEnabled()` reports the active mode. Passing `false` restores
+SDL_ttf. Switching clears measurement caches; do not switch between measurement
+and drawing, or toggle it for each label. SDL_ttf remains the default, and headless
+renderers and other platforms return `false` when asked to enable this preview.
+
+For regular and bold runs, one retained CoreText line supplies advances, raster
+output and internal native caret geometry. Registered font files remain the
+primary source; ordered fallback descriptors and CoreText's system fallback can
+provide missing glyphs and color emoji. The bundled HarmonyOS Sans Regular and
+Bold named faces are selected separately. Fallback glyphs can vary with macOS.
+Italic, underline and strikethrough still use SDL_ttf for both measurement and
+drawing; this preview does not promise all-font style parity.
+
+Native line and texture caches are renderer-owned and released on disable/close.
+One raster is limited to 16384 × 4096 pixels and 16 MiB RGBA; an oversized run
+throws a text-backend error rather than silently clipping. Wrap or virtualize long
+content. Texture scaling follows both render-target axes and the existing clip.
+
+This is a renderer preview, not a complete native text editor. Native caret
+geometry is not yet connected to editable controls, IME or accessibility.
+Headless probe rectangles do not verify native glyphs; use `cuic prnt` for pixels.
+
 ## Remaining native-text limits
 
 Mixed-font fallback is not a guarantee of complete Unicode shaping or bidi layout.
 In particular, complex clusters that must move together to a fallback face, bitmap
-emoji strike scaling, and cross-style glyph shaping still require separate backend
-work and target-platform tests. Prefer keeping a complex cluster in one span and
+emoji strike scaling on the default SDL path, and cross-style glyph shaping still
+require separate backend work and target-platform tests. Prefer keeping a complex cluster in one span and
 selecting a face that covers the complete cluster. Grapheme-safe editing and line
 breaking are described separately in [text boundaries](text-boundaries.md).

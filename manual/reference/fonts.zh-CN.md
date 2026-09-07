@@ -56,9 +56,35 @@ assets/fonts/HARMONYOS_SANS_SOURCE.txt
 
 稳定的机器可读契约是 [`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json)。
 
+## macOS 原生排版预览
+
+自定义渲染宿主可以在测量和绘制之前显式启用 CoreText：
+
+```cangjie
+let enabled = renderer.usePlatformTextLayout(true)
+// 检查 enabled；false 表示当前渲染器不能提供这条原生路径。
+```
+
+`platformTextLayoutEnabled()` 返回当前状态。传入 `false` 恢复 SDL_ttf。
+切换会清空测量缓存，因此不能在测量与绘制之间切换，也不要逐个标签反复切换。
+默认仍使用 SDL_ttf；无设备渲染器和其他平台请求启用时返回 `false`。
+
+普通和粗体文本由同一个保留的 CoreText line 提供宽高、像素与内部原生光标几何。
+注册的字体文件仍是主字体；按序回退描述符及 CoreText 系统回退可提供缺字和
+彩色 emoji。随包 HarmonyOS Sans 的 Regular、Bold 命名实例分别选择。
+回退字形可能随 macOS 版本变化。斜体、下划线和删除线的测量与绘制仍一起使用
+SDL_ttf；预览不保证所有字体的样式一致性。
+
+原生排版和纹理缓存归渲染器持有，禁用或关闭时释放。单张栅格不超过
+16384 × 4096 像素及 16 MiB RGBA；超限会明确报错，不会悄悄截断。
+长内容应换行或虚拟化。纹理遵循渲染目标的双轴缩放及已有裁剪。
+
+这是渲染器预览，不是完整原生编辑器。原生光标几何尚未接到可编辑控件、IME 或
+无障碍。无设备 probe 的矩形不证明原生字形正确，像素仍需用 `cuic prnt` 验证。
+
 ## 原生文本仍有的限制
 
 混合字体回退不等于完整 Unicode 塑形或双向排版。需要整体切到回退字体的复杂
-字形簇、位图 emoji 的字级缩放、跨样式字形塑形仍需独立实现和目标平台验收。
+字形簇、默认 SDL 路径中的位图 emoji 字级缩放、跨样式字形塑形仍需独立实现和目标平台验收。
 尽量把复杂字素保留在同一 span，并选择能覆盖整个字素的字体。
 编辑与换行保证另见[文本边界](text-boundaries.md)。

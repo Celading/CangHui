@@ -121,3 +121,34 @@ func nativeTextClipStaysInTargetCoordinatesWithUnequalScales(): Unit {
         Fonts.clearBundledFallbackOverride()
     }
 }
+
+@When[os == "macOS"]
+@Test
+func platformTextScaleAndClipUseTheSameNativeLineMetrics(): Unit {
+    Fonts.clear()
+    Fonts.registerBundledFallback(bundledFontFixture())
+    let window = SdlWindow(WindowSpec("CoreText scale clip", 720, 240, supersample: 1))
+    try {
+        let r = window.renderer
+        r.setScale(1.0)
+        @Expect(r.usePlatformTextLayout(true))
+        let target = r.createTargetTexture(720.0, 240.0)
+        try {
+            let base = drawScaledInk(r, target, 1.0, 1.0, false)
+            @Expect(base.w > 50.0 && base.h > 10.0)
+            for ((sx, sy) in [(Float32(2.0), Float32(1.0)), (Float32(1.0), Float32(2.0)),
+                    (Float32(0.75), Float32(1.5)), (Float32(1.5), Float32(0.75))]) {
+                let scaled = drawScaledInk(r, target, sx, sy, false)
+                @Expect(abs(scaled.w - base.w * sx) <= 5.0)
+                @Expect(abs(scaled.h - base.h * sy) <= 4.0)
+                let clipped = drawScaledInk(r, target, sx, sy, true)
+                @Expect(clipped.w > 5.0)
+                @Expect(clipped.x >= 10.0 * sx - 1.0)
+                @Expect(clipped.x + clipped.w <= 35.0 * sx + 1.0)
+                @Expect(clipped.y >= 10.0 * sy - 1.0)
+            }
+        } finally { target.close() }
+    } finally {
+        window.close(); Fonts.clear(); Fonts.clearBundledFallbackOverride()
+    }
+}

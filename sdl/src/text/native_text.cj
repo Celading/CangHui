@@ -75,6 +75,7 @@ protected class NativeTextRenderer {
     private let fallbackChains = HashMap<String, NativeFont>()
     private var retiredChainShapes: UInt64 = 0
     private var closed: Bool = false
+    private var platform: ?PlatformTextEngine = None
 
     /**
      * Throws `NativeTextException` when SDL_ttf cannot initialize the system-font backend.
@@ -117,6 +118,9 @@ protected class NativeTextRenderer {
         styleFlags: Int32,
         facePaths: Array<String>
     ): NativeTextMetrics {
+        if ((styleFlags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return native.measure(text, pointSize, styleFlags, facePaths) }
+        }
         let cacheKey = textMeasureCacheKey(text, pointSize, styleFlags, facePaths)
         match (measureCache.get(cacheKey)) {
             case Some(cached) => return cached
@@ -141,10 +145,10 @@ protected class NativeTextRenderer {
     }
 
     /**
-     * Rasterizes `text` into a new RGBA surface via TTF_RenderText_Blended and returns the raw
-     * SDL surface pointer — null for empty text or when rasterization fails. Glyphs are white at
-     * full alpha so the caller can colour the resulting texture with a colour mod, which also
-     * keeps colour out of any caching key. The caller owns the surface and must destroy it.
+     * Rasterizes `text` into a new RGBA SDL surface. Empty text returns null. The caller owns
+     * the surface and must destroy it. Monochrome glyphs are white; native color glyphs retain
+     * their colors. CoreText surfaces include overhang padding and throw on raster failure;
+     * SDL_ttf can return null on failure. The surface is not a substitute for advance metrics.
      *
      * This is the path for text that must be transformed (rotated axis titles): the text engine
      * `draw` uses rasterizes straight onto the render target and cannot rotate, while a surface
@@ -158,6 +162,9 @@ protected class NativeTextRenderer {
     ): CPointer<Unit> {
         if (text.isEmpty()) {
             return CPointer<Unit>()
+        }
+        if ((styleFlags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return native.surface(text, pointSize, styleFlags, facePaths) }
         }
         let font = fontForText(text, facePaths, pointSize, styleFlags)
         let cText = unsafe { LibC.mallocCString(text) }
@@ -182,6 +189,12 @@ protected class NativeTextRenderer {
         if (text.isEmpty()) {
             return
         }
+        if ((styleFlags & 0x0E) == 0) {
+            if (let Some(native) <- platform) {
+                native.draw(text, x, y, pointSize, styleFlags, facePaths, color)
+                return
+            }
+        }
         // The font reuses a cached, already-shaped text object for `text`, so an unchanged string
         // (every visible label during a scroll) is not re-shaped by SDL_ttf — only redrawn.
         fontForText(text, facePaths, pointSize, styleFlags).drawText(text, x, y, color)
@@ -194,6 +207,9 @@ protected class NativeTextRenderer {
         styleFlags: Int32,
         facePaths: Array<String>
     ): String {
+        if ((styleFlags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return native.resolvedPath(text, pointSize, styleFlags, facePaths) }
+        }
         fontForText(text, facePaths, pointSize, styleFlags).sourcePath
     }
 
@@ -273,6 +289,7 @@ protected class NativeTextRenderer {
      */
     public func shapeCount(): UInt64 {
         var total = defaultFace.shapeCount() + retiredChainShapes
+        if (let Some(native) <- platform) { total += native.shapeCount() }
         for ((_, face) in faces) {
             total += face.shapeCount()
         }
@@ -281,6 +298,7 @@ protected class NativeTextRenderer {
     }
 
     public func resetShapeCount(): Unit {
+        if (let Some(native) <- platform) { native.resetShapeCount() }
         defaultFace.resetShapeCount()
         retiredChainShapes = 0
         for ((_, font) in fallbackChains) { font.shapeCount = 0 }
@@ -302,11 +320,29 @@ protected class NativeTextRenderer {
         systemPath
     }
 
+    public func usePlatformLayout(renderer: CPointer<Unit>, enabled: Bool): Bool {
+        if (closed) { throw NativeTextException("Text backend is closed") }
+        if (!enabled) {
+            if (let Some(native) <- platform) { native.close() }
+            platform = None
+            measureCache.clear()
+            return true
+        }
+        if (platform.isSome()) { return true }
+        platform = createPlatformTextEngine(renderer, systemPath)
+        measureCache.clear()
+        platform.isSome()
+    }
+
+    public func platformLayoutEnabled(): Bool { platform.isSome() }
+
     public func close(): Unit {
         if (closed) {
             return
         }
         closed = true
+        if (let Some(native) <- platform) { native.close() }
+        platform = None
         clearFallbackChains()
         defaultFace.close()
         for ((_, face) in faces) {
@@ -839,7 +875,7 @@ private func normalizePointSize(pointSize: Float32): Float32 {
 /**
  * Throws `NativeTextException` when an SDL_ttf operation reports failure.
  */
-private func ensureNative(ok: Bool, api: String): Unit {
+internal func ensureNative(ok: Bool, api: String): Unit {
     if (!ok) {
         throw NativeTextException("${api} failed: ${lastNativeError()}")
     }
