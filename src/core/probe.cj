@@ -353,10 +353,7 @@ public class ComponentProbe {
                     if (ctx.hasOverlay()) {
                         throw IllegalArgumentException("focus by id cannot verify overlay ownership; use key Tab")
                     }
-                    if (!store.focusRing().contains(parts[1])) {
-                        throw IllegalArgumentException("focus target is not in the current focus ring")
-                    }
-                    ctx.focus(parts[1], viaKeyboard: true)
+                    ctx.focus(session.resolveFocusTarget(parts[1], store.focusRing()), viaKeyboard: true)
                     session.finishEvent(true)
                 } else if (command == "text") {
                     if (parts.size < 2) { throw IllegalArgumentException("text requires a value") }
@@ -748,6 +745,24 @@ private class ComponentProbeSession {
 
     func enterNode(id: String): Unit { drawNodeStack.add(id) }
     func leaveNode(): Unit { if (!drawNodeStack.isEmpty()) { drawNodeStack.remove(at: drawNodeStack.size - 1) } }
+
+    // Resolve only the single focus owner reported by the actual widget. Descriptive probe
+    // properties are untrusted annotations, not routing authority; containers cannot pick a child.
+    func resolveFocusTarget(id: String, ring: Array<String>): String {
+        var target = id
+        match (findNode(id)) {
+            case Some(node) =>
+                target = node.focusTarget
+                if (ring.contains(id) && target != id) {
+                    throw IllegalArgumentException("ambiguous focus target: probe id conflicts with a control key")
+                }
+            case None => ()
+        }
+        if (target.isEmpty() || !ring.contains(target)) {
+            throw IllegalArgumentException("focus target is not in the current focus ring")
+        }
+        target
+    }
 
     func currentDrawNodeOwns(actionOwner: String): Bool {
         if (drawNodeStack.isEmpty()) { return false }

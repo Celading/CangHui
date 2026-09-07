@@ -1,6 +1,51 @@
 package chui.text
 
-import chui.core.{ComponentProbe, State, VStack}
+import chui.core.{ComponentProbe, Label, ProbeProperty, State, VStack}
+
+@Test
+func textAreaProbeAliasRoutesFocusAndEditingToItsActualOwner(): Unit {
+    let text = State<String>("")
+    let report = ComponentProbe("test.editor-alias").run(
+        "focus studio.editor\ntext 仓绘\nkey Backspace\nassert state studio.editor focused true\nassert event text consumed true") {
+        TextArea(text, key: "editor-runtime-key").probe("studio.editor", "TextArea", [
+            ProbeProperty("role", "code-editor")
+        ])
+    }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(text.value == "仓")
+}
+
+@Test
+func textAreaProbeAliasCannotFocusDisabledOrConflictingOwners(): Unit {
+    let disabled = ComponentProbe("test.disabled-alias").run("focus editor.alias") {
+        TextArea(State<String>(""), key: "disabled-owner").enabled(false)
+            .probe("editor.alias", "TextArea")
+    }
+    @Expect(disabled.contains("\"ok\":false"))
+    let conflicting = ComponentProbe("test.conflicting-alias").run("focus editor.alias") {
+        VStack {
+            TextArea(State<String>(""), key: "owner-one").probe("editor.alias", "TextArea")
+            TextArea(State<String>(""), key: "editor.alias")
+        }
+    }
+    @Expect(conflicting.contains("ambiguous focus target"))
+    @Expect(conflicting.contains("\"ok\":false"))
+}
+
+@Test
+func probeFocusDoesNotTrustDescriptivePropertiesToRedirectInput(): Unit {
+    let report = ComponentProbe("test.forged-alias").run("focus description") {
+        VStack {
+            Label("Not a control").probe("description", "TextArea", [
+                ProbeProperty("focusTarget", "actual-editor"),
+                ProbeProperty("actionOwner", "actual-editor")
+            ])
+            TextArea(State<String>(""), key: "actual-editor")
+        }
+    }
+    @Expect(report.contains("\"ok\":false"))
+    @Expect(report.contains("focus target is not in the current focus ring"))
+}
 
 @Test
 func textAreaObservationPreservesFocusedRegionWithoutDuplicateStateKeys(): Unit {

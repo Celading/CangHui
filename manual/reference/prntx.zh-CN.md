@@ -41,7 +41,10 @@ cuic prntx . settings.main --format ascii --columns 96 --rows 32
 
 执行回放仍走同一个 debug probe：鼠标、键盘、文本先进入浮层栈；Tab 服从
 对话框焦点约束。浮层存在时直接 `focus id` 会拒绝，使用 `key Tab`；关闭浮层后
-可聚焦当前焦点环中的 ID。`advance N` 只派发一次 N 毫秒 Frame，避免动画和计时
+可用当前焦点环中的控件 key，或单个控件的 `.probe("id", ...)` ID 聚焦。
+后者由框架读取真实控件焦点归属，不从 `actionOwner` 等描述字段推断；禁用、失效、
+无单一焦点归属的容器及与另一控件 key 同名的歧义 ID 都会拒绝。
+`advance N` 只派发一次 N 毫秒 Frame，避免动画和计时
 在测试里翻倍。摘要失败或节点不存在时命令返回非零。
 
 `prntx` 不连接任意现有进程，不绕过 release 的控制通道限制。需要运行态语义行为，

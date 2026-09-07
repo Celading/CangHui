@@ -78,7 +78,7 @@ assert draw text 1
 | `move-in x y`、`move-out x y`、`move x y`、`hover x y` | 在逻辑坐标发送指针移动。 |
 | `press x y`、`release x y` | 发送主指针按钮。 |
 | `key name` | 发送支持的按键，例如 `Enter`、`Space`、`Tab` 或方向键。 |
-| `focus id` | 把确定性键盘焦点移动到稳定 id。 |
+| `focus id` | 聚焦当前控件 key 或单控件的 probe ID；只按实际焦点归属映射，禁用／失效／同名歧义或浮层存在时拒绝。 |
 | `text value` | 发送文本输入。 |
 | `advance ms` | 推进逻辑动画时间并发送帧事件。 |
 | `draw` | 不改变逻辑时间，再捕获一帧。 |
