@@ -809,7 +809,9 @@ private func drawTextAreaComposition(
     if (start < 0 || start > content.text.size || normalizedTextCursor(content.text, start) != start) {
         return
     }
-    let visible = composition.preedit.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    let projected = TextAreaPreeditProjection(composition.preedit,
+        composition.selectionStart, composition.selectionLength)
+    let visible = projected.text
     let line = textCursorLineIndex(content.text, start)
     let lineStart = lineStartBeforeOrAt(content.text, start)
     let x = viewport.x - content.horizontalScroll +
@@ -825,8 +827,7 @@ private func drawTextAreaComposition(
         ctx.renderer.strokeLine(x, y + lineHeight - 1.0, x + width, y + lineHeight - 1.0,
             Pen(width: 1.0, color: ctx.theme.accent))
     }
-    let caretCharacters = composition.selectionStart + composition.selectionLength
-    let caretByte = utf8ByteOffsetAfterCharacters(visible, caretCharacters)
+    let caretByte = projected.selectionEndByte
     let caretX = x + ctx.renderer.textWidth(visible[0..caretByte], pointSize: FontSizes.BODY)
     let caret = Rect(caretX, y, TEXT_AREA_CARET_RESERVE, lineHeight)
     ctx.setTextInputAnchor(caret)
@@ -841,17 +842,6 @@ private func utf8CharacterCount(value: String): Int64 {
         count += 1
     }
     count
-}
-
-private func utf8ByteOffsetAfterCharacters(value: String, characters: Int64): Int64 {
-    let target = max(Int64(0), characters)
-    var count: Int64 = 0
-    var cursor: Int64 = 0
-    while (cursor < value.size && count < target) {
-        cursor = nextTextBoundary(value, cursor)
-        count += 1
-    }
-    cursor
 }
 
 private func drawTextAreaDecorationBackgrounds(
