@@ -11,8 +11,7 @@ foreign {
 }
 
 private func textScaleInkBounds(renderer: Renderer): Rect {
-    let surface = unsafe { SDL_RenderReadPixels(renderer.ptr, CPointer<SdlRect>()) }
-    ensureSdl(surface.isNotNull(), "text scale readback")
+    let surface = renderer.captureSurface()
     var left: Int32 = 720
     var top: Int32 = 240
     var right: Int32 = -1
@@ -24,7 +23,7 @@ private func textScaleInkBounds(renderer: Renderer): Rect {
                 var green: UInt8 = 0
                 var blue: UInt8 = 0
                 var alpha: UInt8 = 0
-                ensureSdl(unsafe { SDL_ReadSurfacePixel(surface, Int32(x), Int32(y),
+                ensureSdl(unsafe { SDL_ReadSurfacePixel(surface.ptr, Int32(x), Int32(y),
                     inout red, inout green, inout blue, inout alpha) }, "text scale pixel")
                 if (red > 180 && green > 180 && blue > 180) {
                     left = min(left, Int32(x))
@@ -35,7 +34,7 @@ private func textScaleInkBounds(renderer: Renderer): Rect {
             }
         }
     } finally {
-        unsafe { SDL_DestroySurface(surface) }
+        surface.close()
     }
     Rect(Float32(left), Float32(top), Float32(max(0, right - left + 1)),
         Float32(max(0, bottom - top + 1)))

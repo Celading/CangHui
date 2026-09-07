@@ -136,9 +136,11 @@ candidate-window testing and screen-reader integration still need separate work.
 The multi-window host does not yet expose this startup setting.
 Headless probe rectangles do not verify native glyphs; use `cuic prnt` for pixels.
 
-Repeated native text tests on Cangjie 1.1.3 / macOS arm64 have also exposed an
-intermittent runtime GC crash, including without the colored-line extension below.
-Its cause is still under investigation; this preview is not production-editor certification.
+On Cangjie 1.1.3 / macOS arm64, native pixel tests exposed a GC unwind failure
+associated with a generated cross-package FFI accessor. Capture and pixel tests
+now share a managed readback method and owned Surface, avoiding that observed
+path. This does not repair the compiler/runtime or certify all native call shapes;
+the text preview is still not production-editor certification.
 
 ### Colored lines for custom hosts
 

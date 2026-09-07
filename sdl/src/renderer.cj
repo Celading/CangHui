@@ -1443,17 +1443,27 @@ public class Renderer {
         if (ptr.isNull()) {
             return
         }
+        try (surface = captureSurface()) {
+            surface.saveBmp(path)
+        }
+    }
+
+    // Keep the native transition in this managed method, shared by capture and
+    // pixel validation. Calling a foreign declaration across the test-package
+    // boundary can produce an invalid GC-unwind accessor on Cangjie 1.1.3/macOS.
+    internal func captureSurface(): Surface {
+        if (ptr.isNull()) {
+            throw CuiException("Headless renderer has no pixel surface.")
+        }
         let surface = unsafe { SDL_RenderReadPixels(ptr, CPointer<SdlRect>()) }
         if (surface.isNull()) {
             throw CuiException("SDL_RenderReadPixels failed: ${lastSdlError()}")
         }
-        let cPath = unsafe { LibC.mallocCString(path) }
-        try (pathResource = cPath.asResource()) {
-            let saved = unsafe { SDL_SaveBMP(surface, pathResource.value) }
+        try {
+            Surface(surface)
+        } catch (error: Exception) {
             unsafe { SDL_DestroySurface(surface) }
-            if (!saved) {
-                throw CuiException("SDL_SaveBMP failed: ${lastSdlError()}")
-            }
+            throw error
         }
     }
 }
