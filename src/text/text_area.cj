@@ -151,6 +151,7 @@ public class TextArea <: Widget {
     private var autofocusRequested = false
     private let autofocusDone: State<Bool>
     private let lastObservedCursor: State<Int64>
+    private let lastObservedViewport: State<Size>
     private var frame = Rect.zero()
 
     public init(
@@ -223,6 +224,9 @@ public class TextArea <: Widget {
         this.lastObservedDisplay = localState<UInt64>("TextArea:${ident}:last-observed-display") {UInt64(0)}
         this.autofocusDone = localState<Bool>("TextArea:${ident}:autofocused") {false}
         this.lastObservedCursor = localState<Int64>("TextArea:${ident}:last-observed-cursor") {-1}
+        this.lastObservedViewport = localState<Size>("TextArea:${ident}:last-observed-viewport") {
+            Size(-1.0, -1.0)
+        }
         // A read-only text area is not an editing stop, so it stays out of Tab traversal.
         if (editable) {
             registerFocusable(ident)
@@ -363,8 +367,12 @@ public class TextArea <: Widget {
             horizontalScrollStateValue.value = clampedHorizontalScroll
             cancelScrollMotion(horizontalScrollMotion, horizontalScrollStateValue)
         }
+        // A resized viewport can hide an unchanged caret. Track dimensions, not
+        // origin or scroll offsets, so moving the editor or ordinary wheel frames
+        // cannot pull a deliberately scrolled viewport back to the caret.
         if (ctx.hasFocus(id) && (cursorStateValue.value != lastObservedCursor.value ||
-            displayCache.revision != lastObservedDisplay.value)) {
+            displayCache.revision != lastObservedDisplay.value ||
+            viewport.w != lastObservedViewport.value.w || viewport.h != lastObservedViewport.value.h)) {
             revealCaret(ctx, contentW, viewport)
         }
         let projection = display()
@@ -650,6 +658,7 @@ public class TextArea <: Widget {
         cancelScrollMotion(horizontalScrollMotion, horizontalScrollStateValue)
         lastObservedCursor.value = cursorStateValue.value
         lastObservedDisplay.value = displayCache.revision
+        lastObservedViewport.value = Size(viewport.w, viewport.h)
     }
 
     private func pointOffset(ctx: UiContext, x: Float32, y: Float32): Int64 {
