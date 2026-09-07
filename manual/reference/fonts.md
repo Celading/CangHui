@@ -126,8 +126,9 @@ extended-grapheme boundaries; secure fields send only the mask to native layout.
 Custom editors can query `Renderer.textCaretPositionsUtf16` (one index or a batch),
 `textHitUtf16` and `textSelectionSpansUtf16`. Indices are UTF-16 units; positions
 are logical pixels. `None` means unsupported backend/style. An empty native hit
-can return `-1`; normalize through `NativeTextIndex` to grapheme boundaries before
-assigning UTF-8 editing state.
+can return `-1`; convert to UTF-8 and normalize to grapheme boundaries before
+assigning editing state. The framework uses its internal `NativeTextIndex` for
+this; that internal type is not a public custom-editor API.
 
 This is not a complete native editor. `TextArea` has not adopted whole-line native
 editing geometry; do not use this switch for pages requiring correct bidi TextArea
@@ -165,6 +166,14 @@ Color boundaries can change ligatures, emoji clusters and caret positions. Use
 the same spec, size, style and font for measurement, drawing, scalar/batched
 carets, `textHitUtf16` and `textSelectionSpansUtf16`. Editors must still convert
 native indices into their UTF-8 grapheme positions.
+
+Do not use caret rounding to convert color ranges. A valid paint range can start
+between `e` and its combining accent, or inside an emoji ZWJ sequence. Convert
+each UTF-8 code-point boundary exactly to UTF-16; reject byte/surrogate interiors
+and out-of-range offsets rather than expanding or shrinking the range. For
+example, in `A😀é`, the accent's UTF-8 range `[6,8)` is UTF-16 `[4,5)`, while
+the preceding editor caret is at UTF-8 byte `5`. Retain the encoding index per
+source line instead of rescanning the entire line for every decoration.
 
 Specs hold no native pointers; the existing renderer owns line and texture caches.
 Rebuild a spec when source or colors change, not for each caret query. Unsupported
