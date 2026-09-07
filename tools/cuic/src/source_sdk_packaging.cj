@@ -57,6 +57,9 @@ func closeSourceSdkMacApp(framework: String, output: String, executableName: Str
         throw CuicError("cannot record the source SDK deployment floor")
     }
     let resourceRoot = joinPath(output, "Contents/Resources")
+    copyPackagingResources(joinPath(framework, "assets"), ["fonts"], joinPath(resourceRoot, "canghui-sdk"),
+        copied, "Contents/Resources/canghui-sdk")
+    requireFile(joinPath(resourceRoot, SOURCE_SDK_BUNDLED_FONT), "SDK application bundled font is missing")
     copyPackagingResources(sdkRoot, ["licenses", "native-inventory.json"], resourceRoot,
         copied, "Contents/Resources")
 }

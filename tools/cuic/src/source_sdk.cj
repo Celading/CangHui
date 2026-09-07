@@ -158,8 +158,10 @@ func sourceSdkBuildArguments(args: Array<String>): Array<String> {
     result.toArray()
 }
 
+let SOURCE_SDK_BUNDLED_FONT = "canghui-sdk/fonts/HarmonyOS_Sans_SC.ttf"
+
 func generatedSdkMain(packageName: String): String {
-    "package ${packageName}\n\nimport chui.*\nimport chui.kmode.macros.*\n\n" +
+    "package ${packageName}\n\nimport chui.*\nimport chui.kmode.macros.*\nimport sdl.system.ApplicationPaths\n\n" +
     "func welcomeContent(message: State<String>): Unit {\n" +
     "    VStack(spacing: 12.vp) {\n" +
     "        Label(message.value).fontSize(26.fp).probe(\"welcome.message\", \"Label\", [ProbeProperty(\"label\", message.value)])\n" +
@@ -168,7 +170,12 @@ func generatedSdkMain(packageName: String): String {
     "@CuiProbe[\"welcome.main\"]\nfunc welcomeProbe(script: String): String {\n" +
     "    let message = State<String>(\"你好，CangHui\")\n" +
     "    ComponentProbe(\"welcome.main\", width: 720.0, height: 480.0).run(script) { welcomeContent(message) }\n}\n\n" +
-    "main(): Unit {\n    if (runKModeStdioIfRequested()) { return }\n" +
+    "main(): Unit {\n" +
+    "    // SDL resolves .app Resources independently of the launch working directory.\n" +
+    "    match (ApplicationPaths.basePath()) {\n" +
+    "        case Some(base) => Fonts.registerBundledFallback(base + \"${SOURCE_SDK_BUNDLED_FONT}\")\n" +
+    "        case None => ()\n    }\n" +
+    "    if (runKModeStdioIfRequested()) { return }\n" +
     "    let message = State<String>(\"你好，CangHui\")\n" +
     "    DesktopApp(WindowSpec(\"${packageName}\", 720, 480, scaling: Some(WindowScaleSettings()))).run {\n" +
     "        welcomeContent(message)\n    }\n}\n"
