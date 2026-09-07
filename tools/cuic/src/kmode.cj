@@ -2,7 +2,6 @@ package cuic
 
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
-import std.env.getVariables
 import std.fs.{Directory, File, Path, exists}
 import std.io.{InputStream, OutputStream, StringReader, StringWriter}
 import std.process.{ProcessRedirect, SubProcess, launch}
@@ -68,7 +67,7 @@ class CuicKModeSession {
             executable,
             [],
             workingDirectory: Path(context.project),
-            environment: environment,
+            environment: workingDirectoryEnvironment(context.project, environment),
             stdIn: ProcessRedirect.Pipe,
             stdOut: ProcessRedirect.Pipe,
             stdErr: ProcessRedirect.Inherit
@@ -506,21 +505,11 @@ func runKModeExchange(projectValue: String, operation: String, endpoint: String,
 @When[debug]
 func kModeChildEnvironment(framework: String, nativeDirectory!: String = ""): HashMap<String, String> {
     requireDebugChannelBuild("cuic kMode/probe runtime")
-    let environment = HashMap<String, String>()
-    for ((key, value) in getVariables()) {
-        environment.add(key, value)
-    }
+    // Reuse the normal launcher's verified Cangjie runtime/native/font closure.
+    // A consumer need not compile with --set-runtime-rpath just to use a probe.
+    let environment = applicationEnvironment(framework, "", UInt64(0), nativeDirectory: nativeDirectory)
     environment.add("CANGHUI_KMODE", "1")
     environment.add("CANGHUI_KMODE_TRANSPORT", "stdio")
-    environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
-    let sdl = if (nativeDirectory.isEmpty()) { joinPath(framework, "sdl/.sdl3") } else { nativeDirectory }
-    if (hostPlatform() == "macos") {
-        environment.add("DYLD_LIBRARY_PATH", sdl + ":" + readEnv("DYLD_LIBRARY_PATH"))
-    } else if (hostPlatform() == "linux") {
-        environment.add("LD_LIBRARY_PATH", sdl + ":" + readEnv("LD_LIBRARY_PATH"))
-    } else {
-        environment.add("PATH", sdl + ";" + readEnv("PATH"))
-    }
     environment
 }
 

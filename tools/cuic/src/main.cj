@@ -678,9 +678,25 @@ func nativeLinkSearchAssignment(sdl: String, current: String): String {
     }
 }
 
+func workingDirectoryEnvironment(workingDirectory: String, inherited: HashMap<String, String>): HashMap<String, String> {
+    let environment = HashMap<String, String>()
+    for ((key, value) in inherited) { environment.add(key, value) }
+    // chdir does not update inherited PWD. Build macros and non-shell children
+    // must observe the same project through both filesystem and environment.
+    environment.add("PWD", canonicalize(workingDirectory).toString())
+    return environment
+}
+
+func workingDirectoryEnvironment(workingDirectory: String): HashMap<String, String> {
+    let inherited = HashMap<String, String>()
+    for ((key, value) in getVariables()) { inherited.add(key, value) }
+    workingDirectoryEnvironment(workingDirectory, inherited)
+}
+
 func executeCommand(program: String, args: Array<String>, workingDirectory: String): Int64 {
     try {
-        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args, workingDirectory: Path(workingDirectory))
+        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args,
+            workingDirectory: Path(workingDirectory), environment: workingDirectoryEnvironment(workingDirectory))
         let stdout = String.fromUtf8(stdoutBytes)
         let stderr = String.fromUtf8(stderrBytes)
         if (stdout.size > 0) { print(stdout, flush: true) }
@@ -694,7 +710,8 @@ func executeCommand(program: String, args: Array<String>, workingDirectory: Stri
 
 func executeCommandQuiet(program: String, args: Array<String>, workingDirectory: String): Int64 {
     try {
-        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args, workingDirectory: Path(workingDirectory))
+        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args,
+            workingDirectory: Path(workingDirectory), environment: workingDirectoryEnvironment(workingDirectory))
         if (code != 0) {
             let stdout = String.fromUtf8(stdoutBytes)
             let stderr = String.fromUtf8(stderrBytes)
@@ -721,7 +738,7 @@ func executeCommandWithEnvironment(
             program,
             args,
             workingDirectory: Path(workingDirectory),
-            environment: environment,
+            environment: workingDirectoryEnvironment(workingDirectory, environment),
             stdIn: ProcessRedirect.Inherit,
             stdOut: output,
             stdErr: output
@@ -1140,7 +1157,7 @@ func executeApplication(
             executable,
             appArgs,
             workingDirectory: Path(project),
-            environment: environment,
+            environment: workingDirectoryEnvironment(project, environment),
             stdIn: ProcessRedirect.Inherit,
             stdOut: ProcessRedirect.Inherit,
             stdErr: ProcessRedirect.Inherit

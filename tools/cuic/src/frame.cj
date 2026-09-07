@@ -173,7 +173,7 @@ func runFrameTrace(selection: FrameTraceSelection): Int64 {
             executable,
             [],
             workingDirectory: Path(project),
-            environment: environment,
+            environment: workingDirectoryEnvironment(project, environment),
             stdIn: ProcessRedirect.Discard,
             stdOut: ProcessRedirect.Inherit,
             stdErr: ProcessRedirect.Inherit

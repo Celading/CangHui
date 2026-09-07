@@ -1,6 +1,31 @@
 package cuic
 
 import std.fs.{Directory, File, removeIfExists}
+import std.env.getVariables
+import std.collection.HashMap
+
+@Test
+func childWorkingDirectoryAgreesWithPwdWithoutMutatingCaller(): Unit {
+    let inherited = HashMap<String, String>()
+    inherited.add("PWD", "/caller/not-the-project")
+    inherited.add("CUIC_TEST_VALUE", "literal & unchanged")
+    let child = workingDirectoryEnvironment("./src/..", inherited)
+    @Expect(child.get("PWD") ?? "", currentDirectory())
+    @Expect(child.get("CUIC_TEST_VALUE") ?? "", "literal & unchanged")
+    @Expect(inherited.get("PWD") ?? "", "/caller/not-the-project")
+}
+
+@Test
+func projectCommandsSetPwdForNonShellChildren(): Unit {
+    if (hostPlatform() == "windows") { return }
+    let project = joinPath(currentDirectory(), "src")
+    let args = ["BEGIN { exit (ENVIRON[\"PWD\"] == ARGV[1] ? 0 : 1) }", project]
+    @Expect(executeCommand("/usr/bin/awk", args, project), 0)
+    @Expect(executeCommandQuiet("/usr/bin/awk", args, project), 0)
+    let inherited = HashMap<String, String>()
+    for ((key, value) in getVariables()) { inherited.add(key, value) }
+    @Expect(executeCommandWithEnvironment("/usr/bin/awk", args, project, inherited), 0)
+}
 
 @When[debug]
 @Test
@@ -124,7 +149,8 @@ func probeRuntimeUsesVerifiedStagingAndOriginalFontRoot(): Unit {
     let environment = kModeChildEnvironment(framework, nativeDirectory: native)
     let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
         else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
-    @Expect(startsWithText(environment.get(key) ?? "", native))
+    @Expect((environment.get(key) ?? "").contains(native))
+    @Expect(startsWithText(environment.get(key) ?? "", cangjieRuntimeLibraryDirectory()))
     @Expect(environment.get("CANGHUI_HARMONYOS_SANS") ?? "", runtimeHarmonyFont(framework))
     @Expect(environment.get("CANGHUI_KMODE_TRANSPORT") ?? "", "stdio")
 }
