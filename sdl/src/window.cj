@@ -193,6 +193,14 @@ public class SdlWindow <: Resource {
             case UiEvent.WindowDisplayScaleChanged => UiEvent.WindowMetricsChanged(refreshDisplayScale())
             case UiEvent.WindowPixelSizeChanged(_, _) => UiEvent.WindowMetricsChanged(refreshDisplayScale())
             case UiEvent.WindowResized(_, _) => UiEvent.WindowMetricsChanged(refreshDisplayScale())
+            case UiEvent.WindowMaximized =>
+                ensureScaleOwner()
+                refreshRoundedShape(backingPixelWidth, backingPixelHeight)
+                event
+            case UiEvent.WindowRestored =>
+                ensureScaleOwner()
+                refreshRoundedShape(backingPixelWidth, backingPixelHeight)
+                event
             case _ => scaleEventCoordinates(event, coordinateTransform().windowScale)
         }
     }
@@ -247,6 +255,13 @@ public class SdlWindow <: Resource {
         try (titleResource = cTitle.asResource()) {
             ensureSdl(unsafe { SDL_SetWindowTitle(windowPtr, titleResource.value) }, "SDL_SetWindowTitle")
         }
+    }
+
+    /** Sets a live window icon where supported; application bundle/Dock identity is separate. */
+    public func setIcon(icon: Surface): Unit {
+        ensureScaleOwner()
+        if (icon.isClosed()) { throw IllegalStateException("window icon surface is closed") }
+        ensureSdl(unsafe { SDL_SetWindowIcon(windowPtr, icon.ptr) }, "SDL_SetWindowIcon")
     }
 
     public func setSize(width: Int32, height: Int32): Unit {
@@ -304,7 +319,7 @@ public class SdlWindow <: Resource {
         let currentThreadId = unsafe { SDL_GetCurrentThreadID() }
         if (!sameNativeThread(ownerThreadId, currentThreadId)) {
             throw CuiException(
-                "SDL event polling moved across native threads; create or borrow the desktop window only after blocking startup work"
+                "SDL event polling moved across native threads (owner=${ownerThreadId}, current=${currentThreadId}); create or borrow the desktop window only after blocking startup work"
             )
         }
         match (runtime.pollEvent()) {
@@ -381,6 +396,22 @@ public class SdlWindow <: Resource {
     }
 
     private func refreshRoundedShape(pixelWidth: Int32, pixelHeight: Int32): Unit {
+        // 最大化时满屏直角：清除已应用的圆角遮罩（还原时恢复配置圆角）
+        let maximized = windowFlagsFromRaw(unsafe { SDL_GetWindowFlags(windowPtr) }).maximized
+        if (maximized) {
+            if (cornerRadius > 0.0 && shapeReceiptValue.status != WindowShapeApplyStatus.NotRequested) {
+                try {
+                    ensureSdl(unsafe { SDL_SetWindowShape(windowPtr, CPointer<Unit>()) }, "SDL_SetWindowShape(clear)")
+                    shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested, 0.0, 0.0,
+                        pixelWidth, pixelHeight, detail: "shape cleared for maximized window")
+                } catch (error: Exception) {
+                    shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.Failed, 0.0,
+                        shapeReceiptValue.appliedRadius, pixelWidth, pixelHeight,
+                        detail: "shape clear failed: " + error.message)
+                }
+            }
+            return
+        }
         if (cornerRadius > 0.0) {
             try {
                 shapeReceiptValue = applyRoundedWindowShape(windowPtr, pixelWidth, pixelHeight, cornerRadius * scale)

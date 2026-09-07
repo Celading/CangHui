@@ -4,7 +4,7 @@ import std.collection.ArrayList
 import std.convert.*
 import std.env.{getCommandLine, getVariable}
 import sdl.{DeviceRotation, DeviceRotationEvent, DeviceRotationSource, FrameInfo, Key, MouseButton, Rect,
-    SdlWindow, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, WindowScaleSettings, pointerEventToLegacyUiEvent}
+    SdlWindow, Surface, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, WindowScaleSettings, pointerEventToLegacyUiEvent}
 import sdl.input.{Cursor, Keyboard, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
@@ -159,6 +159,11 @@ public class DesktopApp {
      */
     public func setMinimumSize(width: Int32, height: Int32): Unit {
         window.setMinimumSize(width, height)
+    }
+
+    /** Sets a live window icon where supported; bundle/Dock identity is configured separately. */
+    public func setWindowIcon(icon: Surface): Unit {
+        window.setIcon(icon)
     }
 
     /** Requests application shutdown through the normal frame-loop path. */

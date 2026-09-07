@@ -18,6 +18,10 @@ public class Modal <: Widget
 
 ## 说明
 
+打开时遮罩淡入，面板从中心展开。时长遵循主题的动态效果等级；`Theme.withReduceMotion(true)` 会直接显示完整内容。展开期间不向尚未完整显示的内容派发操作或自动聚焦，Escape 和面板外点击仍可关闭。动画完成或隐藏后不继续请求帧，普通重建不重播动画；关闭后再次打开才重新入场。
+
+离线事件测试应先推进 `Frame` 直到入场完成，或明确使用减弱动态效果的主题，避免把不可见区域当成可点击控件。
+
 与下拉、右键菜单等亲手绘制内容的浮层不同，Modal 经 [`Overlay`](../core/Overlay.md) 注册进 [`UiContext`](../core/UiContext.md) 浮层栈后，把事件路由进 `body` 子树、把子树绘制在面板之上，所以对话框内的控件保有普通状态；其中会自开弹层的控件（[`Dropdown`](Dropdown.md)、[`ComboBox`](../text/ComboBox.md)、[`ContextMenu`](ContextMenu.md)）在浮层栈上注册于对话框之上，画在其上、先收事件。
 
 Modal 是焦点陷阱：Tab/Shift+Tab 只在对话框自己的焦点项之间循环（无焦点时前向从第一个进入、后向从最后一个进入），永不逃逸到背景下的控件。`body` 仅在 `presented` 为真时构建，隐藏时不构建内容、也不注册焦点项。

@@ -1,13 +1,39 @@
 package chui.controls
 
 import std.collection.ArrayList
-import sdl.{Color, Key, Rect, Size, SurfaceStyle, UiEvent}
+import sdl.{Color, Key, Rect, Size, SurfaceStyle, UiEvent, clampF32}
 import sdl.input.Keyboard
-import chui.core.{Bindable, Overlay, UiContext, Widget, buildChild, controlIdentity, drawSurface, emit,
-    focusableCountNow, focusablesSince}
+import chui.core.{AnimationSpec, Bindable, Overlay, UiContext, Widget, buildChild, controlIdentity, drawSurface, emit,
+    focusableCountNow, focusablesSince, localState}
 
 private let MODAL_PADDING: Float32 = 22.0
 private let MODAL_MAX_W: Float32 = 460.0
+// 入场动画时长（毫秒）：遮罩淡入 + 面板居中展开，仿 Dropdown 弹层的展开观感。
+private let MODAL_ENTRANCE_MS: UInt64 = 190
+
+// Retained timeline, not reactive State writes on every frame. Only active motion requests work.
+private class ModalEntrance {
+    var shown = false
+    var age: Float32 = 0.0
+    var value: Float32 = 0.0
+
+    func advance(ctx: UiContext, presented: Bool, deltaMs: UInt64): Unit {
+        if (!presented) {
+            shown = false
+            age = 0.0
+            value = 0.0
+            return
+        }
+        if (!shown) { age = 0.0 }
+        shown = true
+        let duration = Float32(AnimationSpec.automatic(duration: MODAL_ENTRANCE_MS)
+            .resolvedDuration(ctx.theme.motionLevel, ctx.theme.reduceMotion))
+        age = if (ctx.theme.reduceMotion) { duration } else { min(duration, age + Float32(deltaMs)) }
+        let inv = 1.0 - age / duration
+        value = 1.0 - inv * inv * inv
+        if (age < duration) { ctx.requestFrame() }
+    }
+}
 
 /*
  * A modal dialog. While `presented` is true it floats a centred panel over a dimming backdrop
@@ -34,12 +60,16 @@ public class Modal <: Widget {
     // Identifies this dialog's overlay registration across per-frame rebuilds, so dismissing
     // removes exactly this dialog from the overlay stack (never a popup opened above it).
     private let overlayOwner: String
+    // Entrance animation clock, retained across per-frame rebuilds via localState: 0 right when
+    // the dialog opens, ramping to MODAL_ENTRANCE_MS; draw consumes it as an eased 0..1 progress.
+    private let entrance: ModalEntrance
     private var dialogRect = Rect.zero()
 
     public init(presented: Bindable<Bool>, onDismiss!: ?() -> Unit = None, body!: () -> Unit) {
         this.presented = presented
         this.onDismiss = onDismiss
         this.overlayOwner = controlIdentity("Modal")
+        this.entrance = localState<ModalEntrance>("Modal:${this.overlayOwner}:entrance") {ModalEntrance()}.value
         if (presented.value) {
             let focusStart = focusableCountNow()
             this.content = Some(buildChild(body))
@@ -72,6 +102,7 @@ public class Modal <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        entrance.advance(ctx, presented.value, 0)
         // Register only once the body exists. `presented` can flip true during this frame's event
         // phase — after init already built `content` as None — and painting then would flash an
         // empty panel for one frame; instead the dialog appears next frame, when the body is built.
@@ -91,14 +122,16 @@ public class Modal <: Widget {
         // otherwise timed behaviours inside the dialog (a field's autofocus, an application
         // Frame hook) would never run.
         match (event) {
-            case UiEvent.Frame(_) => routeToContent(ctx, event)
+            case UiEvent.Frame(info) =>
+                entrance.advance(ctx, presented.value, info.deltaMs)
+                if (entrance.value >= 1.0) { routeToContent(ctx, event) }
             case _ => ()
         }
         false
     }
 
     public func focusableIds(): Array<String> {
-        contentFocusables // the stops the dialog's own focus trap cycles (empty while hidden)
+        if (presented.value && entrance.value >= 1.0) { contentFocusables } else { [] }
     }
 
     public func interactionOwnerIds(): Array<String> {
@@ -115,6 +148,17 @@ public class Modal <: Widget {
     }
 
     private func handleModal(ctx: UiContext, event: UiEvent): Bool {
+        // The panel is revealed by clipping. Do not activate visually hidden content (including
+        // keyboard/text actions); Escape and an actual backdrop press still dismiss immediately.
+        if (entrance.value < 1.0) {
+            match (event) {
+                case UiEvent.KeyDown(Key.Escape, _) => dismiss(ctx)
+                case UiEvent.MouseDown(_, x, y) =>
+                    if (!dialogRect.contains(x, y)) { dismiss(ctx) }
+                case _ => ()
+            }
+            return true
+        }
         match (event) {
             case UiEvent.KeyDown(Key.Escape, _) => dismiss(ctx)
             case UiEvent.KeyDown(Key.Tab, _) =>
@@ -169,16 +213,31 @@ public class Modal <: Widget {
     }
 
     private func drawModal(ctx: UiContext): Unit {
-        ctx.renderer.fill(Rect(0.0, 0.0, ctx.viewportWidth, ctx.viewportHeight), Color.rgba(12, 14, 20, 130))
-        drawSurface(ctx, dialogRect, modalSurface(ctx))
-        match (content) {
-            case Some(body) => body.draw(ctx)
-            case None => ()
+        let alpha = clampF32(entrance.value, 0.0, 1.0)
+        // 遮罩随入场进度淡入
+        ctx.renderer.fill(Rect(0.0, 0.0, ctx.viewportWidth, ctx.viewportHeight),
+            Color.rgba(12, 14, 20, Int64(130.0 * alpha)))
+        if (alpha <= 0.001) {
+            return
+        }
+        // 面板居中展开：高度随入场进度增长，内容被裁剪着逐帧揭示（缩放式展开观感）
+        let growH = max(0.0, dialogRect.h * alpha)
+        let reveal = Rect(dialogRect.x, dialogRect.centerY() - growH / 2.0, dialogRect.w, growH)
+        drawSurface(ctx, reveal, modalSurface(ctx))
+        ctx.renderer.pushClip(reveal)
+        try {
+            match (content) {
+                case Some(body) => body.draw(ctx)
+                case None => ()
+            }
+        } finally {
+            ctx.renderer.popClip()
         }
     }
 
     private func dismiss(ctx: UiContext): Unit {
         presented.value = false
+        entrance.advance(ctx, false, 0)
         ctx.removeOverlay(overlayOwner)
         match (onDismiss) {
             case Some(callback) => callback()

@@ -106,7 +106,7 @@ public func participatesInLayout(): Bool
 
 ### draw
 
-按滑入/淡出进度，把当前通知画在视口右下角（[`Widget`](../core/Widget.md) 协议）。每张卡片包含阴影、圆角背景、按 [`ToastKind`](ToastKind.md) 取色的强调条和单行消息，整体随当前透明度淡化；无通知时不绘制。
+按滑入/淡出进度，把当前通知画在视口右下角（[`Widget`](../core/Widget.md) 协议）。每张卡片包含阴影、圆角背景、按 [`ToastKind`](ToastKind.md) 取色的强调条和最多四行消息，整体随当前透明度淡化；无通知时不绘制。 每张卡片按实际行高自适应高度，保留显式换行，超长末行使用能放下的省略号；极窄区域不会强行绘制放不下的字形。断行缓存随宽度、字体、字重、字号和字体注册版本失效。减弱动态效果时取消入场位移，保留到期淡出。
 
 ```cangjie
 public func draw(ctx: UiContext): Unit

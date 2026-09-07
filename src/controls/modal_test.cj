@@ -5,7 +5,8 @@ import chui.core.{Button, FrameHandler, InteractionSurface, Label, State, StateS
 
 // A 400x300 viewport, matching the geometry the assertions below are written against.
 private func modalTestContext(): UiContext {
-    let ctx = UiContext(Renderer.headless(), Theme.light())
+    // Routing tests deliberately use the immediate accessibility policy; motion has its own suite.
+    let ctx = UiContext(Renderer.headless(), Theme.light(reduceMotion: true))
     ctx.viewportWidth = 400.0
     ctx.viewportHeight = 300.0
     ctx

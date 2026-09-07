@@ -56,6 +56,7 @@ func comboBoxFiltersAndEnterCommits(): Unit {
 @Test
 func comboBoxInsideModalTypesAndCommitsWithoutClosingDialog(): Unit {
     let ctx = comboTestContext()
+    ctx.theme = ctx.theme.withReduceMotion(true)
     let presented = State<Bool>(true)
     let text = State<String>("")
     let modal = Modal(presented) {

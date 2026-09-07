@@ -1,6 +1,48 @@
 package chui_window_scale_native
 
-import chui.{Color, Point, Rect, SdlWindow, UiEvent, WindowSpec, WindowScaleSettings}
+import chui.{Color, Point, Rect, SdlSurface, SdlWindow, UiEvent, WindowSpec, WindowScaleSettings,
+    WindowShapeApplyStatus, windowShapeApplyStatusName}
+
+@When[debug]
+func drainWindowEvents(window: SdlWindow): Unit {
+    for (_ in 0..1000) {
+        if (window.pollEvent().isNone()) { return }
+    }
+    throw Exception("native window event queue did not settle within bound")
+}
+
+@When[debug]
+func verifyRoundedWindow(): String {
+    let window = SdlWindow(WindowSpec("Rounded shape regression", 480, 320,
+        frameless: true, cornerRadius: 16.0, supersample: 1))
+    var report = ""
+    try {
+        let initial = window.shapeReceipt()
+        report += "shape-initial=" + windowShapeApplyStatusName(initial.status) + "\n"
+        window.maximize()
+        window.sync()
+        drainWindowEvents(window)
+        let maximized = window.windowFlags().maximized
+        let cleared = window.shapeReceipt()
+        report += "shape-maximized=${maximized} clear=" + windowShapeApplyStatusName(cleared.status) + "\n"
+        if (initial.status == WindowShapeApplyStatus.Applied && maximized &&
+            cleared.status != WindowShapeApplyStatus.NotRequested) {
+            throw Exception("maximized shape was not cleared: " + cleared.detail)
+        }
+        window.restore()
+        window.sync()
+        drainWindowEvents(window)
+        let restored = window.shapeReceipt()
+        report += "shape-restored=" + windowShapeApplyStatusName(restored.status) + "\n"
+        if (initial.status == WindowShapeApplyStatus.Applied && maximized &&
+            (window.windowFlags().maximized || restored.status != WindowShapeApplyStatus.Applied)) {
+            throw Exception("restored shape was not reapplied: " + restored.detail)
+        }
+    } finally {
+        window.close()
+    }
+    report
+}
 
 @When[debug]
 func verifyWindowScale(supersample: Int32): String {
@@ -9,6 +51,19 @@ func verifyWindowScale(supersample: Int32): String {
         scaling: Some(WindowScaleSettings()), supersample: supersample))
     var report = ""
     try {
+        let icon = SdlSurface.create(32, 32)
+        icon.clear(Color.rgb(80, 180, 230))
+        try {
+            window.setIcon(icon)
+            report += "window-icon=native-call-accepted (not bundle/Dock visual certification)\n"
+        } catch (error: Exception) {
+            report += "window-icon=provider-refused: " + error.message + "\n"
+        } finally {
+            icon.close()
+        }
+        var rejectedClosedIcon = false
+        try { window.setIcon(icon) } catch (_: IllegalStateException) { rejectedClosedIcon = true }
+        if (!rejectedClosedIcon) { throw Exception("closed icon surface reached native provider") }
         let original = window.currentMetrics()
         for (zoom in [Float32(1.0), Float32(1.25), Float32(1.5), Float32(2.0), Float32(1.0)]) {
             let metrics = window.setScaling(WindowScaleSettings(zoom: zoom))
@@ -46,7 +101,8 @@ func verifyWindowScale(supersample: Int32): String {
 main(): Int64 {
     let direct = verifyWindowScale(Int32(1))
     let supersampled = verifyWindowScale(Int32(2))
-    println(direct + supersampled + "CHUI_NATIVE_SCALE_PASS=1")
+    let shape = verifyRoundedWindow()
+    println(direct + supersampled + shape + "CHUI_NATIVE_SCALE_PASS=1")
     0
 }
 
