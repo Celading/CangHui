@@ -33,6 +33,7 @@ cuic test <platform> .
 
 ```bash
 cuic shell snapshot .
+cuic prntx . <probe-id>
 cuic pview . <probe-id> --columns 96 --rows 32
 # 等价入口：cuic probe ascii . <probe-id> --columns 96 --rows 32
 ```
@@ -46,7 +47,9 @@ cuic prnt <platform> . --output artifacts/ui.png
 ```
 
 若应用还没有 probe，先为关键视图提供稳定 probe/semantic id，不要直接跳过可重复验收。
-`shell`、`pview`/probe 执行需要 debug cuic；发布版拒绝特权通道是安全门，不是失败。
+`shell`、`prntx`、`pview`/probe 执行需要 debug cuic；发布版拒绝特权通道是安全门，不是失败。
+新源码配对可优先使用 [`prntx`](../reference/prntx.zh-CN.md) 的有界摘要、节点查看和脚本前后差分；
+旧 SDK 先核对协议支持，不要把未知／离屏／浮层遮挡当作可操作性通过。
 
 ## 4. 使用框架的默认安全形状
 

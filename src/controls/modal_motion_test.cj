@@ -1,7 +1,47 @@
 package chui.controls
 
 import sdl.{FrameInfo, Key, MouseButton, Rect, Renderer, UiEvent}
-import chui.core.{Button, State, StateStore, Theme, UiContext, buildRoot, currentStateGeneration}
+import chui.core.{Button, ComponentProbe, FrameHandler, Label, State, StateStore, Theme, UiContext, ZStack,
+    buildRoot, currentStateGeneration}
+
+@Test
+func probeRoutesPointerAndKeyboardThroughModal(): Unit {
+    let background = State<Int64>(0)
+    let confirms = State<Int64>(0)
+    let open = State<Bool>(true)
+    let report = ComponentProbe("modal.route", width: 400.0, height: 300.0,
+        theme: Theme.light(reduceMotion: true)).run("key Tab\nkey Enter\npress 20 20\nrelease 20 20") {
+        ZStack {
+            Button("background", {=> background.value += 1}).key("background")
+            Modal(open) { Button("confirm", {=> confirms.value += 1}).key("confirm") }
+        }
+    }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(confirms.value, 1)
+    @Expect(background.value, 0)
+    @Expect(!open.value)
+}
+
+@Test
+func probeAdvancesFrameClockOnce(): Unit {
+    let elapsed = State<UInt64>(0)
+    let _ = ComponentProbe("frame.once").run("advance 40\nadvance 60") {
+        FrameHandler(onFrame: {info => elapsed.value += info.deltaMs}) { Label("time") }
+    }
+    @Expect(elapsed.value, UInt64(100))
+}
+
+@Test
+func probeAsciiDoesNotRecommendActionsThroughModal(): Unit {
+    let report = ComponentProbe("modal.ascii", width: 400.0, height: 300.0).run("@cui-ascii 80 20") {
+        ZStack {
+            Button("background", {=> ()}).key("background")
+            Modal(State<Bool>(true)) { Label("dialog") }
+        }
+    }
+    @Expect(report.contains("overlay-unverified"))
+    @Expect(!report.contains("probe=\"press"))
+}
 
 @Test
 func hiddenAndSettledModalDoNotInvalidateIdleFrames(): Unit {

@@ -292,6 +292,7 @@ public class ComponentProbe {
         try {
             var elapsed: UInt64 = 0
             var widget = renderProbeFrame(session, renderer, ctx, store, elapsed, UInt64(0), body)
+            if (!output.observation.isEmpty()) { session.captureObservationBaseline() }
             for (rawLine in output.script.split("\n")) {
                 let line = trimProbeText(rawLine)
                 if (line.isEmpty() || line.startsWith("#")) { continue }
@@ -311,7 +312,7 @@ public class ComponentProbe {
                     ctx.mouseX = x
                     ctx.mouseY = y
                     ctx.beginHoverTest()
-                    let consumed = widget.handle(ctx, UiEvent.MouseMove(x, y))
+                    let consumed = routeProbeInput(ctx, widget, UiEvent.MouseMove(x, y))
                     ctx.settleHover()
                     session.finishEvent(consumed)
                 } else if (command == "press") {
@@ -323,7 +324,7 @@ public class ComponentProbe {
                     ctx.leftMouseDown = true
                     ctx.recordPress(x, y)
                     ctx.beginPointerPress()
-                    let consumed = widget.handle(ctx, UiEvent.MouseDown(MouseButton.Left, x, y))
+                    let consumed = routeProbeInput(ctx, widget, UiEvent.MouseDown(MouseButton.Left, x, y))
                     ctx.settleFocusAfterPress()
                     session.finishEvent(consumed)
                 } else if (command == "release") {
@@ -332,7 +333,7 @@ public class ComponentProbe {
                     let y = Float32.parse(parts[2])
                     ctx.mouseX = x
                     ctx.mouseY = y
-                    let consumed = widget.handle(ctx, UiEvent.MouseUp(MouseButton.Left, x, y))
+                    let consumed = routeProbeInput(ctx, widget, UiEvent.MouseUp(MouseButton.Left, x, y))
                     ctx.leftMouseDown = false
                     ctx.clearDrag()
                     ctx.clearPress()
@@ -340,34 +341,42 @@ public class ComponentProbe {
                 } else if (command == "key") {
                     requireProbeArity(parts, 2, command)
                     let key = parseProbeKey(parts[1])
-                    let consumed = match (key) {
+                    let consumed = if (ctx.dispatchOverlay(UiEvent.KeyDown(key, false))) { true } else { match (key) {
                         case Key.Tab =>
                             ctx.focusNext()
                             true
                         case _ => widget.handle(ctx, UiEvent.KeyDown(key, false))
-                    }
+                    } }
                     session.finishEvent(consumed)
                 } else if (command == "focus") {
                     requireProbeArity(parts, 2, command)
+                    if (ctx.hasOverlay()) {
+                        throw IllegalArgumentException("focus by id cannot verify overlay ownership; use key Tab")
+                    }
+                    if (!store.focusRing().contains(parts[1])) {
+                        throw IllegalArgumentException("focus target is not in the current focus ring")
+                    }
                     ctx.focus(parts[1], viaKeyboard: true)
                     session.finishEvent(true)
                 } else if (command == "text") {
                     if (parts.size < 2) { throw IllegalArgumentException("text requires a value") }
                     let value = substringAfterProbeWord(line)
-                    session.finishEvent(widget.handle(ctx, UiEvent.TextInput(value)))
+                    session.finishEvent(routeProbeInput(ctx, widget, UiEvent.TextInput(value)))
                 } else if (command == "advance") {
                     requireProbeArity(parts, 2, command)
                     delta = UInt64.parse(parts[1])
                     elapsed += delta
                     ctx.frame = FrameInfo(elapsed, delta)
-                    session.finishEvent(widget.handle(ctx, UiEvent.Frame(ctx.frame)))
+                    // Keep the event record open; renderProbeFrame dispatches exactly once to
+                    // the rebuilt tree and records its consumption/callbacks before drawing.
                 } else if (command == "draw") {
                     session.finishEvent(false)
                 } else {
                     session.finishEvent(false)
                     throw IllegalArgumentException("unknown component probe command: " + command)
                 }
-                widget = renderProbeFrame(session, renderer, ctx, store, elapsed, delta, body)
+                widget = renderProbeFrame(session, renderer, ctx, store, elapsed, delta, body,
+                    finishFrameEvent: command == "advance")
             }
             session.report(output)
         } catch (error: Exception) {
@@ -387,6 +396,7 @@ private class ProbeNodeSnapshot {
     var frame = Rect.zero()
     var measured = Size.zero()
     var focusId: String = ""
+    var focusTarget: String = ""
     var focused = false
     var hovered = false
     var pressed = false
@@ -467,7 +477,8 @@ private class ProbeNodeSnapshot {
                 action: probePropertyValue(properties, "action"),
                 shortcut: probePropertyValue(properties, "shortcut"),
                 value: probePropertyValue(properties, "value"),
-                state: probeStateText(properties, focused, hovered, pressed)
+                state: probeStateText(properties, focused, hovered, pressed),
+                focusTarget: focusTarget
             ))
             case None => None
         }
@@ -658,6 +669,8 @@ private class ComponentProbeSession {
     private let assertions = ArrayList<ProbeAssertionResult>()
     private let failures = ArrayList<String>()
     private var latestDrawIr = Array<DrawIrCommand>()
+    private var overlayActive = false
+    private var observationBaseline: ?DesignSnapshot = None
     private let frames = ArrayList<String>()
     private var currentEvent: ?ProbeEventRecord = None
     private var logicalTimeMs: UInt64 = 0
@@ -712,6 +725,7 @@ private class ComponentProbeSession {
         node.measured = measured
         node.computedFacts = computedFacts.clone()
         node.focusId = match (focusId) { case Some(value) => value case None => id }
+        node.focusTarget = match (focusId) { case Some(value) => value case None => "" }
         node.focused = ctx.hasFocus(node.focusId)
         node.hovered = ctx.isHovered(node.focusId) || ctx.isHovered(id)
         node.pressed = ctx.isPressed(node.focusId) || ctx.isPressed(id)
@@ -773,8 +787,9 @@ private class ComponentProbeSession {
             logicalTimeMs, progress, target))
     }
 
-    func captureFrame(commands: Array<DrawIrCommand>): Unit {
+    func captureFrame(commands: Array<DrawIrCommand>, hasOverlay: Bool): Unit {
         latestDrawIr = commands
+        overlayActive = hasOverlay
         let out = StringBuilder()
         out.append("{\"index\":")
         out.append(frameIndex)
@@ -978,6 +993,12 @@ private class ComponentProbeSession {
     }
 
     func report(output: ProbeOutputRequest): String {
+        if (!output.observation.isEmpty()) {
+            let snapshot = makeDesignSnapshot(output.script)
+            return renderProbeObservation(snapshot, observationBaseline ?? snapshot,
+                output.observation, output.limit, output.node, overlayActive,
+                failures.isEmpty() && assertionsAllPass(), inputTransformRevision)
+        }
         if (output.designSnapshotV2) {
             let base = makeDesignSnapshot(output.script)
             return DesignSnapshotV2(base,
@@ -1000,7 +1021,7 @@ private class ComponentProbeSession {
             return "CUI_PROBE_ASCII_ERROR: component probe failed; rerun with --json for details\n" + reportJson()
         }
         renderDrawIrAscii(latestDrawIr, width, height,
-            options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows),
+            options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows, overlayActive: overlayActive),
             annotations: asciiAnnotations())
     }
 
@@ -1042,6 +1063,8 @@ private class ComponentProbeSession {
             snapshotNodes.toArray(), drawIr: latestDrawIr, states: globalStates,
             inputDigest: probeScriptDigest(script), generator: "CangHui/ComponentProbe")
     }
+
+    func captureObservationBaseline(): Unit { observationBaseline = Some(makeDesignSnapshot("")) }
 
     private func makeComputedDesignNodes(base: DesignSnapshot): Array<DesignComputedNode> {
         let screenId = "screen:" + name
@@ -1146,6 +1169,9 @@ private class ComponentProbeSession {
 }
 
 private class ProbeOutputRequest {
+    let observation: String
+    let limit: Int64
+    let node: String
     let ascii: Bool
     let designSnapshot: Bool
     let designSnapshotV2: Bool
@@ -1157,7 +1183,11 @@ private class ProbeOutputRequest {
     let script: String
 
     init(ascii: Bool, designSnapshot: Bool, designSnapshotV2: Bool, computedTruth: Bool,
-        uiAudit: Bool, auditThreshold: String, columns: Int64, rows: Int64, script: String) {
+        uiAudit: Bool, auditThreshold: String, columns: Int64, rows: Int64, script: String,
+        observation!: String = "", limit!: Int64 = 32, node!: String = "") {
+        this.observation = observation
+        this.limit = limit
+        this.node = node
         this.ascii = ascii
         this.designSnapshot = designSnapshot
         this.designSnapshotV2 = designSnapshotV2
@@ -1174,6 +1204,18 @@ private func parseProbeOutput(script: String): ProbeOutputRequest {
     let lines = script.split("\n")
     if (lines.isEmpty()) { return ProbeOutputRequest(false, false, false, false, false, "warning", 96, 32, script) }
     let first = trimProbeText(lines[0])
+    if (first.startsWith("@cui-prntx ")) {
+        let parts = splitProbeWords(first)
+        requireProbeArity(parts, 4, "@cui-prntx")
+        let mode = parts[1]
+        let limit = Int64.parse(parts[2])
+        if ((mode != "summary" && mode != "tree" && mode != "json" && mode != "diff") || limit < 1 || limit > 128) {
+            throw IllegalArgumentException("prntx requires summary/tree/json/diff and limit 1..128")
+        }
+        return ProbeOutputRequest(false, false, false, false, false, "warning", 96, 32,
+            remainingProbeScript(lines), observation: mode, limit: limit,
+            node: if (parts[3] == "-") { "" } else { parts[3] })
+    }
     if (first == "@cui-design-snapshot") {
         return ProbeOutputRequest(false, true, false, false, false, "warning", 96, 32, remainingProbeScript(lines))
     }
@@ -1256,23 +1298,30 @@ private func probeScriptDigest(value: String): String {
     "probe-script:" + value.toArray().size.toString() + ":" + max(Int64(1), code).toString()
 }
 
+private func routeProbeInput(ctx: UiContext, widget: Widget, event: UiEvent): Bool {
+    if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
+}
+
 private func renderProbeFrame(session: ComponentProbeSession, renderer: Renderer, ctx: UiContext,
-    store: StateStore, elapsed: UInt64, delta: UInt64, body: () -> Unit): Widget {
+    store: StateStore, elapsed: UInt64, delta: UInt64, body: () -> Unit,
+    finishFrameEvent!: Bool = false): Widget {
     ctx.frame = FrameInfo(elapsed, delta)
     session.beginBuild()
     let widget = buildRoot(body, store)
     ctx.adoptFocusRing(store.focusRing())
     widget.layout(ctx, Rect(0.0, 0.0, session.width, session.height))
-    let _ = widget.handle(ctx, UiEvent.Frame(ctx.frame))
+    let consumed = widget.handle(ctx, UiEvent.Frame(ctx.frame))
+    if (finishFrameEvent) { session.finishEvent(consumed) }
     renderer.clearDrawIr()
     session.beginDraw(elapsed)
     ctx.syncThemeResources()
     renderer.beginScene(session.width, session.height, ctx.theme.bg)
+    ctx.clearActiveOverlay()
     widget.draw(ctx)
     ctx.drawInkRipples()
     ctx.drawActiveOverlay()
     renderer.endScene()
-    session.captureFrame(renderer.drawIr())
+    session.captureFrame(renderer.drawIr(), ctx.hasOverlay())
     widget
 }
 

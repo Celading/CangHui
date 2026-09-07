@@ -75,6 +75,7 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "pview") {
         return pviewCommand(args, 2)
     }
+    if (command == "prntx") { return prntxCommand(args, 2) }
     if (command == "shell") {
         return shellCommand(args, 2)
     }
@@ -345,6 +346,7 @@ func helpText(): String {
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
     "  cuic design snapshot [project] <probe> [--version <1|2>] [--computed] [--script <file>|--events <script>]\n" +
     "  cuic ui audit [project] <probe> [--script <file>|--events <script>] [--fail-on <info|warning|error>]\n" +
+    "  cuic prntx [project] <probe> [--format summary|tree|json|diff|ascii] [--limit 1..128] [--node <id>] [--events <script>]\n" +
     "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
     "  cuic shell click|touch [project] <x> <y>\n" +
     "  cuic shell focus [project] <component-id>\n" +

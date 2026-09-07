@@ -1,6 +1,59 @@
 package sdl
 
 @Test
+func asciiCapsLegendAndDoesNotClampOffscreenTextOntoBottomEdge(): Unit {
+    let text = StringBuilder()
+    for (_ in 0..300) { text.append("界") }
+    let annotations = Array<DrawIrAsciiAnnotation>(140, {i =>
+        DrawIrAsciiAnnotation("node-${i}", DrawIrAsciiAnnotationKind.Visual,
+            Rect(0.0, 0.0, 20.0, 20.0), label: text.toString())
+    })
+    let output = renderDrawIrAscii([
+        DrawIrCommand("text", "", data: "\"text\":\"SHOULD_NOT_APPEAR\",\"x\":0,\"y\":80,\"pointSize\":12")
+    ], 100.0, 50.0, annotations: annotations)
+    @Expect(output.contains("annotations omitted=12"))
+    @Expect(output.contains("…[truncated]"))
+    @Expect(!output.contains("node-139"))
+    @Expect(!output.contains("SHOULD_NOT_APPEAR"))
+}
+
+@Test
+func asciiOffscreenTargetsStayInLegendWithoutClickInstructions(): Unit {
+    let output = renderDrawIrAscii([], 100.0, 50.0, annotations: [
+        DrawIrAsciiAnnotation("below", DrawIrAsciiAnnotationKind.Interactive, Rect(10.0, 80.0, 60.0, 20.0)),
+        DrawIrAsciiAnnotation("left", DrawIrAsciiAnnotationKind.Focus, Rect(-40.0, 5.0, 20.0, 20.0)),
+        DrawIrAsciiAnnotation("partial", DrawIrAsciiAnnotationKind.Interactive, Rect(80.0, 5.0, 40.0, 20.0))
+    ])
+    @Expect(output.contains("visibility=\"offscreen\""))
+    @Expect(output.contains("visibility=\"partial\""))
+    @Expect(!output.contains("probe=\""))
+    @Expect(!output.contains("[$i1]"))
+}
+
+@Test
+func asciiFocusHintsRequireAnExplicitTarget(): Unit {
+    let output = renderDrawIrAscii([], 100.0, 50.0, annotations: [
+        DrawIrAsciiAnnotation("observer", DrawIrAsciiAnnotationKind.Focus, Rect(0.0, 0.0, 20.0, 20.0),
+            focusTarget: "actual-key"),
+        DrawIrAsciiAnnotation("unknown", DrawIrAsciiAnnotationKind.Focus, Rect(30.0, 0.0, 20.0, 20.0))
+    ])
+    @Expect(output.contains("probe=\"focus actual-key\""))
+    @Expect(!output.contains("probe=\"focus observer\""))
+    @Expect(!output.contains("probe=\"focus unknown\""))
+    @Expect(output.contains("focus=\"target-unverified\""))
+}
+
+@Test
+func asciiMarkersDoNotOverwriteText(): Unit {
+    let output = renderDrawIrAscii([
+        DrawIrCommand("text", "", data: "\"text\":\"KEEP_THIS_TEXT\",\"x\":0,\"y\":20,\"pointSize\":12")
+    ], 100.0, 50.0, options: DrawIrAsciiOptions(columns: 20, rows: 8), annotations: [
+        DrawIrAsciiAnnotation("button", DrawIrAsciiAnnotationKind.Interactive, Rect(0.0, 20.0, 100.0, 6.0))
+    ])
+    @Expect(output.contains("KEEP_THIS_TEXT"))
+}
+
+@Test
 func drawIrAsciiProjectsGeometryTextAndSymbolsDeterministically(): Unit {
     let commands = [
         DrawIrCommand("paint.fill", "", data: "\"x\":0,\"y\":0,\"width\":100,\"height\":50,\"color\":{\"r\":20,\"g\":20,\"b\":20,\"a\":255}"),

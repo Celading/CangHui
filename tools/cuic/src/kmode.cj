@@ -369,7 +369,7 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
 }
 
 func runProbeExchange(projectValue: String, endpoint: String, payload: String,
-    probeName: String, json: Bool): Int64 {
+    probeName: String, json: Bool, quiet!: Bool = false): Int64 {
     let project = normalizeKModePath(projectValue)
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
@@ -381,12 +381,12 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
     // progress off stdout so their output remains directly consumable by jq and
     // other protocol clients.
     let boot = bootstrap(hostPlatform(), framework,
-        stagingRoot: context.stagingRoot, quiet: json)
+        stagingRoot: context.stagingRoot, quiet: json || quiet)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
     var buildCode = 0
     try {
-        buildCode = if (json) {
+        buildCode = if (json || quiet) {
             executeCjpmQuiet(context, ["build", "-g"])
         } else {
             executeCjpm(context, ["build", "-g"])
@@ -414,6 +414,7 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
             (containsText(rendered, "\"protocol\":\"canghui.ui-health/v1\"") &&
                 containsText(rendered, "\"passed\":false")) ||
             startsWithText(rendered, "CUI_PROBE_ASCII_ERROR:")) { return 1 }
+        if (startsWithText(rendered, "CangHui prntx | ok=false")) { return 1 }
         0
     } catch (error: Exception) {
         session.abort()
