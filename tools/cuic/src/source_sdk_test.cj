@@ -46,6 +46,7 @@ func sourceSdkMacAppDependencyPolicyRejectsHostLeaksAndTraversal(): Unit {
     @Expect(sdkMacDependencyAllowed("@loader_path/libSDL3.dylib", names, true))
     @Expect(!sdkMacDependencyAllowed("@loader_path/libSDL3.dylib", names, false))
     @Expect(!sdkMacDependencyAllowed("@rpath/../libSDL3.dylib", names, false))
+    @Expect(!sdkMacDependencyAllowed("/usr/lib/../../opt/foreign.dylib", names, false))
     @Expect(!sdkMacDependencyAllowed("/opt/homebrew/lib/libSDL3.dylib", names, false))
     @Expect(!sdkMacDependencyAllowed("@rpath/libcangjie-runtime.dylib", names, false))
 }

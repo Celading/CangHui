@@ -902,6 +902,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         "version = \"0.1.0\"\n" +
         "output-type = \"executable\"\n" +
         "compile-option = \"${if (sdkMode) { "--static --static-std" } else { "--set-runtime-rpath" }}\"\n" +
+        (if (sdkMode) { "link-option = \"-headerpad_max_install_names\"\n" } else { "" }) +
         "description = \"CangHui desktop application.\"\n\n" +
         "[dependencies]\n" +
         renderFrameworkDependency(dependency) + "\n"

@@ -5,6 +5,7 @@ import std.fs.File
 import std.process.executeWithOutput
 
 func sdkMacDependencyAllowed(dependency: String, names: Array<String>, native: Bool): Bool {
+    if (dependency.contains("/../") || dependency.contains("/./") || dependency.contains("\\")) { return false }
     if (startsWithText(dependency, "/usr/lib/") || startsWithText(dependency, "/System/Library/")) { return true }
     for (name in names) {
         if (dependency == "@rpath/" + name || (native && dependency == "@loader_path/" + name)) { return true }
