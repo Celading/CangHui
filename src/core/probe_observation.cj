@@ -98,9 +98,12 @@ internal func renderProbeObservation(snapshot: DesignSnapshot, baseline: DesignS
         if (json) {
             if (i > 0) { out.append(",") }
             out.append("{\"code\":" + observationQuote(diagnostic.code) + ",\"id\":" +
-                observationQuote(diagnostic.componentId) + ",\"message\":" + observationQuote(diagnostic.message) + "}")
+                observationQuote(diagnostic.componentId) + ",\"severity\":" +
+                observationQuote(uiHealthSeverityName(diagnostic.severity)) + ",\"evidenceSource\":" +
+                observationQuote(diagnostic.evidenceSource) + ",\"message\":" + observationQuote(diagnostic.message) +
+                ",\"suggestion\":" + observationQuote(diagnostic.suggestion) + "}")
         } else {
-            out.append("! " + observationQuote(diagnostic.code) + " " + observationQuote(diagnostic.componentId) +
+            out.append("! " + uiHealthSeverityName(diagnostic.severity) + " " + observationQuote(diagnostic.code) + " " + observationQuote(diagnostic.componentId) +
                 " " + observationQuote(diagnostic.message) + "\n")
         }
     }

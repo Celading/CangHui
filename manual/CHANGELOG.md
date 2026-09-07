@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- `prntx` 修复 TextArea 焦点语义重复字段，保留真实焦点状态；诊断输出增加严重程度和
+  证据来源。UI-health 只将标准紧凑控件应用于过高判断，焦点冲突使用显式 `focusOrder`，
+  不把文件卡片高度或结构序号当成布局错误。
 - CUIC 构建与运行子进程同步工作目录和 `PWD`，修复从项目外启动时编译期宏读取错误
   清单的问题；probe/kMode 复用应用启动器的仓颉运行时路径，支持未内嵌 runtime rpath 的消费者。
 - 新增只读 `cuic sdk verify/compare`：升级前检查完整性、框架/Kit 包身份和候选差异，

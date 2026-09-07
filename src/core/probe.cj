@@ -1049,7 +1049,10 @@ private class ComponentProbeSession {
                 role: probePropertyValue(region.properties, "role"),
                 label: firstProbeProperty(region.properties, ["label", "title"]),
                 value: probePropertyValue(region.properties, "value"),
-                states: probeDesignSnapshotProperties(region.properties, false, false, false)))
+                states: probeDesignSnapshotProperties(region.properties,
+                    probePropertyValue(region.properties, "focused") == "true",
+                    probePropertyValue(region.properties, "hovered") == "true",
+                    probePropertyValue(region.properties, "pressed") == "true")))
         }
         let globalStates = [
             DesignSnapshotProperty("probe.ok", (failures.isEmpty() && assertionsAllPass()).toString()),
@@ -1263,7 +1266,8 @@ private func probeDesignSnapshotProperties(properties: Array<ProbeProperty>, foc
     values.add(DesignSnapshotProperty("pressed", pressed.toString()))
     for (property in properties) {
         if (property.name != "role" && property.name != "label" && property.name != "title" &&
-            property.name != "value") {
+            property.name != "value" && property.name != "focused" &&
+            property.name != "hovered" && property.name != "pressed") {
             values.add(DesignSnapshotProperty(property.name, property.value))
         }
     }

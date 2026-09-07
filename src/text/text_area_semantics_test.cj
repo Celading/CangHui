@@ -3,6 +3,17 @@ package chui.text
 import chui.core.{ComponentProbe, State, VStack}
 
 @Test
+func textAreaObservationPreservesFocusedRegionWithoutDuplicateStateKeys(): Unit {
+    let report = ComponentProbe("test.textarea-observation", width: 360.0, height: 120.0)
+        .run("@cui-prntx json 32 -\nfocus semantic-area") {
+            TextArea(State<String>("a你b"), key: "semantic-area").accessibilityLabel("Source editor")
+        }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(report.contains("Source editor"))
+    @Expect(report.contains("focused=true"))
+}
+
+@Test
 func textAreaSemanticsExposeNameValueFocusEditabilityAndByteSelection(): Unit {
     let text = State<String>("a你b")
     let cursor = State<Int64>(4)

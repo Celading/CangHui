@@ -179,6 +179,10 @@ private func recordControlSemanticsResolved(
     }
     properties.add(ProbeProperty("actionOwner", semantics.actionOwner))
     properties.add(ProbeProperty("semanticDescendants", "decorative"))
+    match (focusOrder) {
+        case Some(value) => properties.add(ProbeProperty("focusOrder", value.toString()))
+        case None => ()
+    }
     match (semantics.selected) {
         case Some(value) => properties.add(ProbeProperty("selected", value.toString()))
         case None => ()

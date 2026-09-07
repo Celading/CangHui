@@ -16,6 +16,8 @@ cuic prntx . settings.main --format ascii --columns 96 --rows 32
 - 默认摘要包含视口、输入变换版本、快照摘要、稳定节点 ID／父 ID、矩形、
   可见范围、交互状态和现有 UI 健康检查的诊断。`--node` 显示指定节点与直接子节点。
   `--format tree` 按父节点优先输出层级，缩进深度最多 64 层。
+- 诊断保留 `info`／`warning`／`error`；JSON 另含 `evidenceSource` 和 `suggestion`。
+  诊断总数不等于缺陷总数，例如对比度证据不足是 `info`，不是已确认的颜色错误。
 - `--format json`（或 `--json`）输出 `canghui.observation/v1`，不混入构建日志。
   不附加控件原始值、事件文本、Draw IR、工作目录或原生句柄；密码角色的标签也会脱敏。
   应用自己提供的普通标签、ID、图标和动作绑定描述仍可见，不应在这些字段嵌入秘密。

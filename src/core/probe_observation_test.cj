@@ -3,6 +3,22 @@ package chui.core
 import sdl.Rect
 
 @Test
+func observationDiagnosticsRetainSeverityAndEvidenceInsteadOfOnlyAnAlarmCount(): Unit {
+    let snapshot = DesignSnapshot("health", DesignSnapshotEnvironment("headless", 80.0, 60.0), [
+        DesignSnapshotNode("tiny", DesignSnapshotNodeKind.Component, Rect(0.0, 0.0, 20.0, 20.0),
+            widgetType: "IconButton", role: "button")
+    ])
+    let json = renderProbeObservation(snapshot, snapshot, "json", 8, "", false, true, 1)
+    @Expect(json.contains("\"severity\":\"error\""))
+    @Expect(json.contains("\"severity\":\"warning\""))
+    @Expect(json.contains("\"evidenceSource\":\"semantic\""))
+    @Expect(json.contains("\"suggestion\":"))
+    let text = renderProbeObservation(snapshot, snapshot, "summary", 8, "", false, true, 1)
+    @Expect(text.contains("! error "))
+    @Expect(text.contains("! warning "))
+}
+
+@Test
 func observationTreeOrdersParentsBeforeLexicallyEarlierChildren(): Unit {
     let snapshot = DesignSnapshot("tree", DesignSnapshotEnvironment("headless", 100.0, 80.0), [
         DesignSnapshotNode("a-child", DesignSnapshotNodeKind.Component, Rect(0.0, 0.0, 20.0, 20.0), parentId: "z-parent"),

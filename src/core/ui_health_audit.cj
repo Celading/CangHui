@@ -184,10 +184,10 @@ private func auditTargets(nodes: Array<DesignSnapshotNode>, policy: UiHealthPoli
                 "Use IconButton/Button contentPadding or an explicit minimum frame."
             ))
         }
-        if (node.frame.h > policy.maximumControlHeight) {
+        if (uiHealthCompactControl(node) && node.frame.h > policy.maximumControlHeight) {
             output.add(UiHealthDiagnostic(
                 "CHUI-AUDIT-TARGET-STRETCHED", UiHealthSeverity.Warning, node.id, node.frame,
-                "semantic+layout", "Interactive control is unexpectedly tall.",
+                "semantic+layout", "Compact control exceeds the configured maximum height.",
                 "Keep the control content-sized and apply flex to its container instead."
             ))
         }
@@ -281,12 +281,13 @@ private func auditFocusOrder(nodes: Array<DesignSnapshotNode>,
             let second = nodes[j]
             if (!first.parentId.isEmpty() && first.parentId == second.parentId &&
                 uiHealthInteractive(first) && uiHealthInteractive(second) &&
-                first.order == second.order) {
+                !uiHealthNodeProperty(first, "focusOrder").isEmpty() &&
+                uiHealthNodeProperty(first, "focusOrder") == uiHealthNodeProperty(second, "focusOrder")) {
                 output.add(UiHealthDiagnostic(
                     "CHUI-AUDIT-FOCUS-ORDER-AMBIGUOUS", UiHealthSeverity.Warning,
                     first.id + "+" + second.id, uiHealthIntersectionOrUnionEdge(first.frame, second.frame),
-                    "semantic", "Interactive siblings publish the same traversal order.",
-                    "Keep stable declaration/key order or publish distinct semantic order values."
+                    "semantic", "Interactive siblings publish the same explicit focus order.",
+                    "Review the published focusOrder values; structural order alone is not focus evidence."
                 ))
             }
             j += 1
@@ -315,6 +316,14 @@ private func auditAdjacentChrome(nodes: Array<DesignSnapshotNode>, output: Array
         }
         i += 1
     }
+}
+
+private func uiHealthCompactControl(node: DesignSnapshotNode): Bool {
+    // InteractionSurface may be a file tile or card; text areas and collection
+    // owners also legitimately exceed the compact-control height threshold.
+    node.widgetType == "Button" || node.widgetType == "IconButton" ||
+        node.widgetType == "Switch" || node.widgetType == "Checkbox" ||
+        node.widgetType == "RadioButton"
 }
 
 private func uiHealthInteractive(node: DesignSnapshotNode): Bool {
