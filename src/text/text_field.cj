@@ -2,7 +2,7 @@ package chui.text
 
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
-import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, SemanticActionKind, State, UiContext,
+import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, GraphemeIndex, SemanticActionKind, State, UiContext,
     Widget, claimHoverIfInside, emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code, so the editing shortcuts read as
@@ -17,7 +17,7 @@ private let LETTER_Z: UInt8 = 90
 /*
  * A single-line text editor bound to a `Bindable<String>`. The caret and selection anchor are BYTE
  * offsets into the UTF-8 text, not character counts; a caller supplying its own `cursor`/`anchor`
- * states must keep them on rune boundaries and move the pair together, or the stale anchor spans a
+ * states are normalized to grapheme boundaries; move the pair together, or the stale anchor spans a
  * selection the user never made. Editing follows the desktop conventions: mouse and double-click-word
  * selection, the Ctrl+A/C/X/V/Z/Y table, grouped undo, and a horizontal follow window that keeps the
  * caret visible. Caret, selection, and scroll state are retained across the per-frame rebuild under
@@ -31,6 +31,7 @@ public class TextField <: Widget {
     private var cursorStateValue: State<Int64>
     private var anchorStateValue: State<Int64>
     private let history: UndoHistory
+    private let boundaryCache: TextBoundaryCache
     // Horizontal follow window: how many pixels the text is slid left so the caret stays
     // inside the field's inner width. Retained across rebuilds; recomputed each draw.
     private let xOffset: State<Float32>
@@ -67,6 +68,7 @@ public class TextField <: Widget {
             case None => localState<Int64>("TextField:${ident}:anchor") {caretStart}
         }
         this.history = localState<UndoHistory>("TextField:${ident}:history") {UndoHistory()}.value
+        this.boundaryCache = localState<TextBoundaryCache>("TextField:${ident}:graphemes") {TextBoundaryCache()}.value
         this.xOffset = localState<Float32>("TextField:${ident}:xoff") {0.0}
         this.autofocusDone = localState<Bool>("TextField:${ident}:autofocused") {false}
         // A read-only field is not an editing stop, so it stays out of Tab traversal (mirrors TextArea).
@@ -251,7 +253,7 @@ public class TextField <: Widget {
     }
 
     private func editState(): TextEditState {
-        TextEditState(text, cursor: Some(cursorStateValue), anchor: Some(anchorStateValue))
+        TextEditState(text, cursorStateValue, anchorStateValue, boundaryCache)
     }
 
     private func pressAt(ctx: UiContext, edit: TextEditState, x: Float32, y: Float32,
@@ -411,35 +413,18 @@ private let SECURE_MASK_GLYPH: String = "•"
 
 private func secureMask(value: String): String {
     let builder = StringBuilder()
-    var cursor: Int64 = 0
-    while (cursor < value.size) {
+    for (_ in 0..GraphemeIndex(value).count) {
         builder.append(SECURE_MASK_GLYPH)
-        cursor = nextTextBoundary(value, cursor)
     }
     builder.toString()
 }
 
 private func secureDisplayOffset(value: String, sourceOffset: Int64): Int64 {
-    let target = normalizedTextCursor(value, sourceOffset)
-    var cursor: Int64 = 0
-    var displayOffset: Int64 = 0
-    while (cursor < target) {
-        displayOffset += SECURE_MASK_GLYPH.size
-        cursor = nextTextBoundary(value, cursor)
-    }
-    displayOffset
+    GraphemeIndex(value).ordinalFloor(sourceOffset) * SECURE_MASK_GLYPH.size
 }
 
 private func secureSourceOffset(value: String, displayOffset: Int64): Int64 {
-    let visible = secureMask(value)
-    let target = normalizedTextCursor(visible, displayOffset)
-    var visibleCursor: Int64 = 0
-    var sourceCursor: Int64 = 0
-    while (visibleCursor < target && sourceCursor < value.size) {
-        visibleCursor = nextTextBoundary(visible, visibleCursor)
-        sourceCursor = nextTextBoundary(value, sourceCursor)
-    }
-    sourceCursor
+    GraphemeIndex(value).boundary(max(0, displayOffset) / SECURE_MASK_GLYPH.size)
 }
 
 // Collapses any line breaks so pasted multi-line text stays on the field's single row:

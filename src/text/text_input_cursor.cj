@@ -1,7 +1,7 @@
 package chui.text
 
 import sdl.{FontSizes, FontStyle, Point, Rect}
-import chui.core.{CUI_SMALL_H, UiContext, scrollLineIndex, scrollLineRemainder}
+import chui.core.{CUI_SMALL_H, GraphemeIndex, UiContext, scrollLineIndex, scrollLineRemainder}
 
 private let TEXT_CURSOR_W: Float32 = 1.5
 private let TEXT_FIELD_PAD_X: Float32 = 8.0
@@ -69,10 +69,17 @@ private func textCursorForOffset(
     targetX: Float32,
     typography!: TextFieldTypography = TextFieldTypography()
 ): Int64 {
+    // Index only this line once. It starts after LF, an unconditional grapheme
+    // boundary, so segmentation context cannot leak from the previous line.
+    let contentEnd = if (lineEnd > lineStart && lineEnd < text.size &&
+        text[lineEnd] == UInt8(10) && text[lineEnd - 1] == UInt8(13)) { lineEnd - 1 } else { lineEnd }
+    let boundaries = GraphemeIndex(text[lineStart..contentEnd])
+    var ordinal: Int64 = 0
     var current = lineStart
     var previousWidth: Float32 = 0.0
-    while (current < lineEnd) {
-        let next = nextTextBoundary(text, current)
+    while (current < contentEnd) {
+        ordinal += 1
+        let next = lineStart + boundaries.boundary(ordinal)
         let nextWidth = ctx.renderer.textWidth(text[lineStart..next], pointSize: typography.pointSize,
             style: typography.style, font: typography.font)
         if (targetX < (previousWidth + nextWidth) / 2.0) {
@@ -81,7 +88,7 @@ private func textCursorForOffset(
         previousWidth = nextWidth
         current = next
     }
-    lineEnd
+    contentEnd
 }
 
 // `xShift` is the field's horizontal follow offset: the text window slides left by this many

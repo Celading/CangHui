@@ -142,6 +142,7 @@ public class TextArea <: Widget {
     private let horizontalScrollMotion: ScrollMotion
     private var scrollPolicy = ScrollOptions.web()
     private let history: UndoHistory
+    private let boundaryCache: TextBoundaryCache
     private let lineCache: TextLineCache
     private let decorationCache: TextAreaDecorationCache
     private var decorationSource: ?Observable<TextAreaDecorationSnapshot>
@@ -166,6 +167,7 @@ public class TextArea <: Widget {
         let ident = resolveControlKey(key, "TextArea")
         this.id = ident
         this.text = text
+        this.boundaryCache = localState<TextBoundaryCache>("TextArea:${ident}:graphemes") {TextBoundaryCache()}.value
         let initialScroll = match (scroll) {
             case Some(value) => value
             case None => localState<Float32>("TextArea:${ident}:scroll") {0.0}
@@ -463,7 +465,7 @@ public class TextArea <: Widget {
     }
 
     private func editState(): TextEditState {
-        TextEditState(text, cursor: Some(cursorStateValue), anchor: Some(anchorStateValue))
+        TextEditState(text, cursorStateValue, anchorStateValue, boundaryCache)
     }
 
     // Runs a mutating action while focused and editable, recording it for undo. The

@@ -153,6 +153,20 @@ def native_closure(output):
     return sorted(selected.values()), origins, minimum
 
 
+def export_unicode_license(output, framework, revision):
+    # Older committed SDK revisions predate Unicode tables; only project the
+    # associated license when that revision actually owns it.
+    unicode_license = subprocess.run(["git", "-C", str(ROOT), "cat-file", "-e",
+                                     revision + ":LICENSE-UNICODE"], capture_output=True)
+    if unicode_license.returncode == 0:
+        export_revision(revision, ["LICENSE-UNICODE"], framework)
+        license_dir = output / "licenses/unicode"
+        license_dir.mkdir(parents=True)
+        shutil.copyfile(framework / "LICENSE-UNICODE", license_dir / "LICENSE-UNICODE")
+    elif (framework / "src/core/unicode_grapheme_data.cj").exists():
+        raise ValueError("Unicode grapheme data requires LICENSE-UNICODE in the selected revision")
+
+
 def build(output, revision):
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise ValueError("this exporter only validates macOS arm64")
@@ -164,6 +178,7 @@ def build(output, revision):
     output.mkdir(parents=True, exist_ok=False)  # Never overwrite an earlier delivery.
     framework = output / "framework"
     export_revision(revision, SOURCE_ROOTS, framework)
+    export_unicode_license(output, framework, revision)
     if not (framework / "src/core/probe_observation.cj").exists():
         raise ValueError("selected revision predates observation/v1")
     cli_version = ""

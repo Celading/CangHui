@@ -31,6 +31,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Unicode Grapheme Data
+
+The generated extended-grapheme property tables and test corpus in
+`src/core/unicode_grapheme_data.cj` and `src/core/unicode_grapheme_test.cj`
+derive from Unicode 15.1 data, Copyright © 2023 Unicode, Inc.
+They are distributed under [Unicode License V3](LICENSE-UNICODE).
+The [text-boundary reference](manual/reference/text-boundaries.md) records the
+original data URLs and reproducible generation procedure.
+
 ## Other Included Materials
 
 SDL3 and SDL3_ttf use the Zlib license. HarmonyOS Sans and the optional

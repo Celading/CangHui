@@ -12,7 +12,7 @@ private let WRAP_GALLOP_THRESHOLD: Int64 = 512
 
 /*
  * Text fitting shared by single-line ellipsis and multi-line wrapping. Prefix widths are
- * found with binary search over the rune array, so the cost per line is O(log n) renderer
+ * found with binary search over extended-grapheme boundaries, so the cost per line is O(log n) renderer
  * measurements instead of one per character.
  */
 
@@ -31,24 +31,16 @@ protected func ellipsize(
     if (ctx.renderer.textWidth(TEXT_ELLIPSIS, pointSize: ps, style: style, font: font) > maxWidth) {
         return ""
     }
-    let runes = text.toRuneArray()
-    var low: Int64 = 0
-    var high = runes.size - 1
-    while (low < high) {
-        let mid = (low + high + 1) / 2
-        let candidate = runeSlice(runes, 0, mid) + TEXT_ELLIPSIS
-        if (ctx.renderer.textWidth(candidate, pointSize: ps, style: style, font: font) <= maxWidth) {
-            low = mid
-        } else {
-            high = mid - 1
-        }
-    }
-    runeSlice(runes, 0, low) + TEXT_ELLIPSIS
+    let index = GraphemeIndex(text)
+    let measure = {prefix: String =>
+        ctx.renderer.textWidth(prefix + TEXT_ELLIPSIS, pointSize: ps, style: style, font: font)}
+    let take = maxGraphemesFitting(text, index, 0, maxWidth, measure)
+    text[0..index.boundary(take)] + TEXT_ELLIPSIS
 }
 
 /**
  * Breaks `text` into at most `maxLines` display lines that fit `maxWidth`, preferring
- * space boundaries and falling back to per-rune breaks (which suits CJK text). The last
+ * space boundaries and falling back to whole extended graphemes. The last
  * line is ellipsized when text remains.
  */
 protected func wrapText(
@@ -60,20 +52,21 @@ protected func wrapText(
     style!: FontStyle = FontStyle.regular,
     font!: ?String = None
 ): Array<String> {
-    let runes = text.toRuneArray()
+    let index = GraphemeIndex(text)
+    let measure = {s: String => ctx.renderer.textWidth(s, pointSize: ps, style: style, font: font)}
     let lines = ArrayList<String>()
     var start: Int64 = 0
-    while (start < runes.size && lines.size < maxLines) {
+    while (start < index.count && lines.size < maxLines) {
         if (lines.size == maxLines - 1) {
-            lines.add(ellipsize(ctx, runeSlice(runes, start, runes.size), maxWidth, ps, style: style, font: font))
+            lines.add(ellipsize(ctx, text[index.boundary(start)..text.size], maxWidth, ps, style: style, font: font))
             return lines.toArray()
         }
-        var take = maxFittingRunes(ctx, runes, start, maxWidth, ps, style: style, font: font)
-        // Prefer breaking after the last space inside the fitted range.
-        if (start + take < runes.size && runes[start + take] != r' ') {
+        // An oversized cluster stays whole; fitting must still make progress.
+        var take = max(1, maxGraphemesFitting(text, index, start, maxWidth, measure))
+        if (start + take < index.count && !graphemeIsSpace(text, index, start + take)) {
             var back = take - 1
             while (back > 0) {
-                if (runes[start + back] == r' ') {
+                if (graphemeIsSpace(text, index, start + back)) {
                     take = back + 1
                     break
                 }
@@ -81,47 +74,50 @@ protected func wrapText(
             }
         }
         var lineEnd = start + take
-        while (lineEnd > start && runes[lineEnd - 1] == r' ') {
-            lineEnd -= 1
-        }
-        lines.add(runeSlice(runes, start, lineEnd))
+        while (lineEnd > start && graphemeIsSpace(text, index, lineEnd - 1)) { lineEnd -= 1 }
+        lines.add(text[index.boundary(start)..index.boundary(lineEnd)])
         start += take
-        // Consume the space the break landed on so lines never start blank.
-        while (start < runes.size && runes[start] == r' ') {
-            start += 1
-        }
+        while (start < index.count && graphemeIsSpace(text, index, start)) { start += 1 }
     }
-    if (lines.isEmpty()) {
-        lines.add("")
-    }
+    if (lines.isEmpty()) { lines.add("") }
     lines.toArray()
 }
 
-/** The largest rune count from `start` whose text fits `maxWidth`; at least one. */
-private func maxFittingRunes(
-    ctx: UiContext,
-    runes: Array<Rune>,
-    start: Int64,
-    maxWidth: Float32,
-    ps: Float32,
-    style!: FontStyle = FontStyle.regular,
-    font!: ?String = None
-): Int64 {
-    if (start >= runes.size) {
-        return 0
+private func graphemeIsSpace(text: String, index: GraphemeIndex, ordinal: Int64): Bool {
+    let start = index.boundary(ordinal)
+    index.boundary(ordinal + 1) == start + 1 && text[start] == UInt8(32)
+}
+
+// One precomputed index per paragraph: never re-segment the full text per display line.
+private func maxGraphemesFitting(text: String, index: GraphemeIndex, start: Int64,
+    width: Float32, measure: (String) -> Float32): Int64 {
+    let remaining = index.count - start
+    if (remaining <= 0 || width <= 0.0) { return 0 }
+    let begin = index.boundary(start)
+    var high = remaining
+    var low: Int64 = 0
+    if (remaining > WRAP_GALLOP_THRESHOLD) {
+        high = min(WRAP_GALLOP_SEED, remaining)
+        while (high < remaining && measure(text[begin..index.boundary(start + high)]) <= width) {
+            low = high
+            high = min(high * 4, remaining)
+        }
+    } else if (measure(text[begin..index.boundary(start + remaining)]) <= width) {
+        return remaining
     }
-    // One shared fit engine module-wide; Label's contract floors at one rune so wrapping always makes
-    // progress even when not a single rune fits the width.
-    max(1,
-        maxRunesFitting(runes, start, maxWidth,
-            {s => ctx.renderer.textWidth(s, pointSize: ps, style: style, font: font)}))
+    while (low < high) {
+        let mid = low + (high - low + 1) / 2
+        if (measure(text[begin..index.boundary(start + mid)]) <= width) { low = mid }
+        else { high = mid - 1 }
+    }
+    low
 }
 
 /*
  * The largest rune count k in [1, remaining] with measure(runes[start..start+k]) <= maxW; 0 if even
- * one rune does not fit (or there is no width / no runes left). The one binary-search fit engine for
- * every text-wrapping path in the module (Label above, RichText's layout engine), so a boundary or
- * measure-caching fix lands everywhere at once.
+ * one rune does not fit (or there is no width / no runes left). Retained for rune-based consumers
+ * such as RichText's per-span layout and probe summaries. Plain Label fitting above instead uses
+ * extended-grapheme boundaries. Do not describe this helper as grapheme-safe.
  */
 protected func maxRunesFitting(runes: Array<Rune>, start: Int64, maxW: Float32, measure: (String) -> Float32): Int64 {
     let n = runes.size - start
