@@ -97,6 +97,7 @@ class TextAreaDecorationCache {
     private var cachedSnapshotRevision: UInt64 = UInt64(0)
     private var cachedFirstLine: Int64 = 0
     private var cachedLastLine: Int64 = 0
+    private var cachedDisplayRevision: UInt64 = 0
     private var cachedRuns: Array<TextAreaDecorationRun> = []
     private var hasValue = false
 
@@ -105,7 +106,9 @@ class TextAreaDecorationCache {
         textRevision: UInt64,
         source: ?Observable<TextAreaDecorationSnapshot>,
         firstLine: Int64,
-        lastLine: Int64
+        lastLine: Int64,
+        display!: ?TextAreaDisplayProjection = None,
+        displayRevision!: UInt64 = 0
     ): Array<TextAreaDecorationRun> {
         match (source) {
             case None => return []
@@ -114,9 +117,15 @@ class TextAreaDecorationCache {
                 if (!hasValue || cachedTextRevision != textRevision ||
                     cachedDecorationRevision != observable.revision ||
                     cachedSnapshotRevision != snapshot.documentRevision ||
-                    cachedFirstLine != firstLine || cachedLastLine != lastLine) {
+                    cachedFirstLine != firstLine || cachedLastLine != lastLine ||
+                    cachedDisplayRevision != displayRevision) {
                     cachedRuns = if (snapshot.documentRevision == textRevision) {
-                        buildVisibleTextAreaDecorationRuns(text, snapshot.decorations(), firstLine, lastLine)
+                        match (display) {
+                            case Some(projection) => buildVisibleTextAreaDecorationRuns(projection.text,
+                                projection.decorations(snapshot.decorations()), firstLine, lastLine)
+                            case None => buildVisibleTextAreaDecorationRuns(text, snapshot.decorations(),
+                                firstLine, lastLine)
+                        }
                     } else {
                         []
                     }
@@ -125,6 +134,7 @@ class TextAreaDecorationCache {
                     cachedSnapshotRevision = snapshot.documentRevision
                     cachedFirstLine = firstLine
                     cachedLastLine = lastLine
+                    cachedDisplayRevision = displayRevision
                     hasValue = true
                 }
                 cachedRuns
@@ -237,7 +247,7 @@ private func sortTextAreaDecorationBoundaries(values: Array<Int64>): Unit {
     }
 }
 
-private func validTextAreaDecoration(text: String, decoration: TextAreaDecoration): Bool {
+internal func validTextAreaDecoration(text: String, decoration: TextAreaDecoration): Bool {
     decoration.startByte >= 0 && decoration.endByte > decoration.startByte &&
         decoration.endByte <= text.size && exactTextBoundary(text, decoration.startByte) &&
         exactTextBoundary(text, decoration.endByte)

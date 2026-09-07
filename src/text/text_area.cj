@@ -144,6 +144,8 @@ public class TextArea <: Widget {
     private let history: UndoHistory
     private let boundaryCache: TextBoundaryCache
     private let lineCache: TextLineCache
+    private let displayCache: TextAreaDisplayCache
+    private let lastObservedDisplay: State<UInt64>
     private let decorationCache: TextAreaDecorationCache
     private var decorationSource: ?Observable<TextAreaDecorationSnapshot>
     private var autofocusRequested = false
@@ -215,6 +217,10 @@ public class TextArea <: Widget {
             TextAreaDecorationCache()
         }.value
         this.decorationSource = decorations
+        this.displayCache = localState<TextAreaDisplayCache>("TextArea:${ident}:display") {
+            TextAreaDisplayCache()
+        }.value
+        this.lastObservedDisplay = localState<UInt64>("TextArea:${ident}:last-observed-display") {UInt64(0)}
         this.autofocusDone = localState<Bool>("TextArea:${ident}:autofocused") {false}
         this.lastObservedCursor = localState<Int64>("TextArea:${ident}:last-observed-cursor") {-1}
         // A read-only text area is not an editing stop, so it stays out of Tab traversal.
@@ -307,13 +313,18 @@ public class TextArea <: Widget {
             contentWidth(ctx, docLines), viewport.w, scrollPolicy)
     }
 
-    // The document split into lines, cached by text revision so scrolling never re-splits per frame.
+    private func display(): TextAreaDisplayProjection {
+        displayCache.resolve(text.value, text.revision, compositionStateValue.value)
+    }
+
+    // Cached display revision includes transient preedit without changing document revision.
     private func lines(): Array<String> {
-        lineCache.lines(text.value, text.revision)
+        let projection = display()
+        lineCache.lines(projection.text, displayCache.revision)
     }
 
     private func contentWidth(ctx: UiContext, docLines: Array<String>): Float32 {
-        lineCache.maxLineWidth(ctx, docLines, text.revision)
+        lineCache.maxLineWidth(ctx, docLines, displayCache.revision)
     }
 
     public func draw(ctx: UiContext): Unit {
@@ -352,19 +363,23 @@ public class TextArea <: Widget {
             horizontalScrollStateValue.value = clampedHorizontalScroll
             cancelScrollMotion(horizontalScrollMotion, horizontalScrollStateValue)
         }
-        if (ctx.hasFocus(id) && cursorStateValue.value != lastObservedCursor.value) {
+        if (ctx.hasFocus(id) && (cursorStateValue.value != lastObservedCursor.value ||
+            displayCache.revision != lastObservedDisplay.value)) {
             revealCaret(ctx, contentW, viewport)
         }
-        let content = TextAreaContent(text.value, cursorStateValue.value, scrollStateValue.value,
+        let projection = display()
+        let content = TextAreaContent(projection.text, projection.cursor(cursorStateValue.value), scrollStateValue.value,
             horizontalScroll: horizontalScrollStateValue.value)
         let firstLine = scrollLineIndex(content.scroll)
         let lastLine = firstLine + Int64(viewport.h / CUI_SMALL_H) + 2
         let decorationRuns = decorationCache.visibleRuns(text.value, text.revision, decorationSource,
-            firstLine, lastLine)
-        drawTextAreaBox(ctx, frame, id, content, docLines, edit.selectionStart(), edit.selectionEnd(),
+            firstLine, lastLine, display: Some(projection), displayRevision: displayCache.revision)
+        drawTextAreaBox(ctx, frame, id, content, docLines,
+            if (projection.active) { projection.selectionStart } else { edit.selectionStart() },
+            if (projection.active) { projection.selectionEnd } else { edit.selectionEnd() },
             ctx.hasFocus(id), showsVerticalScrollBar, showsHorizontalScrollBar, scrollBar.dragging(ctx),
             hScrollBar.dragging(ctx), chromeMode, wrapModeValue, decorationRuns,
-            compositionStateValue.value, text.revision, contentW)
+            projection, contentW)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -591,8 +606,9 @@ public class TextArea <: Widget {
         if (viewportH <= 0.0) {
             return
         }
-        let position = normalizedTextCursor(text.value, cursorStateValue.value)
-        let rowTop = Float32(textCursorLineIndex(text.value, position)) * CUI_SMALL_H
+        let projection = display()
+        let position = projection.cursor(cursorStateValue.value)
+        let rowTop = Float32(textCursorLineIndex(projection.text, position)) * CUI_SMALL_H
         var scroll = scrollStateValue.value
         if (rowTop < scroll) {
             scroll = rowTop
@@ -617,9 +633,10 @@ public class TextArea <: Widget {
             return
         }
         revealCaretLine()
-        let position = normalizedTextCursor(text.value, cursorStateValue.value)
-        let lineStart = lineStartBeforeOrAt(text.value, position)
-        let caretX = ctx.renderer.textWidth(text.value[lineStart..position], pointSize: FontSizes.BODY)
+        let projection = display()
+        let position = projection.cursor(cursorStateValue.value)
+        let lineStart = lineStartBeforeOrAt(projection.text, position)
+        let caretX = ctx.renderer.textWidth(projection.text[lineStart..position], pointSize: FontSizes.BODY)
         var offset = horizontalScrollStateValue.value
         if (caretX < offset) {
             offset = caretX
@@ -631,19 +648,23 @@ public class TextArea <: Widget {
             horizontalScrollStateValue.value = clamped
         }
         cancelScrollMotion(horizontalScrollMotion, horizontalScrollStateValue)
-        lastObservedCursor.value = position
+        lastObservedCursor.value = cursorStateValue.value
+        lastObservedDisplay.value = displayCache.revision
     }
 
     private func pointOffset(ctx: UiContext, x: Float32, y: Float32): Int64 {
-        textAreaCursorForPoint(ctx, frame, TextAreaContent(text.value, cursorStateValue.value,
-            scrollStateValue.value, horizontalScroll: horizontalScrollStateValue.value), Point(x, y))
+        let projection = display()
+        let offset = textAreaCursorForPoint(ctx, frame, TextAreaContent(projection.text,
+            projection.cursor(cursorStateValue.value), scrollStateValue.value,
+            horizontalScroll: horizontalScrollStateValue.value), Point(x, y))
+        projection.documentOffset(offset)
     }
 
     private func pressAt(ctx: UiContext, edit: TextEditState, x: Float32, y: Float32): Bool {
         if (frame.contains(x, y)) {
+            let offset = pointOffset(ctx, x, y)
             clearComposition()
             ctx.focus(id)
-            let offset = pointOffset(ctx, x, y)
             if (ctx.clickCount == 2) {
                 edit.selectWordAt(offset)
             } else if (ctx.clickCount >= 3) {
@@ -759,8 +780,7 @@ private func drawTextAreaBox(
     chrome: TextAreaChrome,
     wrapMode: TextAreaWrapMode,
     decorations: Array<TextAreaDecorationRun>,
-    composition: TextCompositionSnapshot,
-    documentRevision: UInt64,
+    composition: TextAreaDisplayProjection,
     contentW: Float32
 ): Unit {
     match (chrome) {
@@ -782,7 +802,7 @@ private func drawTextAreaBox(
             }
     }
     drawTextAreaCursor(ctx, viewport, id, content)
-    drawTextAreaComposition(ctx, viewport, id, content, composition, documentRevision)
+    drawTextAreaComposition(ctx, viewport, id, content, composition)
     ctx.renderer.popClip()
     if (showVerticalScrollBar) {
         drawVerticalScrollBar(ctx, frame, content.scroll, textContentHeight(lines), viewport.h, active: barActive)
@@ -798,39 +818,30 @@ private func drawTextAreaComposition(
     viewport: Rect,
     id: String,
     content: TextAreaContent,
-    composition: TextCompositionSnapshot,
-    documentRevision: UInt64
+    composition: TextAreaDisplayProjection
 ): Unit {
-    if (!ctx.hasFocus(id) || !composition.active || composition.preedit.isEmpty() ||
-        composition.documentRevision != documentRevision) {
+    if (!ctx.hasFocus(id) || !composition.active) {
         return
     }
-    let start = composition.replacementStartByte
-    if (start < 0 || start > content.text.size || normalizedTextCursor(content.text, start) != start) {
-        return
-    }
-    let projected = TextAreaPreeditProjection(composition.preedit,
-        composition.selectionStart, composition.selectionLength)
-    let visible = projected.text
+    let start = composition.preeditStart
     let line = textCursorLineIndex(content.text, start)
     let lineStart = lineStartBeforeOrAt(content.text, start)
     let x = viewport.x - content.horizontalScroll +
         ctx.renderer.textWidth(content.text[lineStart..start], pointSize: FontSizes.BODY)
     let y = viewport.y + Float32(line) * CUI_SMALL_H - content.scroll
-    let width = ctx.renderer.textWidth(visible, pointSize: FontSizes.BODY)
+    let width = ctx.renderer.textWidth(content.text[lineStart..composition.preeditEnd],
+        pointSize: FontSizes.BODY) - ctx.renderer.textWidth(content.text[lineStart..start],
+        pointSize: FontSizes.BODY)
     let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
     if (y + lineHeight < viewport.y || y > viewport.bottom() || x > viewport.right()) {
         return
     }
-    ctx.renderer.text(visible, x, y, ctx.theme.text, pointSize: FontSizes.BODY)
+    // Text and caret were already painted from the complete transient display.
+    // Only the composition underline remains; never overpaint a second text run.
     if (width > 0.0) {
         ctx.renderer.strokeLine(x, y + lineHeight - 1.0, x + width, y + lineHeight - 1.0,
             Pen(width: 1.0, color: ctx.theme.accent))
     }
-    let caretByte = projected.selectionEndByte
-    let caretX = x + ctx.renderer.textWidth(visible[0..caretByte], pointSize: FontSizes.BODY)
-    let caret = Rect(caretX, y, TEXT_AREA_CARET_RESERVE, lineHeight)
-    ctx.setTextInputAnchor(caret)
     ctx.requestFrame()
 }
 
