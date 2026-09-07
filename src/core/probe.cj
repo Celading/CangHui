@@ -234,10 +234,13 @@ public func probeSemanticRegions(provider: ProbeSemanticRegionProvider): Unit {
     }
 }
 
-/** Lets stock-control semantics yield to an explicit probe for the same action owner. */
-protected func shouldRecordAutomaticControlSemantics(actionOwner: String): Bool {
+/** Avoid constructing diagnostic properties outside a running component probe. */
+protected func isComponentProbeActive(): Bool { activeComponentProbeSession.isSome() }
+
+/** Enrich an explicit node for this actual owner instead of emitting a duplicate region. */
+protected func mergeActiveProbeControlSemantics(actionOwner: String, properties: Array<ProbeProperty>): Bool {
     match (activeComponentProbeSession) {
-        case Some(session) => !session.currentDrawNodeOwns(actionOwner)
+        case Some(session) => session.mergeControlSemantics(actionOwner, properties)
         case None => false
     }
 }
@@ -771,6 +774,33 @@ private class ComponentProbeSession {
             case Some(node) => node.id == actionOwner || node.focusId == actionOwner
             case None => false
         }
+    }
+
+    func mergeControlSemantics(actionOwner: String, properties: Array<ProbeProperty>): Bool {
+        if (!currentDrawNodeOwns(actionOwner)) { return false }
+        let node = requireNode(drawNodeStack[drawNodeStack.size - 1])
+        let merged = ArrayList<ProbeProperty>()
+        for (property in node.properties) { putProbeProperty(merged, property) }
+        for (property in properties) {
+            // Descriptions may specialize stock semantics. Actual owner/state facts may not.
+            if (node.property(property.name).isNone() || ["actionOwner", "focusOrder", "selected",
+                "expanded", "enabled", "disabled", "readonly", "editable", "focused",
+                "selectionStart", "selectionEnd", "value"].contains(property.name)) {
+                putProbeProperty(merged, property)
+            }
+        }
+        if (probePropertyValue(properties, "role") == "password") {
+            putProbeProperty(merged, ProbeProperty("role", "password"))
+            removeProbeProperty(merged, "value")
+        }
+        if (node.state("disabled") || probePropertyValue(properties, "disabled") == "true") {
+            removeProbeProperty(merged, "action")
+            removeProbeProperty(merged, "shortcut")
+            putProbeProperty(merged, ProbeProperty("disabled", "true"))
+            putProbeProperty(merged, ProbeProperty("enabled", "false"))
+        }
+        node.properties = sortedProbeProperties(merged.toArray())
+        true
     }
 
     func beginDraw(timeMs: UInt64): Unit {

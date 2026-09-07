@@ -13,4 +13,8 @@ cuic ui audit . gallery.primary-button --fail-on warning
 焦点顺序冲突要求显式 `focusOrder` 证据；节点的结构序号不等于焦点顺序。
 没有这项证据时不判断焦点冲突，也不表示完整焦点流程已通过。
 
+标准控件的显式 probe 会保留同一控件的自动语义作为缺省值，避免加了 probe 后
+标签、动作和焦点序号反而消失。自定义绘制仍需自行提供语义；诊断没有列出问题，
+不等于未标注区域也已检查。
+
 对前景与背景无法同时证明的原生/图片内容，contrast 必须报告 unknown，不能猜测。--fail-on 支持 info、warning、error；达到阈值时命令返回非零。该命令复用 compiler-debug probe 通道，不开放发布态输入隧道。

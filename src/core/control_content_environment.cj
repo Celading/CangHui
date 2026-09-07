@@ -152,7 +152,7 @@ private func recordControlSemanticsResolved(
     focusOrder: ?Int64
 ): Unit {
     recordActiveSemanticRuntimeControl(frame, widgetType, semantics, interactionsEnabled, focusOrder)
-    if (!shouldRecordAutomaticControlSemantics(semantics.actionOwner)) { return }
+    if (!isComponentProbeActive()) { return }
     let properties = ArrayList<ProbeProperty>()
     properties.add(ProbeProperty("role", semantics.role))
     if (!semantics.label.isEmpty()) { properties.add(ProbeProperty("label", semantics.label)) }
@@ -211,6 +211,7 @@ private func recordControlSemanticsResolved(
         case Some(value) => properties.add(ProbeProperty("selectionEnd", value.toString()))
         case None => ()
     }
+    if (mergeActiveProbeControlSemantics(semantics.actionOwner, properties.toArray())) { return }
     probeSemanticRegions {=> [
         ProbeSemanticRegion(
             "control-semantic:" + semantics.actionOwner,

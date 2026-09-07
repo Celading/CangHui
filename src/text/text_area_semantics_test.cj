@@ -93,3 +93,31 @@ func readOnlyTextAreaSemanticsKeepValueButExposeNoEditingAction(): Unit {
     @Expect(report.contains("\"value\":\"logs\""))
     @Expect(!report.contains("\"action\":\"TextArea.edit()\""))
 }
+
+@Test
+func explicitEditorProbeKeepsStockStateAndCustomRoleAfterEditing(): Unit {
+    let text = State<String>("")
+    let report = ComponentProbe("test.editor-merge").run(
+        "focus editor.alias\ntext 中\nassert property editor.alias value 中\n" +
+        "assert property editor.alias role code-editor\nassert property editor.alias editable true\n" +
+        "assert property editor.alias label Source editor") {
+        TextArea(text, key: "editor-owner").accessibilityLabel("Source editor")
+            .probe("editor.alias", "TextArea", [ProbeProperty("role", "code-editor")])
+    }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(!report.contains("control-semantic:editor-owner"))
+    @Expect(!report.contains("\"ok\":false"))
+}
+
+@Test
+func explicitPasswordProbeCannotDowngradeStockRedaction(): Unit {
+    let report = ComponentProbe("test.password-merge").run("") {
+        TextField(State<String>("real-password"), key: "secret-owner").secureEntry()
+            .probe("secret.alias", "TextField", [ProbeProperty("role", "textfield"),
+                ProbeProperty("value", "annotation-password")])
+    }
+    @Expect(!report.contains("\"ok\":false"))
+    @Expect(report.contains("\"role\":\"password\""))
+    @Expect(!report.contains("real-password"))
+    @Expect(!report.contains("annotation-password"))
+}

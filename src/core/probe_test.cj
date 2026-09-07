@@ -298,3 +298,33 @@ func disabledContainerPropagatesToDescendantControlSemantics(): Unit {
     @Expect(!report.contains("Button.activate()"))
     @Expect(!report.contains("Enter|Space"))
 }
+
+@Test
+func explicitProbePreservesStockSemanticsWithoutDuplicatingItsOwner(): Unit {
+    let report = ComponentProbe("test.semantic-merge").run(
+        "assert property toolbar.save label Save\nassert property toolbar.save role button\n" +
+        "assert property toolbar.save action save.document()\n" +
+        "assert property toolbar.save actionOwner actual-save\nassert property toolbar.save focusOrder 0") {
+        Button("Save", {=> ()}).key("actual-save").probe("toolbar.save", "Button", [
+            ProbeProperty("action", "save.document()"), ProbeProperty("actionOwner", "fake-owner")
+        ])
+    }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(!report.contains("control-semantic:actual-save"))
+    @Expect(!report.contains("\"ok\":false"))
+}
+
+@Test
+func explicitProbePreservesCustomRoleButCannotOverrideDisabledStockTruth(): Unit {
+    let report = ComponentProbe("test.semantic-disabled").run(
+        "assert property save.alias label Save\nassert property save.alias role menuitem\n" +
+        "assert property save.alias enabled false") {
+        Button("Save", {=> ()}).key("actual-save").enabled(false).probe("save.alias", "Button", [
+            ProbeProperty("role", "menuitem"), ProbeProperty("enabled", "true"),
+            ProbeProperty("action", "must-not-activate()")
+        ])
+    }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(!report.contains("must-not-activate()"))
+    @Expect(!report.contains("\"ok\":false"))
+}
