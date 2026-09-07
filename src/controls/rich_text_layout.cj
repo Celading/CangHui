@@ -2,7 +2,6 @@ package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, FontStyle, IconName}
-import chui.core.{maxRunesFitting, runeSlice}
 
 // A span fragment placed at a position during layout: a text slice or an icon at (x, y) in content space.
 enum PlacedKind {
@@ -152,29 +151,14 @@ func richIconSize(lineHeight: Float32): Float32 {
     max(8.0, lineHeight * 0.82)
 }
 
-// A rune that belongs to an ASCII word (identifier, number, issue tag): any visible ASCII character.
-// CJK and other non-ASCII scripts are excluded on purpose — they break per rune, as convention wants.
-internal func isAsciiWordRune(r: Rune): Bool {
-    r > r' ' && r <= r'~'
-}
-
-// The end (exclusive) of the ASCII word starting at `start`.
-internal func asciiWordEnd(runes: Array<Rune>, start: Int64): Int64 {
-    var end = start
-    while (end < runes.size && isAsciiWordRune(runes[end])) {
-        end += 1
-    }
-    end
-}
-
 /*
- * Lays a span list into placed fragments, wrapping to `maxWidth`. Text runs are broken at rune
- * boundaries (so CJK wraps cleanly), with two word-level refinements for scripts that use spaces:
+ * Lays a span list into placed fragments, wrapping to `maxWidth`. Breaks use extended-grapheme
+ * boundaries across styles, with two word-level refinements for scripts that use spaces:
  * a forced break inside a run backs up to fall after the run's last space, and an ASCII word that
  * starts mid-line and would otherwise split moves to the next line whole when it fits one (an
- * identifier or issue tag is never cut in half; a word wider than a full line still rune-splits so
- * nothing overflows). CJK text has no spaces and non-ASCII runes, so both refinements leave it
- * exactly as before — filling every line and breaking anywhere. Icons flow
+ * identifier or issue tag is never cut in half; a word wider than a full line splits at graphemes).
+ * An oversized grapheme stays whole and may overflow; this is not Unicode line breaking or shaping.
+ * CJK may break between graphemes. Icons flow
  * inline as square boxes of `iconSize`. Each span's resolved point size comes from `spanSizes` (parallel
  * to `spans`); `widthOf` returns a run's width and `heightOf` a run's line height, both at the run's
  * size, style, and font (a face carries its own vertical metrics, so heights must come from the same
@@ -198,6 +182,7 @@ internal func layoutResolvedRichSpans(
     heightOf: (Float32, FontStyle, ?String) -> Float32,
     lineGap!: Float32 = 0.0
 ): RichLayout {
+    let boundaries = richSpanBoundaries(spans, spanSizes, spanStyles, spanFonts, widthOf)
     let frags = ArrayList<LaidFrag>()
     let lineHeights = ArrayList<Float32>()
     lineHeights.add(0.0)
@@ -212,39 +197,40 @@ internal func layoutResolvedRichSpans(
         let style = spanStyles[si]
         let font = spanFonts[si]
         match (span.kind) {
-            case RichSpanKind.SpanText(text) =>
+            case RichSpanKind.SpanText(_) =>
                 let fragHeight = heightOf(size, style, font)
                 // Bind this run's size, style, and font so widths reflect the actual metrics (a bigger
                 // or bolder run is wider) and wrapping breaks where the run really overflows.
                 let spanMeasure = {s: String => widthOf(s, size, style, font)}
-                let runes = text.toRuneArray()
+                let units = boundaries[si]
                 var i = 0
-                while (i < runes.size) {
+                while (i < units.count) {
                     // A wrapped continuation never starts with the space the line broke on (the
                     // i > 0 guard keeps a span's own leading space, e.g. a separator span).
-                    if (x == 0.0 && i > 0 && runes[i] == r' ') {
+                    if (x == 0.0 && i > 0 && units.space(i)) {
                         i += 1
                         continue
                     }
-                    var fit = maxRunesFitting(runes, i, maxWidth - x, spanMeasure)
+                    let continuation = i == 0 && units.joinedStart
+                    var fit = units.fitting(i, maxWidth - x, spanMeasure)
                     if (fit == 0) {
-                        if (x > 0.0) {
-                            // Nothing more fits on this line; wrap and retry the same rune.
+                        if (x > 0.0 && !continuation) {
+                            // Retry a whole grapheme on the next line, never its styled continuation.
                             x = 0.0
                             line += 1
                             lineHeights.add(0.0)
                             lineWidths.add(0.0)
                             continue
                         }
-                        // A single rune overflows even a full line; place it anyway to make progress.
+                        // Oversized graphemes and joined pieces stay on their existing line.
                         fit = 1
                     }
-                    if (i + fit < runes.size && runes[i + fit] != r' ') {
+                    if (i + fit < units.count && !units.space(i + fit)) {
                         // Breaking mid-run: prefer to land just after the run's last space.
                         var back = fit - 1
                         var atSpace = false
                         while (back > 0) {
-                            if (runes[i + back] == r' ') {
+                            if (units.space(i + back)) {
                                 fit = back + 1
                                 atSpace = true
                                 break
@@ -253,9 +239,9 @@ internal func layoutResolvedRichSpans(
                         }
                         // No space to back to and the break falls inside an ASCII word: move the
                         // whole word to the next line when it fits one, instead of cutting it.
-                        if (!atSpace && x > 0.0 && isAsciiWordRune(runes[i])) {
-                            let wordEnd = asciiWordEnd(runes, i)
-                            if (i + fit < wordEnd && spanMeasure(runeSlice(runes, i, wordEnd)) <= maxWidth) {
+                        if (!atSpace && x > 0.0 && !continuation && units.word(i)) {
+                            let wordEnd = units.wordEnd(i)
+                            if (i + fit < wordEnd && units.width(i, wordEnd, spanMeasure) <= maxWidth) {
                                 x = 0.0
                                 line += 1
                                 lineHeights.add(0.0)
@@ -264,7 +250,7 @@ internal func layoutResolvedRichSpans(
                             }
                         }
                     }
-                    let segment = runeSlice(runes, i, i + fit)
+                    let segment = units.slice(i, i + fit)
                     let segWidth = spanMeasure(segment)
                     frags.add(
                         LaidFrag(x: x, line: line, height: fragHeight, kind: PlacedKind.PlacedText(segment),

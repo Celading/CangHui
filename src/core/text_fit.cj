@@ -116,7 +116,7 @@ private func maxGraphemesFitting(text: String, index: GraphemeIndex, start: Int6
 /*
  * The largest rune count k in [1, remaining] with measure(runes[start..start+k]) <= maxW; 0 if even
  * one rune does not fit (or there is no width / no runes left). Retained for rune-based consumers
- * such as RichText's per-span layout and probe summaries. Plain Label fitting above instead uses
+ * such as probe summaries. Label and RichText fitting instead use
  * extended-grapheme boundaries. Do not describe this helper as grapheme-safe.
  */
 protected func maxRunesFitting(runes: Array<Rune>, start: Int64, maxW: Float32, measure: (String) -> Float32): Int64 {
