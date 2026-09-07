@@ -157,7 +157,7 @@ def build(output, revision):
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise ValueError("this exporter only validates macOS arm64")
     compiler = run("cjc", "--version")
-    if "Cangjie Compiler: 1.1.3 " not in compiler:
+    if compiler.splitlines() != ["Cangjie Compiler: 1.1.3 (cjnative)", "Target: aarch64-apple-darwin"]:
         raise ValueError("Cangjie 1.1.3 is required for this source SDK ABI")
     revision = run("git", "-C", ROOT, "rev-parse", revision + "^{commit}")
     output = output.resolve()

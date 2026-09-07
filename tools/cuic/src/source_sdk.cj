@@ -19,7 +19,9 @@ func protectSourceSdkDestination(framework: String, destination: String): Unit {
 
 // A source SDK is an immutable delivery directory, not a writable framework checkout.
 // Checksums detect corruption; they do not authenticate a publisher.
-func sourceSdkFields(text: String, revision: String, cliVersion: String, target: String): HashMap<String, String> {
+func sourceSdkFields(text: String, revision: String, cliVersion: String, target: String,
+    paired!: Bool = true): HashMap<String, String> {
+    if (text.size > 16384) { throw CuicError("source SDK manifest exceeds size limit") }
     let fields = HashMap<String, String>()
     for (raw in text.split("\n")) {
         let line = trimAscii(raw)
@@ -41,11 +43,15 @@ func sourceSdkFields(text: String, revision: String, cliVersion: String, target:
     if (fields["schema"] != "canghui.source-sdk/v1" || fields["target"] != target || target != "macos-arm64") {
         throw CuicError("source SDK schema/target mismatch; v1 currently supports macos-arm64 only")
     }
-    if (!validGitCommitId(fields["sourceCommit"]) || fields["sourceCommit"] != revision ||
-        fields["cuicVersion"] != cliVersion) {
+    if (!validGitCommitId(fields["sourceCommit"]) ||
+        (paired && (fields["sourceCommit"] != revision || fields["cuicVersion"] != cliVersion))) {
         throw CuicError("source SDK/CUIC identity mismatch; use the CUIC shipped in this SDK")
     }
     if (fields["compilerVersion"] != "1.1.3") { throw CuicError("unsupported source SDK compiler ABI") }
+    for (key in ["frameworkVersion", "kitVersion", "cuicVersion"]) {
+        let _ = sourceSdkVersionParts(fields[key], 3)
+    }
+    let _ = sourceSdkVersionParts(fields["minimumOS"], 1)
     fields
 }
 
@@ -72,7 +78,7 @@ func verifySourceSdkFiles(root: String, nativeNames: Array<String>): Unit {
     let ledger = joinPath(root, "SHA256SUMS")
     requireFile(ledger, "source SDK checksum ledger is missing")
     let seen = HashSet<String>()
-    for (line in String.fromUtf8(File.readFrom(ledger)).split("\n")) {
+    for (line in readSourceSdkText(ledger, 4194304).split("\n")) {
         if (line.isEmpty()) { continue }
         if (line.size < 67 || substringTo(substringFrom(line, 64), 2) != "  ") {
             throw CuicError("invalid source SDK checksum entry")
@@ -125,11 +131,11 @@ func bootstrapSourceSdk(framework: String, staging: String): Bool {
     let manifest = joinPath(framework, SOURCE_SDK_MANIFEST)
     if (!exists(manifest)) { return false }
     let root = canonicalPackagingPath(joinPath(framework, ".."), "source SDK root")
-    let fields = sourceSdkFields(String.fromUtf8(File.readFrom(manifest)), CUIC_BUILD_REVISION,
+    let fields = sourceSdkFields(readSourceSdkText(manifest, 16384), CUIC_BUILD_REVISION,
         VERSION, hostPlatform() + "-" + hostArch())
     let names = sourceSdkNativeNames(fields["nativeFiles"])
     let (compilerCode, compilerOut, _) = executeWithOutput("cjc", ["--version"])
-    if (compilerCode != 0 || !String.fromUtf8(compilerOut).contains("Cangjie Compiler: 1.1.3")) {
+    if (compilerCode != 0 || !sourceSdkCompilerMatches(String.fromUtf8(compilerOut))) {
         throw CuicError("this source SDK requires Cangjie compiler 1.1.3")
     }
     let (osCode, osOut, _) = executeWithOutput("/usr/bin/sw_vers", ["-productVersion"])
@@ -137,20 +143,19 @@ func bootstrapSourceSdk(framework: String, staging: String): Bool {
         throw CuicError("source SDK requires macOS " + fields["minimumOS"] + " or newer")
     }
     verifySourceSdkFiles(root, names)
+    verifySourceSdkPackageIdentity(root, fields)
     ensurePackagingDirectory(joinPath(staging, "sdl/.sdl3"))
     for (name in names) { copyNativeLibrary(joinPath(root, "native/" + name), joinPath(staging, "sdl/.sdl3/" + name)) }
     true
 }
 
 func sourceSdkOSAtLeast(actual: String, minimum: String): Bool {
-    let a = actual.split(".")
-    let b = minimum.split(".")
-    if (a.size < 1 || b.size < 1 || a.size > 3 || b.size > 3) { throw CuicError("invalid SDK OS version") }
+    let a = sourceSdkVersionParts(actual, 1)
+    let b = sourceSdkVersionParts(minimum, 1)
     var result: Int64 = 0
     for (i in 0..3) {
-        let av = if (i < a.size) { Int64.parse(a[i]) } else { 0 }
-        let bv = if (i < b.size) { Int64.parse(b[i]) } else { 0 }
-        if (av < 0 || bv < 0) { throw CuicError("invalid SDK OS version") }
+        let av = if (i < a.size) { a[i] } else { 0 }
+        let bv = if (i < b.size) { b[i] } else { 0 }
         if (result == 0 && av != bv) { result = if (av > bv) { 1 } else { -1 } }
     }
     result >= 0

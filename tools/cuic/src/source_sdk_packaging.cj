@@ -1,7 +1,6 @@
 package cuic
 
 import std.collection.ArrayList
-import std.fs.File
 import std.process.executeWithOutput
 
 func sdkMacDependencyAllowed(dependency: String, names: Array<String>, native: Bool): Bool {
@@ -31,11 +30,12 @@ func verifySdkMacDependencies(binary: String, names: Array<String>, native: Bool
 func closeSourceSdkMacApp(framework: String, output: String, executableName: String,
     generated: ArrayList<String>, copied: ArrayList<String>): Unit {
     let manifest = joinPath(framework, SOURCE_SDK_MANIFEST)
-    let fields = sourceSdkFields(String.fromUtf8(File.readFrom(manifest)), CUIC_BUILD_REVISION, VERSION,
+    let fields = sourceSdkFields(readSourceSdkText(manifest, 16384), CUIC_BUILD_REVISION, VERSION,
         hostPlatform() + "-" + hostArch())
     let names = sourceSdkNativeNames(fields["nativeFiles"])
     let sdkRoot = canonicalPackagingPath(joinPath(framework, ".."), "source SDK root")
     verifySourceSdkFiles(sdkRoot, names)
+    verifySourceSdkPackageIdentity(sdkRoot, fields)
     let binary = joinPath(output, "Contents/MacOS/" + executableName)
     verifySdkMacDependencies(binary, names, false)
     let nativeRoot = joinPath(output, "Contents/Frameworks")

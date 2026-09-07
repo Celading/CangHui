@@ -8,6 +8,78 @@ private func sdkRejects(action: () -> Unit): Bool {
 }
 
 @Test
+func sourceSdkCompilerGateRejectsVersionPrefixAndWrongTarget(): Unit {
+    @Expect(sourceSdkCompilerMatches("Cangjie Compiler: 1.1.3 (cjnative)\nTarget: aarch64-apple-darwin\n"))
+    for (output in ["Cangjie Compiler: 1.1.30 (cjnative)\nTarget: aarch64-apple-darwin",
+        "Cangjie Compiler: 1.1.3-beta (cjnative)\nTarget: aarch64-apple-darwin",
+        "Cangjie Compiler: 1.1.3 (cjnative)\nTarget: x86_64-apple-darwin",
+        "warning Cangjie Compiler: 1.1.3 (cjnative)\nTarget: aarch64-apple-darwin", ""]) {
+        @Expect(!sourceSdkCompilerMatches(output))
+    }
+}
+
+@Test
+func sourceSdkVersionChecksRejectNonNumericMetadata(): Unit {
+    for (bad in ["+15", "15..1", "15.0;run", "15.0.0.0", "999999999999999999999", "", "15\n0"]) {
+        @Expect(sdkRejects({=> let _ = sourceSdkOSAtLeast(bad, "15.0") }))
+    }
+    @Expect(sourceSdkVersionRelation("0.9.0", "0.17.0"), "higher")
+    @Expect(sourceSdkVersionRelation("1.0.0", "0.17.0"), "lower")
+    @Expect(sourceSdkVersionRelation("0.17.0", "0.17.0"), "equal")
+    @Expect(sdkRejects({=> let _ = sourceSdkVersionRelation("1.0", "1.0.0") }))
+}
+
+@Test
+func sourceSdkPackageIdentityRejectsWrongSectionAndDuplicates(): Unit {
+    let good = "[package]\nname = \"chui\"\nversion = \"0.17.0\"\n[dependencies]\nversion = \"other\"\n"
+    @Expect(sourceSdkPackageIdentityMatches(good, "chui", "0.17.0"))
+    @Expect(!sourceSdkPackageIdentityMatches(good, "cui", "0.17.0"))
+    @Expect(!sourceSdkPackageIdentityMatches(good, "chui", "0.16.0"))
+    @Expect(!sourceSdkPackageIdentityMatches("[dependencies]\nname = \"chui\"\nversion = \"0.17.0\"", "chui", "0.17.0"))
+    @Expect(!sourceSdkPackageIdentityMatches(good + "[package]\nname = \"chui\"\nversion = \"0.17.0\"", "chui", "0.17.0"))
+    @Expect(!sourceSdkPackageIdentityMatches("[package]\nname = \"chui\"\nname = \"chui\"\nversion = \"0.17.0\"", "chui", "0.17.0"))
+}
+
+@Test
+func sourceSdkCliRejectsInvalidRequestsBeforeMutation(): Unit {
+    @Expect(sourceSdkCommand(["verify", "--json"], 0), 1)
+    @Expect(sourceSdkCommand(["compare", "one", "--json"], 0), 1)
+    @Expect(sourceSdkCommand(["install", "one", "--json"], 0), 1)
+    @Expect(helpText().contains("cuic sdk compare"))
+}
+
+@Test
+func sourceSdkMetadataReaderRejectsDirectoryAndOversize(): Unit {
+    let root = joinPath(currentDirectory(), "target/source-sdk-reader-fixture")
+    Directory.create(root, recursive: true)
+    let path = joinPath(root, "metadata")
+    File.writeTo(path, "12345".toArray())
+    @Expect(sdkRejects({=> let _ = readSourceSdkText(path, 4) }))
+    @Expect(sdkRejects({=> let _ = readSourceSdkText(root, 4096) }))
+    @Expect(readSourceSdkText(path, 5), "12345")
+    _ = removeIfExists(root, recursive: true)
+}
+
+@Test
+func sourceSdkComparisonNeverInfersCommitOrderOrRuntimeCompatibility(): Unit {
+    let commit = "0123456789012345678901234567890123456789"
+    let manifest = "schema=canghui.source-sdk/v1\nsourceCommit=" + commit +
+        "\ncuicVersion=0.6.0\nframeworkVersion=0.17.0\nkitVersion=0.1.0\ncompilerVersion=1.1.3\n" +
+        "target=macos-arm64\nminimumOS=15.0\nnativeFiles=libSDL3.dylib,libSDL3_ttf.dylib\n"
+    let current = SourceSdkInspection(sourceSdkFields(manifest, commit, "0.6.0", "macos-arm64"), "ledger-a")
+    let candidateFields = sourceSdkFields(manifest, "unpaired", "0.6.0", "macos-arm64", paired: false)
+    candidateFields["sourceCommit"] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    candidateFields["frameworkVersion"] = "0.18.0"
+    let comparison = sourceSdkComparisonJson(current, SourceSdkInspection(candidateFields, "ledger-b"))
+    @Expect(comparison.contains("different-commit-order-unknown"))
+    @Expect(comparison.contains("\"frameworkVersionRelation\":\"higher\""))
+    @Expect(comparison.contains("requires-consumer-regression"))
+    @Expect(comparison.contains("\"automaticUpdate\":false"))
+    @Expect(comparison.contains("\"samePayloadLedger\":false"))
+    @Expect(sourceSdkInspectionJson(current).contains("\"publisherAuthenticated\":false"))
+}
+
+@Test
 func defaultTemplateHasTheSameObservableWelcomeFlowAsSdk(): Unit {
     let source = generatedMain("welcome_test")
     @Expect(source.contains("@CuiProbe[\"welcome.main\"]"))

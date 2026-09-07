@@ -58,6 +58,30 @@ SDK 模板通过 `ApplicationPaths.basePath()` 定位应用包内 `canghui-sdk/f
 已有应用沿用自己的字体策略；若使用此默认字体，也需从该路径登记 `Fonts.registerBundledFallback`。
 产物不是发布者签名、公证完成态；ad-hoc 可执行签名仅用于本地加载，公开分发另行验收。
 
+## 校验与升级前比较
+
+新版 CUIC 提供两个只读命令；普通 release 工具即可使用，不会执行候选包里的程序：
+
+```bash
+cuic sdk verify /path/to/sdk/framework --json
+cuic sdk compare /path/to/current/framework /path/to/candidate/framework --json
+```
+
+它们检查整个文件账本、框架与 Kit 的包名/版本，并报告候选包的声明版本、最低系统要求、
+当前宿主前置条件及是否与正在运行的 CUIC 配对。校验账本要求普通文件且不超过 4 MiB，
+SDK 清单不超过 16 KiB，包清单不超过 64 KiB。v1 仅接受三段数字的稳定包版本和上述
+macOS arm64 / Cangjie 1.1.3 组合；编译器版本和目标必须精确匹配。
+
+`ok: true` 表示完整性和包身份检查通过，**不是认证发布者、验证原生二进制可运行或批准升级**。
+同时检查 `hostPrerequisites` 和 `pairedWithThisCuic`。`higher/lower/equal` 只比较声明的包版本；
+不同 Git 提交返回 `different-commit-order-unknown`，不会假定候选提交一定更新。
+相同源码提交也可能重新构建，`samePayloadLedger` 单独比较文件账本。
+
+升级时保留旧 SDK，将候选放在新目录，用候选自带的 CUIC 在应用分支中构建、测试和回放，
+再修改应用依赖。失败时还原该分支的依赖与 lock，继续用旧 SDK；不要覆盖旧包或编辑它的缓存。
+命令不会修改依赖、下载新版或访问发布目录。目前没有官方更新索引可供自动发现“最新版本”，
+因此候选位置仍由使用者明确提供。
+
 ## 维护者导出
 
 先提交需要交付的源码，再从该精确提交导出到一个不存在的新目录：

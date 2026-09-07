@@ -91,6 +91,7 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "dependency") {
         return dependencyCommand(args, 2)
     }
+    if (command == "sdk") { return sourceSdkCommand(args, 2) }
     if (command == "package") {
         return applicationPackagingCommand(args, 2)
     }
@@ -333,6 +334,8 @@ func helpText(): String {
     "      [--canghui-path <path> | --canghui-git <url> --canghui-commit <commit>]\n" +
     "  cuic doctor [target] [--project <directory>] [--json] [--verbose]\n" +
     "  cuic bootstrap [platform]\n" +
+    "  cuic sdk verify <framework> [--json]\n" +
+    "  cuic sdk compare <current-framework> <candidate-framework> [--json]\n" +
     "  cuic font <status|install> [platform]\n" +
     "  cuic symbol list [material|ant|arco] [--json]\n" +
     "  cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]\n" +
