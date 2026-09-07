@@ -46,6 +46,10 @@ import chui.*
 
 ## 什么时候才需要本地源码路径
 
+有离线需求时可使用[不可变源码 SDK 候选包](../reference/source-sdk.zh-CN.md)：框架、Kit、
+CUIC 和原生依赖按同一提交成套交付。当前只覆盖经过验证的 macOS arm64 工具链组合，
+不是自动承诺所有平台的二进制 SDK。
+
 仅在修改 CangHui 本身，或使用已经准备好的离线源码目录时使用：
 
 ```bash

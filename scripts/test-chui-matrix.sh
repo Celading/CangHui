@@ -60,11 +60,11 @@ for manifest in "${MANIFESTS[@]}"; do
 
     package_dir="${manifest%/cjpm.toml}"
     echo "==> build ${package_dir}"
-    (cd "${package_dir}" && cjpm build)
+    (cd "${package_dir}" && cjpm build -j 1)
     echo "==> test ${package_dir}"
-    # The interactive progress renderer can stop draining concurrent dependency-scan output when
-    # this matrix reaches large consumers. Keep CI and agent runs non-interactive and pipe-safe.
-    (cd "${package_dir}" && cjpm test --no-progress)
+    # CJPM 1.1.3 can stall concurrent large dependency scans in stdout writes (not rendering).
+    # Single-job scans avoid that measured pipe-drain failure; preserve real test execution.
+    (cd "${package_dir}" && cjpm test -j 1 --no-progress)
     passed=$((passed + 1))
 done
 

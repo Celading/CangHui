@@ -38,6 +38,7 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     ensurePackagingOutputDoesNotOverlapInputs(project, output, manifest)
 
     var executable = ""
+    var sdkFramework = ""
     var hostReplay = "metadata-only"
     let limitations = ArrayList<String>()
     let plan = applicationPackagingPlanForManifest(project, platform, manifest)
@@ -49,7 +50,10 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
         let context = ExecutionContext(project, framework)
         executable = builtExecutable(context.targetDir)
         hostReplay = "same-host-build-complete-not-launched"
-        limitations.add("runtime-dependencies-remain-host-managed")
+        if (exists(joinPath(framework, SOURCE_SDK_MANIFEST))) {
+            sdkFramework = framework
+            limitations.add("source-sdk-native-closure-included-not-publisher-signed")
+        } else { limitations.add("runtime-dependencies-remain-host-managed") }
     } else if (platform != hostPlatform()) {
         limitations.add("target-host-build-not-run-on-${hostPlatform()}")
         limitations.add("executable-and-native-runtime-not-included")
@@ -63,7 +67,7 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     limitations.add("unsigned-artifact")
 
     let receipt = writeApplicationPackagingArtifact(
-        project, platform, manifest, output, executable, hostReplay, limitations.toArray()
+        project, platform, manifest, output, executable, hostReplay, limitations.toArray(), sourceSdkFramework: sdkFramework
     )
     let receiptPath = joinPath(output, applicationPackagingReceiptPath(platform))
     File.writeTo(receiptPath, renderApplicationPackagingReceiptJson(receipt).toArray())
@@ -200,7 +204,7 @@ func ensurePackagingInputTreeStaysInsideProject(
 
 func writeApplicationPackagingArtifact(project: String, platform: String,
     manifest: ApplicationManifest, output: String, executable: String,
-    hostReplay: String, limitations: Array<String>): ApplicationPackagingArtifactReceipt {
+    hostReplay: String, limitations: Array<String>, sourceSdkFramework!: String = ""): ApplicationPackagingArtifactReceipt {
     ensurePackagingDirectory(output)
     let generated = ArrayList<String>()
     let copied = ArrayList<String>()
@@ -209,6 +213,9 @@ func writeApplicationPackagingArtifact(project: String, platform: String,
         executableIncluded = writeMacApplicationArtifact(
             project, manifest, output, executable, generated, copied
         )
+        if (!sourceSdkFramework.isEmpty()) {
+            closeSourceSdkMacApp(sourceSdkFramework, output, manifest.name, generated, copied)
+        }
     } else if (platform == "windows") {
         copyWindowsApplicationArtifact(project, manifest, output, generated, copied)
     } else {

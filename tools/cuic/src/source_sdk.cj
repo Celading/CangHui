@@ -145,3 +145,31 @@ func sourceSdkOSAtLeast(actual: String, minimum: String): Bool {
     }
     result >= 0
 }
+
+func sourceSdkBuildArguments(args: Array<String>): Array<String> {
+    if (args.isEmpty()) { return args }
+    for (arg in args) {
+        if (arg == "-j" || arg == "--jobs" || arg == "--build-args") { return args }
+    }
+    let result = ArrayList<String>()
+    for (arg in args) { result.add(arg) }
+    if (args[0] == "build" || args[0] == "test") { result.add("-j"); result.add("1") }
+    else if (args[0] == "run") { result.add("--build-args"); result.add("-j 1") }
+    result.toArray()
+}
+
+func generatedSdkMain(packageName: String): String {
+    "package ${packageName}\n\nimport chui.*\nimport chui.kmode.macros.*\n\n" +
+    "func welcomeContent(message: State<String>): Unit {\n" +
+    "    VStack(spacing: 12.vp) {\n" +
+    "        Label(message.value).fontSize(26.fp).probe(\"welcome.message\", \"Label\", [ProbeProperty(\"label\", message.value)])\n" +
+    "        Button(\"更新状态\", {=> message.value = \"CangHui 已准备好\"}).key(\"welcome.ready\").role(ButtonRole.Primary)\n" +
+    "    }.padding(24.vp)\n}\n\n" +
+    "@CuiProbe[\"welcome.main\"]\nfunc welcomeProbe(script: String): String {\n" +
+    "    let message = State<String>(\"你好，CangHui\")\n" +
+    "    ComponentProbe(\"welcome.main\", width: 720.0, height: 480.0).run(script) { welcomeContent(message) }\n}\n\n" +
+    "main(): Unit {\n    if (runKModeStdioIfRequested()) { return }\n" +
+    "    let message = State<String>(\"你好，CangHui\")\n" +
+    "    DesktopApp(WindowSpec(\"${packageName}\", 720, 480, scaling: Some(WindowScaleSettings()))).run {\n" +
+    "        welcomeContent(message)\n    }\n}\n"
+}

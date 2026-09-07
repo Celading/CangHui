@@ -39,6 +39,27 @@ func sourceSdkComparesRealMinimumSystemVersion(): Unit {
 }
 
 @Test
+func sourceSdkMacAppDependencyPolicyRejectsHostLeaksAndTraversal(): Unit {
+    let names = ["libSDL3.dylib", "libSDL3_ttf.dylib"]
+    @Expect(sdkMacDependencyAllowed("/usr/lib/libSystem.B.dylib", names, false))
+    @Expect(sdkMacDependencyAllowed("@rpath/libSDL3.dylib", names, false))
+    @Expect(sdkMacDependencyAllowed("@loader_path/libSDL3.dylib", names, true))
+    @Expect(!sdkMacDependencyAllowed("@loader_path/libSDL3.dylib", names, false))
+    @Expect(!sdkMacDependencyAllowed("@rpath/../libSDL3.dylib", names, false))
+    @Expect(!sdkMacDependencyAllowed("/opt/homebrew/lib/libSDL3.dylib", names, false))
+    @Expect(!sdkMacDependencyAllowed("@rpath/libcangjie-runtime.dylib", names, false))
+}
+
+@Test
+func sourceSdkBuildUsesBoundedScanJobsWithoutReplacingCallerOptions(): Unit {
+    @Expect(sourceSdkBuildArguments(["build"]), ["build", "-j", "1"])
+    @Expect(sourceSdkBuildArguments(["test", "-g"]), ["test", "-g", "-j", "1"])
+    @Expect(sourceSdkBuildArguments(["run"]), ["run", "--build-args", "-j 1"])
+    @Expect(sourceSdkBuildArguments(["build", "-j", "2"]), ["build", "-j", "2"])
+    @Expect(sourceSdkBuildArguments(["run", "--build-args", "-g"]), ["run", "--build-args", "-g"])
+}
+
+@Test
 func sourceSdkChecksumsRejectCorruptionAndUnlistedSource(): Unit {
     if (hostPlatform() != "macos") { return }
     let root = joinPath(currentDirectory(), "target/source-sdk-checksum-fixture")

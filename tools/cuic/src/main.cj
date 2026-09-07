@@ -617,7 +617,8 @@ func cjpmArgsWithTarget(args: Array<String>, targetDir: String): Array<String> {
 func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
     let sdl = context.sdlDirectory()
     let font = runtimeHarmonyFont(context.framework)
-    let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
+    let buildArgs = if (exists(joinPath(context.framework, SOURCE_SDK_MANIFEST))) { sourceSdkBuildArguments(cjpmArgs) } else { cjpmArgs }
+    let targetArgs = cjpmArgsWithTarget(buildArgs, context.targetDir)
     if (hostPlatform() == "windows") {
         return executeCommandWithEnvironment(
             "cjpm",
@@ -642,7 +643,8 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
 func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
     let sdl = context.sdlDirectory()
     let font = runtimeHarmonyFont(context.framework)
-    let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
+    let buildArgs = if (exists(joinPath(context.framework, SOURCE_SDK_MANIFEST))) { sourceSdkBuildArguments(cjpmArgs) } else { cjpmArgs }
+    let targetArgs = cjpmArgsWithTarget(buildArgs, context.targetDir)
     if (hostPlatform() == "windows") {
         return executeCommandWithEnvironment(
             "cjpm",
@@ -880,6 +882,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
     if (frameworkPath.isEmpty() && (frameworkGit.isEmpty() || frameworkCommit.isEmpty())) {
         throw CuicError("Git initialization requires both a CangHui URL and commit")
     }
+    let sdkMode = !frameworkPath.isEmpty() && exists(joinPath(frameworkPath, SOURCE_SDK_MANIFEST))
     if (exists(directory)) {
         for (_ in Directory.readFrom(directory)) { throw CuicError("destination is not empty: ${directory}") }
     } else {
@@ -898,14 +901,15 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         "name = \"${packageName}\"\n" +
         "version = \"0.1.0\"\n" +
         "output-type = \"executable\"\n" +
-        "compile-option = \"--set-runtime-rpath\"\n" +
+        "compile-option = \"${if (sdkMode) { "--static --static-std" } else { "--set-runtime-rpath" }}\"\n" +
         "description = \"CangHui desktop application.\"\n\n" +
         "[dependencies]\n" +
         renderFrameworkDependency(dependency) + "\n"
     File.writeTo(joinPath(directory, "cjpm.toml"), manifest.toArray())
     File.writeTo(joinPath(directory, PROJECT_MANIFEST), defaultProjectManifest(packageName: packageName).toArray())
     File.writeTo(joinPath(directory, ".gitignore"), "target/\ndist/\n".toArray())
-    File.writeTo(joinPath(directory, "src/main.cj"), generatedMain(packageName).toArray())
+    File.writeTo(joinPath(directory, "src/main.cj"),
+        (if (sdkMode) { generatedSdkMain(packageName) } else { generatedMain(packageName) }).toArray())
     println("created CangHui project: ${directory}")
     println("package: ${packageName}")
     println("platform: ${platform}")

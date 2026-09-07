@@ -43,6 +43,7 @@ cuic probe diff [project]
 cuic probe list [project] [--json]
 cuic probe describe [project] <probe> [--json]
 cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]
+cuic prntx [project] <probe> [--format summary|tree|json|diff|ascii] [--limit 1..128] [--node <id>]
 cuic scripts init|list [project]
 cuic scripts run <name> [project]
 cuic dependency update [project]
@@ -125,6 +126,11 @@ application. Outside a Cangjie project, the same command retains the built-in
 `notepad` example fallback. An explicit project or example always wins.
 
 ## Framework Resolution
+
+For the immutable offline source SDK candidate, use the paired `bin/cuic` / `bin/cuic-debug`
+and a dependency on its `framework` directory. Its native payload is checked before staging;
+it does not require Homebrew on the consuming host. See the
+[source SDK contract](../../manual/reference/source-sdk.zh-CN.md) for the compiler/target and signing boundaries.
 
 `cuic` resolves CangHui in this order:
 
