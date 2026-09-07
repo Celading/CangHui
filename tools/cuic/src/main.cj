@@ -531,6 +531,10 @@ func bootstrap(platform: String, framework: String, stagingRoot!: String = "", q
         throw CuicError("target '${platform}' requires a ${platform} host; current host is '${host}'")
     }
     let effectiveStaging = if (stagingRoot.size > 0) { stagingRoot } else { framework }
+    if (bootstrapSourceSdk(framework, effectiveStaging)) {
+        if (!quiet) { println("verified source SDK native libraries are ready") }
+        return 0
+    }
     if (platform == "windows") {
         requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3.dll"), "SDL3.dll is missing")
         requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3_ttf.dll"), "SDL3_ttf.dll is missing")

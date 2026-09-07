@@ -90,7 +90,7 @@ func runMacPackagingBuild(project: String, quiet: Bool): Int64 {
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let boot = bootstrapMacPackaging(context.stagingRoot, quiet)
+    let boot = bootstrap("macos", framework, stagingRoot: context.stagingRoot, quiet: quiet)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
     try {
@@ -99,17 +99,6 @@ func runMacPackagingBuild(project: String, quiet: Bool): Int64 {
     } finally {
         context.releaseLease(lease)
     }
-}
-
-func bootstrapMacPackaging(stagingRoot: String, quiet: Bool): Int64 {
-    let sdlDirectory = joinPath(stagingRoot, "sdl/.sdl3")
-    ensurePackagingDirectory(sdlDirectory)
-    let sdl3 = homebrewLibrary("sdl3", "libSDL3.dylib")
-    let sdl3Ttf = homebrewLibrary("sdl3_ttf", "libSDL3_ttf.dylib")
-    copyNativeLibrary(sdl3, joinPath(sdlDirectory, "libSDL3.dylib"))
-    copyNativeLibrary(sdl3Ttf, joinPath(sdlDirectory, "libSDL3_ttf.dylib"))
-    if (!quiet) { println("macos SDL libraries are ready in ${sdlDirectory}") }
-    0
 }
 
 func resolvePackagingOutputRoot(project: String, platform: String, manifest: ApplicationManifest,

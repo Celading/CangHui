@@ -108,7 +108,7 @@ func loadHarmonyProviderPack(requestedRoot: String): HarmonyProviderPack {
         harmonyByteDigest(File.readFrom(manifestPath)))
 }
 
-private func validGitCommitId(value: String): Bool {
+func validGitCommitId(value: String): Bool {
     if (value.toRuneArray().size != 40) { return false }
     for (r in value.toRuneArray()) {
         if (!((r >= r'0' && r <= r'9') || (r >= r'a' && r <= r'f'))) { return false }
