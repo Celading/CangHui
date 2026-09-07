@@ -105,6 +105,18 @@ func prntMacCapturePinsOneCangjieProcessorByDefault(): Unit {
 }
 
 @Test
+func prntUsesVerifiedNativeStagingWithoutRetargetingFrameworkResources(): Unit {
+    let framework = "/tmp/canghui"
+    let native = "/tmp/verified-sdk-native"
+    let environment = applicationEnvironment(framework, "/tmp/capture.bmp", UInt64(2), nativeDirectory: native)
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect((environment.get(key) ?? "").contains(native))
+    @Expect(environment.get("CANGHUI_HARMONYOS_SANS") ?? "", runtimeHarmonyFont(framework))
+    @Expect(environment.get("CANGHUI_CAPTURE_PATH") ?? "", "/tmp/capture.bmp")
+}
+
+@Test
 func packageNamesAreCompilerFriendly(): Unit {
     @Expect(sanitizePackageName("Hello-CangUI"), "hello_cangui")
     @Expect(sanitizePackageName("2026 Demo"), "app_2026_demo")

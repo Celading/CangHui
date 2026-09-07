@@ -1092,7 +1092,7 @@ func printDesktopWindow(options: PrntOptions): Int64 {
         let executable = builtExecutable(context.targetDir)
         println("==> capturing ${basename(project)} (${options.platform}) via CangHui capture interface")
         let code = executeApplication(project, executable, options.appArgs.toArray(), framework, snapshot,
-            options.frames)
+            options.frames, nativeDirectory: context.sdlDirectory())
         if (code != 0) { return code }
     } finally {
         context.releaseLease(lease)
@@ -1139,9 +1139,10 @@ func executeApplication(
     appArgs: Array<String>,
     framework: String,
     capturePath: String,
-    captureFrames: UInt64
+    captureFrames: UInt64,
+    nativeDirectory!: String = ""
 ): Int64 {
-    let environment = applicationEnvironment(framework, capturePath, captureFrames)
+    let environment = applicationEnvironment(framework, capturePath, captureFrames, nativeDirectory: nativeDirectory)
     try {
         let process = launch(
             executable,
@@ -1162,11 +1163,12 @@ func executeApplication(
 func applicationEnvironment(
     framework: String,
     capturePath: String,
-    captureFrames: UInt64
+    captureFrames: UInt64,
+    nativeDirectory!: String = ""
 ): HashMap<String, String> {
     let environment = HashMap<String, String>()
     for ((key, value) in getVariables()) { environment.add(key, value) }
-    let sdl = joinPath(framework, "sdl/.sdl3")
+    let sdl = if (nativeDirectory.isEmpty()) { joinPath(framework, "sdl/.sdl3") } else { nativeDirectory }
     let runtime = cangjieRuntimeLibraryDirectory()
     if (hostPlatform() == "macos") {
         environment.add("DYLD_LIBRARY_PATH", "${runtime}:${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
