@@ -21,6 +21,14 @@ Unknown or unreadable files are skipped. On a live SDL_ttf renderer, CangHui
 checks glyph coverage for the complete text run and advances to the next face
 when the current face is incomplete.
 
+If no single face covers the run, the live backend combines the usable faces in
+that same order through an SDL_ttf fallback chain, with matching sizes and styles.
+For example, an Arabic-capable application face and the bundled Chinese face can
+render one mixed Arabic/Chinese label. Chains own separate native font copies and
+are cached; changing another label's family must not mutate an already-shaped
+label's fallback configuration. Unknown glyphs still use the missing-glyph marker
+when none of the supplied fonts covers them.
+
 For `.bold()`, CangHui first selects a real `Bold` named instance carried by a
 variable font (the bundled HarmonyOS Sans SC includes one), then tries a
 separate bold companion file, and only then synthesizes bold on the selected
@@ -60,7 +68,8 @@ An application host with a different resource layout can call
 
 `Renderer.fontResolution()` reports the first logical tier. On a live renderer,
 `Renderer.fontResolutionForText(text)` also applies glyph coverage and reports
-the tier actually selected for that string. The recording renderer includes
+the tier actually selected for that string. For a combined chain it reports its
+primary face, **not** a complete per-glyph font map. The recording renderer includes
 `resolvedFamily` and `fontSource` in text Draw IR.
 
 ```bash
@@ -70,3 +79,12 @@ the tier actually selected for that string. The recording renderer includes
 
 The stable machine-readable contract is
 [`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json).
+
+## Remaining native-text limits
+
+Mixed-font fallback is not a guarantee of complete Unicode shaping or bidi layout.
+In particular, complex clusters that must move together to a fallback face, bitmap
+emoji strike scaling, and cross-style glyph shaping still require separate backend
+work and target-platform tests. Prefer keeping a complex cluster in one span and
+selecting a face that covers the complete cluster. Grapheme-safe editing and line
+breaking are described separately in [text boundaries](text-boundaries.md).

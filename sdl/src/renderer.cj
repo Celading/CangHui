@@ -1,7 +1,7 @@
 package sdl
 
 import std.collection.{ArrayList, HashMap}
-import sdl.text.{NativeTextColor, NativeTextException, NativeTextMetrics, NativeTextRenderer}
+import sdl.text.{NativeTextColor, NativeTextException, NativeTextMetrics, NativeTextRenderer, fontPathChainKey}
 
 /**
  * Standard text sizes shared by the renderer, widgets, and applications.
@@ -245,7 +245,7 @@ public class Renderer {
         resolveFontChain(font)[0]
     }
 
-    /** Reports the concrete fallback tier selected for one string on a live renderer. */
+    /** Reports the selected whole-run tier, or a mixed fallback chain's primary tier; not a glyph map. */
     public func fontResolutionForText(
         text: String,
         pointSize!: Float32 = FontSizes.BODY,
@@ -1133,14 +1133,9 @@ public class Renderer {
     }
 
     private func fontChainKey(resolutions: Array<FontResolution>): String {
-        let out = StringBuilder()
-        var first = true
-        for (resolution in resolutions) {
-            if (!first) { out.append("\n") }
-            first = false
-            out.append(resolution.path)
-        }
-        out.toString()
+        let paths = fontPaths(resolutions)
+        // Retain the dedicated system-only cache, otherwise use the same encoding as native text.
+        if (paths.size == 1 && paths[0].isEmpty()) { "" } else { fontPathChainKey(paths) }
     }
 
     private func metricsCacheFor(chainKey: String): TextMetricsCache {

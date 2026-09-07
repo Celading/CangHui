@@ -8,6 +8,7 @@ private let DEFAULT_POINT_SIZE: Float32 = 15.0
 private let FONT_SIZE_EPSILON: Float32 = 0.01
 private let MAX_NAMED_FONT_INSTANCES: Int64 = 32
 private let MAX_TEXT_MEASURE_CACHE_ENTRIES: Int64 = 2048
+private let MAX_FALLBACK_CHAINS: Int64 = 32
 private let FONT_INSTANCE_SHIFT: Int64 = 16
 private let FONT_CREATE_FILENAME_PROPERTY = "SDL_ttf.font.create.filename"
 private let FONT_CREATE_SIZE_PROPERTY = "SDL_ttf.font.create.size"
@@ -69,6 +70,10 @@ protected class NativeTextRenderer {
     // placing it. On device-class CPUs, repeating glyph coverage and TTF_GetStringSize for every
     // pass dominates the first frame, so retain one bounded renderer-local metrics cache.
     private let measureCache = HashMap<String, NativeTextMetrics>()
+    // A chain has private font copies. Never change fallback lists on already measured fonts:
+    // SDL_ttf 3.2.2 retains cached glyph positions after fallback mutation (upstream #549).
+    private let fallbackChains = HashMap<String, NativeFont>()
+    private var retiredChainShapes: UInt64 = 0
     private var closed: Bool = false
 
     /**
@@ -182,7 +187,7 @@ protected class NativeTextRenderer {
         fontForText(text, facePaths, pointSize, styleFlags).drawText(text, x, y, color)
     }
 
-    /** Returns the concrete face path selected after glyph-coverage fallback. */
+    /** Returns the selected whole-run face, or the primary face of a mixed-font chain. */
     public func resolvedPath(
         text: String,
         pointSize: Float32,
@@ -192,28 +197,48 @@ protected class NativeTextRenderer {
         fontForText(text, facePaths, pointSize, styleFlags).sourcePath
     }
 
-    /* Selects the first usable face that contains every printable rune in the string. If no face
-     * covers the complete string, the first successfully opened face is retained so rendering stays
-     * deterministic and the native backend can draw its missing-glyph marker. */
+    // Preserve the existing whole-run selection when one face covers everything. Otherwise give
+    // SDL_ttf the ordered complementary faces on an immutable copy, shared by measure/draw/surface.
     private func fontForText(
         text: String,
         facePaths: Array<String>,
         pointSize: Float32,
         styleFlags: Int32
     ): NativeFont {
-        var first: ?NativeFont = None
+        let usable = ArrayList<NativeFont>()
+        let paths = HashSet<String>()
         for (facePath in facePaths) {
             match (fontCandidate(facePath, pointSize, styleFlags)) {
                 case Some(font) =>
-                    if (first.isNone()) { first = Some(font) }
                     if (font.supports(text)) { return font }
+                    if (!paths.contains(font.sourcePath)) {
+                        paths.add(font.sourcePath)
+                        usable.add(font)
+                    }
                 case None => ()
             }
         }
-        match (first) {
-            case Some(font) => font
-            case None => defaultFace.fontFor(pointSize, styleFlags)
+        if (usable.isEmpty()) { return defaultFace.fontFor(pointSize, styleFlags) }
+        let primary = usable[0]
+        if (usable.size == 1) { return primary }
+        let key = "${primary.pointSize}|${styleFlags}|" +
+            fontPathChainKey(Array<String>(usable.size, {i => usable[i].sourcePath}))
+        match (fallbackChains.get(key)) {
+            case Some(cached) => return cached
+            case None => ()
         }
+        let chain = primary.withFallbacks(usable.toArray())
+        if (fallbackChains.size >= MAX_FALLBACK_CHAINS) { clearFallbackChains() }
+        fallbackChains[key] = chain
+        chain
+    }
+
+    private func clearFallbackChains(): Unit {
+        for ((_, font) in fallbackChains) {
+            retiredChainShapes += font.shapeCount
+            font.close()
+        }
+        fallbackChains.clear()
     }
 
     private func fontCandidate(facePath: String, pointSize: Float32, styleFlags: Int32): ?NativeFont {
@@ -247,15 +272,18 @@ protected class NativeTextRenderer {
      * stays flat while draw calls scale with frames, which is the caching doing its job.
      */
     public func shapeCount(): UInt64 {
-        var total = defaultFace.shapeCount()
+        var total = defaultFace.shapeCount() + retiredChainShapes
         for ((_, face) in faces) {
             total += face.shapeCount()
         }
+        for ((_, font) in fallbackChains) { total += font.shapeCount }
         total
     }
 
     public func resetShapeCount(): Unit {
         defaultFace.resetShapeCount()
+        retiredChainShapes = 0
+        for ((_, font) in fallbackChains) { font.shapeCount = 0 }
         for ((_, face) in faces) {
             face.resetShapeCount()
         }
@@ -279,6 +307,7 @@ protected class NativeTextRenderer {
             return
         }
         closed = true
+        clearFallbackChains()
         defaultFace.close()
         for ((_, face) in faces) {
             face.close()
@@ -299,11 +328,7 @@ private func textMeasureCacheKey(
     styleFlags: Int32,
     facePaths: Array<String>
 ): String {
-    var key = "${pointSize}|${styleFlags}"
-    for (path in facePaths) {
-        key += "|${path}"
-    }
-    key + "|${text}"
+    "${pointSize}|${styleFlags}|" + fontPathChainKey(facePaths) + "|${text.size}:${text}"
 }
 
 /*
@@ -469,6 +494,8 @@ private class NativeFont {
     // shapes a string. Bounded and self-freeing: an evicted object's TTF_Text is destroyed.
     private let cache: GenerationCache<ShapedText>
     private let coverage = HashMap<String, Bool>()
+    // Owned private copies, never the shared FontFace handles. Parent texts/font die first.
+    private let fallbackFonts = ArrayList<NativeFont>()
     // Shaped-text cache misses (real TTF_CreateText calls) since the last reset. No access modifier
     // so the renderer can total it as a per-frame text-cost probe.
     var shapeCount: UInt64 = 0
@@ -503,6 +530,30 @@ private class NativeFont {
             throw NativeTextException("TTF_CreateText failed: ${lastNativeError()}")
         }
         unsafe { TTF_DestroyText(probe) }
+    }
+
+    private func copyUnattached(): NativeFont {
+        let copied = unsafe { TTF_CopyFont(font) }
+        if (copied.isNull()) { throw NativeTextException("TTF_CopyFont failed: ${lastNativeError()}") }
+        // CopyFont preserves actual named face, size and synthetic style; do not apply bold twice.
+        NativeFont(copied, pointSize, styleFlags, 0, sourcePath)
+    }
+
+    func withFallbacks(fonts: Array<NativeFont>): NativeFont {
+        let primary = copyUnattached()
+        try {
+            for (i in 1..fonts.size) {
+                let child = fonts[i].copyUnattached()
+                primary.fallbackFonts.add(child)
+                ensureNative(unsafe { TTF_AddFallbackFont(primary.font, child.font) }, "TTF_AddFallbackFont")
+            }
+            // Configure the entire chain before the first shaped text/measurement can be cached.
+            primary.attach(engine)
+            primary
+        } catch (error: NativeTextException) {
+            primary.close()
+            throw error
+        }
     }
 
     /** True when this face contains every printable rune required by `text`. */
@@ -574,6 +625,8 @@ private class NativeFont {
         cache.clear()
         coverage.clear()
         unsafe { TTF_CloseFont(font) }
+        for (child in fallbackFonts) { child.close() }
+        fallbackFonts.clear()
     }
 }
 

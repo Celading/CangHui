@@ -7,6 +7,10 @@ foreign {
 
     func TTF_OpenFontWithProperties(properties: UInt32): CPointer<Unit>
 
+    func TTF_CopyFont(font: CPointer<Unit>): CPointer<Unit>
+
+    func TTF_AddFallbackFont(font: CPointer<Unit>, fallback: CPointer<Unit>): Bool
+
     func TTF_SetFontStyle(font: CPointer<Unit>, style: Int32): Unit
 
     func TTF_GetFontFamilyName(font: CPointer<Unit>): CString
