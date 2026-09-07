@@ -511,10 +511,12 @@ func validateFramework(path: String): String {
 
 func resolveProject(requested: String, frameworkHint: String): String {
     let direct = if (requested.size == 0) { currentDirectory() } else { requested }
-    if (exists(joinPath(direct, "cjpm.toml"))) { return trimTrailingSlash(direct) }
+    // Build and execution use the project as cwd. Resolve once before either changes cwd,
+    // otherwise nested relative targets are accidentally resolved a second time at launch.
+    if (exists(joinPath(direct, "cjpm.toml"))) { return canonicalize(direct).toString() }
     let framework = if (frameworkHint.size > 0) { frameworkHint } else { resolveFrameworkRoot("") }
     let example = joinPath(joinPath(framework, "examples"), requested)
-    if (exists(joinPath(example, "cjpm.toml"))) { return example }
+    if (exists(joinPath(example, "cjpm.toml"))) { return canonicalize(example).toString() }
     throw CuicError("no cjpm.toml found in ${direct}")
 }
 

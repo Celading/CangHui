@@ -50,6 +50,15 @@ func pathHelpersKeepRootAndBasenameStable(): Unit {
 }
 
 @Test
+func projectResolutionAnchorsRelativeInputBeforeChangingWorkingDirectory(): Unit {
+    // The executable is launched with project as cwd. Retaining './target/...' relative to
+    // the caller breaks nested projects even though the preceding build succeeds.
+    @Expect(resolveProject(".", ""), currentDirectory())
+    @Expect(resolveProject("./src/..", ""), currentDirectory())
+    @Expect(resolveProject(currentDirectory(), ""), currentDirectory())
+}
+
+@Test
 func prntResolvesTheBuiltExecutableWithoutCjpmRunArgumentForwarding(): Unit {
     @Expect(builtExecutablePath("/tmp/demo/target", "release"), "/tmp/demo/target/release/bin/main")
     @Expect(builtExecutablePath("/tmp/demo/target", "debug"), "/tmp/demo/target/debug/bin/main")
