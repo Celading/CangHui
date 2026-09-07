@@ -6,7 +6,9 @@
 
 - 自定义渲染宿主可显式启用 macOS CoreText 排版预览：普通／粗体的度量、像素及
   内部光标几何来自同一原生 line，支持系统字体回退和彩色 emoji；默认 SDL_ttf
-  不变。样式限制、栅格上限及尚未连接的编辑器／IME／无障碍见[字体说明](reference/fonts.zh-CN.md)。
+  不变。`DesktopApp` 可在首次 `run` 前启用；`TextField` 的点击、光标、分离选区和视觉
+  左右键复用整行几何，仍保持 UTF-8 字素边界。样式限制、栅格上限及尚未连接的
+  TextArea／原生组合输入／无障碍见[字体说明](reference/fonts.zh-CN.md)。
 - 显式 `.probe()` 现在补齐同一标准控件的缺失语义，不再丢失标签、动作说明和焦点序号，
   也不生成重复动作节点。真实状态／动作归属与密码保护不接受描述字段覆盖。
 - Debug probe 的 `focus id` 支持单控件 probe ID 与真实焦点 key 不同的情况；只使用控件

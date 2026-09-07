@@ -198,8 +198,7 @@ public class TextField <: Widget {
         typography: TextFieldTypography): Float32 {
         let innerW = max(1.0, frame.w - 16.0)
         let position = normalizedTextCursor(visibleText, visibleCursor)
-        let caretX = ctx.renderer.textWidth(visibleText[0..position], pointSize: typography.pointSize,
-            style: typography.style, font: typography.font)
+        let caretX = textCaretOffset(ctx, visibleText, position, typography: typography)
         let textW = ctx.renderer.textWidth(visibleText, pointSize: typography.pointSize,
             style: typography.style, font: typography.font)
         var shift = min(xOffset.value, max(0.0, textW - innerW))
@@ -231,8 +230,8 @@ public class TextField <: Widget {
             case UiEvent.TextInput(value) => return recordedEdit(ctx, {=> edit.insert(value)})
             case UiEvent.KeyDown(Key.Backspace, _) => return recordedEdit(ctx, {=> edit.backspace()})
             case UiEvent.KeyDown(Key.Delete, _) => return recordedEdit(ctx, {=> edit.deleteForward()})
-            case UiEvent.KeyDown(Key.Left, _) => return navigate(ctx, {=> edit.moveLeft()}, {=> edit.extendLeft()})
-            case UiEvent.KeyDown(Key.Right, _) => return navigate(ctx, {=> edit.moveRight()}, {=> edit.extendRight()})
+            case UiEvent.KeyDown(Key.Left, _) => return navigateHorizontal(ctx, edit, false, typography)
+            case UiEvent.KeyDown(Key.Right, _) => return navigateHorizontal(ctx, edit, true, typography)
             case UiEvent.KeyDown(Key.Home, _) => return navigate(ctx, {=> edit.moveToStart()}, {=> edit.extendToStart()})
             case UiEvent.KeyDown(Key.End, _) => return navigate(ctx, {=> edit.moveToEnd()}, {=> edit.extendToEnd()})
             case UiEvent.KeyDown(Key.Letter(code), _) => return shortcut(ctx, edit, code)
@@ -281,6 +280,7 @@ public class TextField <: Widget {
         if (!ctx.hasFocus(id) || !isEditable) {
             return false
         }
+        boundaryCache.clearAffinity()
         if (secureEntryEnabled) {
             action()
             return true
@@ -298,16 +298,53 @@ public class TextField <: Widget {
     }
 
     private func applySnapshot(state: TextSnapshot): Unit {
+        boundaryCache.clearAffinity()
         text.value = state.text
         cursorStateValue.value = state.cursor
         anchorStateValue.value = state.anchor
     }
 
     // Held Shift extends the selection; a plain arrow collapses it.
+    private func navigateHorizontal(ctx: UiContext, edit: TextEditState, right: Bool,
+        typography: TextFieldTypography): Bool {
+        if (!ctx.hasFocus(id)) { return false }
+        let visible = if (secureEntryEnabled) { secureMask(text.value) } else { text.value }
+        let cursor = if (secureEntryEnabled) { secureDisplayOffset(text.value, edit.cursor.value) }
+            else { edit.cursor.value }
+        let growSelection = Keyboard.modifiers().shift
+        if (!growSelection && edit.hasSelection() && ctx.renderer.platformTextLayoutEnabled()) {
+            let index = boundaryCache.nativeIndex(visible)
+            let start = if (secureEntryEnabled) { secureDisplayOffset(text.value, edit.selectionStart()) }
+                else { edit.selectionStart() }
+            let end = if (secureEntryEnabled) { secureDisplayOffset(text.value, edit.selectionEnd()) }
+                else { edit.selectionEnd() }
+            if (let Some(spans) <- ctx.renderer.textSelectionSpansUtf16(visible,
+                index.utf16OffsetForByte(start), index.utf16OffsetForByte(end), pointSize: typography.pointSize,
+                style: typography.style, font: typography.font)) {
+                if (!spans.isEmpty()) {
+                    var x = if (right) { spans[0][1] } else { spans[0][0] }
+                    for ((left, endX) in spans) { x = if (right) { max(x, endX) } else { min(x, left) } }
+                    edit.moveTo(sourceCursorForPoint(ctx, frame.x + 8.0 - xOffset.value + x, typography))
+                    history.breakGroup()
+                    return true
+                }
+            }
+        }
+        if (let Some(target) <- textVisualCursor(ctx, visible, cursor, right, typography)) {
+            let source = if (secureEntryEnabled) { secureSourceOffset(text.value, target) } else { target }
+            if (growSelection) { edit.extendTo(source) } else { edit.moveTo(source) }
+            history.breakGroup()
+            return true
+        }
+        if (right) { navigate(ctx, {=> edit.moveRight()}, {=> edit.extendRight()}) }
+        else { navigate(ctx, {=> edit.moveLeft()}, {=> edit.extendLeft()}) }
+    }
+
     private func navigate(ctx: UiContext, moveCaret: () -> Unit, growSelection: () -> Unit): Bool {
         if (!ctx.hasFocus(id)) {
             return false
         }
+        boundaryCache.clearAffinity()
         if (Keyboard.modifiers().shift) {
             growSelection()
         } else {
@@ -322,6 +359,7 @@ public class TextField <: Widget {
             return false
         }
         if (code == LETTER_A) {
+            boundaryCache.clearAffinity()
             edit.selectAll()
             return true
         } else if (code == LETTER_C) {
@@ -405,7 +443,7 @@ public class TextField <: Widget {
             case None => FontSizes.BODY
         }
         TextFieldTypography(pointSize: pointSize, style: environment.resolvedFontStyle(),
-            font: environment.fontFamily)
+            font: environment.fontFamily, boundaries: Some(boundaryCache))
     }
 }
 

@@ -4,6 +4,10 @@ package sdl
 func platformTextHeadlessOptInIsUnavailable(): Unit {
     let renderer = Renderer.headless()
     @Expect(!renderer.platformTextLayoutEnabled())
+    @Expect(renderer.textCaretPositionsUtf16("x", Int64(0)).isNone())
+    @Expect(renderer.textCaretPositionsUtf16("x", [Int64(0)]).isNone())
+    @Expect(renderer.textHitUtf16("x", 0.0).isNone())
+    @Expect(renderer.textSelectionSpansUtf16("x", 0, 1).isNone())
     @Expect(!renderer.usePlatformTextLayout(true))
     @Expect(renderer.usePlatformTextLayout(false))
 }
@@ -26,6 +30,20 @@ func platformTextRendererSwitchesMetricsAndReusesNativeLines(): Unit {
         @Expect(native < 60.0 && native < original)
         // Unsupported decorations keep measurement and drawing on SDL_ttf, not mixed owners.
         @Expect(r.textWidth("Decorated 仓绘", pointSize: 24.0, style: decorated), decoratedWidth)
+        @Expect(r.textCaretPositionsUtf16("x", Int64(0), style: decorated).isNone())
+        @Expect(r.textHitUtf16("x", 0.0, style: decorated).isNone())
+        @Expect(r.textSelectionSpansUtf16("x", 0, 1, style: decorated).isNone())
+        let mixed = "abc אבג def"
+        let indices = Array<Int64>(12, {i => i})
+        let batched = r.textCaretPositionsUtf16(mixed, indices).getOrThrow()
+        let shaped = r.textShapeCount()
+        for (i in 0..indices.size) {
+            let scalar = r.textCaretPositionsUtf16(mixed, indices[i]).getOrThrow()
+            @Expect(batched[i][0], scalar[0])
+            @Expect(batched[i][1], scalar[1])
+        }
+        @Expect(r.textShapeCount(), shaped)
+        @Expect(r.textCaretPositionsUtf16(mixed, Array<Int64>()).getOrThrow().isEmpty())
         r.resetTextMeasureCount()
         let target = r.createTargetTexture(400.0, 160.0)
         try {

@@ -82,7 +82,16 @@ The stable machine-readable contract is
 
 ## macOS native layout preview
 
-Custom renderer hosts can explicitly enable CoreText before measuring and drawing:
+`DesktopApp` can explicitly enable CoreText before its first `run`:
+
+```cangjie
+let app = DesktopApp(WindowSpec("Native text", 720, 480))
+let enabled = app.usePlatformTextLayout(true)
+// Check enabled before calling app.run { ... }.
+```
+
+After startup the setter returns `false` without changing the mode. SDL_ttf
+remains the default. Custom renderer hosts can set the mode before measuring and drawing:
 
 ```cangjie
 let enabled = renderer.usePlatformTextLayout(true)
@@ -95,7 +104,7 @@ and drawing, or toggle it for each label. SDL_ttf remains the default, and headl
 renderers and other platforms return `false` when asked to enable this preview.
 
 For regular and bold runs, one retained CoreText line supplies advances, raster
-output and internal native caret geometry. Registered font files remain the
+output and native caret geometry. Registered font files remain the
 primary source; ordered fallback descriptors and CoreText's system fallback can
 provide missing glyphs and color emoji. The bundled HarmonyOS Sans Regular and
 Bold named faces are selected separately. Fallback glyphs can vary with macOS.
@@ -107,8 +116,24 @@ One raster is limited to 16384 × 4096 pixels and 16 MiB RGBA; an oversized run
 throws a text-backend error rather than silently clipping. Wrap or virtualize long
 content. Texture scaling follows both render-target axes and the existing clip.
 
-This is a renderer preview, not a complete native text editor. Native caret
-geometry is not yet connected to editable controls, IME or accessibility.
+In this mode, `TextField` uses whole-line native geometry for clicks, caret,
+horizontal following, selection and visual Left/Right navigation. A bidi boundary
+can have two visual positions; a click retains its chosen position. One logical
+selection can paint multiple disjoint highlights. Home/End remain logical and
+word selection keeps its existing rules. Editing state stays in UTF-8 bytes at
+extended-grapheme boundaries; secure fields send only the mask to native layout.
+
+Custom editors can query `Renderer.textCaretPositionsUtf16` (one index or a batch),
+`textHitUtf16` and `textSelectionSpansUtf16`. Indices are UTF-16 units; positions
+are logical pixels. `None` means unsupported backend/style. An empty native hit
+can return `-1`; normalize through `NativeTextIndex` to grapheme boundaries before
+assigning UTF-8 editing state.
+
+This is not a complete native editor. `TextArea` has not adopted whole-line native
+editing geometry; do not use this switch for pages requiring correct bidi TextArea
+editing. The TextField IME anchor follows the native caret, but native composition,
+candidate-window testing and screen-reader integration still need separate work.
+The multi-window host does not yet expose this startup setting.
 Headless probe rectangles do not verify native glyphs; use `cuic prnt` for pixels.
 
 ## Remaining native-text limits

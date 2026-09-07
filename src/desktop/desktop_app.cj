@@ -73,6 +73,7 @@ public class DesktopApp {
     private var appliedShape: ?CursorShape = None
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
     private var appliedInputAnchor: ?Rect = None
+    private var loopEntered = false
     private var themeTransition: ?ThemeTransition = None
     private var deviceRotationTransition: ?DeviceRotationTransition = None
     private let deviceRotationAnimation: AnimationSpec
@@ -131,6 +132,14 @@ public class DesktopApp {
     public func manage(resource: Resource): Unit {
         resources.add(resource)
     }
+
+    /** Startup-only native text preview. Returns false when unavailable or after run starts. */
+    public func usePlatformTextLayout(enabled: Bool): Bool {
+        if (loopEntered) { return false }
+        ctx.renderer.usePlatformTextLayout(enabled)
+    }
+
+    public func platformTextLayoutEnabled(): Bool { ctx.renderer.platformTextLayoutEnabled() }
 
     /** Latest committed in-process semantic tree for accessibility and trusted host features. */
     public func semanticSnapshot(): SemanticTreeSnapshot { semanticRuntime.snapshot() }
@@ -359,6 +368,7 @@ public class DesktopApp {
     }
 
     public func run(body: () -> Unit): Unit {
+        loopEntered = true
         // Capture the frame-loop failure before shutdown. Cleanup is still deterministic, but a
         // cleanup/affinity failure must never replace the originating application exception.
         var runFailure: ?Exception = None

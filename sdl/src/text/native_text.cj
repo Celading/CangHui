@@ -336,6 +336,38 @@ protected class NativeTextRenderer {
 
     public func platformLayoutEnabled(): Bool { platform.isSome() }
 
+    public func platformCaret(text: String, index: Int64, size: Float32, flags: Int32,
+        paths: Array<String>): ?(Float32, Float32) {
+        if ((flags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return Some(native.caret(text, index, size, flags, paths)) }
+        }
+        None
+    }
+
+    public func platformHit(text: String, x: Float32, size: Float32, flags: Int32,
+        paths: Array<String>): ?Int64 {
+        if ((flags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return Some(native.hit(text, x, size, flags, paths)) }
+        }
+        None
+    }
+
+    public func platformCarets(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
+        paths: Array<String>): ?Array<(Float32, Float32)> {
+        if ((flags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return Some(native.carets(text, indices, size, flags, paths)) }
+        }
+        None
+    }
+
+    public func platformSelection(text: String, start: Int64, end: Int64, size: Float32, flags: Int32,
+        paths: Array<String>): ?Array<(Float32, Float32)> {
+        if ((flags & 0x0E) == 0) {
+            if (let Some(native) <- platform) { return Some(native.selection(text, start, end, size, flags, paths)) }
+        }
+        None
+    }
+
     public func close(): Unit {
         if (closed) {
             return

@@ -14,6 +14,11 @@ public class DesktopApp
 
 ## 说明
 
+`usePlatformTextLayout(enabled: Bool): Bool` 只允许在首次 `run` 前由 UI owner 调用；
+启用可用的 macOS CoreText 预览时返回 `true`，不支持或已经启动时返回 `false`。
+`platformTextLayoutEnabled(): Bool` 查询当前模式。默认仍是 SDL_ttf；
+TextField 的原生几何、样式回退及 TextArea/IME 限制见[字体说明](../../../reference/fonts.zh-CN.md)。
+
 `setWindowIcon(icon: SdlSurface)` 可在窗口所属 UI 线程设置运行中窗口的图标，平台不支持或资源已关闭时抛出错误。它不替代应用打包身份：macOS 的 About／Dock 图标仍应通过 `.app` 的应用资源配置，Windows 分发程序的文件图标仍需 PE 图标资源。不要把一次接口调用成功当成所有系统界面都已显示图标。
 
 帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，也会关闭 owner queue、完成待处理 ticket 并执行这套清理。若清理同时报告 SDL owner-thread 错误，`run` 会继续抛出更早的帧循环异常。`cuic prnt` 会构建后直接启动应用可执行文件，并通过 [`DesktopCaptureRequest`](DesktopCaptureRequest.md) 的宿主请求采集稳定画面，不依赖 `cjpm run` 转发参数。旧应用仍兼容 `--snapshot <path.bmp>` 与 `--snapshot-frame`；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。

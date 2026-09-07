@@ -1,7 +1,8 @@
 package chui.text
 
 import sdl.{FontSizes, FontStyle, Point, Rect}
-import chui.core.{CUI_SMALL_H, GraphemeIndex, UiContext, scrollLineIndex, scrollLineRemainder}
+import chui.core.{CUI_SMALL_H, GraphemeIndex, NativeTextIndex, UiContext, scrollLineIndex, scrollLineRemainder}
+import std.math.abs
 
 private let TEXT_CURSOR_W: Float32 = 1.5
 private let TEXT_FIELD_PAD_X: Float32 = 8.0
@@ -17,16 +18,101 @@ internal struct TextFieldTypography {
     let pointSize: Float32
     let style: FontStyle
     let font: ?String
+    let boundaries: ?TextBoundaryCache
 
     init(
         pointSize!: Float32 = FontSizes.BODY,
         style!: FontStyle = FontStyle.regular,
-        font!: ?String = None<String>
+        font!: ?String = None<String>,
+        boundaries!: ?TextBoundaryCache = None
     ) {
         this.pointSize = pointSize
         this.style = style
         this.font = font
+        this.boundaries = boundaries
     }
+}
+
+private func nativeIndex(text: String, typography: TextFieldTypography): NativeTextIndex {
+    match (typography.boundaries) {
+        case Some(cache) => cache.nativeIndex(text)
+        case None => NativeTextIndex(text)
+    }
+}
+
+internal func textCaretOffset(ctx: UiContext, text: String, position: Int64,
+    typography!: TextFieldTypography = TextFieldTypography()): Float32 {
+    if (ctx.renderer.platformTextLayoutEnabled() && (typography.style.ttfFlags() & 0x0E) == 0) {
+        let index = nativeIndex(text, typography)
+        let byte = index.graphemes.floor(position)
+        if (let Some((primary, secondary)) <- ctx.renderer.textCaretPositionsUtf16(text,
+            index.utf16OffsetForByte(byte), pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)) {
+            if (let Some(cache) <- typography.boundaries) {
+                if (cache.usesSecondary(byte)) { return secondary }
+            }
+            return primary
+        }
+    }
+    ctx.renderer.textWidth(text[0..normalizedTextCursor(text, position)], pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)
+}
+
+private func nativeCursorForOffset(ctx: UiContext, text: String, targetX: Float32,
+    typography: TextFieldTypography): ?Int64 {
+    if (let Some(raw) <- ctx.renderer.textHitUtf16(text, targetX, pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)) {
+        let index = nativeIndex(text, typography)
+        let floor = index.byteOffsetForUtf16(raw)
+        let ceil = index.byteOffsetForUtf16(raw, forward: true)
+        var selected = floor
+        var useSecondary = false
+        var distance: Float32 = 1.0e30
+        for (candidate in [floor, ceil, Int64(0), text.size]) {
+            if (let Some((primary, secondary)) <- ctx.renderer.textCaretPositionsUtf16(text,
+                index.utf16OffsetForByte(candidate), pointSize: typography.pointSize,
+                style: typography.style, font: typography.font)) {
+                for ((x, second) in [(primary, false), (secondary, true)]) {
+                    let delta = abs(x - targetX)
+                    if (delta < distance) { distance = delta; selected = candidate; useSecondary = second }
+                }
+            }
+        }
+        if (let Some(cache) <- typography.boundaries) { cache.rememberAffinity(selected, useSecondary) }
+        return Some(selected)
+    }
+    None
+}
+
+// One batched native query avoids rebuilding/hash-copying a full-line cache key per boundary.
+internal func textVisualCursor(ctx: UiContext, text: String, cursor: Int64, right: Bool,
+    typography: TextFieldTypography): ?Int64 {
+    if (!ctx.renderer.platformTextLayoutEnabled() || (typography.style.ttfFlags() & 0x0E) != 0) { return None }
+    let index = nativeIndex(text, typography)
+    let indices = Array<Int64>(index.graphemes.count + 1, {i =>
+        index.utf16OffsetForByte(index.graphemes.boundary(i)) })
+    if (let Some(positions) <- ctx.renderer.textCaretPositionsUtf16(text, indices,
+        pointSize: typography.pointSize, style: typography.style, font: typography.font)) {
+        let x = textCaretOffset(ctx, text, cursor, typography: typography)
+        var distance: Float32 = 1.0e30
+        var selected = index.graphemes.floor(cursor)
+        var second = false
+        var changed = false
+        for (i in 0..positions.size) {
+            for ((candidate, affinity) in [(positions[i][0], false), (positions[i][1], true)]) {
+                let delta = if (right) { candidate - x } else { x - candidate }
+                if (delta > 0.01 && delta < distance) {
+                    selected = index.graphemes.boundary(i); second = affinity
+                    distance = delta; changed = true
+                }
+            }
+        }
+        if (changed) {
+            if (let Some(cache) <- typography.boundaries) { cache.rememberAffinity(selected, second) }
+        }
+        return Some(selected)
+    }
+    None
 }
 
 internal struct TextAreaContent {
@@ -57,9 +143,8 @@ internal func textCursorVisible(ctx: UiContext): Bool {
 
 /*
  * Byte offset for a click at `targetX` (relative to where the line's text starts).
- * Prefix widths use the same renderer measurement as drawing, so the hit position is
- * exact for proportional and CJK glyphs alike; the midpoint rule picks the nearer
- * boundary, matching how desktop editors place the caret between characters.
+ * Native TextField queries the complete shaped line. The legacy prefix-width path
+ * remains for other callers; it does not provide contextual shaping or bidi geometry.
  */
 private func textCursorForOffset(
     ctx: UiContext,
@@ -67,12 +152,19 @@ private func textCursorForOffset(
     lineStart: Int64,
     lineEnd: Int64,
     targetX: Float32,
-    typography!: TextFieldTypography = TextFieldTypography()
+    typography!: TextFieldTypography = TextFieldTypography(),
+    nativeField!: Bool = false
 ): Int64 {
     // Index only this line once. It starts after LF, an unconditional grapheme
     // boundary, so segmentation context cannot leak from the previous line.
     let contentEnd = if (lineEnd > lineStart && lineEnd < text.size &&
         text[lineEnd] == UInt8(10) && text[lineEnd - 1] == UInt8(13)) { lineEnd - 1 } else { lineEnd }
+    // TextArea must migrate hit/caret/selection together, not inherit only native hit testing.
+    if (nativeField) {
+        if (let Some(offset) <- nativeCursorForOffset(ctx, text[lineStart..contentEnd], targetX, typography)) {
+            return lineStart + offset
+        }
+    }
     let boundaries = GraphemeIndex(text[lineStart..contentEnd])
     var ordinal: Int64 = 0
     var current = lineStart
@@ -98,7 +190,7 @@ internal func textFieldCursorForPoint(ctx: UiContext, frame: Rect, text: String,
     typography!: TextFieldTypography = TextFieldTypography()): Int64 {
     let lineEnd = lineEndAfterOrAt(text, 0)
     textCursorForOffset(ctx, text, 0, lineEnd, x - frame.x - TEXT_FIELD_PAD_X + xShift,
-        typography: typography)
+        typography: typography, nativeField: true)
 }
 
 internal func textAreaCursorForPoint(
@@ -116,15 +208,28 @@ internal func textAreaCursorForPoint(
 }
 
 /*
- * Paints the selection band behind a single-line field's text. Both edges use the same
- * prefix-width measurement as the caret, so the band lines up with the glyphs exactly; the
- * fill is translucent so the selected text stays legible on top.
+ * Paints logical selection behind a single-line field. The native line can return
+ * disconnected visual spans. Legacy mode retains prefix widths; the fill is translucent.
  */
 internal func drawTextFieldSelection(ctx: UiContext, frame: Rect, text: String, selStart: Int64, selEnd: Int64,
     xShift!: Float32 = 0.0,
     typography!: TextFieldTypography = TextFieldTypography()): Unit {
     if (selStart >= selEnd) {
         return
+    }
+    if (ctx.renderer.platformTextLayoutEnabled() && (typography.style.ttfFlags() & 0x0E) == 0) {
+        let index = nativeIndex(text, typography)
+        if (let Some(spans) <- ctx.renderer.textSelectionSpansUtf16(text,
+            index.utf16OffsetForByte(selStart), index.utf16OffsetForByte(selEnd, forward: true),
+            pointSize: typography.pointSize, style: typography.style, font: typography.font)) {
+            let height = ctx.renderer.textHeight(pointSize: typography.pointSize,
+                style: typography.style, font: typography.font)
+            for ((left, right) in spans) {
+                ctx.renderer.fill(Rect(frame.x + TEXT_FIELD_PAD_X - xShift + left,
+                    frame.centerY() - height / 2.0, right - left, height), ctx.theme.accent.withAlpha(115))
+            }
+            return
+        }
     }
     let startW = ctx.renderer.textWidth(text[0..selStart], pointSize: typography.pointSize,
         style: typography.style, font: typography.font)
@@ -150,8 +255,7 @@ internal func drawTextFieldCursor(ctx: UiContext, frame: Rect, id: String, text:
     // screen is otherwise idle; without this the dirty-frame loop (档 0) would freeze the blink.
     ctx.requestFrame()
     let position = normalizedTextCursor(text, cursor)
-    let prefixW = ctx.renderer.textWidth(text[0..position], pointSize: typography.pointSize,
-        style: typography.style, font: typography.font)
+    let prefixW = textCaretOffset(ctx, text, position, typography: typography)
     let x = frame.x + TEXT_FIELD_PAD_X - xShift + prefixW
     // The caret spans exactly the glyph row: same height and vertical center as the
     // text the field draws, instead of the field's padding box.

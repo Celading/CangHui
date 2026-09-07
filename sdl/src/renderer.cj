@@ -205,6 +205,62 @@ public class Renderer {
         }
     }
 
+    /** Native interop only: UTF16 index, logical primary/secondary X; None on a non-native style/backend. */
+    public func textCaretPositionsUtf16(text: String, index: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?(Float32, Float32) {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some((primary, secondary)) <- backend.platformCaret(text, index, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some((primary / scale, secondary / scale))
+            }
+        }
+        None
+    }
+
+    /** Batched native caret query: resolves the retained line once for every supplied UTF16 boundary. */
+    public func textCaretPositionsUtf16(text: String, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(values) <- backend.platformCarets(text, indices, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some(Array<(Float32, Float32)>(values.size, {i =>
+                    (values[i][0] / scale, values[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
+    /** Native interop only: logical X to raw UTF16 hit (-1 for empty); not an editor byte offset. */
+    public func textHitUtf16(text: String, x: Float32,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Int64 {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            return backend.platformHit(text, x * scale, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))
+        }
+        None
+    }
+
+    /** Native UTF16 range to visual [left,right] logical intervals; a bidi selection can be disjoint. */
+    public func textSelectionSpansUtf16(text: String, start: Int64, end: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(spans) <- backend.platformSelection(text, start, end, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some(Array<(Float32, Float32)>(spans.size, {i =>
+                    (spans[i][0] / scale, spans[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
     public func drawIrEnabled(): Bool {
         recordsDrawIr
     }

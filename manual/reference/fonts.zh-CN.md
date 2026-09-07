@@ -58,7 +58,16 @@ assets/fonts/HARMONYOS_SANS_SOURCE.txt
 
 ## macOS 原生排版预览
 
-自定义渲染宿主可以在测量和绘制之前显式启用 CoreText：
+`DesktopApp` 可以在首次 `run` 之前显式启用 CoreText：
+
+```cangjie
+let app = DesktopApp(WindowSpec("Native text", 720, 480))
+let enabled = app.usePlatformTextLayout(true)
+// 检查 enabled，再调用 app.run { ... }。
+```
+
+应用启动后调用此设置返回 `false`，保持原有排版模式；默认仍是 SDL_ttf。
+自定义渲染宿主也可在测量和绘制之前设置：
 
 ```cangjie
 let enabled = renderer.usePlatformTextLayout(true)
@@ -69,7 +78,7 @@ let enabled = renderer.usePlatformTextLayout(true)
 切换会清空测量缓存，因此不能在测量与绘制之间切换，也不要逐个标签反复切换。
 默认仍使用 SDL_ttf；无设备渲染器和其他平台请求启用时返回 `false`。
 
-普通和粗体文本由同一个保留的 CoreText line 提供宽高、像素与内部原生光标几何。
+普通和粗体文本由同一个保留的 CoreText line 提供宽高、像素与光标几何。
 注册的字体文件仍是主字体；按序回退描述符及 CoreText 系统回退可提供缺字和
 彩色 emoji。随包 HarmonyOS Sans 的 Regular、Bold 命名实例分别选择。
 回退字形可能随 macOS 版本变化。斜体、下划线和删除线的测量与绘制仍一起使用
@@ -79,8 +88,21 @@ SDL_ttf；预览不保证所有字体的样式一致性。
 16384 × 4096 像素及 16 MiB RGBA；超限会明确报错，不会悄悄截断。
 长内容应换行或虚拟化。纹理遵循渲染目标的双轴缩放及已有裁剪。
 
-这是渲染器预览，不是完整原生编辑器。原生光标几何尚未接到可编辑控件、IME 或
-无障碍。无设备 probe 的矩形不证明原生字形正确，像素仍需用 `cuic prnt` 验证。
+启用后，`TextField` 的点击、光标、水平跟随、选区和左右键使用整行原生几何。
+混合方向文本的同一逻辑边界可能有两个视觉位置，点击会保留所选位置；一段逻辑
+选区可能绘制成多段高亮。左右键按视觉位置移动，Home/End 仍是逻辑首尾，
+选词仍沿用现有规则。编辑状态保持 UTF-8 字节偏移，并落在扩展字素边界上；
+密码字段只把掩码交给这套原生排版查询。
+
+自定义编辑器可用 `Renderer.textCaretPositionsUtf16`（单个或批量索引）、
+`textHitUtf16`、`textSelectionSpansUtf16`。索引单位是 UTF-16，坐标是逻辑像素；
+返回 `None` 表示当前后端或样式不支持。空文本的原生命中可以返回 `-1`，
+调用者须经 `NativeTextIndex` 归一到字素边界，不能直接写入 UTF-8 编辑状态。
+
+这仍不是完整原生编辑器：`TextArea` 尚未接入整行原生编辑几何，不应把此开关
+用于要求正确 bidi 编辑的 TextArea 页面。IME 光标锚点随 TextField 更新，但
+原生组合文本、输入法候选窗实测与读屏接线仍需另行完成。多窗口宿主尚无该启动选项。
+无设备 probe 的矩形不证明原生字形正确，像素仍需用 `cuic prnt` 验证。
 
 ## 原生文本仍有的限制
 

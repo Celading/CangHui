@@ -1,5 +1,7 @@
 package sdl.text
 
+import std.math.abs
+
 @When[os == "macOS"]
 @Test
 func coreTextLineRetainsNamedFontsClustersAndCaretGeometry(): Unit {
@@ -98,5 +100,29 @@ func coreTextWhitespaceAndRasterLimitsAreExplicit(): Unit {
         try { api.fontFromFile(path, 0.0, false) }
         catch (_: NativeTextException) { badSize = true }
         @Expect(badSize)
+    } finally { api.close() }
+}
+
+@When[os == "macOS"]
+@Test
+func coreTextLogicalSelectionCanHaveDisjointVisualSpans(): Unit {
+    let api = MacTextApi()
+    let path = "../assets/fonts/HarmonyOS_Sans_SC.ttf"
+    try {
+        let line = MacTextLine(api, "abc אבג def", [path], path, 24.0, false)
+        try {
+            let spans = line.selectionUtf16(3, 5)
+            @Expect(spans.size, Int64(2))
+            @Expect(abs(spans[0][0] - line.caretUtf16(3)[0]) < 0.01)
+            @Expect(abs(spans[0][1] - line.caretUtf16(4)[0]) < 0.01)
+            @Expect(abs(spans[1][0] - line.caretUtf16(5)[0]) < 0.01)
+            @Expect(abs(spans[1][1] - line.caretUtf16(4)[1]) < 0.01)
+            @Expect(spans[1][0] > spans[0][1])
+            @Expect(line.selectionUtf16(5, 5).isEmpty())
+            let all = line.selectionUtf16(-100, 100)
+            var width: Float32 = 0.0
+            for ((left, right) in all) { width += right - left }
+            @Expect(abs(width - line.metrics.width) < 0.01)
+        } finally { line.close() }
     } finally { api.close() }
 }

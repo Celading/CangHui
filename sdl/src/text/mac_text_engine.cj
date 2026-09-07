@@ -79,6 +79,26 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
         line(text, size, flags, paths).sourcePath
     }
 
+    public func caret(text: String, index: Int64, size: Float32, flags: Int32,
+        paths: Array<String>): (Float32, Float32) {
+        line(text, size, flags, paths).caretUtf16(index)
+    }
+
+    public func hit(text: String, x: Float32, size: Float32, flags: Int32, paths: Array<String>): Int64 {
+        line(text, size, flags, paths).hitUtf16(x)
+    }
+
+    public func carets(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
+        paths: Array<String>): Array<(Float32, Float32)> {
+        let layout = line(text, size, flags, paths)
+        Array<(Float32, Float32)>(indices.size, {i => layout.caretUtf16(indices[i])})
+    }
+
+    public func selection(text: String, start: Int64, end: Int64, size: Float32, flags: Int32,
+        paths: Array<String>): Array<(Float32, Float32)> {
+        line(text, size, flags, paths).selectionUtf16(start, end)
+    }
+
     private func upload(raster: NativeTextRaster): MacTextTexture {
         // RGBA32 is ABGR8888 on the supported little-endian macOS targets.
         let texture = unsafe { SDL_CreateTexture(renderer, 0x16762004, 0, raster.width, raster.height) }

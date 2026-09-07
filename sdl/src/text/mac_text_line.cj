@@ -1,6 +1,7 @@
 package sdl.text
 
 import std.math.{ceil, floor}
+import std.collection.ArrayList
 
 /** Pixel data owns its bytes; offsets place the padded image relative to the text's top-left. */
 protected struct NativeTextRaster {
@@ -93,6 +94,46 @@ internal class MacTextLine {
             count += unsafe { CFunc<(MacRef) -> Int64>(api.symbol(1, "CTRunGetGlyphCount"))(api.item(runs, i)) }
         }
         count
+    }
+
+    // Logical selection may paint disconnected visual intervals in a bidi line.
+    // Run endpoints disambiguate CTLine's primary/secondary positions at bidi boundaries.
+    func selectionUtf16(start: Int64, end: Int64): Array<(Float32, Float32)> {
+        ensureOpen()
+        let spans = ArrayList<(Float32, Float32)>()
+        if (start >= end) { return spans.toArray() }
+        let runs = unsafe { CFunc<(MacRef) -> MacRef>(api.symbol(1, "CTLineGetGlyphRuns"))(pointer) }
+        for (i in 0..api.count(runs)) {
+            let run = api.item(runs, i)
+            let range = unsafe { CFunc<(MacRef) -> MacTextRange>(api.symbol(1,
+                "CTRunGetStringRange"))(run) }
+            let a = max(start, range.location)
+            let b = min(end, range.location + range.length)
+            if (a >= b) { continue }
+            let count = unsafe { CFunc<(MacRef) -> Int64>(api.symbol(1, "CTRunGetGlyphCount"))(run) }
+            if (count < 1) { continue }
+            var first = MacTextPoint()
+            var one = MacTextRange()
+            one.length = 1
+            unsafe { CFunc<(MacRef, MacTextRange, CPointer<MacTextPoint>) -> Unit>(api.symbol(1,
+                "CTRunGetPositions"))(run, one, inout first) }
+            let width = unsafe {
+                CFunc<(MacRef, MacTextRange, CPointer<Float64>, CPointer<Float64>, CPointer<Float64>) -> Float64>(
+                    api.symbol(1, "CTRunGetTypographicBounds"))(run, MacTextRange(), CPointer<Float64>(),
+                        CPointer<Float64>(), CPointer<Float64>()) }
+            let status = unsafe { CFunc<(MacRef) -> UInt32>(api.symbol(1, "CTRunGetStatus"))(run) }
+            let left = Float32(first.x)
+            let right = Float32(first.x + width)
+            let rtl = (status & UInt32(1)) != UInt32(0)
+            let xA = if (a == range.location) { if (rtl) { right } else { left } }
+                else { caretUtf16(a)[0] }
+            let xB = if (b == range.location + range.length) { if (rtl) { left } else { right } }
+                else { caretUtf16(b)[0] }
+            let lower = max(left, min(xA, xB))
+            let upper = min(right, max(xA, xB))
+            if (upper > lower) { spans.add((lower, upper)) }
+        }
+        spans.toArray()
     }
 
     func raster(color: NativeTextColor): NativeTextRaster {

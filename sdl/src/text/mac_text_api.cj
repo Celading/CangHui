@@ -21,6 +21,13 @@ internal struct MacTextPoint {
 
 @When[os == "macOS"]
 @C
+internal struct MacTextRange {
+    var location: Int64 = 0
+    var length: Int64 = 0
+}
+
+@When[os == "macOS"]
+@C
 internal struct MacTextRect {
     var x: Float64 = 0.0
     var y: Float64 = 0.0
