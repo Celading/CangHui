@@ -113,8 +113,8 @@ public class Renderer {
     private var ssEnabled: Bool
     // The live drawing scale (render coordinates -> target pixels), mirrored from every
     // SDL_SetRenderScale call. Geometry draws through the GPU scale; TEXT rasterizes at
-    // this scale and draws 1:1 on the pixel grid instead (see `text`), because stretching
-    // small glyph bitmaps through the render scale is what blurs it.
+    // the larger axis and only downsamples the smaller one (see `text`), avoiding
+    // magnification of small glyph bitmaps. Equal axes draw 1:1 on the pixel grid.
     private var scaleX: Float32 = 1.0
     private var scaleY: Float32 = 1.0
     private let geometry = GeometryBatch()
@@ -977,8 +977,9 @@ public class Renderer {
      * Draws UTF-8 text with the platform UI font through SDL3_ttf.
      *
      * Text takes a dedicated path through the render scale: glyphs are rasterized by
-     * FreeType at the EFFECTIVE pixel size (`pointSize` x the live scale) and drawn with
-     * the GPU scale reset to 1:1 at snapped target-pixel positions. Rasterizing at the
+     * FreeType at `pointSize` times the larger live scale. With equal axes the GPU
+     * scale is 1:1; unequal axes downsample only the smaller axis. Origins are snapped
+     * in target pixels. Rasterizing at the
      * logical size and letting the render scale stretch the small bitmaps — as geometry
      * does — resamples every glyph twice and is what made text visibly softer and fainter
      * than the vector primitives around it. Under supersampling, positions snap to
@@ -1019,11 +1020,21 @@ public class Renderer {
                     }
                     let px = snapPixel(x * scaleX, step)
                     let py = snapPixel(y * scaleY, step)
-                    let _ = unsafe { SDL_SetRenderScale(ptr, 1.0, 1.0) }
-                    applyClipForTextPass()
-                    value.draw(text, px, py, pointSize * scaleY, flags, facePaths, native)
-                    let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
-                    applyClip()
+                    // Both geometry and text must obey the same two-axis transform. Rasterize
+                    // at the larger axis so non-uniform targets never upscale a small bitmap.
+                    let rasterScale = max(scaleX, scaleY)
+                    let glyphScaleX = scaleX / rasterScale
+                    let glyphScaleY = scaleY / rasterScale
+                    try {
+                        ensureSdl(unsafe { SDL_SetRenderScale(ptr, glyphScaleX, glyphScaleY) },
+                            "SDL_SetRenderScale text")
+                        applyClipForTextPass(rasterScale)
+                        value.draw(text, px / glyphScaleX, py / glyphScaleY,
+                            pointSize * rasterScale, flags, facePaths, native)
+                    } finally {
+                        let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
+                        applyClip()
+                    }
                 }
             case None => ()
         }
@@ -1183,8 +1194,9 @@ public class Renderer {
                 // Measure the same scaled rasterization the text pass draws, mapped back to
                 // logical units — carets, selection bands and ellipsis decisions computed
                 // from these metrics then line up with the pixels actually painted.
-                let scaled = value.measure(text, pointSize * scaleY, flags, facePaths)
-                NativeTextMetrics(scaled.width / scaleX, scaled.height / scaleY)
+                let rasterScale = max(scaleX, scaleY)
+                let scaled = value.measure(text, pointSize * rasterScale, flags, facePaths)
+                NativeTextMetrics(scaled.width / rasterScale, scaled.height / rasterScale)
             case None => headlessMetrics(text, pointSize, style)
         }
     }
@@ -1207,11 +1219,12 @@ public class Renderer {
         NativeTextMetrics(Float32(text.size) * pointSize * 0.55 * boldFactor, pointSize * 1.3)
     }
 
-    // While the text pass draws with the GPU scale reset to 1:1, the active clip must be
-    // re-expressed in target pixels: SDL clip rectangles live in the current scaled space.
-    private func applyClipForTextPass(): Unit {
+    // SDL clips are in the current drawing space. A text pass uses glyph pixels whose
+    // final scale is (scaleX/rasterScale, scaleY/rasterScale), not always (1,1).
+    private func applyClipForTextPass(rasterScale: Float32): Unit {
         match (currentClip()) {
-            case Some(rect) => setClip(Rect(rect.x * scaleX, rect.y * scaleY, rect.w * scaleX, rect.h * scaleY))
+            case Some(rect) => setClip(Rect(rect.x * rasterScale, rect.y * rasterScale,
+                rect.w * rasterScale, rect.h * rasterScale))
             case None => ()
         }
     }
