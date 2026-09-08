@@ -73,6 +73,12 @@ Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪�
 - Windows 生成 executable manifest、版本资源源码、AppUserModelID、资源与图标输入。
 - Linux 生成 desktop entry、`share/applications`、图标树和应用资源树。
 
+Linux 入口保留 `application.name` 作为显示名，使用已校验的 `application.identifier`
+作为启动名（例如 `dev.example.demo`）。安装时请将可执行文件或启动器以此名称放到
+桌面会话的 `PATH`；输入树不负责安装。旧 Linux 安装脚本若使用显示名，需要调整
+该目标名称。显示名内的空格、百分号或 `=` 不再成为命令行语法或参数占位符。
+macOS 和 Windows 的产物命名保持不变。
+
 图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
 文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
 

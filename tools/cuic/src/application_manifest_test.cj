@@ -240,7 +240,7 @@ func packagingArtifactGeneratesWindowsAndLinuxInputTreesWithoutFakeExecutable():
     @Expect(exists(joinPath(linux, "Demo.desktop")))
     @Expect(exists(joinPath(linux, "share/applications/dev.example.demo.desktop")))
     @Expect(exists(joinPath(linux, "share/icons/hicolor/128x128/apps/dev.example.demo.png")))
-    @Expect(String.fromUtf8(File.readFrom(joinPath(linux, "Demo.desktop"))).contains("Exec=\"Demo\""))
+    @Expect(String.fromUtf8(File.readFrom(joinPath(linux, "Demo.desktop"))).contains("Exec=dev.example.demo\n"))
 }
 
 @Test

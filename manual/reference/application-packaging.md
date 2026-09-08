@@ -93,6 +93,14 @@ pretend to cross-compile an executable:
 - Linux receives a desktop entry, `share/applications`, an icon tree and
   application resource tree.
 
+The Linux entry keeps `application.name` for display, but uses the validated
+`application.identifier` as its executable name (for example `dev.example.demo`).
+Install the executable or a launcher with that exact name in the desktop session's
+`PATH`; the input tree does not install it. Existing Linux install scripts that
+used the display name must update that destination. Display names with spaces,
+percent signs or `=` no longer become command-line syntax or field codes. macOS
+and Windows artifact naming is unchanged.
+
 Icon bytes are never relabelled as another format. A real `.icns` or `.ico`
 uses the native destination name; PNG, SVG and other inputs keep their original
 extension and remain visible as a conversion or provider gate.

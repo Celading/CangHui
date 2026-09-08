@@ -407,7 +407,7 @@ func linuxDesktopEntry(manifest: ApplicationManifest): String {
     "Type=Application\n" +
     "Name=${desktopEscape(manifest.name)}\n" +
     "Comment=${desktopEscape(manifest.publisher)}\n" +
-    "Exec=\"${desktopEscape(manifest.name)}\"\n" +
+    "Exec=${manifest.identifier}\n" +
     "Icon=${manifest.identifier}\n" +
     "Terminal=false\n" +
     "StartupNotify=true\n" +

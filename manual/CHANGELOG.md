@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- Linux 桌面入口使用稳定 `application.identifier` 作为启动名，保留显示名，
+  避免名称中的 `%f` 被展开。安装脚本应以 identifier 命名可执行文件或启动器。
+  Linux desktop launchers now use the validated identifier, independently of display names.
+
 - `ApplicationShell.setBadge` 通过可选 Provider 接到 macOS Dock，支持挂载前排队、
   清除与卸载恢复；保留不同的外部新值，不修改图标或 SDL delegate。Headless 仅记录，
   旧 Provider 无需新增必选方法。Add optional native Dock badges with lifecycle-safe restoration.
