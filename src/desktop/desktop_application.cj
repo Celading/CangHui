@@ -504,6 +504,7 @@ protected func executeManagedSharedFrameTerminal(
 private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     private let window: SdlWindow
     private let ctx: UiContext
+    private let inputAnchor = TextInputAnchorState()
     private let stateStore = StateStore()
     private let semanticActionRouter: DesktopSemanticActionRouter
     private let semanticRuntime: SemanticRuntime
@@ -700,9 +701,11 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             case UiEvent.WindowDestroyed => ctx.requestClose(); true
             case UiEvent.WindowResized(width, height) =>
                 window.updateLogicalSize(width, height)
+                inputAnchor.invalidate()
                 widget.handle(ctx, event)
             case UiEvent.WindowPixelSizeChanged(width, height) =>
                 window.updatePixelSize(width, height)
+                inputAnchor.invalidate()
                 widget.handle(ctx, event)
             case UiEvent.WindowDisplayScaleChanged =>
                 applyWindowMetrics(window.refreshDisplayScale())
@@ -721,10 +724,14 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                 ctx.updateDeviceRotation(rotation)
                 widget.handle(ctx, event)
             case UiEvent.WindowFocusChanged(false) =>
+                inputAnchor.invalidate()
                 ctx.leftMouseDown = false
                 ctx.clearDrag()
                 ctx.clearPress()
                 widget.handle(ctx, event)
+            case UiEvent.WindowFocusChanged(true) =>
+                inputAnchor.invalidate()
+                if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
             case UiEvent.MouseMove(_, _) =>
                 ctx.beginHoverTest()
                 let consumed = if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
@@ -752,6 +759,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     }
 
     private func applyWindowMetrics(metrics: WindowMetrics): Unit {
+        inputAnchor.invalidate()
         if (ctx.inputTransformRevision != metrics.transformRevision) {
             ctx.leftMouseDown = false
             ctx.clearDrag()
@@ -794,14 +802,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     }
 
     private func applyTextInputAnchor(): Unit {
-        match (ctx.textInputAnchorRect()) {
-            case Some(anchor) => try {
-                window.setTextInputArea(anchor)
-            } catch (_: Exception) {
-                ()
-            }
-            case None => ()
-        }
+        inputAnchor.update(ctx.textInputAnchorRect(), {anchor => window.setTextInputArea(anchor)})
     }
 }
 

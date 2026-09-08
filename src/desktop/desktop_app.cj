@@ -72,7 +72,7 @@ public class DesktopApp {
     private var resizeVCursor: ?Cursor = None
     private var appliedShape: ?CursorShape = None
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
-    private var appliedInputAnchor: ?Rect = None
+    private let inputAnchor = TextInputAnchorState()
     private var loopEntered = false
     private var themeTransition: ?ThemeTransition = None
     private var deviceRotationTransition: ?DeviceRotationTransition = None
@@ -562,8 +562,13 @@ public class DesktopApp {
             case UiEvent.Quit => ctx.requestClose()
             case UiEvent.WindowResized(w, h) =>
                 window.updateLogicalSize(w, h)
+                inputAnchor.invalidate()
             case UiEvent.WindowPixelSizeChanged(w, h) =>
                 window.updatePixelSize(w, h)
+                inputAnchor.invalidate()
+            case UiEvent.WindowFocusChanged(_) =>
+                inputAnchor.invalidate()
+                if (!ctx.dispatchOverlay(event)) { dispatchEvent(widget, event) }
             case UiEvent.WindowDisplayScaleChanged =>
                 applyWindowMetrics(window.refreshDisplayScale())
                 dispatchEvent(widget, UiEvent.WindowMetricsChanged(window.currentMetrics()))
@@ -628,7 +633,7 @@ public class DesktopApp {
             ctx.clearDrag()
             ctx.clearPress()
         }
-        appliedInputAnchor = None
+        inputAnchor.invalidate()
         ctx.displayScale = metrics.displayScale
         ctx.inputTransformRevision = metrics.transformRevision
         ctx.viewportWidth = Float32(metrics.logicalWidth)
@@ -1079,22 +1084,11 @@ public class DesktopApp {
     /*
      * Forwards the focused caret rectangle to the OS whenever it moves, so the IME
      * composition UI (candidate window) follows typing instead of sitting in a screen
-     * corner. Unchanged rectangles are skipped to avoid a per-frame system call, and a
-     * platform refusal is ignored — IME anchoring is polish, not frame-critical.
+     * corner. Unchanged rectangles are skipped to avoid a per-frame system call;
+     * a platform refusal is retried on a later draw, never cached as success.
      */
     private func applyTextInputAnchor(): Unit {
-        match (ctx.textInputAnchorRect()) {
-            case Some(anchor) =>
-                if (!sameAnchorRect(appliedInputAnchor, anchor)) {
-                    appliedInputAnchor = Some(anchor)
-                    try {
-                        window.setTextInputArea(anchor)
-                    } catch (_: Exception) {
-                        ()
-                    }
-                }
-            case None => ()
-        }
+        inputAnchor.update(ctx.textInputAnchorRect(), {anchor => window.setTextInputArea(anchor)})
     }
 
     // Capture is a renderer-owned request. The CLI starts the built executable
@@ -1287,13 +1281,6 @@ private func legacySnapshotFrameArgument(): UInt64 {
         i += 1
     }
     SNAPSHOT_SETTLE_FRAMES
-}
-
-private func sameAnchorRect(applied: ?Rect, next: Rect): Bool {
-    match (applied) {
-        case Some(rect) => rect.x == next.x && rect.y == next.y && rect.w == next.w && rect.h == next.h
-        case None => false
-    }
 }
 
 internal func tickDelta(previousTick: UInt64, currentTick: UInt64): UInt64 {
