@@ -18,7 +18,7 @@ import tarfile
 import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SOURCE_ROOTS = ["src", "sdl/src", "sdl/cjpm.toml", "cjpm.toml", "LICENSE", "NOTICE",
+SOURCE_ROOTS = ["src", "sdl/src", "sdl/cjpm.toml", "cjpm.toml", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
                 "assets/fonts", "packages/kit", "manual"]
 
 
@@ -167,6 +167,23 @@ def export_unicode_license(output, framework, revision):
         raise ValueError("Unicode grapheme data requires LICENSE-UNICODE in the selected revision")
 
 
+def copy_framework_notices(output, framework):
+    # Keep NOTICE's upstream reference and its adjacent Unicode link intact.
+    # The existing app packager carries licenses/, not the framework source tree.
+    names = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
+    unicode = framework / "LICENSE-UNICODE"
+    if unicode.exists() or unicode.is_symlink():
+        names.append("LICENSE-UNICODE")
+    for name in names:
+        source = framework / name
+        if source.is_symlink() or not source.is_file():
+            raise ValueError(f"missing or non-regular framework notice: {name}")
+    destination = output / "licenses/canghui"
+    destination.mkdir(parents=True, exist_ok=False)
+    for name in names:
+        shutil.copyfile(framework / name, destination / name)
+
+
 def build(output, revision):
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise ValueError("this exporter only validates macOS arm64")
@@ -179,6 +196,7 @@ def build(output, revision):
     framework = output / "framework"
     export_revision(revision, SOURCE_ROOTS, framework)
     export_unicode_license(output, framework, revision)
+    copy_framework_notices(output, framework)
     if not (framework / "src/core/probe_observation.cj").exists():
         raise ValueError("selected revision predates observation/v1")
     cli_version = ""
