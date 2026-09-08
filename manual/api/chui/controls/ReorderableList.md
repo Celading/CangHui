@@ -2,6 +2,32 @@
 
 # ReorderableList
 
+## 键盘、手柄与语义操作
+
+每行握点现在是独立焦点项，顺序为“握点 → 该行内容控件 → 下一行握点”。
+提供稳定 `key` 后，握点身份为 `ReorderableList:<id>:item:<key>:grip`，重排后焦点跟随原项。
+省略 `key` 时身份跟随下标，不能识别同长度数组中的业务项替换；可变数据应提供稳定键。
+键必须非空且唯一，否则构造时抛出 `IllegalArgumentException`。
+
+- 未抓取时，方向键及 Home/End 移动握点焦点。
+- Enter/Space 抓取；方向键及 Home/End 只移动预览；再次 Enter/Space 提交，Escape 取消。
+  按住确认键产生的重复事件不会重复抓取或提交。
+- 聚焦握点后，手柄 South 抓取／提交，D-pad 上下移动，East 取消。
+  抓取期间只接受所属手柄；该手柄断开会取消。实际设备映射仍需在目标平台验证。
+- 失焦、禁用、指针取消或事务期间键列表改变时放弃预览，不调用 `onMove`。
+  普通重绘保留预览；提交回调抛出异常前也会清理交互状态。
+
+使用 `.accessibilityLabels({index => "移动 ${tracks[index].title}"})` 为握点提供业务名称；
+参数为 `(Int64) -> String`，返回当前 `ReorderableList`，默认名称为 `Reorder item N`。
+CUIC/语义树中的 `ReorderHandle` 包含当前预览位置、抓取状态、焦点和稳定动作所有者。
+初始支持 Focus/Activate；抓取后按可达方向提供 Increment/Decrement，并提供 Dismiss。
+语义动作复用同一排序事务，不直接改写应用数据；原生读屏效果仍需系统验收。
+
+用 debug CUIC 的 `focus <grip-id>`、`key Space`、`key Down`、`key Enter` 回放，
+再检查调用方真正重排后的数组。排序手柄仍是原有 30 vp 宽；触摸目标尺寸与长列表自动滚动
+不是本次键盘支持的承诺。
+
+
 `chui.controls` 包中的 public class
 
 行高固定、可拖拽重排的垂直列表：每行左侧带握点手柄，按住手柄拖动即抬起该行随指针移动、其余行让位露出落点，松手调用 `onMove(from, to)` 提交——列表只报告移动，数据始终由调用方持有并自行重排。
@@ -64,7 +90,7 @@ main(): Unit {
 | [`layout(ctx: UiContext, rect: Rect)`](#layout) | 按当前拖动预览排布各行：内容区从手柄右侧起，被拖行随指针、其余行让位。 |
 | [`draw(ctx: UiContext)`](#draw) | 先画未拖的行，最后画抬升的被拖行，使其浮于其余行之上。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 手柄按下开始拖动、移动更新预览、松手经 `onMove` 提交；非拖动事件自顶向下转发给行内容。 |
-| [`focusableIds()`](#focusableids) | 按声明序串接全部行内容注册的焦点项。 |
+| [`focusableIds()`](#focusableids) | 按行顺序返回握点与行内容的焦点项。 |
 
 ## 构造函数
 
@@ -188,13 +214,13 @@ public func handle(ctx: UiContext, event: UiEvent): Bool
 
 ### focusableIds
 
-按声明序串接全部行内容注册的焦点项。[`Widget`](../core/Widget.md) 协议方法。
+按行顺序返回握点与行内容的焦点项。[`Widget`](../core/Widget.md) 协议方法。
 
 ```cangjie
 public func focusableIds(): Array<String>
 ```
 
-**返回值** `Array<String>` — 各行子组件中可参与键盘焦点导航的全部标识。
+**返回值** `Array<String>` — 各行握点及行内容中可参与键盘焦点导航的全部标识。
 
 ## 另请参阅
 
