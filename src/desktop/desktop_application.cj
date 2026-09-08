@@ -9,7 +9,8 @@ import sdl.input.Keyboard
 import chui.core.{SemanticActionHandler, SemanticActionReceipt, SemanticActionRequest,
     SemanticInteractionPolicy, SemanticRuntime, SemanticRuntimeLimits, SemanticTreeDiff,
     SemanticTreeSnapshot, StateStore, Theme, UiContext, Widget, buildRoot, drawTooltip,
-    withActiveSemanticRuntime}
+    withActiveSemanticRuntime, UiOwnerQueue, UiTaskPolicy, UiTaskScope, currentStateStore,
+    rememberUiTaskScope}
 
 /** One independently-owned desktop scene attached to a stable native window identity. */
 public interface DesktopWindowSession {
@@ -507,6 +508,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     private let ctx: UiContext
     private let inputAnchor = TextInputAnchorState()
     private let stateStore = StateStore()
+    private let uiOwnerQueue = UiOwnerQueue()
     private let semanticActionRouter: DesktopSemanticActionRouter
     private let semanticRuntime: SemanticRuntime
     private let body: () -> Unit
@@ -565,10 +567,24 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
 
     public func isClosed(): Bool { closed }
 
+    func ownsBuild(store: StateStore): Bool {
+        !closed && refEq((store as Object).getOrThrow(), (stateStore as Object).getOrThrow())
+    }
+
+    func rememberTaskScope(key: String, policy: UiTaskPolicy): UiTaskScope {
+        rememberUiTaskScope(key, uiOwnerQueue, policy: policy)
+    }
+
     /** Builds and presents exactly one frame, then returns immediately. */
     func step(): DesktopWindowStepReceipt {
         if (closed || wantsClose || ctx.shouldClose) {
             return DesktopWindowStepReceipt(window.id, false, true, detail: "close-requested")
+        }
+        let _ = uiOwnerQueue.drain()
+        // An apply callback may close this window or the entire application. Never touch
+        // its released renderer or rebuild its disposed StateStore after that callback.
+        if (closed || wantsClose || ctx.shouldClose) {
+            return DesktopWindowStepReceipt(window.id, false, true, detail: "closed-during-owner-work")
         }
         let currentTick = window.ticks()
         let delta = if (currentTick >= previousTick) { currentTick - previousTick } else { UInt64(0) }
@@ -691,6 +707,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
 
     public func close(): Unit {
         if (closed) { return }
+        let _ = uiOwnerQueue.close(reason: "managed desktop window closed")
         let _ = ctx.finishSharedFrameSurfaces("abandoned")
         semanticActionRouter.clear()
         stateStore.clear()
@@ -908,6 +925,15 @@ public class DesktopApplication <: Resource {
     }
 
     public func activeWindow(): ?WindowId { windows.activeWindow() }
+
+    /** Remembers view-owned work in the managed window whose declarative body is building. */
+    public func rememberTaskScope(key: String, policy!: UiTaskPolicy = UiTaskPolicy.LatestOnly): UiTaskScope {
+        let store = currentStateStore()
+        for (session in managedWindows) {
+            if (session.ownsBuild(store)) { return session.rememberTaskScope(key, policy) }
+        }
+        throw IllegalStateException("Task scope must be remembered in this application's managed window build")
+    }
 
     /** Changes content zoom in exactly one managed window on the UI owner. */
     public func setWindowScaling(id: WindowId, settings: WindowScaleSettings): Bool {

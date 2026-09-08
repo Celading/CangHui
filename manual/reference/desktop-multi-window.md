@@ -36,6 +36,40 @@ app.run()
 所有这些调用都应留在创建 `DesktopApplication` 的原生 owner 线程。不要为每个窗口另起
 `DesktopApp.run()`；多个嵌套 SDL event loop 会争用同一个进程事件队列。
 
+## 每个窗口的后台任务
+
+在托管窗口的构建体内调用 `app.rememberTaskScope(key)`，即可复用与 `DesktopApp`
+相同的后台准备／UI 提交机制。相同的 key 在不同窗口中互不共享；默认策略是
+`UiTaskPolicy.LatestOnly`，也可显式选择其他已有策略。
+
+```cangjie
+let status = State<String>("尚未加载")
+let _ = app.openWindow(WindowSpec("Search", 520, 360), {=>
+    let task = app.rememberTaskScope("search.load")
+    VStack {
+        Label(status.value)
+        Button("加载", {=>
+            let input = "已加载"
+            let _ = task.submit({=> input}, {result=> status.value = result})
+        })
+    }
+})
+```
+
+准备闭包只能处理独立数据；UI 状态变更放在提交闭包。`step()` 在构建该窗的新一帧前
+收取结果，`run()` 会持续推进这一流程。不要在 UI 线程阻塞等待工作线程，也不要用
+协程 `sleep` 暂停持有原生窗口的执行流程；它恢复时可能不在原来的原生线程。
+
+视图成功卸载、构建失败的新状态回滚或窗口关闭都会取消对应任务。关闭窗口不会
+关闭其他窗口的队列；提交回调关闭自身窗口后，本次 step 不再重建或绘制该窗口。
+已开始的准备工作仍是协作式取消，不会强杀线程；过期结果不再应用。只允许在本应用
+当前托管窗口的构建体内记忆作用域，其他应用或构建体外的调用会被拒绝。
+
+English: managed windows own separate queues and remembered task scopes. Workers
+prepare independent values; owner callbacks apply them before the next build.
+Unmount, rollback and window closure cancel obsolete results without stopping
+other windows. Preparation cancellation is cooperative, not forced termination.
+
 ## 路由规则
 
 ### 请求尺寸与确认尺寸

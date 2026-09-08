@@ -39,7 +39,9 @@ app.run {
 ```
 
 `DesktopApp.rememberTaskScope` 绑定应用内部队列，只能在该应用的构建中调用，不公开
-队列的 drain/close 权限。自定义宿主用 `rememberUiTaskScope(key, queue, policy:)`。
+队列的 drain/close 权限。`DesktopApplication.rememberTaskScope` 同样可用，按当前
+正在构建的托管窗口选择独立队列；详见[多窗口后台任务](../../../reference/desktop-multi-window.md#每个窗口的后台任务)。
+自定义宿主用 `rememberUiTaskScope(key, queue, policy:)`。
 
 作用域沿用 StateStore 和 `Keyed` 的身份规则，在重建间保留。视图成功卸载、存储清空
 或新建条目所属的构建回滚时，框架调用 `close()`。取消的 retained frame 不会误关

@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- `DesktopApplication.rememberTaskScope` 为每个托管窗口绑定独立任务队列；视图卸载、
+  构建回滚和窗口关闭取消旧结果，提交回调关闭窗口后不再绘制已释放的窗口。
+  Managed windows now reuse view-owned task scopes with isolated queues and safe callback-driven closure.
+
 - `DesktopApplication.syncWindow(id)` 显式等待单个窗口的原生状态并刷新实测尺寸，
   修复多窗口验收将 Linux 异步调整尺寸当成即时完成的假设；普通尺寸请求不增加阻塞。
   Add an explicit managed-window synchronization barrier without blocking normal resize requests.
