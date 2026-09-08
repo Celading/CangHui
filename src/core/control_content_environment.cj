@@ -1,7 +1,7 @@
 package chui.core
 
 import std.collection.ArrayList
-import sdl.{Color, DrawIrAsciiAnnotationKind, Rect}
+import sdl.{Color, Rect}
 
 /** Read-only visual and interaction state inherited by decorative control content. */
 public struct ControlContentEnvironment {
@@ -211,14 +211,6 @@ private func recordControlSemanticsResolved(
         case Some(value) => properties.add(ProbeProperty("selectionEnd", value.toString()))
         case None => ()
     }
-    if (mergeActiveProbeControlSemantics(semantics.actionOwner, properties.toArray())) { return }
-    probeSemanticRegions {=> [
-        ProbeSemanticRegion(
-            "control-semantic:" + semantics.actionOwner,
-            DrawIrAsciiAnnotationKind.Interactive,
-            frame,
-            widgetType: widgetType,
-            properties: properties.toArray()
-        )
-    ]}
+    recordActiveProbeControlSemantics(frame, widgetType, semantics, properties.toArray(),
+        semanticallyEnabled, focusOrder.isSome())
 }

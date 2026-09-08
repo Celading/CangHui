@@ -52,6 +52,31 @@ cuic prntx . settings.main --format ascii --columns 96 --rows 32
 `advance N` 只派发一次 N 毫秒 Frame，避免动画和计时
 在测试里翻倍。摘要失败或节点不存在时命令返回非零。
 
+## 按动作选择回放提示
+
+ASCII 对明确声明语义动作的标准控件给出 `probe.focus`、`probe.activate`、
+`probe.increment`、`probe.decrement`、`probe.dismiss`，只列当前状态支持的动作。
+例如滑块增减数值，而不是点击中心；排序握点先激活抓取，再增减预览位置，最后激活提交
+或取消退出。每一步之后重新观察，不要把旧帧的动作列表当作永久权限。
+
+```text
+probe.increment="focus volume\nkey Right"
+```
+
+引号内是转义文本：将 `\n` 解码为真实换行，作为已有 probe 的 `--events` 输入。
+例如：
+
+```bash
+cuic prntx . settings.main --format ascii --events 'focus volume
+key Right'
+```
+
+这些提示来自控件的类型化动作和当前焦点归属，不从 `action`、`shortcut` 或
+`actionOwner` 描述中拼装指令。禁用、视口不完整、浮层未验证或焦点歧义时不生成动作提示；
+焦点 ID 含 ASCII 空白／控制字符、分号、双引号、反斜杠或超过 224 个码点时也不生成，避免
+指令无法解析或被图例截断。自绘区域未提供类型化契约时，原有中心坐标候选提示仍保留，
+不能据此推断排序、调整数值等行为已经支持。回放后仍须检查实际值或回调，不只检查派发成功。
+
 `prntx` 不连接任意现有进程，不绕过 release 的控制通道限制。需要运行态语义行为，
 继续使用已有 debug `shell snapshot/diff`；需要字体、材质、抗锯齿和最终观感，
 继续使用 `cuic prnt`。两者都不能代替真实平台的输入／合成验收。

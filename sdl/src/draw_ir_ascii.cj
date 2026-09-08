@@ -57,6 +57,9 @@ public class DrawIrAsciiAnnotation {
     public let value: String
     public let state: String
     public let focusTarget: String
+    /** Fixed semantic names only; None preserves legacy coordinate candidates. Never executed here. */
+    public let replayActions: ?Array<String>
+    public let enabled: Bool
 
     public init(
         id: String,
@@ -70,7 +73,9 @@ public class DrawIrAsciiAnnotation {
         shortcut!: String = "",
         value!: String = "",
         state!: String = "",
-        focusTarget!: String = ""
+        focusTarget!: String = "",
+        replayActions!: ?Array<String> = None,
+        enabled!: Bool = true
     ) {
         if (id.isEmpty()) { throw IllegalArgumentException("Draw IR ASCII annotation id must not be empty") }
         this.id = id
@@ -85,6 +90,11 @@ public class DrawIrAsciiAnnotation {
         this.value = value
         this.state = state
         this.focusTarget = focusTarget
+        this.replayActions = match (replayActions) {
+            case Some(values) => Some(values.clone())
+            case None => None
+        }
+        this.enabled = enabled
     }
 }
 
@@ -510,18 +520,67 @@ private func appendSemanticLegend(out: StringBuilder, entry: DrawIrAsciiLegendEn
         appendLegendField(out, "actionability", "overlay-unverified")
         return
     }
+    if (!annotation.enabled) {
+        appendLegendField(out, "actionability", "disabled")
+        return
+    }
     appendLegendField(out, "actionability", "candidate-unverified")
+    match (annotation.replayActions) {
+        case Some(actions) =>
+            // Keep the existing plain focus hint for input-marker consumers.
+            if (drawIrAsciiAnnotationKindName(annotation.kind) == "focus" && actions.contains("focus") &&
+                asciiReplayTargetSafe(annotation.focusTarget)) {
+                appendLegendField(out, "probe", "focus " + annotation.focusTarget)
+            }
+            appendControlReplayLegend(out, annotation.focusTarget, actions)
+            return
+        case None => ()
+    }
     match (annotation.kind) {
         case DrawIrAsciiAnnotationKind.Interactive =>
             let x = Int64(annotation.rect.centerX())
             let y = Int64(annotation.rect.centerY())
             appendLegendField(out, "probe", "press ${x} ${y}; release ${x} ${y}")
         case DrawIrAsciiAnnotationKind.Focus =>
-            if (!annotation.focusTarget.isEmpty()) {
+            if (asciiReplayTargetSafe(annotation.focusTarget)) {
                 appendLegendField(out, "probe", "focus " + annotation.focusTarget)
             } else { appendLegendField(out, "focus", "target-unverified") }
         case DrawIrAsciiAnnotationKind.Visual => ()
     }
+}
+
+// A recipe is bounded command data, not a shortcut description or arbitrary script property.
+// JSON-escaped newlines decode to the existing one-command-per-line probe input grammar.
+private func appendControlReplayLegend(out: StringBuilder, target: String, actions: Array<String>): Unit {
+    if (actions.isEmpty()) { return }
+    if (!asciiReplayTargetSafe(target)) {
+        appendLegendField(out, "focus", "target-unverified")
+        return
+    }
+    for (name in ["focus", "activate", "increment", "decrement", "dismiss"]) {
+        if (!actions.contains(name)) { continue }
+        let key = match (name) {
+            case "activate" => "Enter"
+            case "increment" => "Right"
+            case "decrement" => "Left"
+            case "dismiss" => "Escape"
+            case _ => ""
+        }
+        let script = "focus " + target + if (key.isEmpty()) { "" } else { "\nkey " + key }
+        appendLegendField(out, "probe." + name, script)
+    }
+}
+
+private func asciiReplayTargetSafe(target: String): Bool {
+    let runes = target.toRuneArray()
+    // Keep the complete longest recipe below legendQuote's 256-code-point bound.
+    if (runes.isEmpty() || runes.size > 224) { return false }
+    for (r in runes) {
+        if (UInt32(r) <= 32 || UInt32(r) == 127 || r == r';' || r == r'"' || r == r'\\') {
+            return false
+        }
+    }
+    true
 }
 
 // Test real logical bounds before clamping to terminal cells: clamping an offscreen rectangle

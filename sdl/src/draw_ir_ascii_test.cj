@@ -1,6 +1,61 @@
 package sdl
 
 @Test
+func asciiTypedRecipesWhitelistActionsAndUseActualFocusTarget(): Unit {
+    let output = renderDrawIrAscii([], 100.0, 50.0, annotations: [
+        DrawIrAsciiAnnotation("observer", DrawIrAsciiAnnotationKind.Interactive,
+            Rect(0.0, 0.0, 80.0, 20.0), focusTarget: "volume", shortcut: "Delete",
+            replayActions: Some(["increment", "focus", "increment", "arbitrary-command", "decrement"]))
+    ])
+    @Expect(output.contains("probe.focus=\"focus volume\""))
+    @Expect(output.contains("probe.increment=\"focus volume\\nkey Right\""))
+    @Expect(output.contains("probe.decrement=\"focus volume\\nkey Left\""))
+    @Expect(output.split("probe.increment=").size, 2)
+    @Expect(!output.contains("key Delete"))
+    @Expect(!output.contains("arbitrary-command"))
+    @Expect(!output.contains("press "))
+}
+
+@Test
+func asciiRecipesRejectUnreplayableAndTruncatedFocusTargets(): Unit {
+    let longTarget = StringBuilder()
+    for (_ in 0..225) { longTarget.append("x") }
+    let actionSets: Array<?Array<String>> = [None, Some(["focus", "activate", "increment", "decrement", "dismiss"])]
+    for (target in ["", "two words", "x\nkey Enter", "x\tkey", "x;key", "x\"", "x\\", longTarget.toString()]) {
+        for (actions in actionSets) {
+            let output = renderDrawIrAscii([], 100.0, 50.0, annotations: [
+                DrawIrAsciiAnnotation("observer", DrawIrAsciiAnnotationKind.Focus,
+                    Rect(0.0, 0.0, 80.0, 20.0), focusTarget: target, replayActions: actions)
+            ])
+            @Expect(output.contains("focus=\"target-unverified\""))
+            @Expect(!output.contains("probe="))
+            @Expect(!output.contains("probe."))
+        }
+    }
+}
+
+@Test
+func asciiTypedRecipesStillRespectViewportOverlayAndDisabledGuards(): Unit {
+    for (rect in [Rect(0.0, 60.0, 80.0, 20.0), Rect(80.0, 0.0, 40.0, 20.0)]) {
+        let output = renderDrawIrAscii([], 100.0, 50.0, annotations: [
+            DrawIrAsciiAnnotation("observer", DrawIrAsciiAnnotationKind.Interactive, rect,
+                focusTarget: "owner", replayActions: Some(["focus", "activate"]))
+        ])
+        @Expect(!output.contains("probe."))
+    }
+    for (overlay in [true, false]) {
+        let output = renderDrawIrAscii([], 100.0, 50.0,
+            options: DrawIrAsciiOptions(overlayActive: overlay), annotations: [
+                DrawIrAsciiAnnotation("observer", DrawIrAsciiAnnotationKind.Interactive,
+                    Rect(0.0, 0.0, 80.0, 20.0), focusTarget: "owner", enabled: false,
+                    replayActions: Some(["focus", "activate"]))
+            ])
+        @Expect(!output.contains("probe."))
+        @Expect(!output.contains("probe="))
+    }
+}
+
+@Test
 func asciiCapsLegendAndDoesNotClampOffscreenTextOntoBottomEdge(): Unit {
     let text = StringBuilder()
     for (_ in 0..300) { text.append("界") }

@@ -237,11 +237,12 @@ public func probeSemanticRegions(provider: ProbeSemanticRegionProvider): Unit {
 /** Avoid constructing diagnostic properties outside a running component probe. */
 protected func isComponentProbeActive(): Bool { activeComponentProbeSession.isSome() }
 
-/** Enrich an explicit node for this actual owner instead of emitting a duplicate region. */
-protected func mergeActiveProbeControlSemantics(actionOwner: String, properties: Array<ProbeProperty>): Bool {
+/** Actual controls supply replay facts separately from user-authored descriptive properties. */
+protected func recordActiveProbeControlSemantics(frame: Rect, widgetType: String,
+    semantics: ControlSemantics, properties: Array<ProbeProperty>, enabled: Bool, registered: Bool): Unit {
     match (activeComponentProbeSession) {
-        case Some(session) => session.mergeControlSemantics(actionOwner, properties)
-        case None => false
+        case Some(session) => session.recordControlSemantics(frame, widgetType, semantics, properties, enabled, registered)
+        case None => ()
     }
 }
 
@@ -405,6 +406,9 @@ private class ProbeNodeSnapshot {
     var pressed = false
     var properties = Array<ProbeProperty>()
     var computedFacts = Array<DesignComputedFact>()
+    var replayActions: ?Array<String> = None
+    var replayTarget = ""
+    var replayEnabled = true
 
     init(id: String, widgetType: String, parent: String, order: Int64) {
         this.id = id
@@ -467,7 +471,7 @@ private class ProbeNodeSnapshot {
         out.toString()
     }
 
-    func toAsciiAnnotation(): ?DrawIrAsciiAnnotation {
+    func toAsciiAnnotation(target: String): ?DrawIrAsciiAnnotation {
         match (probeNodeAnnotationKind(widgetType, properties)) {
             case Some(kind) => Some(DrawIrAsciiAnnotation(
                 id,
@@ -481,7 +485,9 @@ private class ProbeNodeSnapshot {
                 shortcut: probePropertyValue(properties, "shortcut"),
                 value: probePropertyValue(properties, "value"),
                 state: probeStateText(properties, focused, hovered, pressed),
-                focusTarget: focusTarget
+                focusTarget: target,
+                replayActions: replayActions,
+                enabled: replayEnabled && !state("disabled") && probePropertyValue(properties, "enabled") != "false"
             ))
             case None => None
         }
@@ -496,6 +502,9 @@ private class ProbeSemanticRegionSnapshot {
     let rect: Rect
     let widgetType: String
     let properties: Array<ProbeProperty>
+    var replayActions: ?Array<String> = None
+    var replayTarget = ""
+    var replayEnabled = true
 
     init(region: ProbeSemanticRegion, parent: String, order: Int64) {
         this.id = region.id
@@ -540,7 +549,7 @@ private class ProbeSemanticRegionSnapshot {
         out.toString()
     }
 
-    func toAsciiAnnotation(): DrawIrAsciiAnnotation {
+    func toAsciiAnnotation(target: String): DrawIrAsciiAnnotation {
         DrawIrAsciiAnnotation(
             id,
             kind,
@@ -552,7 +561,11 @@ private class ProbeSemanticRegionSnapshot {
             action: probePropertyValue(properties, "action"),
             shortcut: probePropertyValue(properties, "shortcut"),
             value: probePropertyValue(properties, "value"),
-            state: probeStateText(properties, false, false, false)
+            state: probeStateText(properties, false, false, false),
+            focusTarget: target,
+            replayActions: replayActions,
+            enabled: replayEnabled && probePropertyValue(properties, "disabled") != "true" &&
+                probePropertyValue(properties, "enabled") != "false"
         )
     }
 }
@@ -806,12 +819,42 @@ private class ComponentProbeSession {
         true
     }
 
+    func recordControlSemantics(frame: Rect, widgetType: String, semantics: ControlSemantics,
+        properties: Array<ProbeProperty>, enabled: Bool, registered: Bool): Unit {
+        let names = ArrayList<String>()
+        for (action in semantics.typedActions) { names.add(semanticActionName(action)) }
+        let actions: ?Array<String> = if (names.isEmpty()) { None } else { Some(names.toArray()) }
+        let target = if (registered) { semantics.actionOwner } else { "" }
+        if (mergeControlSemantics(semantics.actionOwner, properties)) {
+            let node = requireNode(drawNodeStack[drawNodeStack.size - 1])
+            node.replayActions = actions
+            node.replayTarget = target
+            node.replayEnabled = enabled && !node.state("disabled")
+        } else {
+            let id = "control-semantic:" + semantics.actionOwner
+            recordRegions([ProbeSemanticRegion(id, DrawIrAsciiAnnotationKind.Interactive, frame,
+                widgetType: widgetType, properties: properties)])
+            match (findRegion(id)) {
+                case Some(region) =>
+                    region.replayActions = actions
+                    region.replayTarget = target
+                    region.replayEnabled = enabled
+                case None => ()
+            }
+        }
+    }
+
     func beginDraw(timeMs: UInt64): Unit {
         logicalTimeMs = timeMs
         animations.clear()
         animationCounts.clear()
         drawNodeStack.clear()
         regions.clear()
+        for (node in nodes) {
+            node.replayActions = None
+            node.replayTarget = ""
+            node.replayEnabled = true
+        }
     }
 
     func recordRegions(values: Array<ProbeSemanticRegion>): Unit {
@@ -1154,14 +1197,27 @@ private class ComponentProbeSession {
 
     private func asciiAnnotations(): Array<DrawIrAsciiAnnotation> {
         let result = ArrayList<DrawIrAsciiAnnotation>()
-        for (region in regions) { result.add(region.toAsciiAnnotation()) }
+        for (region in regions) {
+            result.add(region.toAsciiAnnotation(unambiguousReplayTarget(region.replayTarget)))
+        }
         for (node in nodes) {
-            match (node.toAsciiAnnotation()) {
+            let target = if (node.replayActions.isSome()) { node.replayTarget } else { node.focusTarget }
+            match (node.toAsciiAnnotation(unambiguousReplayTarget(target))) {
                 case Some(annotation) => result.add(annotation)
                 case None => ()
             }
         }
         result.toArray()
+    }
+
+    private func unambiguousReplayTarget(target: String): String {
+        // The focus parser gives observation IDs precedence over raw keys. Do not advertise
+        // a raw owner key if a different observed control shadows it, even when it is registered.
+        match (findNode(target)) {
+            case Some(node) => if (node.focusTarget != target) { return "" }
+            case None => ()
+        }
+        target
     }
 
     private func findNode(id: String): ?ProbeNodeSnapshot {
