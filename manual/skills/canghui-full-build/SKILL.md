@@ -30,10 +30,17 @@ On macOS, prepare missing SDL dependencies with the checked-in bootstrap:
 
 ```bash
 bash scripts/bootstrap-macos.sh
-export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-/opt/homebrew/lib}"
+export DYLD_LIBRARY_PATH="$PWD/sdl/.sdl3"
 ```
 
-Do not copy an unverified dynamic library from an arbitrary build tree.
+Keep this setting in the current verification shell, not a login profile. Do not
+use a broad Homebrew library directory or append an inherited broad directory:
+it can shadow system ImageIO codecs and crash CoreText emoji rasterization.
+CUIC already prepares a project-scoped native directory; prefer CUIC for app
+build/test/capture. Direct SDL package tests still need the scoped source path.
+Do not copy an unverified dynamic library from an arbitrary build tree. A native
+crash is not automatically a Cangjie/GC bug: preserve the original failure and
+compare the same binary with scoped loader paths before changing FFI code.
 
 ## Required Gate
 
@@ -48,6 +55,7 @@ bash scripts/test-chui-matrix.sh all
 bash tools/cuic/scripts/test-cli.sh
 bash tools/cuic/scripts/test-install.sh
 bash scripts/audit-network-control-surface.sh
+python3 scripts/test-ci-loader-env.py
 bash scripts/verify-privileged-release-exclusion.sh
 python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
 git diff --check

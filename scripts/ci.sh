@@ -21,7 +21,16 @@ else
   fi
 fi
 
-export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-/opt/homebrew/lib}"
+# Keep ImageIO/CoreText on the system's image codecs. A broad Homebrew search
+# path can replace identically named private OS libraries (including libpng).
+# This CI owns only its child environment; never alter the caller's shell/profile.
+if [[ -n "${DYLD_LIBRARY_PATH:-}" && "${DYLD_LIBRARY_PATH}" != "${ROOT_DIR}/sdl/.sdl3" ]]; then
+  echo "==> scoping the CI dynamic-library search path to prepared SDL libraries"
+fi
+export DYLD_LIBRARY_PATH="${ROOT_DIR}/sdl/.sdl3"
+
+echo "==> CI loader environment regression"
+python3 scripts/test-ci-loader-env.py
 
 # 2. Root framework build and tests.
 echo "==> root cjpm build + test"

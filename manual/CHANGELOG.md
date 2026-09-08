@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- macOS CI 与 full-build 指引只使用准备好的 SDL 动态库目录，避免宽泛 Homebrew
+  搜索路径覆盖系统图像库、导致 CoreText 彩色 emoji 绘制崩溃；不修改全局环境。
+
 - CUIC debug shell 使用当前执行上下文的已验证原生缓存，修复离线 SDK 应用启动时
   仍查找旧源码树动态库目录的问题；release 控制通道仍关闭。
 
