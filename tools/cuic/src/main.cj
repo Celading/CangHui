@@ -105,8 +105,8 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
         return initProject(args, 2)
     }
     if (command == "build" || command == "test") {
-        let parsed = parsePlatformAndProject(args, 2, "")
-        return runCjpm(command, parsed.platform, parsed.project)
+        let (parsed, mode) = parseCjpmProfile(args, 2)
+        return runCjpm(command, parsed.platform, parsed.project, mode: mode)
     }
     if (command == "run") {
         let parsed = parsePlatformAndProject(args, 2, "notepad")
@@ -364,8 +364,8 @@ func helpText(): String {
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
     "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]\n" +
     "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
-    "  cuic build [platform] [project]\n" +
-    "  cuic test [platform] [project]\n" +
+    "  cuic build [platform] [project] [--mode release|debug]\n" +
+    "  cuic test [platform] [project] [--mode release|debug]\n" +
     "  cuic run [platform] [project|example]\n" +
     "  cuic debug [platform] [project|example] [--device <alias>] [--app <bundle>] [--mode <debug|release>] [-- <app args...>]\n" +
     "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
@@ -588,7 +588,8 @@ func copyNativeLibrary(source: String, destination: String): Unit {
     File.writeTo(destination, File.readFrom(source))
 }
 
-func runCjpm(action: String, platform: String, project: String): Int64 {
+func runCjpm(action: String, platform: String, project: String, mode!: String = "release"): Int64 {
+    let arguments = if (action == "run") { [action] } else { cjpmProfileArguments(action, mode) }
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
@@ -599,8 +600,9 @@ func runCjpm(action: String, platform: String, project: String): Int64 {
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
     try {
-        println("==> cjpm ${action} (${platform}) in ${project}")
-        executeCjpm(context, [action])
+        let profile = if (action == "run") { "" } else { ", ${mode}" }
+        println("==> cjpm ${action} (${platform}${profile}) in ${project}")
+        executeCjpm(context, arguments)
     } finally {
         context.releaseLease(lease)
     }

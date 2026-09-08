@@ -51,8 +51,8 @@ cuic package plan [macos|windows|linux] [project] [--json]
 cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]
 cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
-cuic build [platform] [project]
-cuic test [platform] [project]
+cuic build [platform] [project] [--mode release|debug]
+cuic test [platform] [project] [--mode release|debug]
 cuic run [platform] [project|example]
 cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [-- <app args...>]
 cuic clean [project]
@@ -61,6 +61,12 @@ cuic version
 ```
 
 ## Project Scripts
+
+`build` and `test` default to release. `--mode debug` forwards `-g` to CJPM;
+the build identity of the CUIC executable itself does not select the application's
+profile. These commands reject unknown options, duplicate modes and extra positional
+arguments rather than silently running a different test configuration.
+
 
 `cuic` automatically discovers named lifecycle pipelines from `canghui.toml` in the application project.
 `cuic init` writes a portable starting set:
