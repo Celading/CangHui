@@ -123,7 +123,25 @@ def launcher(identifier):
             f'exec "$bundle_root/bin/{identifier}.bin" "$@"\n')
 
 
-def assemble(output, binary, profile_path, identifier):
+def select_libraries(binary_metadata, profile, reader=elf.inspect):
+    """Select only declared DT_NEEDED closure; never discover ambient libraries."""
+    by_name = {item["name"]: item for item in profile["libraries"]}
+    selected, pending = set(), list(binary_metadata["needed"])
+    while pending:
+        name = pending.pop(0)
+        if name in elf.BASELINE or name in selected:
+            continue
+        if name not in by_name:
+            raise ValueError("application dependency is not declared by SDK: " + name)
+        selected.add(name)
+        metadata = reader(by_name[name]["path"])
+        if metadata["sha256"] != by_name[name]["sha256"] or metadata["machine"] != profile["machine"]:
+            raise ValueError("SDK dependency changed or has wrong architecture: " + name)
+        pending.extend(metadata["needed"])
+    return [item for item in profile["libraries"] if item["name"] in selected]
+
+
+def assemble(output, binary, profile_path, identifier, *, select_used=False):
     wrapper = launcher(identifier)
     output = Path(output).resolve(strict=True)
     if not output.is_dir():
@@ -136,6 +154,7 @@ def assemble(output, binary, profile_path, identifier):
     binary_metadata = elf.inspect(binary)
     if binary_metadata["machine"] != profile["machine"]:
         raise ValueError("application and runtime manifest machines differ")
+    libraries = select_libraries(binary_metadata, profile) if select_used else profile["libraries"]
     with tempfile.TemporaryDirectory(prefix=".runtime-stage-", dir=output) as temporary:
         stage = Path(temporary)
         for name in ("bin", "lib", "runtime/fonts", "runtime/licenses"):
@@ -145,7 +164,7 @@ def assemble(output, binary, profile_path, identifier):
         os.chmod(stage / native_name, 0o755)
         relocate(stage / native_name, "$ORIGIN/../lib")
         inventory = []
-        for item in profile["libraries"]:
+        for item in libraries:
             destination = stage / "lib" / item["name"]
             copy_record(item, destination)
             if elf.inspect(destination)["machine"] != profile["machine"]:
@@ -167,6 +186,7 @@ def assemble(output, binary, profile_path, identifier):
         receipt = {"schema": "canghui.linux-runtime-bundle.v0", "status": "assembled-not-launched",
                    "inputManifestSha256": profile["sha256"], "applicationInputSha256": binary_metadata["sha256"],
                    "identifier": identifier, "libraries": inventory, "fontSha256": profile["font"]["sha256"],
+                   "dependencySelection": "declared-transitive-closure" if select_used else "all-declared-inputs",
                    "fontLicenses": font_licenses, "notices": notices, "elfAudit": report,
                    "limitations": ["license-records-carried-not-legally-reviewed", "dlopen-plugins-not-verified",
                                    "launch-and-desktop-installation-not-verified", "unsigned"]}
@@ -186,9 +206,11 @@ def main():
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--manifest", required=True, type=Path)
     parser.add_argument("--identifier", required=True)
+    parser.add_argument("--select-used-libraries", action="store_true",
+                        help="select only DT_NEEDED closure from the explicit manifest (SDK consumption)")
     args = parser.parse_args()
     try:
-        assemble(args.output, args.binary, args.manifest, args.identifier)
+        assemble(args.output, args.binary, args.manifest, args.identifier, select_used=args.select_used_libraries)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         parser.exit(1, "Linux runtime assembly failed: " + str(error) + "\n")
 

@@ -16,9 +16,17 @@ func sourceSdkHostTarget(): String {
 }
 
 func requireSourceSdkExecutionTarget(target: String): Unit {
-    if (target != "macos-arm64") {
-        throw CuicError("Linux source SDK execution is not enabled in this build; metadata inspection only")
+    if (!sourceSdkExecutionImplemented(target)) {
+        throw CuicError("source SDK execution is not implemented for this target")
     }
+}
+
+func sourceSdkExecutionImplemented(target: String): Bool {
+    target == "macos-arm64" || sourceSdkLinuxTarget(target)
+}
+
+func sourceSdkInitLinkOption(sdkMode: Bool, platform: String): String {
+    if (sdkMode && platform == "macos") { "link-option = \"-headerpad_max_install_names\"\n" } else { "" }
 }
 
 func validateSourceSdkPlatformFields(fields: HashMap<String, String>, requested: String): Unit {

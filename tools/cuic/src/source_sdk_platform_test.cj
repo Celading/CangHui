@@ -14,11 +14,20 @@ private func sdkPlatformRejects(action: () -> Unit): Bool {
 }
 
 @Test
-func sourceSdkMetadataSupportDoesNotEnableUnimplementedExecution(): Unit {
+func sourceSdkExecutionSupportsOnlyImplementedTargets(): Unit {
     requireSourceSdkExecutionTarget("macos-arm64")
-    for (target in ["linux-arm64", "linux-x86_64", "windows-x86_64", ""]) {
+    requireSourceSdkExecutionTarget("linux-arm64")
+    requireSourceSdkExecutionTarget("linux-x86_64")
+    for (target in ["linux-riscv64", "windows-x86_64", ""]) {
         @Expect(sdkPlatformRejects({=> requireSourceSdkExecutionTarget(target) }))
     }
+}
+
+@Test
+func sourceSdkInitPreservesMacRelocationWithoutPassingMachOFlagsToLinux(): Unit {
+    @Expect(sourceSdkInitLinkOption(true, "macos").contains("headerpad_max_install_names"))
+    @Expect(sourceSdkInitLinkOption(true, "linux"), "")
+    @Expect(sourceSdkInitLinkOption(false, "macos"), "")
 }
 
 @Test
@@ -103,7 +112,7 @@ func sourceSdkCrossPlatformComparisonReportsDifferentRequirementsWithoutInferrin
     @Expect(inspected.contains("\"minimumLibc\":\"2.38\""))
     @Expect(!inspected.contains("\"minimumOS\""))
     @Expect(inspected.contains("\"publisherAuthenticated\":false"))
-    @Expect(inspected.contains("\"targetExecutionImplemented\":false"))
+    @Expect(inspected.contains("\"targetExecutionImplemented\":true"))
     let otherTargetFields = if (hostPlatform() == "linux") { macFields } else { linuxFields }
     otherTargetFields["sourceCommit"] = CUIC_BUILD_REVISION
     otherTargetFields["cuicVersion"] = VERSION

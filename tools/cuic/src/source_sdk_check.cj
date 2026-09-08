@@ -44,7 +44,7 @@ func sourceSdkInspectionJson(info: SourceSdkInspection): String {
     "{" + joinStrings(parts.toArray(), ",") +
         ",\"pairedWithThisCuic\":" + paired.toString() + ",\"integrityVerified\":true," +
         "\"publisherAuthenticated\":false,\"targetExecutionImplemented\":" +
-        (info.fields["target"] == "macos-arm64").toString() + "}"
+        sourceSdkExecutionImplemented(info.fields["target"]).toString() + "}"
 }
 
 func sourceSdkComparisonJson(current: SourceSdkInspection, candidate: SourceSdkInspection): String {

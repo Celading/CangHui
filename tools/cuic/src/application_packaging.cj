@@ -44,7 +44,7 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     ensurePackagingOutputDoesNotOverlapInputs(project, output, manifest)
 
     var executable = ""
-    var sdkFramework = ""
+    var sdkFramework = linuxSdkPackagingFramework(project, platform, hostPlatform(), linuxRuntimeManifest)
     var hostReplay = "metadata-only"
     let limitations = ArrayList<String>()
     let plan = applicationPackagingPlanForManifest(project, platform, manifest)
@@ -60,7 +60,7 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
             sdkFramework = framework
             limitations.add("source-sdk-native-closure-included-not-publisher-signed")
         } else { limitations.add("runtime-dependencies-remain-host-managed") }
-    } else if (!linuxRuntimeManifest.isEmpty()) {
+    } else if (!linuxRuntimeManifest.isEmpty() || !sdkFramework.isEmpty()) {
         let buildCode = runPackagingBuild(project, "linux", json)
         if (buildCode != 0) { return buildCode }
         let context = ExecutionContext(project, ensureFrameworkRoot(project))
@@ -240,8 +240,12 @@ func writeApplicationPackagingArtifact(project: String, platform: String,
         copyWindowsApplicationArtifact(project, manifest, output, generated, copied)
     } else {
         writeLinuxApplicationArtifact(project, manifest, output, generated, copied)
-        if (!linuxRuntimeManifest.isEmpty()) {
-            assembleLinuxApplicationRuntime(project, output, executable, linuxRuntimeManifest, manifest.identifier)
+        if (!linuxRuntimeManifest.isEmpty() || !sourceSdkFramework.isEmpty()) {
+            if (!sourceSdkFramework.isEmpty()) {
+                assembleLinuxSdkRuntime(sourceSdkFramework, output, executable, manifest.identifier, copied)
+            } else {
+                assembleLinuxApplicationRuntime(project, output, executable, linuxRuntimeManifest, manifest.identifier)
+            }
             for (path in ["bin/${manifest.identifier}", "bin/${manifest.identifier}.bin", "run.sh", "runtime/receipt.json"]) {
                 generated.add(path)
             }

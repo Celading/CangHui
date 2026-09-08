@@ -151,16 +151,14 @@ func bootstrapSourceSdk(framework: String, staging: String): Bool {
     let fields = sourceSdkFields(readSourceSdkText(manifest, 16384), CUIC_BUILD_REVISION,
         VERSION, sourceSdkHostTarget())
     requireSourceSdkExecutionTarget(fields["target"])
-    let names = sourceSdkNativeNames(fields["nativeFiles"])
-    let (compilerCode, compilerOut, _) = executeWithOutput("cjc", ["--version"])
-    if (compilerCode != 0 || !sourceSdkCompilerMatches(String.fromUtf8(compilerOut))) {
-        throw CuicError("this source SDK requires Cangjie compiler 1.1.3")
+    let names = sourceSdkNativeNames(fields["nativeFiles"], target: fields["target"])
+    let hostCheck = sourceSdkHostCheck(fields)
+    let expected = if (sourceSdkLinuxTarget(fields["target"])) { "prerequisites-match-not-runtime-proof" }
+        else { "prerequisites-match" }
+    if (hostCheck != expected) {
+        throw CuicError("source SDK host prerequisites failed: " + hostCheck)
     }
-    let (osCode, osOut, _) = executeWithOutput("/usr/bin/sw_vers", ["-productVersion"])
-    if (osCode != 0 || !sourceSdkOSAtLeast(trimAscii(String.fromUtf8(osOut)), fields["minimumOS"])) {
-        throw CuicError("source SDK requires macOS " + fields["minimumOS"] + " or newer")
-    }
-    verifySourceSdkFiles(root, names)
+    verifySourceSdkFiles(root, names, target: fields["target"])
     verifySourceSdkPackageIdentity(root, fields)
     ensurePackagingDirectory(joinPath(staging, "sdl/.sdl3"))
     for (name in names) { copyNativeLibrary(joinPath(root, "native/" + name), joinPath(staging, "sdl/.sdl3/" + name)) }

@@ -4,13 +4,18 @@
 
 ## Unreleased
 
+- Linux 源码 SDK 接通配对初始化／构建与自动运行包组装，保留目标、编译器、glibc、
+  全文件校验；按应用实际依赖选择已声明库，未声明库拒绝。Linux 模板不再传 macOS
+  链接参数；普通源码工程默认仍只生成打包输入树。
+  Enable paired Linux SDK consumption and declared dependency selection without changing source-project packaging defaults.
+
 - 增加 Linux 精确提交 SDK 候选导出：复用配对 CUIC 构建，显式哈希原生输入、
   完整库集合 ELF 审计、普通文件 SDL 链接副本、可搬迁资产清单与许可原文。
-  Linux SDK 消费入口仍关闭，候选导出不等于应用交付或桌面安装验收。
-  Export exact-revision Linux SDK candidates with audited explicit native inputs; consumer execution remains gated.
+  候选导出不等于应用消费流程通过或桌面安装验收。
+  Export exact-revision Linux SDK candidates with audited explicit native inputs; export is not consumer acceptance.
 
 - SDK 预检区分 macOS 系统版本与 Linux glibc 要求，跨平台同提交不再误报 CUIC 配对；
-  兼容既有 macOS v1 清单。Linux v2 支持预检和候选导出，消费执行链仍未开放。
+  兼容既有 macOS v1 清单。Linux v2 支持预检、候选导出及配对工具消费。
   Add target-aware SDK inspection and comparison without implying Linux SDK execution support.
 
 - Linux `cuic package build` 增加可选 `--runtime-manifest`，按哈希固定的显式清单

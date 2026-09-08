@@ -84,7 +84,7 @@ macOS arm64 / Cangjie 1.1.3 组合；编译器版本和目标必须精确匹配�
 不同 Git 提交返回 `different-commit-order-unknown`，不会假定候选提交一定更新。
 相同源码提交也可能重新构建，`samePayloadLedger` 单独比较文件账本。
 
-### Linux SDK 清单预检（开发中）
+### Linux/glibc 源码 SDK
 
 同一 `sdk verify`／`sdk compare` 入口现在也能只读检查 Linux 的 v2 候选清单。
 v2 使用 `target=linux-arm64` 或 `linux-x86_64`，并以 `libc=glibc`、
@@ -96,11 +96,26 @@ v2 使用 `target=linux-arm64` 或 `linux-x86_64`，并以 `libc=glibc`、
 版本；这不验证所有符号版本、CPU／内核要求或原生库能否加载。同一源码提交、同一
 CUIC 版本但目标平台不同，也不会显示为 `pairedWithThisCuic: true`。
 
-**当前 Linux 提供清单预检与维护者候选导出，尚不提供可消费的 Linux SDK 构建链。**
-结果中的 `targetExecutionImplemented: false` 会明确区分这一点，尝试构建这种 SDK
-会被拒绝；不要手工修改清单来绕过它。上一节的 macOS v1 SDK 消费方式保持不变。
+当前配对工具支持 Linux SDK 初始化、同宿主构建及运行包组装。旧候选的工具可能仍返回
+`targetExecutionImplemented: false`；请升级整套配对候选，不要改清单绕过校验。
+上一节的 macOS v1 SDK 消费方式保持不变。
 目标实现、工具配对和宿主前置条件是三个独立检查；目标已实现不代表另外两项已通过。
 普通 Linux 源码工程仍可使用[显式运行包组装](application-packaging.zh-CN.md#用-cuic-组装-linux-运行包)。
+
+```bash
+/path/to/sdk/bin/cuic init Hello --platform linux --canghui-path /path/to/sdk/framework
+/path/to/sdk/bin/cuic build linux Hello
+/path/to/sdk/bin/cuic-debug prntx Hello welcome.main
+/path/to/sdk/bin/cuic-debug prnt linux Hello --output preview.png
+/path/to/sdk/bin/cuic package build linux Hello --output dist/runtime
+```
+
+本地 SDK 路径依赖会自动使用已校验的 SDK 原生清单，不要求使用者重新寻找 SDL
+或复制清单。打包从应用 ELF 出发选取已声明的传递依赖，缺少依赖时失败，不搜索
+宿主补库。显式 `--runtime-manifest` 仍使用项目内清单及原有严格校验，可用于额外
+原生依赖；动态 `dlopen` 插件不在静态依赖选择证明内。
+构建仍需要单独的 Cangjie1.1.3，打包还需要 Python3、GNU readelf 和 patchelf；
+应用图形运行需要相应桌面／显示服务。未完成实际安装验收不能宣称桌面分发完成。
 
 升级时保留旧 SDK，将候选放在新目录，用候选自带的 CUIC 在应用分支中构建、测试和回放，
 再修改应用依赖。失败时还原该分支的依赖与 lock，继续用旧 SDK；不要覆盖旧包或编辑它的缓存。
@@ -137,7 +152,7 @@ python3 scripts/build-linux-source-sdk.py --revision <commit> \
 候选携带同一提交的 release/debug CUIC、框架与 Kit 源码、原生库、字体、许可记录和
 完整 SHA256SUMS。ELF 审计逐项检查 SDK 声明库及其传递依赖，glibc 下限来自这些文件
 的符号需求，不是兼容性承诺。`runtime/native-input.json` 中的资产路径可随候选搬迁，
-但应用仍须按实际依赖选取运行库，不能将整个 SDK 库集合无条件当作应用运行包。
+配对 CUIC 会按应用实际依赖选取运行库，不能将整个 SDK 库集合无条件当作应用运行包。
 
-导出成功状态是 `exported-not-consumer-verified`；Linux SDK 消费入口仍拒绝执行。
+导出成功状态是 `exported-not-consumer-verified`，仍须实际运行消费流程才能提升验收状态。
 候选不是安装器、预编译框架、已签名发行包，也不证明桌面安装、动态插件和分发许可合规。

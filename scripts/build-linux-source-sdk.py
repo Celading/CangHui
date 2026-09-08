@@ -2,8 +2,8 @@
 """Export an exact-revision Linux/glibc SDK candidate with explicit native inputs.
 
 No downloads, host installs, implicit library discovery or consumer source edits.
-This stage exports paired tools and audited native assets; CUIC Linux SDK
-bootstrap/consumer execution remains a separate, currently closed capability.
+This stage exports paired tools and audited native assets; consumer execution
+and desktop acceptance must still be verified for the selected source revision.
 """
 import argparse
 import importlib.util
@@ -168,8 +168,10 @@ def build(output, revision, manifest_path):
         'Requires separately installed Cangjie 1.1.3 for building apps. No framework checkout is required to inspect this candidate.\n'
         'Verify SHA256SUMS against a trusted receipt before executing tools; hashes are not publisher signatures.\n\n'
         '`bin/cuic sdk verify framework --json` inspects the payload and local build prerequisites.\n'
-        'Linux SDK bootstrap/consumer execution is not implemented in this candidate. Do not advertise it as an app-delivery SDK.\n'
-        '`runtime/native-input.json` is a relocatable native-input inventory; per-application dependency selection remains required.\n'
+        'Check targetExecutionImplemented and hostPrerequisites before consumption; older revisions may not support Linux SDK execution.\n'
+        'A candidate export is not app-delivery or installation proof.\n'
+        '`runtime/native-input.json` is a relocatable native-input inventory. Supporting paired CUIC builds select application dependencies during packaging.\n'
+        'Use the paired CUIC to init with --canghui-path <sdk>/framework, build linux, and package build linux.\n'
         'ELF metadata is not launch, symbol-availability, plugin, desktop-installation or redistribution compliance proof.\n')
     archive = seal(output)
     receipt = {"sdk": str(output), "archive": str(archive), "sha256": sdk.sha(archive),

@@ -5,6 +5,9 @@ func linuxRuntimeRequestKeepsMetadataOnlyBuildsAndAcceptsSameHost(): Unit {
     validateLinuxRuntimeRequest("linux", "macos", "")
     validateLinuxRuntimeRequest("windows", "macos", "")
     validateLinuxRuntimeRequest("linux", "linux", "pack/runtime.json")
+    @Expect(linuxSdkPackagingFramework("not-a-project", "linux", "macos", ""), "")
+    @Expect(linuxSdkPackagingFramework("not-a-project", "linux", "linux", "pack/runtime.json"), "")
+    @Expect(linuxSdkPackagingFramework("not-a-project", "linux", "linux", ""), "")
 }
 
 @Test

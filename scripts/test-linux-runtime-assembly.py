@@ -54,6 +54,28 @@ class AssemblyTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "hash mismatch"):
             assembly.load_profile(self.manifest)
 
+    def test_sdk_selection_uses_declared_transitive_closure_not_all_libraries(self):
+        profile = assembly.load_profile(self.manifest)
+        original = profile["libraries"][0]
+        profile["libraries"] += [{**original, "name": "libchild.so"}, {**original, "name": "libunused.so"}]
+        metadata = {"needed": ["libchild.so", "libc.so.6"], "sha256": original["sha256"], "machine": "AArch64"}
+        selected = assembly.select_libraries({"needed": ["libsample.so.1", "libc.so.6"]}, profile,
+                                             reader=lambda _: metadata)
+        self.assertEqual([item["name"] for item in selected], ["libsample.so.1", "libchild.so"])
+        self.assertEqual(len(profile["libraries"]), 3)
+
+    def test_sdk_selection_rejects_unknown_dependencies_without_host_discovery(self):
+        profile = assembly.load_profile(self.manifest)
+        with self.assertRaisesRegex(ValueError, "not declared"):
+            assembly.select_libraries({"needed": ["libambient.so"]}, profile)
+
+    def test_sdk_selection_rechecks_hash_and_architecture(self):
+        profile = assembly.load_profile(self.manifest)
+        for sha, machine in [("tampered", "AArch64"), (profile["libraries"][0]["sha256"], "wrong")]:
+            with self.assertRaisesRegex(ValueError, "changed or has wrong architecture"):
+                assembly.select_libraries({"needed": ["libsample.so.1"]}, profile,
+                    reader=lambda _: {"needed": [], "sha256": sha, "machine": machine})
+
     def test_missing_licenses_and_unknown_fields_rejected(self):
         original = copy.deepcopy(self.data)
         for change in ("license", "unknown", "machine-type"):
