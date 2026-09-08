@@ -75,6 +75,10 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
 
 ## 当前边界
 
+可选的 [AccessKit C 树投影桥](../../platform/accesskit/README.md) 可把已有原生 ID、父子关系、
+角色与状态转成有界原生树，并拒绝无效的整树更新。它是底层集成源码，尚未提供自动安装、
+窗口注册或完整仓颉宿主封装，不是只引用依赖即可启用的读屏 provider。
+
 这套运行时提供跨宿主的语义事实和安全动作模型，不等于 macOS AX、Windows UIA、Linux
 AT-SPI 或 HarmonyOS 原生无障碍 provider 已经实现。`DesktopApp` 与 `DesktopApplication`
 托管窗口均已自动接线，并保持独立窗口身份与 revision。调试用 `cuic shell` 仍是单独的 debug-only、

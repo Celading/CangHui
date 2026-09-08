@@ -1,0 +1,54 @@
+#ifndef CHUI_ACCESSKIT_SEMANTIC_BRIDGE_H
+#define CHUI_ACCESSKIT_SEMANTIC_BRIDGE_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "accesskit.h"
+
+#if defined(_WIN32)
+#define CHUI_AK_API __declspec(dllexport)
+#else
+#define CHUI_AK_API __attribute__((visibility("default")))
+#endif
+
+/* Bridge-local bits, never the upstream AccessKit enum ABI. */
+enum {
+    CHUI_AK_DISABLED = 1u, CHUI_AK_READONLY = 2u,
+    CHUI_AK_SELECTED_KNOWN = 4u, CHUI_AK_SELECTED = 8u,
+    CHUI_AK_EXPANDED_KNOWN = 16u, CHUI_AK_EXPANDED = 32u,
+    CHUI_AK_FOCUSED = 64u
+};
+enum {
+    CHUI_AK_FOCUS = 1u, CHUI_AK_ACTIVATE = 2u, CHUI_AK_INCREMENT = 4u,
+    CHUI_AK_DECREMENT = 8u, CHUI_AK_DISMISS = 16u
+};
+
+struct chui_ak_tree;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* Single-thread-owned transaction. Root ID 1 is reserved. All strings must be
+ * valid UTF-8, NUL-terminated and readable for the duration of the call.
+ * Strings are copied. Node IDs/parent IDs come from SemanticNativeSession;
+ * add order is semantic sibling order, not native allocation order.
+ */
+CHUI_AK_API struct chui_ak_tree *chui_ak_tree_new(const char *window_label);
+CHUI_AK_API bool chui_ak_tree_add(struct chui_ak_tree *tree,
+    uint64_t id, uint64_t parent_id, const char *role, const char *label,
+    const char *value, const char *placeholder,
+    double x, double y, double width, double height,
+    uint32_t states, uint32_t actions);
+
+/* Consumes the transaction on success OR failure. NULL means no update may be
+ * submitted. The caller owns a successful update until transferred to AccessKit.
+ * This is not an update-factory fallback: those callbacks may forbid NULL.
+ */
+CHUI_AK_API struct accesskit_tree_update *chui_ak_tree_finish(struct chui_ak_tree *tree);
+CHUI_AK_API void chui_ak_tree_free(struct chui_ak_tree *tree);
+
+#ifdef __cplusplus
+}
+#endif
+#endif
