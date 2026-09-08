@@ -53,7 +53,7 @@ cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
 cuic build [platform] [project] [--mode release|debug]
 cuic test [platform] [project] [--mode release|debug]
-cuic run [platform] [project|example]
+cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]
 cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [-- <app args...>]
 cuic clean [project]
 cuic examples
@@ -130,6 +130,13 @@ On macOS and Linux use `bin/cuic`. On Windows use `bin\\cuic.cmd` or `bin\\cuic.
 From a directory containing `cjpm.toml`, bare `cuic run` runs that current
 application. Outside a Cangjie project, the same command retains the built-in
 `notepad` example fallback. An explicit project or example always wins.
+
+`run` defaults to release; `--mode debug` builds and launches the exact debug
+artifact, without falling back to an older release binary. Unknown options and
+duplicate modes are rejected before building. Put application arguments after
+`--`; they are forwarded literally. The child inherits stdin/stdout/stderr and
+its exit status is returned, so interactive output is visible before exit.
+Ordinary runs do not apply the screenshot-only macOS processor pinning policy.
 
 ## Framework Resolution
 

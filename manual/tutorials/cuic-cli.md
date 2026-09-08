@@ -7,11 +7,15 @@ cuic 是 CangHui 的集成生命周期 CLI。以下命令在 `tools/cuic/bin/cui
 ```bash
 cuic build [platform] [project]
 cuic test [platform] [project]
-cuic run [platform] [project|example]
+cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]
 ```
 
 - 默认生产（release）语义。
 - 无参数时优先当前 `cjpm.toml` 项目，否则回退 `notepad` 示例。
+- `run --mode debug` 构建并运行对应的 debug 产物，不回退到旧 release 文件。
+- 未知参数、重复或无效的 `--mode` 在构建前报错；应用参数必须放在 `--` 后，按原值转交。
+- `run` 直接继承标准输入、输出和错误流，并返回应用退出码；运行中的输出无需等到退出才能读取。
+  普通运行不应用 macOS 截图专用的单处理器配置，也不自动启用调试控制通道。
 
 ## 调试渠道
 

@@ -109,8 +109,7 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
         return runCjpm(command, parsed.platform, parsed.project, mode: mode)
     }
     if (command == "run") {
-        let parsed = parsePlatformAndProject(args, 2, "notepad")
-        return runCjpm("run", parsed.platform, parsed.project)
+        return runDesktopApplication(parseRunOptions(args, 2))
     }
     if (command == "prnt" || command == "print" || command == "snapshot") {
         return printWindow(args, 2)
@@ -366,7 +365,7 @@ func helpText(): String {
     "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
     "  cuic build [platform] [project] [--mode release|debug]\n" +
     "  cuic test [platform] [project] [--mode release|debug]\n" +
-    "  cuic run [platform] [project|example]\n" +
+    "  cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]\n" +
     "  cuic debug [platform] [project|example] [--device <alias>] [--app <bundle>] [--mode <debug|release>] [-- <app args...>]\n" +
     "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
     "  cuic clean [project]\n" +
@@ -596,7 +595,7 @@ func copyNativeLibrary(source: String, destination: String): Unit {
 }
 
 func runCjpm(action: String, platform: String, project: String, mode!: String = "release"): Int64 {
-    let arguments = if (action == "run") { [action] } else { cjpmProfileArguments(action, mode) }
+    let arguments = cjpmProfileArguments(action, mode)
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
@@ -607,8 +606,7 @@ func runCjpm(action: String, platform: String, project: String, mode!: String = 
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
     try {
-        let profile = if (action == "run") { "" } else { ", ${mode}" }
-        println("==> cjpm ${action} (${platform}${profile}) in ${project}")
+        println("==> cjpm ${action} (${platform}, ${mode}) in ${project}")
         executeCjpm(context, arguments)
     } finally {
         context.releaseLease(lease)
@@ -1225,7 +1223,7 @@ func applicationEnvironment(
     // Cangjie cjthreads use an M:N scheduler. A single processor keeps macOS SDL/AppKit
     // capture on one native thread even when the application launches a child process
     // during startup. Respect an explicit caller value for diagnostic overrides.
-    if (shouldPinMacCaptureProcessor(hostPlatform(), readEnv("cjProcessorNum"))) {
+    if (!capturePath.isEmpty() && shouldPinMacCaptureProcessor(hostPlatform(), readEnv("cjProcessorNum"))) {
         environment.add("cjProcessorNum", "1")
     }
     environment
