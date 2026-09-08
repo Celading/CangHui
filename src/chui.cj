@@ -378,6 +378,8 @@ public import chui.desktop.DesktopApplication
 public import chui.desktop.DesktopAccessibilityAction
 public import chui.desktop.DesktopAccessibilityAdapter
 public import chui.desktop.DesktopAccessibilityFactory
+@When[os == "Linux"]
+public import chui.desktop.linuxAccessKitAccessibility
 public import chui.desktop.DesktopCaptureRequest
 public import chui.desktop.DesktopWindowSession
 public import chui.desktop.DesktopWindowStateReceipt

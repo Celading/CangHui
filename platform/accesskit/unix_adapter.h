@@ -12,10 +12,20 @@ extern "C" {
  * upstream free asynchronously unregisters and does not join late callbacks.
  */
 CHUI_AK_API uint64_t chui_ak_unix_new(void);
+/* Managed loader ABI, not an upstream version or publisher-authentication claim. */
+CHUI_AK_API uint32_t chui_ak_unix_abi_version(void);
 /* Consumes update even on rejection/inactive adapter. Supply only a successfully
  * finished full tree from semantic_bridge. Revision must strictly increase.
  */
 CHUI_AK_API bool chui_ak_unix_publish(uint64_t handle, uint64_t revision,
+                                    struct accesskit_tree_update *update);
+/* Late reader activation may need the already submitted full tree while the UI
+ * is idle. Replay ONLY the identical cached snapshot at the current revision.
+ * Unlike publish, refresh requires a pending activation and an exact revision.
+ * Always consumes update. This does not advance the semantic revision.
+ */
+CHUI_AK_API bool chui_ak_unix_needs_refresh(uint64_t handle);
+CHUI_AK_API bool chui_ak_unix_refresh(uint64_t handle, uint64_t revision,
                                     struct accesskit_tree_update *update);
 CHUI_AK_API bool chui_ak_unix_focus(uint64_t handle, bool focused);
 CHUI_AK_API bool chui_ak_unix_bounds(uint64_t handle, double outer_x, double outer_y,

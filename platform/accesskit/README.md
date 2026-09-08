@@ -4,9 +4,11 @@ This optional C bridge projects CangHui semantic snapshots into AccessKit C
 0.23.0 trees. The separate `unix_adapter` provides optional Linux native adapter
 registration and a bounded action inbox. Neither loads libraries nor enables a
 debug control channel. Desktop hosts now provide an optional
-`DesktopAccessibilityFactory`/`DesktopAccessibilityAdapter` lifecycle port;
-this C bridge still needs its managed loader, coordinate and idle-activation
-adapter. It is not a complete provider or part of the default SDK closure.
+`DesktopAccessibilityFactory`/`DesktopAccessibilityAdapter` lifecycle port.
+The opt-in Linux `linuxAccessKitAccessibility(nativeLibrary, bridgeLibrary)`
+factory loads explicit trusted absolute paths and connects this bridge to either
+desktop host. Coordinate/text mapping and SDK dependency delivery remain open;
+this preview is not a complete reader SDK or part of the default dependency closure.
 
 Supply the upstream source at commit
 `0824c4a1e3a4d13ce5582df20e394fba49485a15` and a matching native library:
@@ -57,7 +59,7 @@ integration requirements, not implied by a valid tree.
 
 ## Optional Linux adapter lifecycle
 
-`unix_adapter.h` exposes `new`, `publish`, `focus`, `bounds`, `poll`, `dropped`
+`unix_adapter.h` exposes `new`, `publish`, `needs_refresh`, `refresh`, `focus`, `bounds`, `poll`, `dropped`
 and `close` through opaque integer handles. Serialize all calls for a handle on
 its UI owner; these public calls are not a concurrently callable owner API.
 
@@ -66,8 +68,13 @@ its UI owner; these public calls are not a concurrently callable owner API.
 2. Build a validated full tree before `publish`. The call always consumes that
    update, including invalid-handle/revision rejection or inactive native state.
    Revisions must increase. A null or rejected tree never reaches the upstream
-   non-null update factory. Activation requests defer to the next owner publish;
-   they never enter managed code or build a tree on a foreign thread.
+   non-null update factory. Activation requests defer to an owner publication or
+   idle replay; they never enter managed code or build a tree on a foreign thread.
+   When `needs_refresh` is true, `refresh` accepts only the CURRENT revision and
+   requires the identical cached full tree, not a newly invented semantic frame.
+   It always consumes the update, including a request withdrawn by deactivation.
+   An unused factory preserves the request; generation tracking prevents a replay
+   from acknowledging a newer activation. Ordinary `publish` stays strictly increasing.
 3. Poll native actions before advancing the next semantic frame. Each action is
    copied with the last submitted revision at callback ingress. Forward it through
    `SemanticNativeSession.postUnchangedAction`, the existing UI owner queue and final
@@ -101,6 +108,21 @@ dispatch receipt is only ingress acknowledgment; inspect owner completion too.
 Keep semantic IDs tied to the same user intent; hidden callback changes cannot
 be inferred from identical public semantics. Full managed host and platform
 input-reliability acceptance remain separate from this bounded continuity rule.
+
+## Managed loader boundary
+
+The Linux factory checks bridge ABI1 and required typed symbols before creating
+an adapter. It rejects NUL text before C-string conversion and caches detached
+tree/binding arrays for idle activation. No direct business callback is passed
+to AccessKit; copied actions enter the existing host queue and final runtime.
+No bridge library is loaded unless the application explicitly calls the factory.
+
+Supply matching trusted native and bridge binaries. ABI/symbol checks are NOT
+publisher authentication or transitive compatibility verification. ELF dependency
+resolution still follows the system loader; do not accept library paths from
+untrusted documents or network messages. The default SDK does not yet carry this
+dependency or its full transitive licensing/target evidence. Retained loader
+references intentionally last until process exit, including partial load failures.
 
 ## Upstream AT-SPI state correction
 

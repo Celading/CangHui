@@ -8,11 +8,11 @@
 #define CHUI_AK_INGRESS 128u
 struct ingress { uint64_t target, revision; uint32_t action; };
 struct unix_session {
-    uint64_t token, revision, dropped;
+    uint64_t token, revision, dropped, activation_generation;
     struct accesskit_unix_adapter *native;
     struct ingress queue[CHUI_AK_INGRESS];
     unsigned head, count;
-    bool updating;
+    bool updating, refresh_requested;
 };
 static pthread_mutex_t registry_mutex = PTHREAD_MUTEX_INITIALIZER;
 static struct unix_session *registry[CHUI_AK_WINDOWS];
@@ -29,16 +29,27 @@ static void dropped(struct unix_session *s) {
     if (s->dropped != UINT64_MAX) ++s->dropped;
 }
 static struct accesskit_tree_update *activate(void *userdata) {
-    (void)userdata;
+    uint64_t token = (uint64_t)(uintptr_t)userdata;
+    pthread_mutex_lock(&registry_mutex);
+    struct unix_session *s = find_session(token);
+    if (s && s->activation_generation != UINT64_MAX) {
+        ++s->activation_generation;
+        s->refresh_requested = true;
+    }
+    pthread_mutex_unlock(&registry_mutex);
     /* NULL is explicitly allowed for activation (not for update factories).
-     * AccessKit enters Pending; the UI owner's next full-tree publish activates. */
+     * AccessKit enters Pending; the UI owner publishes or replays its cached tree. */
     return NULL;
 }
 static void deactivate(void *userdata) {
     uint64_t token = (uint64_t)(uintptr_t)userdata;
     pthread_mutex_lock(&registry_mutex);
     struct unix_session *s = find_session(token);
-    if (s) { s->head = 0; s->count = 0; }
+    if (s) {
+        s->head = 0; s->count = 0;
+        if (s->activation_generation != UINT64_MAX) ++s->activation_generation;
+        s->refresh_requested = false;
+    }
     pthread_mutex_unlock(&registry_mutex);
 }
 static void receive_action(struct accesskit_action_request *request, void *userdata) {
@@ -88,28 +99,47 @@ uint64_t chui_ak_unix_new(void) {
     return s->token;
 }
 
+uint32_t chui_ak_unix_abi_version(void) { return 1; }
+bool chui_ak_unix_needs_refresh(uint64_t handle) {
+    pthread_mutex_lock(&registry_mutex);
+    struct unix_session *s = find_session(handle);
+    bool result = s && s->revision && s->refresh_requested && !s->updating;
+    pthread_mutex_unlock(&registry_mutex);
+    return result;
+}
+
 static struct accesskit_tree_update *take_update(void *userdata) {
     struct accesskit_tree_update **pending = userdata;
     struct accesskit_tree_update *result = *pending;
     *pending = NULL;
     return result;
 }
-bool chui_ak_unix_publish(uint64_t handle, uint64_t revision, struct accesskit_tree_update *update) {
+static bool submit(uint64_t handle, uint64_t revision, struct accesskit_tree_update *update, bool replay) {
     pthread_mutex_lock(&registry_mutex);
     struct unix_session *s = find_session(handle);
-    bool valid = s && update && revision > s->revision && !s->updating;
+    bool valid = s && update && revision && !s->updating && (replay ?
+        (revision == s->revision && s->refresh_requested) : revision > s->revision);
+    uint64_t generation = s ? s->activation_generation : 0;
     if (valid) s->updating = true;
     pthread_mutex_unlock(&registry_mutex);
     if (!valid) { if (update) accesskit_tree_update_free(update); return false; }
     /* The pinned adapter calls FnOnce synchronously and only when active/pending.
      * A finished, non-null update exists before entering this non-null factory. */
     accesskit_unix_adapter_update_if_active(s->native, take_update, &update);
+    bool consumed = !update;
     if (update) accesskit_tree_update_free(update); /* inactive: factory not called */
     pthread_mutex_lock(&registry_mutex);
     s->revision = revision;
     s->updating = false;
+    if (consumed && generation == s->activation_generation) s->refresh_requested = false;
     pthread_mutex_unlock(&registry_mutex);
     return true;
+}
+bool chui_ak_unix_publish(uint64_t handle, uint64_t revision, struct accesskit_tree_update *update) {
+    return submit(handle, revision, update, false);
+}
+bool chui_ak_unix_refresh(uint64_t handle, uint64_t revision, struct accesskit_tree_update *update) {
+    return submit(handle, revision, update, true);
 }
 bool chui_ak_unix_focus(uint64_t handle, bool focused) {
     pthread_mutex_lock(&registry_mutex);

@@ -10,6 +10,7 @@ struct accesskit_unix_adapter { bool active; };
 static struct accesskit_unix_adapter *last_native;
 static atomic_uint released_requests;
 static unsigned updates;
+static void (*during_update)(void);
 static struct accesskit_unix_adapter *fake_new(accesskit_activation_handler_callback activation,
     void *au, accesskit_action_handler_callback action, void *ac,
     accesskit_deactivation_handler_callback deactivation, void *du) {
@@ -21,6 +22,7 @@ static struct accesskit_unix_adapter *fake_new(accesskit_activation_handler_call
 static void fake_free(struct accesskit_unix_adapter *a) { free(a); }
 static void fake_update(struct accesskit_unix_adapter *a, accesskit_tree_update_factory f, void *data) {
     if (!a->active) return;
+    if (during_update) during_update();
     struct accesskit_tree_update *update = f(data);
     assert(update); ++updates; accesskit_tree_update_free(update);
 }
@@ -118,7 +120,46 @@ static void concurrent_close(void) {
     assert(!find_session(h));
     assert(atomic_load(&released_requests) >= 20000);
 }
+static uint64_t race_token;
+static void replace_activation(void) {
+    deactivate((void *)(uintptr_t)race_token);
+    assert(!activate((void *)(uintptr_t)race_token));
+}
+static void idle_activation_replay(void) {
+    assert(chui_ak_unix_abi_version() == 1);
+    uint64_t h = chui_ak_unix_new(); assert(h);
+    assert(!chui_ak_unix_needs_refresh(h));
+    assert(!chui_ak_unix_refresh(h, 1, tree()));
+    assert(chui_ak_unix_publish(h, 1, tree()));
+    assert(chui_ak_unix_needs_refresh(h));
+    /* Pending activation can race the native transition; an unused factory
+     * must not lose the activation request. No semantic revision inflation. */
+    assert(chui_ak_unix_refresh(h, 1, tree()));
+    assert(chui_ak_unix_needs_refresh(h));
+    last_native->active = true;
+    assert(!chui_ak_unix_refresh(h, 2, tree()));
+    assert(chui_ak_unix_refresh(h, 1, tree()));
+    assert(!chui_ak_unix_needs_refresh(h));
+    assert(!chui_ak_unix_refresh(h, 1, tree()));
+    assert(!chui_ak_unix_publish(h, 1, tree()));
+    assert(find_session(h)->revision == 1);
+    assert(!activate((void *)(uintptr_t)h));
+    race_token = h; during_update = replace_activation;
+    assert(chui_ak_unix_refresh(h, 1, tree()));
+    during_update = NULL;
+    assert(chui_ak_unix_needs_refresh(h)); /* do not acknowledge a newer activation */
+    assert(chui_ak_unix_refresh(h, 1, tree()));
+    assert(!chui_ak_unix_needs_refresh(h));
+    assert(!activate((void *)(uintptr_t)h));
+    deactivate((void *)(uintptr_t)h);
+    assert(!chui_ak_unix_needs_refresh(h));
+    chui_ak_unix_close(h);
+    assert(!activate((void *)(uintptr_t)h));
+    assert(!chui_ak_unix_needs_refresh(h));
+    assert(!chui_ak_unix_refresh(h, 1, tree()));
+}
 int main(void) {
     publication_and_ingress(); limits_deactivation_and_revoke(); concurrent_close();
-    puts("CANGHUI_ACCESSKIT_UNIX_TESTS_PASSED 3/3"); return 0;
+    idle_activation_replay();
+    puts("CANGHUI_ACCESSKIT_UNIX_TESTS_PASSED 4/4"); return 0;
 }
