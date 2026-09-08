@@ -10,6 +10,10 @@ import chui.core.{Button, Label, SemanticActionKind, SemanticActionRequest, Sema
     SharedFrameSurface, Theme, UiContext, VStack, StateStore, UiTaskScope, UiTaskSubmission,
     UiTaskSubmissionStatus, buildRoot}
 import chui.host.{NativeSurfaceBackend, NativeSurfaceDescriptor, NativeSurfaceEvent}
+import chui.controls.Modal
+import chui.text.{TextField, TextCompositionSnapshot}
+import chui.core.State
+import sdl.{TextCompositionEvent, TextCompositionPhase}
 import chui.scene3d.{FakeScene3DProvider, FakeScene3DViewHost, Scene3DFrameClock,
     Scene3DFrameSnapshot, Scene3DResource, Scene3DView, Scene3DViewController,
     Scene3DViewFrameSource, Scene3DViewInputEvent}
@@ -651,6 +655,52 @@ func desktopApplicationSyncRejectsUnknownAndClosedOwnersWithoutNativeCreation():
     @Expect(app.sessionCount(), 0)
     app.close()
     @Expect(!app.syncWindow(unknown))
+}
+
+@Test
+func managedWindowFocusLossReachesModalEditorWithoutCrossingWindows(): Unit {
+    let app = DesktopApplication()
+    let firstText = State<String>("A")
+    let secondText = State<String>("B")
+    let firstOpen = State<Bool>(true)
+    let secondOpen = State<Bool>(true)
+    let firstComposition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    let secondComposition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    try {
+        let first = app.openWindow(WindowSpec("IME route A", 300, 180, vsync: false, supersample: 1), {=>
+            Modal(firstOpen) {
+                TextField(firstText, key: "first-ime", composition: Some(firstComposition)).autofocus()
+            }
+        }, theme: Theme.light(reduceMotion: true))
+        let second = app.openWindow(WindowSpec("IME route B", 300, 180, vsync: false, supersample: 1), {=>
+            Modal(secondOpen) {
+                TextField(secondText, key: "second-ime", composition: Some(secondComposition)).autofocus()
+            }
+        }, theme: Theme.light(reduceMotion: true))
+        @Expect(app.windowState(first).getOrThrow().focusId, "first-ime")
+        @Expect(app.windowState(second).getOrThrow().focusId, "second-ime")
+        let preedit = UiEvent.TextComposition(TextCompositionEvent(TextCompositionPhase.Begin, text: "新"))
+        @Expect(app.route(SdlEventEnvelope(Some(first), preedit)).consumed)
+        @Expect(app.route(SdlEventEnvelope(Some(second), preedit)).consumed)
+        @Expect(firstComposition.value.active && secondComposition.value.active)
+        let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(false)))
+        @Expect(!firstComposition.value.active)
+        @Expect(firstComposition.value.preedit, "")
+        @Expect(secondComposition.value.active)
+        @Expect(firstText.value, "A")
+        @Expect(secondText.value, "B")
+        @Expect(firstOpen.value && secondOpen.value)
+        let generation = firstComposition.value.generation
+        let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(false)))
+        let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(true)))
+        @Expect(firstComposition.value.generation, generation)
+        @Expect(app.windowState(first).getOrThrow().focusId, "first-ime")
+        @Expect(app.route(SdlEventEnvelope(Some(second), UiEvent.TextInput("新"))).consumed)
+        @Expect(secondText.value, "B新")
+        @Expect(firstText.value, "A")
+    } finally {
+        app.close()
+    }
 }
 
 private class ManagedTaskNativeState {

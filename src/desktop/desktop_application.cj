@@ -749,7 +749,8 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             case UiEvent.WindowFocusChanged(false) =>
                 inputAnchor.invalidate()
                 let _ = ctx.cancelPointerInteraction(widget)
-                widget.handle(ctx, event)
+                // Modal content belongs to the overlay, not the placeholder in the tree.
+                if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
             case UiEvent.PointerCancelled => ctx.cancelPointerInteraction(widget)
             case UiEvent.WindowFocusChanged(true) =>
                 inputAnchor.invalidate()

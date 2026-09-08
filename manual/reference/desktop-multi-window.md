@@ -72,6 +72,10 @@ other windows. Preparation cancellation is cooperative, not forced termination.
 
 ## 路由规则
 
+窗口失焦事件先送到该窗口的浮层，再由未消费事件落到主树；不会改派给另一个窗口。
+因此 Modal 内的 TextField/TextArea 也能清理预编辑，保留返回窗口时的逻辑焦点。
+这不会回滚输入法在失焦前已经提交的文字；失焦提交策略仍由原生输入法决定。
+
 ### 请求尺寸与确认尺寸
 
 `setWindowSize(id, width, height)` 使用逻辑内容单位，返回 `true` 表示已经向托管
