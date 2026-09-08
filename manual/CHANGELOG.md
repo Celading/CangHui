@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- SDL 文本引擎在无系统字体的环境中可用现有应用／随包字体链初始化，
+  不再要求先安装系统字体；逐段字体优先级不变，无可用字体时仍明确失败。
+  Bootstrap SDL text from existing application/bundled faces on fontless hosts.
+
 - Linux 桌面入口使用稳定 `application.identifier` 作为启动名，保留显示名，
   避免名称中的 `%f` 被展开。安装脚本应以 identifier 命名可执行文件或启动器。
   Linux desktop launchers now use the validated identifier, independently of display names.

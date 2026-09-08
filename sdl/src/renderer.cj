@@ -1512,7 +1512,11 @@ private func createTextBackend(renderer: CPointer<Unit>): ?NativeTextRenderer {
         return None
     }
     try {
-        Some(NativeTextRenderer(renderer))
+        let fallbackPaths = ArrayList<String>()
+        for (face in Fonts.resolutionChain()) {
+            if (!face.path.isEmpty()) { fallbackPaths.add(face.path) }
+        }
+        Some(NativeTextRenderer(renderer, fallbackPaths.toArray()))
     } catch (error: NativeTextException) {
         throw CuiException("System UI font initialization failed: ${error.message}")
     }

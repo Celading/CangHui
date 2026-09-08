@@ -64,6 +64,12 @@ An application host with a different resource layout can call
 `Fonts.registerBundledFallback(path)` before creating a window, or set
 `CANGHUI_HARMONYOS_SANS` before process startup.
 
+The SDL text engine can also initialize from this packaged fallback or the selected
+application family when no supported system font is installed. Configure it before
+creating the first window. Existing system-default selection and per-run resolution
+order are unchanged. Missing or invalid font files still produce a startup error if
+no usable face remains; carrying a font does not guarantee every language's glyphs.
+
 ## Diagnostics
 
 `Renderer.fontResolution()` reports the first logical tier. On a live renderer,

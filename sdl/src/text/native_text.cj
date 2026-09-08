@@ -58,8 +58,8 @@ protected struct NativeTextColor {
 protected class NativeTextRenderer {
     private let engine: CPointer<Unit>
     private let systemPath: String
-    // The always-available platform UI font. Every text draw with no explicit face, and any face
-    // whose file cannot be opened, falls back to this.
+    // The startup UI font (system, or application-provided on a fontless host).
+    // Text with no explicit face, and any face that cannot be opened, falls back to this.
     private let defaultFace: FontFace
     // Successfully opened application font files, keyed by file path — opened lazily on first use.
     private let faces = HashMap<String, FontFace>()
@@ -80,16 +80,16 @@ protected class NativeTextRenderer {
     /**
      * Throws `NativeTextException` when SDL_ttf cannot initialize the system-font backend.
      */
-    public init(renderer: CPointer<Unit>) {
+    public init(renderer: CPointer<Unit>, fallbackPaths: Array<String>) {
         if (!unsafe { TTF_Init() }) {
             throw NativeTextException("TTF_Init failed: ${lastNativeError()}")
         }
-        let found = findSystemFontPath()
+        let found = findSystemFontPath(fallbackPaths)
         if (let Some(value) <- found) {
             this.systemPath = value
         } else {
             unsafe { TTF_Quit() }
-            throw NativeTextException("No supported system UI font was found: ${lastNativeError()}")
+            throw NativeTextException("No usable system or application startup font was found: ${lastNativeError()}")
         }
         let createdEngine = unsafe { TTF_CreateRendererTextEngine(renderer) }
         this.engine = createdEngine
@@ -726,8 +726,8 @@ private func fontCoverageIgnorable(codepoint: UInt32): Bool {
 
 // The first system-font candidate that SDL_ttf can open, probed by opening then immediately closing
 // it. The default face reopens it lazily per size; this only settles which path to use.
-private func findSystemFontPath(): ?String {
-    for (path in systemFontCandidates()) {
+private func findSystemFontPath(fallbackPaths: Array<String>): ?String {
+    for (path in startupFontCandidates(systemFontCandidates(), fallbackPaths)) {
         let cPath = unsafe { LibC.mallocCString(path) }
         try (pathResource = cPath.asResource()) {
             let pointer = unsafe { TTF_OpenFont(pathResource.value, DEFAULT_POINT_SIZE) }
@@ -738,6 +738,22 @@ private func findSystemFontPath(): ?String {
         }
     }
     None
+}
+
+// Preserve the established system default when available. A packaged/application face
+// can bootstrap SDL_ttf on a fontless host; ordinary per-run resolution stays unchanged.
+protected func startupFontCandidates(systemPaths: Array<String>, fallbackPaths: Array<String>): Array<String> {
+    let candidates = ArrayList<String>()
+    let seen = HashSet<String>()
+    for (paths in [systemPaths, fallbackPaths]) {
+        for (path in paths) {
+            if (!path.isEmpty() && !path.contains("\u{0}") && !seen.contains(path)) {
+                seen.add(path)
+                candidates.add(path)
+            }
+        }
+    }
+    candidates.toArray()
 }
 
 /**

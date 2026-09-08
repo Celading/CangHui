@@ -45,6 +45,11 @@ assets/fonts/HARMONYOS_SANS_SOURCE.txt
 
 资源布局不同的应用宿主可以在创建窗口前调用 `Fonts.registerBundledFallback(path)`，也可以在进程启动前设置 `CANGHUI_HARMONYOS_SANS`。
 
+当系统没有安装受支持的字体时，SDL 文本引擎也可以用上述随包字体或已选定的应用
+字体完成初始化。请在创建首个窗口前配置；已有系统默认字体选择和逐段解析顺序
+保持不变。如果所有候选文件都缺失或不可用，启动仍会明确报错。携带字体不代表
+覆盖所有语言的字形。
+
 ## 诊断
 
 `Renderer.fontResolution()` 报告逻辑上的首选层级。使用真实渲染器时，`Renderer.fontResolutionForText(text)` 还会应用字形覆盖检查，并报告该字符串实际选择的层级。组合回退链返回其主字体，而不是完整的逐字形字体映射。记录型渲染器会在文本 Draw IR 中写入 `resolvedFamily` 与 `fontSource`。
