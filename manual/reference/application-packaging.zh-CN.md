@@ -82,6 +82,31 @@ macOS 和 Windows 的产物命名保持不变。
 图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
 文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
 
+## Linux 运行包元数据预检
+
+框架与打包维护者可以检查独立组装的 Linux 运行包，而不执行其中的程序：
+
+```bash
+python3 scripts/audit-linux-runtime.py dist/MyApp --executable bin/main \
+  --system-dir /lib/aarch64-linux-gnu
+```
+
+该维护脚本需要 Python 3.11+ 和 GNU `readelf`，不负责组装运行包，也不改变当前
+Linux `cuic package build` 只生成输入树的边界。可执行文件须位于运行包内，
+动态库放在 `lib/`。显式指定目标系统库目录；检查不使用 `ldd` 或环境变量中的
+加载路径。审计宿主有合适的 `readelf` 时，也可以提供目标 sysroot 内的库目录。
+
+退出码 0 表示依赖元数据检查通过，1 表示发现待修复项，2 表示未能完成审计。
+报告包含文件哈希、架构、依赖闭包、不安全搜索路径和要求的 glibc 版本标签。
+目前仅支持小端 ELF64 AArch64/x86-64 与常规 glibc 加载器。系统基础库须来自
+显式系统目录，不能混入运行包；搜索路径须基于 `$ORIGIN` 且不越出包边界。
+
+数值 glibc 下限只是随包文件声明的要求，不是操作系统兼容证明；非数值标签也
+必须保留。系统符号版本、动态插件、许可、字体、实际启动、CPU／内核要求和
+桌面安装仍需独立验证。启动脚本可能让残留 SDK 绝对 RUNPATH 的程序正常运行，
+本检查仍会报告该路径，不会用“能启动”代替正确打包。JSON 可能含本地路径，
+发布前请审查。
+
 ## macOS 图标：安装身份与运行时更新
 
 Finder、Dock 和 About 的默认图标应随 `.app` 提供。在 `[assets]` 中将

@@ -64,6 +64,9 @@ echo "==> cuic install smoke"
 bash tools/cuic/scripts/test-install.sh
 
 # 7. Platform and security script tests.
+echo "==> Linux runtime metadata audit regression"
+python3 scripts/test-linux-runtime-audit.py
+
 echo "==> iOS provisioning profile decoder"
 bash scripts/test-ios-provisioning-profile.sh
 

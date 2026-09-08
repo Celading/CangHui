@@ -105,6 +105,38 @@ Icon bytes are never relabelled as another format. A real `.icns` or `.ico`
 uses the native destination name; PNG, SVG and other inputs keep their original
 extension and remain visible as a conversion or provider gate.
 
+## Linux runtime metadata preflight
+
+Framework/package maintainers can inspect a separately assembled Linux bundle
+without executing its contents:
+
+```bash
+python3 scripts/audit-linux-runtime.py dist/MyApp --executable bin/main \
+  --system-dir /lib/aarch64-linux-gnu
+```
+
+This maintenance script requires Python 3.11+ and GNU `readelf`. It does not
+assemble the bundle or change the current metadata-only Linux `cuic package build`
+route. Application binaries belong under the bundle root and shared libraries
+under `lib/`. Pass target-system library directories explicitly; the auditor does
+not use `ldd` or ambient loader search paths. A target sysroot can supply those
+directories when the auditing host has the appropriate `readelf`.
+
+Exit 0 means `dependency-metadata-ready`; 1 means findings require repair; 2
+means the audit could not finish. The report includes file hashes, architecture,
+dependency closure, unsafe search paths and required glibc version tags. Only
+little-endian ELF64 AArch64/x86-64 with the usual glibc interpreter is supported.
+System-baseline libraries must come from the explicit system directories, not
+be copied into the bundle. Search paths must use `$ORIGIN` and stay inside it.
+
+The numeric glibc floor is a lower bound from the carried files' requirements,
+not an OS compatibility certificate. Keep nonnumeric version tags as well.
+Symbol-version availability, dynamically loaded plugins, licenses, fonts, actual
+launch, CPU/kernel requirements and desktop installation require separate proof.
+For example, a wrapper can make a program with an SDK-absolute RUNPATH launch;
+this audit still reports the nonrelocatable path instead of treating launch as
+clean packaging. The JSON may contain local paths; review it before publishing.
+
 ## macOS icons: bundle identity and runtime updates
 
 Provide the default Finder, Dock and About icon through the `.app`. Set

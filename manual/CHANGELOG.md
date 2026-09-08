@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- 增加 Linux 运行包 ELF 元数据审计脚本和 CI 回归，检查显式依赖、架构、
+  glibc 要求与包内搜索路径；不执行载荷，也不将检查通过等同于运行／分发认证。
+  Add a non-executing Linux runtime dependency audit, separate from packaging and launch proof.
+
 - SDL 文本引擎在无系统字体的环境中可用现有应用／随包字体链初始化，
   不再要求先安装系统字体；逐段字体优先级不变，无可用字体时仍明确失败。
   Bootstrap SDL text from existing application/bundled faces on fontless hosts.
