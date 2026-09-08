@@ -186,6 +186,10 @@ public import chui.core.SemanticActionRequest
 public import chui.core.SemanticActionSource
 public import chui.core.SemanticInteractionPolicy
 public import chui.core.SemanticNode
+public import chui.core.SemanticNativeActionHandler
+public import chui.core.SemanticNativeBinding
+public import chui.core.SemanticNativeSession
+public import chui.core.SemanticNativeSnapshot
 public import chui.core.SemanticRuntime
 public import chui.core.SemanticRuntimeLimits
 public import chui.core.SemanticTreeDiff

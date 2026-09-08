@@ -55,6 +55,21 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
 - 自定义宿主可直接使用 `SemanticRuntime.beginFrame`、`record`、`commitFrame` / `cancelFrame`；
   运行中控件的自动收集只由框架受保护的帧作用域启用。
 
+## 原生适配器的组件身份
+
+`SemanticNativeSession` 为一个原生适配器实例管理一个窗口的节点 ID。UI 主线程把已提交的
+`SemanticTreeSnapshot` 交给 `publish`，原生回调读取 `snapshot()` 的独立副本。
+语义事实仍来自 `SemanticRuntime`；这一层只管理映射和生命周期，不实现平台读屏协议。
+
+- 原生 ID `1` 留给窗口根节点，其余 ID 在会话内递增。重排、改变父节点不会更换组件身份；
+  组件在已提交帧中消失后重新出现，或 role/widgetType 改变，会分配新 ID，避免旧动作误投。
+- `postAction` 通过现有 `UiOwnerQueue` 排队，并在主线程执行时重新检查帧修订号、组件身份、
+  动作声明和关闭状态。返回 ticket 不代表动作已生效，必须检查队列完成回执。
+- 处理器仍须调用窗口的 `dispatchSemanticAction`，由原来的来源策略和动作路由完成最终校验。
+  不要直接调用业务回调，也不要把旧动作改绑到最新修订号。
+- `publish` 和 `close` 由 UI 主线程调用；`close` 不可撤销。每个窗口/原生适配器实例使用独立
+  session，关闭适配器时必须关闭 session。它不会自动安装系统无障碍库或注销原生回调。
+
 ## 当前边界
 
 这套运行时提供跨宿主的语义事实和安全动作模型，不等于 macOS AX、Windows UIA、Linux
