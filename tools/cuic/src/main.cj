@@ -1142,8 +1142,7 @@ func printDesktopWindow(options: PrntOptions): Int64 {
         } else { None<String> }
         verifyCaptureWindowSelection(options.windowId, actualSelection)
     } finally {
-        if (!selectionReceipt.isEmpty()) { removeIfExists(selectionReceipt) }
-        context.releaseLease(lease)
+        cleanupCaptureSelection(context, selectionReceipt, lease)
     }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
     if (lowerPng) {
@@ -1169,6 +1168,14 @@ func verifyCaptureWindowSelection(expected: String, actual: ?String): Unit {
         case Some(value) where value == expected => ()
         case Some(value) => throw CuicError("capture window acknowledgment '${value}' does not match '${expected}'")
         case None => throw CuicError("application did not acknowledge capture window; runtime may not support --window")
+    }
+}
+
+func cleanupCaptureSelection(context: ExecutionContext, receipt: String, lease: String): Unit {
+    try {
+        if (!receipt.isEmpty()) { removeIfExists(receipt) }
+    } finally {
+        context.releaseLease(lease)
     }
 }
 

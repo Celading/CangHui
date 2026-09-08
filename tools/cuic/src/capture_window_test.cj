@@ -1,5 +1,7 @@
 package cuic
 
+import std.fs.{Directory, File, exists, removeIfExists}
+
 @Test
 func prntWindowUsesSemanticIdentityAndPreservesApplicationArguments(): Unit {
     let options = parsePrntOptions(["linux", ".", "--window", "settings", "--", "--window", "app-value"], 0)
@@ -36,5 +38,27 @@ func captureWindowRejectsUnsupportedAndWrongRuntimeAcknowledgments(): Unit {
         try { verifyCaptureWindowSelection("settings", actual) }
         catch (_: CuicError) { failed = true }
         @Expect(failed)
+    }
+}
+
+@Test
+func captureReceiptCleanupFailureStillReleasesTheBuildLease(): Unit {
+    let root = joinPath(currentDirectory(), "target/capture-lease-cleanup-fixture")
+    if (exists(root)) { throw CuicError("capture lease fixture already exists") }
+    let context = ExecutionContext(root, root, targetDir: joinPath(root, "build"), stagingRoot: root)
+    let receipt = joinPath(root, "receipt")
+    Directory.create(receipt, recursive: true)
+    let retained = joinPath(receipt, "must-not-delete.txt")
+    File.writeTo(retained, "retain malformed receipt contents".toArray())
+    let lease = context.acquireLease()
+    try {
+        var failed = false
+        try { cleanupCaptureSelection(context, receipt, lease) } catch (_: Exception) { failed = true }
+        @Expect(failed)
+        @Expect(!exists(lease))
+        @Expect(exists(retained))
+    } finally {
+        context.releaseLease(lease)
+        removeIfExists(retained); removeIfExists(receipt); removeIfExists(root)
     }
 }
