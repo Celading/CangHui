@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- SDK 预检区分 macOS 系统版本与 Linux glibc 要求，跨平台同提交不再误报 CUIC 配对；
+  兼容既有 macOS v1 清单。Linux v2 当前只支持预检，导出和执行链仍未开放。
+  Add target-aware SDK inspection and comparison without implying Linux SDK execution support.
+
 - Linux `cuic package build` 增加可选 `--runtime-manifest`，按哈希固定的显式清单
   携带原生库、启动字体和许可原文，并将复制后的 ELF 重定位到包内路径。
   默认仍只生成输入树，组装成功不代表已运行、可合法再分发或完成桌面安装。

@@ -31,7 +31,7 @@ func closeSourceSdkMacApp(framework: String, output: String, executableName: Str
     generated: ArrayList<String>, copied: ArrayList<String>): Unit {
     let manifest = joinPath(framework, SOURCE_SDK_MANIFEST)
     let fields = sourceSdkFields(readSourceSdkText(manifest, 16384), CUIC_BUILD_REVISION, VERSION,
-        hostPlatform() + "-" + hostArch())
+        sourceSdkHostTarget())
     let names = sourceSdkNativeNames(fields["nativeFiles"])
     let sdkRoot = canonicalPackagingPath(joinPath(framework, ".."), "source SDK root")
     verifySourceSdkFiles(sdkRoot, names)

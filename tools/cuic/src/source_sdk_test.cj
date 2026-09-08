@@ -1,5 +1,6 @@
 package cuic
 
+import std.collection.ArrayList
 import std.fs.{Directory, File, exists, removeIfExists}
 import std.process.executeWithOutput
 
@@ -192,30 +193,38 @@ func sourceSdkBuildUsesBoundedScanJobsWithoutReplacingCallerOptions(): Unit {
 
 @Test
 func sourceSdkChecksumsRejectCorruptionAndUnlistedSource(): Unit {
-    if (hostPlatform() != "macos") { return }
+    if (hostPlatform() != "macos" && hostPlatform() != "linux") { return }
+    let linux = hostPlatform() == "linux"
+    let target = sourceSdkHostTarget()
     let root = joinPath(currentDirectory(), "target/source-sdk-checksum-fixture")
     _ = removeIfExists(root, recursive: true)
     for (directory in ["framework/src", "bin", "native"]) {
         Directory.create(joinPath(root, directory), recursive: true)
     }
-    let names = ["libSDL3.dylib", "libSDL3_ttf.dylib"]
-    let files = ["framework/canghui-sdk.env", "framework/cjpm.toml", "framework/src/chui.cj",
-        "bin/cuic", "bin/cuic-debug", "native/libSDL3.dylib", "native/libSDL3_ttf.dylib"]
+    let names = if (linux) { ["libSDL3.so", "libSDL3.so.0", "libSDL3_ttf.so", "libSDL3_ttf.so.0"] }
+        else { ["libSDL3.dylib", "libSDL3_ttf.dylib"] }
+    let files = ArrayList<String>()
+    for (path in ["framework/canghui-sdk.env", "framework/cjpm.toml", "framework/src/chui.cj", "bin/cuic", "bin/cuic-debug"]) {
+        files.add(path)
+    }
+    for (name in names) { files.add("native/" + name) }
     var ledger = ""
     for (file in files) {
         File.writeTo(joinPath(root, file), "original".toArray())
-        let (code, bytes, _) = executeWithOutput("/usr/bin/shasum", ["-a", "256", joinPath(root, file)])
+        let checker = if (linux) { "/usr/bin/sha256sum" } else { "/usr/bin/shasum" }
+        let args = if (linux) { [joinPath(root, file)] } else { ["-a", "256", joinPath(root, file)] }
+        let (code, bytes, _) = executeWithOutput(checker, args)
         @Expect(code, 0)
         ledger += substringTo(String.fromUtf8(bytes), 64) + "  " + file + "\n"
     }
     File.writeTo(joinPath(root, "SHA256SUMS"), ledger.toArray())
-    verifySourceSdkFiles(root, names)
+    verifySourceSdkFiles(root, names, target: target)
     File.writeTo(joinPath(root, "framework/src/chui.cj"), "changed".toArray())
-    @Expect(sdkRejects({=> verifySourceSdkFiles(root, names) }))
+    @Expect(sdkRejects({=> verifySourceSdkFiles(root, names, target: target) }))
     File.writeTo(joinPath(root, "framework/src/chui.cj"), "original".toArray())
     File.writeTo(joinPath(root, "framework/src/unlisted.cj"), "unlisted".toArray())
-    @Expect(sdkRejects({=> verifySourceSdkFiles(root, names) }))
+    @Expect(sdkRejects({=> verifySourceSdkFiles(root, names, target: target) }))
     _ = removeIfExists(joinPath(root, "framework/src/unlisted.cj"))
     File.writeTo(joinPath(root, "SHA256SUMS"), (ledger + ledger).toArray())
-    @Expect(sdkRejects({=> verifySourceSdkFiles(root, names) }))
+    @Expect(sdkRejects({=> verifySourceSdkFiles(root, names, target: target) }))
 }

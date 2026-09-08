@@ -84,6 +84,24 @@ macOS arm64 / Cangjie 1.1.3 组合；编译器版本和目标必须精确匹配�
 不同 Git 提交返回 `different-commit-order-unknown`，不会假定候选提交一定更新。
 相同源码提交也可能重新构建，`samePayloadLedger` 单独比较文件账本。
 
+### Linux SDK 清单预检（开发中）
+
+同一 `sdk verify`／`sdk compare` 入口现在也能只读检查 Linux 的 v2 候选清单。
+v2 使用 `target=linux-arm64` 或 `linux-x86_64`，并以 `libc=glibc`、
+`minimumLibc=<版本>` 单独记录 C 库要求，不复用 macOS 的 `minimumOS`。
+库列表同时要求 SDL 的链接名和运行时加载名；载荷仍须是逐文件校验的普通文件，
+不接受符号链接或混入 glibc 系统基础库。Linux 宿主使用 `sha256sum` 校验账本。
+
+预检核对编译器的完整版本／目标，以及 `getconf GNU_LIBC_VERSION` 返回的 glibc
+版本；这不验证所有符号版本、CPU／内核要求或原生库能否加载。同一源码提交、同一
+CUIC 版本但目标平台不同，也不会显示为 `pairedWithThisCuic: true`。
+
+**当前 Linux 仅开放清单预检，不提供可消费的 Linux SDK 导出／构建链。**
+结果中的 `targetExecutionImplemented: false` 会明确区分这一点，尝试构建这种 SDK
+会被拒绝；不要手工修改清单来绕过它。上一节的 macOS v1 SDK 消费方式保持不变。
+目标实现、工具配对和宿主前置条件是三个独立检查；目标已实现不代表另外两项已通过。
+普通 Linux 源码工程仍可使用[显式运行包组装](application-packaging.zh-CN.md#用-cuic-组装-linux-运行包)。
+
 升级时保留旧 SDK，将候选放在新目录，用候选自带的 CUIC 在应用分支中构建、测试和回放，
 再修改应用依赖。失败时还原该分支的依赖与 lock，继续用旧 SDK；不要覆盖旧包或编辑它的缓存。
 命令不会修改依赖、下载新版或访问发布目录。目前没有官方更新索引可供自动发现“最新版本”，

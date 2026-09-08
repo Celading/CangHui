@@ -14,10 +14,11 @@ func readSourceSdkText(path: String, limit: Int64): String {
     String.fromUtf8(bytes)
 }
 
-func sourceSdkCompilerMatches(output: String): Bool {
+func sourceSdkCompilerMatches(output: String, target!: String = "macos-arm64"): Bool {
     let lines = trimAscii(output).split("\n")
-    lines.size == 2 && trimAscii(lines[0]) == "Cangjie Compiler: 1.1.3 (cjnative)" &&
-        trimAscii(lines[1]) == "Target: aarch64-apple-darwin"
+    let triple = sourceSdkTargetTriple(target)
+    !triple.isEmpty() && lines.size == 2 && trimAscii(lines[0]) == "Cangjie Compiler: 1.1.3 (cjnative)" &&
+        trimAscii(lines[1]) == "Target: " + triple
 }
 
 func sourceSdkVersionParts(value: String, minimumParts: Int64): Array<Int64> {

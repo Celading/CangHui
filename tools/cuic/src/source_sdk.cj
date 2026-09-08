@@ -21,6 +21,7 @@ func protectSourceSdkDestination(framework: String, destination: String): Unit {
 // Checksums detect corruption; they do not authenticate a publisher.
 func sourceSdkFields(text: String, revision: String, cliVersion: String, target: String,
     paired!: Bool = true): HashMap<String, String> {
+    if (paired && target.isEmpty()) { throw CuicError("paired SDK validation requires an exact host target") }
     if (text.size > 16384) { throw CuicError("source SDK manifest exceeds size limit") }
     let fields = HashMap<String, String>()
     for (raw in text.split("\n")) {
@@ -33,16 +34,16 @@ func sourceSdkFields(text: String, revision: String, cliVersion: String, target:
         if (fields.contains(key) || value.isEmpty()) { throw CuicError("duplicate or empty source SDK field") }
         if (key != "schema" && key != "sourceCommit" && key != "cuicVersion" && key != "frameworkVersion" &&
             key != "kitVersion" && key != "compilerVersion" && key != "target" && key != "minimumOS" &&
-            key != "nativeFiles") { throw CuicError("unknown source SDK field: " + key) }
+            key != "nativeFiles" && key != "libc" && key != "minimumLibc") {
+            throw CuicError("unknown source SDK field: " + key)
+        }
         fields[key] = value
     }
     for (key in ["schema", "sourceCommit", "cuicVersion", "frameworkVersion", "kitVersion",
-        "compilerVersion", "target", "minimumOS", "nativeFiles"]) {
+        "compilerVersion", "target", "nativeFiles"]) {
         if (!fields.contains(key)) { throw CuicError("missing source SDK field: " + key) }
     }
-    if (fields["schema"] != "canghui.source-sdk/v1" || fields["target"] != target || target != "macos-arm64") {
-        throw CuicError("source SDK schema/target mismatch; v1 currently supports macos-arm64 only")
-    }
+    validateSourceSdkPlatformFields(fields, target)
     if (!validGitCommitId(fields["sourceCommit"]) ||
         (paired && (fields["sourceCommit"] != revision || fields["cuicVersion"] != cliVersion))) {
         throw CuicError("source SDK/CUIC identity mismatch; use the CUIC shipped in this SDK")
@@ -51,11 +52,12 @@ func sourceSdkFields(text: String, revision: String, cliVersion: String, target:
     for (key in ["frameworkVersion", "kitVersion", "cuicVersion"]) {
         let _ = sourceSdkVersionParts(fields[key], 3)
     }
-    let _ = sourceSdkVersionParts(fields["minimumOS"], 1)
     fields
 }
 
-func sourceSdkNativeNames(value: String): Array<String> {
+func sourceSdkNativeNames(value: String, target!: String = "macos-arm64"): Array<String> {
+    if (sourceSdkLinuxTarget(target)) { return sourceSdkLinuxNativeNames(value) }
+    if (target != "macos-arm64") { throw CuicError("unsupported source SDK native target") }
     let names = value.split(",")
     let seen = HashSet<String>()
     for (name in names) {
@@ -74,7 +76,8 @@ func sourceSdkNativeNames(value: String): Array<String> {
     names
 }
 
-func verifySourceSdkFiles(root: String, nativeNames: Array<String>): Unit {
+func verifySourceSdkFiles(root: String, nativeNames: Array<String>, target!: String = "macos-arm64"): Unit {
+    if (target != "macos-arm64" && !sourceSdkLinuxTarget(target)) { throw CuicError("unsupported source SDK target") }
     let ledger = joinPath(root, "SHA256SUMS")
     requireFile(ledger, "source SDK checksum ledger is missing")
     let seen = HashSet<String>()
@@ -100,14 +103,22 @@ func verifySourceSdkFiles(root: String, nativeNames: Array<String>): Unit {
         seen.add(relative)
     }
     for (required in ["framework/" + SOURCE_SDK_MANIFEST, "framework/cjpm.toml", "framework/src/chui.cj",
-        "bin/cuic", "bin/cuic-debug", "native/libSDL3.dylib", "native/libSDL3_ttf.dylib"]) {
+        "bin/cuic", "bin/cuic-debug"]) {
         if (!seen.contains(required)) { throw CuicError("source SDK checksum coverage missing: " + required) }
+    }
+    let requiredNative = if (sourceSdkLinuxTarget(target)) {
+        ["libSDL3.so", "libSDL3.so.0", "libSDL3_ttf.so", "libSDL3_ttf.so.0"]
+    } else { ["libSDL3.dylib", "libSDL3_ttf.dylib"] }
+    for (name in requiredNative) {
+        if (!seen.contains("native/" + name)) { throw CuicError("source SDK required native checksum coverage missing") }
     }
     for (name in nativeNames) {
         if (!seen.contains("native/" + name)) { throw CuicError("source SDK native checksum coverage missing") }
     }
     verifySourceSdkCoverage(root, seen)
-    let (code, _, _) = executeWithOutput("/usr/bin/shasum", ["-a", "256", "-c", "SHA256SUMS"],
+    let checker = if (hostPlatform() == "linux") { "/usr/bin/sha256sum" } else { "/usr/bin/shasum" }
+    let args = if (hostPlatform() == "linux") { ["-c", "SHA256SUMS"] } else { ["-a", "256", "-c", "SHA256SUMS"] }
+    let (code, _, _) = executeWithOutput(checker, args,
         workingDirectory: Path(root))
     if (code != 0) { throw CuicError("source SDK checksum verification failed") }
 }
@@ -138,7 +149,8 @@ func bootstrapSourceSdk(framework: String, staging: String): Bool {
     if (!exists(manifest)) { return false }
     let root = canonicalPackagingPath(joinPath(framework, ".."), "source SDK root")
     let fields = sourceSdkFields(readSourceSdkText(manifest, 16384), CUIC_BUILD_REVISION,
-        VERSION, hostPlatform() + "-" + hostArch())
+        VERSION, sourceSdkHostTarget())
+    requireSourceSdkExecutionTarget(fields["target"])
     let names = sourceSdkNativeNames(fields["nativeFiles"])
     let (compilerCode, compilerOut, _) = executeWithOutput("cjc", ["--version"])
     if (compilerCode != 0 || !sourceSdkCompilerMatches(String.fromUtf8(compilerOut))) {
