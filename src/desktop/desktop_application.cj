@@ -843,6 +843,7 @@ public class DesktopApplication <: Resource {
 
     public init(applicationShell!: ?ApplicationShell = None) {
         this.applicationShell = applicationShell
+        applyDesktopImeDefault()
         runtime = SdlRuntime()
         windows = WindowRegistry()
     }

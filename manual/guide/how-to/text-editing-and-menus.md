@@ -80,6 +80,22 @@ EventHandler(onEvent: {event =>
 
 接着测试输入法组合、Windows CRLF 粘贴和只读模式复制。若外部加载新文档并接管光标状态，光标与选区锚点要一起更新。打开菜单后按 Tab，应关闭菜单并把遍历交还全局焦点，而不是把用户困在下拉层。
 
+## 原生输入法与组合文本
+
+`DesktopApp` 和 `DesktopApplication` 在初始化 SDL 前，默认声明框架能绘制组合文本
+（`SDL_IME_IMPLEMENTED_UI=composition`）。`TextField` / `TextArea` 接收预编辑事件，
+选词提交前不应把预编辑内容写入文档。候选词列表仍由系统输入法负责；框架不默认声明
+`candidates` 能力。
+
+已有 SDL hint 或同名环境变量会被保留，包括显式的空值、`none` 和 `0`。
+`DesktopApp` 的 `hints` 参数也可以覆盖此默认值。SDL hints 是进程级设置，不是每个窗口
+独立的输入法开关；需要覆盖时应在首个窗口／SDL runtime 创建之前完成。
+
+Linux 主机还需要可用的输入法服务及带相应支持的 SDL。`cuic prntx` 的文字注入只能验证
+控件行为，不能证明原生输入法接线。验收时应使用真实输入法检查预编辑、提交、Esc 撤销、
+焦点切换和不同缩放比例，再用 `cuic prnt` 检查框架像素。系统候选窗口的位置与读屏效果
+须另行验证。
+
 ## 常见错误
 
 - 以为菜单的快捷键文字会自动注册事件。
