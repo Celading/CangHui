@@ -63,9 +63,10 @@ macOS 默认输出到 `dist/<Name>.app`，Windows 与 Linux 默认输出到
 在 macOS 宿主上，macOS 路由会先执行正常的锁定依赖 `cuic build`，再把真实
 可执行文件复制到 `Contents/MacOS`，同时生成 `Info.plist`、`PkgInfo`、资源树和
 逻辑图标角色文件。receipt 位于 `Contents/Resources`，避免下游签名时在 `.app`
-根目录出现未封装文件。receipt 会明确记录原生运行时依赖仍由宿主管理，且该无签名
-bundle 尚未完成启动验收，同时记录 release trim/strip、发布安全审计、发布者签名
-与公证均未验证。
+根目录出现未封装文件。使用配对源码 SDK 时，打包会携带 SDK 的原生依赖、字体与
+许可证；普通源码工程的原生运行时依赖仍由宿主管理。receipt 会区分这两种情况，
+并记录该无签名 bundle 尚未完成启动验收，release trim/strip、发布安全审计、
+发布者签名与公证均未验证。携带依赖不等于已在另一台机器通过验收。
 
 Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪装成已经跨平台编译：
 
@@ -74,6 +75,31 @@ Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪�
 
 图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
 文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
+
+## macOS 图标：安装身份与运行时更新
+
+Finder、Dock 和 About 的默认图标应随 `.app` 提供。在 `[assets]` 中将
+`application-icon` 指向真实 `.icns`，然后运行 `cuic package build macos .`。
+直接分发裸可执行文件不能替代 bundle 身份；PNG 输入也不会自动转换成 ICNS。
+
+运行时可以使用已有的 `DesktopApp.setWindowIcon`。在应用 UI 线程执行，例如在
+按钮回调中调用；成功返回后可以释放输入 Surface：
+
+```cangjie
+let icon = SdlSurface.create(64, 64)
+try {
+    icon.clear(Color.rgb(40, 130, 210))
+    app.setWindowIcon(icon)
+} finally {
+    icon.close()
+}
+```
+
+macOS 的窗口图标更新作用于应用图标，不是每个窗口独立的标题栏图标。需要恢复时，
+用独立保留的原始图像数据重新设置；不要把原生 `NSImage` 对象地址当作不可变快照。
+系统可以原地更新对象并重新采样尺寸，验收应检查图像内容，而非对象地址或固定像素
+尺寸。这项能力不包含 Dock 菜单、徽标或通知。原生图标须通过系统 API 或系统界面
+验收，`cuic prnt` 的应用内容截图不包含 Dock。
 
 ## 平台边界
 

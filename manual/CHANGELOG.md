@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- 应用打包指南区分源码 SDK 携带依赖与普通源码工程，并补充 macOS bundle 图标、
+  现有 `setWindowIcon` 用法及恢复时保留独立图像数据的说明；未新增图标 API。
+
 - macOS CI 与 full-build 指引只使用准备好的 SDL 动态库目录，避免宽泛 Homebrew
   搜索路径覆盖系统图像库、导致 CoreText 彩色 emoji 绘制崩溃；不修改全局环境。
 

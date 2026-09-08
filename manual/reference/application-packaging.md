@@ -77,10 +77,13 @@ On a macOS host, the macOS route first runs the normal locked `cuic build`
 pipeline and copies the resulting executable into `Contents/MacOS`. The bundle
 also contains `Info.plist`, `PkgInfo`, declared resources and logical icon-role
 assets. Keeping the receipt under `Contents/Resources` avoids adding unsealed
-files to the `.app` root when a downstream release gate signs the bundle. The receipt deliberately records that native runtime dependencies are
-still host-managed and that the unsigned bundle has not been launched. It also
-records that release trim/strip, the release security audit and publisher
-signing/notarization have not been verified.
+files to the `.app` root when a downstream release gate signs the bundle. A paired
+source SDK contributes its native dependencies, fonts and licenses; ordinary
+source projects still have host-managed native runtime dependencies. The receipt
+distinguishes these cases and records that the unsigned bundle has not been
+launched. Release trim/strip, the release security audit and publisher
+signing/notarization remain unverified. Carried dependencies alone do not prove
+that the app works on another machine.
 
 Windows and Linux routes are cross-host-safe input generators. They do not
 pretend to cross-compile an executable:
@@ -93,6 +96,35 @@ pretend to cross-compile an executable:
 Icon bytes are never relabelled as another format. A real `.icns` or `.ico`
 uses the native destination name; PNG, SVG and other inputs keep their original
 extension and remain visible as a conversion or provider gate.
+
+## macOS icons: bundle identity and runtime updates
+
+Provide the default Finder, Dock and About icon through the `.app`. Set
+`[assets].application-icon` to a real `.icns` and run `cuic package build macos .`.
+A bare executable is not a replacement for bundle identity, and PNG inputs are
+not automatically converted to ICNS.
+
+Use the existing `DesktopApp.setWindowIcon` for runtime updates on the UI thread,
+for example inside a button callback. After a successful call, the input Surface
+can be released:
+
+```cangjie
+let icon = SdlSurface.create(64, 64)
+try {
+    icon.clear(Color.rgb(40, 130, 210))
+    app.setWindowIcon(icon)
+} finally {
+    icon.close()
+}
+```
+
+On macOS this updates the application icon, not an independent title-bar icon for
+each window. To restore it, supply independently retained original image data;
+do not treat a native `NSImage` address as an immutable snapshot. The system may
+update that object in place and resample its dimensions. Verify image content,
+not pointer replacement or a fixed pixel size. This does not provide Dock menus,
+badges or notifications. Verify native icons through system APIs or the system
+UI; `cuic prnt` captures application content, not the Dock.
 
 ## Platform boundary
 
