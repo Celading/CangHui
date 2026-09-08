@@ -1,9 +1,10 @@
 # AccessKit semantic tree bridge
 
 This optional C bridge projects CangHui semantic snapshots into AccessKit C
-0.23.0 trees. It does not register a platform adapter, load a library, start a
-listener, or enable a debug control channel. It is not yet a complete native
-accessibility provider or part of the default SDK dependency closure.
+0.23.0 trees. The separate `unix_adapter` provides optional Linux native adapter
+registration and a bounded action inbox. Neither loads libraries nor enables a
+debug control channel. A managed-language/window-lifecycle integration is still
+required; this is not a complete provider or part of the default SDK closure.
 
 Supply the upstream source at commit
 `0824c4a1e3a4d13ce5582df20e394fba49485a15` and a matching native library:
@@ -13,7 +14,7 @@ bash platform/accesskit/test.sh /path/to/accesskit-c /path/to/native /tmp/chui-a
 ```
 
 The Linux test builds the shared bridge plus an AddressSanitizer/UndefinedBehaviorSanitizer
-test executable. It uses the supplied C header, not copied enum values or
+test executables (tree validation and adapter lifecycle). It uses the supplied C header, not copied enum values or
 handwritten upstream structs. This does not verify the supplied library's publisher,
 minimum OS, transitive licenses or deployment closure. AccessKit source and binary
 are not vendored by this directory. See the upstream MIT/Apache-2.0 and included
@@ -48,9 +49,52 @@ Focus, Activate, Increment and Decrement map to native actions. AccessKit 0.23 h
 no generic Dismiss equivalent; it is not mislabeled as Collapse or HideTooltip.
 
 Rectangle conversion to the native adapter coordinate space remains the host's
-responsibility. This bridge does not supply DPI transforms, numeric ranges, text
-runs/selection geometry, IME, reader speech or window registration/teardown.
-Those are separate integration requirements, not implied by a valid tree.
+responsibility. Tree projection does not supply DPI transforms, numeric ranges,
+text runs/selection geometry, IME or reader speech. Those remain separate
+integration requirements, not implied by a valid tree.
+
+## Optional Linux adapter lifecycle
+
+`unix_adapter.h` exposes `new`, `publish`, `focus`, `bounds`, `poll`, `dropped`
+and `close` through opaque integer handles. Serialize all calls for a handle on
+its UI owner; these public calls are not a concurrently callable owner API.
+
+1. Create one adapter per window. Zero means allocation/capacity failure. There
+   are at most 64 live adapters per loaded bridge; handles are never recycled.
+2. Build a validated full tree before `publish`. The call always consumes that
+   update, including invalid-handle/revision rejection or inactive native state.
+   Revisions must increase. A null or rejected tree never reaches the upstream
+   non-null update factory. Activation requests defer to the next owner publish;
+   they never enter managed code or build a tree on a foreign thread.
+3. Poll native actions before advancing the next semantic frame. Each action is
+   copied with the last submitted revision at callback ingress. Forward it through
+   `SemanticNativeSession.postAction`, the existing UI owner queue and final
+   `SemanticRuntime` validation. This inbox is not a second UI dispatcher, and
+   AT-SPI requests do not carry the reader client's observed tree revision.
+4. The inbox holds 128 actions per adapter. Unsupported/root-target/foreign-tree/prepublication,
+   during-publication and overflow requests are dropped; `dropped` is a saturating
+   count, not an application callback. Deactivation clears pending inbox entries.
+5. Forward actual window focus and, under X11, native outer/inner window bounds.
+   Do not invent screen positions on Wayland. The adapter does not convert DPI.
+6. Close the semantic session/owner queue, then close the native handle on its
+   owner. `close` is idempotent and revokes pending/late callback tokens before
+   calling the upstream asynchronous free. Removed handles cannot target newly
+   opened windows. Native requests are freed even when their token is revoked.
+
+Keep both bridge and AccessKit libraries loaded until process exit. AccessKit
+Unix 0.23.0 destruction sends an asynchronous removal message; it does not join
+all callback threads. Token revocation protects state memory, but cannot protect
+callback machine code after library unload. No `dlclose` safety is promised.
+Tests include deterministic lifecycle doubles and concurrent late-callback stress;
+native AT-SPI acceptance is a separate integration check, not inferred from them.
+
+Integration limitation: semantic revisions currently advance each frame. An
+action received after the host drains but before it publishes the next frame can
+arrive at `SemanticNativeSession` with an older revision and be rejected, even
+when the visible content did not change. A successful native dispatch receipt
+does not prove application execution. The host integration must resolve this
+timing gap without substituting the newest revision blindly or reusing removed
+identities; the current source is not an input-reliability completion claim.
 
 ## Upstream AT-SPI state correction
 

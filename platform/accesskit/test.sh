@@ -14,10 +14,15 @@ test -z "$(git -C "$upstream_source" status --porcelain --untracked-files=no)"
 mkdir -p "$test_output"
 test_output="$(cd "$test_output" && pwd)"
 cc -std=c11 -Wall -Wextra -Werror -fPIC -shared -fvisibility=hidden \
-  -I"$upstream_source/include" "$bridge_source/semantic_bridge.c" \
+  -I"$upstream_source/include" "$bridge_source/semantic_bridge.c" "$bridge_source/unix_adapter.c" -pthread \
   -L"$native_directory" -laccesskit -o "$test_output/libchui_accesskit_bridge.so"
 cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -g \
   -I"$upstream_source/include" "$bridge_source/semantic_bridge_test.c" \
   -L"$native_directory" -laccesskit -Wl,-rpath,"$native_directory" \
   -o "$test_output/semantic_bridge_test"
 "$test_output/semantic_bridge_test"
+cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined -g -pthread \
+  -I"$upstream_source/include" "$bridge_source/unix_adapter_test.c" "$bridge_source/semantic_bridge.c" \
+  -L"$native_directory" -laccesskit -Wl,-rpath,"$native_directory" \
+  -o "$test_output/unix_adapter_test"
+"$test_output/unix_adapter_test"
