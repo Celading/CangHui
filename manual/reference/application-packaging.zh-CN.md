@@ -84,6 +84,15 @@ macOS 和 Windows 的产物命名保持不变。
 
 ## 用 CUIC 组装 Linux 运行包
 
+Linux `application-icon` 接受 PNG 或 SVG。SVG 原样放入 `scalable/apps`；
+正方形 PNG 按 IHDR 尺寸放入对应 hicolor 目录，支持
+16、22、24、32、36、48、64、72、96、128、192、256、512px。
+CUIC 不自动缩放或转换图标；ICO、ICNS、JPEG、非正方形或其他尺寸请先导出为
+上述 PNG，或使用 SVG。PNG 头部检查不是完整解码验证，仍需在目标桌面验收。
+安装器应把 `share/icons` 合入目标数据目录，保留系统的 `hicolor/index.theme`，
+不要用应用私有索引覆盖它。SVG 依赖桌面的 SVG 解码支持，PNG 更适合广泛分发。
+目录与格式约定参见 [freedesktop 图标主题规范](https://specifications.freedesktop.org/icon-theme/latest/)。
+
 使用已配对的本地 Linux 源码 SDK 时，`cuic package build linux` 自动校验 SDK 并从
 其原生清单选取应用需要的依赖、字体及许可记录，无需另传 `--runtime-manifest`。
 其他源码工程保持原来的输入树默认行为；以下显式清单可用于自定义运行依赖。

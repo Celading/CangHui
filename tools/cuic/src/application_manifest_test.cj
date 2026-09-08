@@ -172,6 +172,8 @@ func packagingPlanIsDeterministicAndKeepsNativeGatesVisible(): Unit {
     @Expect(first.contains("native-provider-pending"))
     @Expect(first.contains("status-item-icon-not-declared"))
     @Expect(first.contains("notification-icon-not-declared"))
+    let linux = renderApplicationPackagingPlanJson(applicationPackagingPlanForManifest("/work/demo", "linux", manifest))
+    @Expect(linux.contains("dist/Demo/share/icons/hicolor"))
 }
 
 @Test
@@ -216,7 +218,8 @@ func packagingArtifactGeneratesWindowsAndLinuxInputTreesWithoutFakeExecutable():
     let fixture = joinPath(currentDirectory(), "target/application-packaging-platform-fixture")
     _ = removeIfExists(fixture, recursive: true)
     if (!exists(joinPath(fixture, "assets"))) { Directory.create(joinPath(fixture, "assets"), recursive: true) }
-    File.writeTo(joinPath(fixture, "assets/app.png"), [UInt8(4), UInt8(5), UInt8(6)])
+    // Metadata-only fixture: PNG signature/IHDR dimensions, not a decodable image.
+    File.writeTo(joinPath(fixture, "assets/app.png"), linuxTestPngHeader(128, 128))
     File.writeTo(joinPath(fixture, "assets/data.txt"), "data".toArray())
     let manifest = parseApplicationManifest(
         "[application]\nname = \"Demo\"\nidentifier = \"dev.example.demo\"\nversion = \"1.2.3\"\n" +

@@ -516,7 +516,7 @@ func applicationPackagingPlanForManifest(project: String, platform: String,
         unsupported.add("code-signing-and-msix-publication")
     } else {
         generated.add("dist/${manifest.name}/${manifest.name}.desktop")
-        generated.add("dist/${manifest.name}/icons/hicolor")
+        generated.add("dist/${manifest.name}/share/icons/hicolor")
         generated.add("dist/${manifest.name}/share")
         generated.add("dist/${manifest.name}/canghui-packaging-receipt.json")
         providers.add("desktop-entry=plan-ready")

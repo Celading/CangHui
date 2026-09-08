@@ -413,16 +413,16 @@ func windowsVersionTuple(value: String): String {
 
 func writeLinuxApplicationArtifact(project: String, manifest: ApplicationManifest, output: String,
     generated: ArrayList<String>, copied: ArrayList<String>): Unit {
+    let iconDestination = if (manifest.applicationIcon.isEmpty()) { "" } else {
+        linuxApplicationIconDestination(joinPath(project, manifest.applicationIcon), manifest.identifier)
+    }
     let desktop = linuxDesktopEntry(manifest)
     writePackagingFile(output, "${manifest.name}.desktop", desktop, generated)
     writePackagingFile(output, "share/applications/${manifest.identifier}.desktop", desktop, generated)
     if (!manifest.applicationIcon.isEmpty()) {
         let source = joinPath(project, manifest.applicationIcon)
-        if (packagingDirectoryExists(source)) { throw CuicError("application icon must be a file: ${manifest.applicationIcon}") }
-        let extension = packagingExtension(manifest.applicationIcon)
-        let destination = "share/icons/hicolor/128x128/apps/${manifest.identifier}${if (extension.isEmpty()) { "" } else { ".${extension}" }}"
-        copyPackagingFile(source, joinPath(output, destination))
-        copied.add("${manifest.applicationIcon} -> ${destination}")
+        copyPackagingFile(source, joinPath(output, iconDestination))
+        copied.add("${manifest.applicationIcon} -> ${iconDestination}")
     }
     copyRoleAsset(project, manifest.statusItemIcon, joinPath(output, "share/${manifest.identifier}/icons"),
         "status-item-icon", copied, "share/${manifest.identifier}/icons")
