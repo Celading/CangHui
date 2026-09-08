@@ -519,6 +519,7 @@ public import chui.system.ApplicationResources
 public import chui.system.ApplicationManifest
 public import chui.system.ApplicationShell
 public import chui.system.SystemShellRuntimeProvider
+public import chui.system.SystemShellBadgeProvider
 public import chui.system.desktopApplicationShell
 public import chui.system.HeadlessSystemShellProvider
 public import chui.system.HeadlessApplicationIdentityProvider

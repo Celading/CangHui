@@ -347,13 +347,14 @@ public interface SystemShellProvider {
 }
 
 /** Deterministic provider used by kMode, headless tests and unsupported hosts. */
-public class HeadlessSystemShellProvider <: SystemShellProvider {
+public class HeadlessSystemShellProvider <: SystemShellProvider & SystemShellBadgeProvider {
     private let registeredActions = ArrayList<AppAction>()
     private let notifications = ArrayList<SystemNotification>()
     private let settingKeys = ArrayList<String>()
     private let settingValues = ArrayList<AppSettingValue>()
     private let deepLinks = ArrayList<AppDeepLinkRoute>()
     private var applicationMenu: ?AppMenuBar = None
+    private var badgeLabel: ?String = None
     private let notificationPermissionState: NotificationPermissionState
 
     public init(notificationPermission!: NotificationPermissionState = NotificationPermissionState.NotRequired) {
@@ -452,6 +453,13 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
     }
 
     public func actionCount(): Int64 { registeredActions.size }
+    public func setBadge(label: ?String): SystemShellResult {
+        validateApplicationBadge(label)
+        badgeLabel = label
+        if (let Some(text) <- label) { if (text.isEmpty()) { badgeLabel = None } }
+        SystemShellResult(SystemShellResultStatus.Queued, message: "badge captured by headless provider")
+    }
+    public func capturedBadge(): ?String { badgeLabel }
     public func notificationCount(): Int64 { notifications.size }
     public func deepLinkCount(): Int64 { deepLinks.size }
     public func applicationMenuCount(): Int64 {
@@ -492,6 +500,16 @@ public class ApplicationShell {
 
     public func capability(surface: SystemSurface): SystemSurfaceState {
         provider.state(surface)
+    }
+
+    /** Application-wide badge, not a per-window widget. Native updates require the UI owner thread. */
+    public func setBadge(label: ?String): SystemShellResult {
+        if (runtime.isClosed()) {
+            return SystemShellResult(SystemShellResultStatus.Failed, message: "application shell is closed")
+        }
+        validateApplicationBadge(label)
+        if (let Some(badge) <- (provider as SystemShellBadgeProvider)) { return badge.setBadge(label) }
+        SystemShellResult(SystemShellResultStatus.Unsupported, message: "provider does not support application badges")
     }
 
     public func registerAction(action: AppAction, handler: AppActionHandler): SystemShellResult {

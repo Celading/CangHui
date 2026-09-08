@@ -19,6 +19,8 @@ internal class ApplicationShellRuntime {
 
     init(provider: SystemShellProvider) { this.provider = provider }
 
+    func isClosed(): Bool { closed }
+
     func attach(manifest: ApplicationManifest): SystemShellResult {
         if (closed) { return SystemShellResult(SystemShellResultStatus.Failed, message: "application shell is closed") }
         if (attached) { return SystemShellResult(SystemShellResultStatus.Applied, message: "application shell already attached") }

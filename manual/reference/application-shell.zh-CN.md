@@ -49,10 +49,28 @@ Shell。其 `pump()` / `run()` 负责挂载和派发；单独调用 `pumpOne()` 
 恢复原有菜单。整个过程不替换 SDL 的 application delegate。原生队列最多容纳
 256 个动作，溢出明确失败，不提供远程控制入口。
 
-本 Provider 只有 `ApplicationMenu` 报告 native；设置仍是内存 fallback。应用图标、
-Dock 动作和徽标、状态项、通知以及系统 Deep Link 注册尚未接通。系统命令标签暂为
+本 Provider 的 `ApplicationMenu` 和 `Badge` 报告 native；设置仍是内存 fallback。应用图标、
+Dock 动作、状态项、通知以及系统 Deep Link 注册尚未通过此 Provider 接通。系统命令标签暂为
 英文；其他操作系统下此工厂选择 Headless Provider。图标打包、签名和分发与原生菜单
 是分别验收的能力，见[应用打包](application-packaging.zh-CN.md)。
+
+## 应用徽标
+
+```cangjie
+shell.setBadge(Some("3")) // macOS Dock 上的系统徽标；可在 attach 前排队
+shell.setBadge(Some(""))  // 清除；类型明确的 ?String 空值同样可清除
+```
+
+这是应用级状态，多窗口共用一个徽标，不是界面内的 `Badge` 组件，也不是 Dock
+右键菜单或通知。字体、颜色和长文本裁切由系统决定。挂载前返回 queued，挂载后
+在原生主线程设置并返回 applied；卸载后返回 failed。NUL 文本在修改前拒绝。
+未调用 `setBadge` 的 Shell 不改变原徽标。首次设置时保存原值，卸载时只有当前值
+仍等于最后一次设置值才恢复；其他宿主设置了不同值时保留它。相同文本的外部写入
+无法区分所有者。实现不替换 Dock 图标、content view 或 SDL delegate。
+
+旧 Provider 无需实现新方法：`SystemShellBadgeProvider` 是可选 SPI，缺少时返回
+unsupported。Headless Provider 返回 queued，`capturedBadge()` 只供确定性检查，
+不代表操作系统显示。其他平台尚未提供本能力的原生实现。
 
 ## 稳定 Action 标识
 

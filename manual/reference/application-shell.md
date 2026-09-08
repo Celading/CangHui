@@ -58,12 +58,34 @@ Detachment restores the previous menus if they are still owned by this provider;
 it does not replace the SDL application delegate. The native queue is bounded to
 256 actions and fails explicitly on overflow; there is no remote control endpoint.
 
-Only `ApplicationMenu` reports native support in this provider. Settings remain
-an in-memory fallback. App icons, Dock actions/badges, status items, notifications
+`ApplicationMenu` and `Badge` report native support in this provider. Settings remain
+an in-memory fallback. App icons, Dock actions, status items, notifications
 and OS deep-link registration are not implemented here. Menu labels currently
 use English system commands. On other operating systems this factory selects the
 headless provider. Bundled icons, signing and distribution remain separate from
 native menu support; see [application packaging](application-packaging.md).
+
+## Application badges
+
+```cangjie
+shell.setBadge(Some("3")) // Native macOS Dock label; may be queued before attach
+shell.setBadge(Some(""))  // Clear; a typed empty Option<String> also clears
+```
+
+This is application-wide state shared by all windows, not the in-window `Badge`
+widget, a Dock menu or a notification. The OS determines typography, color and
+long-label clipping. Calls return queued before attachment, applied on the native
+main thread after attachment, and failed after detachment. NUL input is rejected
+before mutation. A shell that never sets a badge leaves the existing label alone.
+The first write saves the previous label; detach restores it only if the current
+label still equals this provider's last write. A different external label is
+preserved; an external write of identical text cannot be distinguished. Neither
+the Dock icon/content view nor the SDL application delegate is replaced.
+
+`SystemShellBadgeProvider` is an optional SPI: existing providers remain source
+compatible and return unsupported without it. The headless provider returns
+queued and exposes `capturedBadge()` for deterministic checks, not OS display
+proof. Other platforms do not yet have a native badge implementation here.
 
 ## Stable Action Identity
 

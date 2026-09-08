@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- `ApplicationShell.setBadge` 通过可选 Provider 接到 macOS Dock，支持挂载前排队、
+  清除与卸载恢复；保留不同的外部新值，不修改图标或 SDL delegate。Headless 仅记录，
+  旧 Provider 无需新增必选方法。Add optional native Dock badges with lifecycle-safe restoration.
+
 - `DesktopApplication.rememberTaskScope` 为每个托管窗口绑定独立任务队列；视图卸载、
   构建回滚和窗口关闭取消旧结果，提交回调关闭窗口后不再绘制已释放的窗口。
   Managed windows now reuse view-owned task scopes with isolated queues and safe callback-driven closure.

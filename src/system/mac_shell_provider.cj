@@ -58,10 +58,10 @@ internal func macShellValidateCallback(receiver: ShellRef, _: ShellRef, sender: 
     false
 }
 
-/** Native menu/About provider; notification, Dock actions and persistence are
+/** Native menu/About/badge provider; notification, Dock actions and persistence are
  * intentionally unsupported until their independent native providers exist. */
 @When[os == "macOS"]
-public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntimeProvider {
+public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntimeProvider & SystemShellBadgeProvider {
     private let actions = ArrayList<AppAction>()
     private let boundActionIds = ArrayList<String>()
     private let fallback = HeadlessSystemShellProvider()
@@ -80,12 +80,16 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
     private var savedSurfaces = false
     private var closed = false
     private let actionItems = ArrayList<ShellRef>()
+    private let badge = MacShellBadge()
+    private var requestedBadge: ?String = None
+    private var hasRequestedBadge = false
 
     public init() {}
 
     public func state(surface: SystemSurface): SystemSurfaceState {
         match (surface) {
             case SystemSurface.ApplicationMenu => SystemSurfaceState.Native
+            case SystemSurface.Badge => SystemSurfaceState.Native
             case SystemSurface.Settings => SystemSurfaceState.Fallback
             case _ => SystemSurfaceState.Unsupported
         }
@@ -152,6 +156,7 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             }
             rebuildMenu(native, menu)
             requestedMenu = Some(menu)
+            if (hasRequestedBadge) { badge.apply(native, app, requestedBadge) }
             applied("AppKit application menu attached")
         } catch (error: Exception) {
             detach()
@@ -306,6 +311,19 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
         None
     }
 
+    public func setBadge(label: ?String): SystemShellResult {
+        if (closed) { return failed("application shell is closed") }
+        validateApplicationBadge(label)
+        if (let Some(native) <- api) {
+            native.requireMainThread()
+            badge.apply(native, app, label)
+            return applied("AppKit Dock badge updated")
+        }
+        requestedBadge = label
+        hasRequestedBadge = true
+        SystemShellResult(SystemShellResultStatus.Queued, message: "badge awaits application attachment")
+    }
+
     public func detach(): Unit {
         if (closed) { return }
         if (let Some(native) <- api) {
@@ -314,6 +332,7 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             macShellOwner = None
             sink = None
             disconnectItems(native, actionItems)
+            badge.restore(native)
             // Restore the previous application surfaces; never replace SDL's delegate.
             if (savedSurfaces && (ownedMenu.isNull() || native.get(app, "mainMenu").toUIntNative() == ownedMenu.toUIntNative())) {
                 native.set(app, "setMainMenu:", oldMenu)
