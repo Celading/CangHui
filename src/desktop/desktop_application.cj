@@ -513,6 +513,9 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     private let semanticRuntime: SemanticRuntime
     private let body: () -> Unit
     private var currentWidget: ?Widget = None
+    private var captureRequest: ?DesktopCaptureRequest = None
+    private var captureFrames: UInt64 = 0
+    private var captureDone: Bool = false
     private var previousTick: UInt64
     private var wantsClose: Bool = false
     private var closed: Bool = false
@@ -560,6 +563,15 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     }
 
     public func windowId(): WindowId { window.id }
+
+    func semanticWindowId(): String { semanticRuntime.windowId }
+
+    func armCapture(request: DesktopCaptureRequest): Unit {
+        captureRequest = Some(request)
+        captureFrames = 0
+    }
+
+    func captureCompleted(): Bool { captureDone }
 
     public func requestClose(): Unit { wantsClose = true }
 
@@ -626,7 +638,17 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             }
             applyTextInputAnchor()
             ctx.renderer.endScene()
+            var captured = false
+            if (let Some(request) <- captureRequest) {
+                captureFrames += 1
+                if (captureFrames >= request.settleFrames && !captureDone) {
+                    ctx.renderer.captureBmp(request.path)
+                    recordDesktopCaptureSelection(semanticRuntime.windowId)
+                    captured = true
+                }
+            }
             ctx.renderer.present()
+            if (captured) { captureDone = true }
         })
         if (ctx.shouldClose) { wantsClose = true }
         DesktopWindowStepReceipt(
@@ -841,9 +863,15 @@ public class DesktopApplication <: Resource {
     private let managedWindows = ArrayList<ManagedDesktopWindowSession>()
     private var closed: Bool = false
     private let applicationShell: ?ApplicationShell
+    private let captureRequest: ?DesktopCaptureRequest
+    private var captureTarget: ?WindowId = None
 
-    public init(applicationShell!: ?ApplicationShell = None) {
+    public init(applicationShell!: ?ApplicationShell = None, capture!: ?DesktopCaptureRequest = None) {
         this.applicationShell = applicationShell
+        this.captureRequest = match (capture) {
+            case Some(request) => Some(request)
+            case None => DesktopCaptureRequest.fromEnvironment()
+        }
         applyDesktopImeDefault()
         runtime = SdlRuntime()
         windows = WindowRegistry()
@@ -1049,6 +1077,11 @@ public class DesktopApplication <: Resource {
     /** Builds/layouts/draws/presents every managed window once and returns without waiting. */
     public func step(): Array<DesktopWindowStepReceipt> {
         if (closed) { return [] }
+        // openWindow's preview paints must not capture/close an incompletely built application.
+        try { prepareCapture() } catch (error: Exception) {
+            try { close() } catch (_: Exception) { () }
+            throw error
+        }
         let receipts = ArrayList<DesktopWindowStepReceipt>()
         for (session in managedWindows.toArray()) {
             if (!session.closeRequested()) {
@@ -1056,14 +1089,54 @@ public class DesktopApplication <: Resource {
                     receipts.add(session.step())
                 } catch (error: Exception) {
                     session.requestClose()
+                    if (captureRequest.isSome()) {
+                        try { close() } catch (_: Exception) { () }
+                        throw error
+                    }
                     finishRequestedManagedWindows()
                     throw error
                 }
             }
         }
+        if (let Some(id) <- captureTarget) {
+            match (findManagedWindow(id)) {
+                case Some(session) where session.captureCompleted() => close(); return receipts.toArray()
+                case Some(session) where !session.closeRequested() => ()
+                case _ =>
+                    try { close() } catch (_: Exception) { () }
+                    throw IllegalStateException("capture target closed before producing a snapshot")
+            }
+        }
         finishRequestedManagedWindows()
         closeRuntimeAfterLastWindow()
         receipts.toArray()
+    }
+
+    private func prepareCapture(): Unit {
+        let request = match (captureRequest) { case Some(value) => value; case None => return }
+        if (let Some(id) <- captureTarget) {
+            match (findManagedWindow(id)) {
+                case Some(session) where !session.closeRequested() => return
+                case _ => throw IllegalStateException("capture target closed before producing a snapshot")
+            }
+        }
+        var selected: ?ManagedDesktopWindowSession = None
+        for (session in managedWindows) {
+            if (!session.closeRequested() &&
+                (request.windowId.isEmpty() || session.semanticWindowId() == request.windowId)) {
+                if (request.windowId.isEmpty()) { selected = Some(session); break }
+                if (selected.isSome()) {
+                    throw IllegalArgumentException("capture window '${request.windowId}' is ambiguous")
+                }
+                selected = Some(session)
+            }
+        }
+        match (selected) {
+            case Some(session) =>
+                captureTarget = Some(session.windowId())
+                session.armCapture(request)
+            case None => throw IllegalArgumentException("capture window '${request.windowId}' was not found among live managed windows")
+        }
     }
 
     /** Convenience blocking loop built entirely from the public non-blocking pump/step surface. */

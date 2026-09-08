@@ -36,6 +36,27 @@ app.run()
 所有这些调用都应留在创建 `DesktopApplication` 的原生 owner 线程。不要为每个窗口另起
 `DesktopApp.run()`；多个嵌套 SDL event loop 会争用同一个进程事件队列。
 
+## 用 CUIC 采集指定窗口
+
+为需要稳定定位的窗口传入唯一的 `semanticWindowId`，不要用操作系统分配的数字 ID 或标题作为
+跨次运行的标识：
+
+```bash
+cuic prnt linux . --window settings --frames 24 --output settings.png
+```
+
+该命令通过现有 `DesktopCaptureRequest` 请求对应渲染器的像素。`DesktopApplication` 默认接收
+CUIC 的请求，也可在构造时传入显式 `capture: Some(DesktopCaptureRequest(..., windowId: "settings"))`。
+未指定名称时，第一次应用级 `step()` 选定首个存活托管窗口；不根据活动焦点切换目标。
+`openWindow` 的初始化绘制不采集，避免创建第二个窗口之前就退出。选中后的渲染帧计入
+`settleFrames`，写入发生在目标帧提交前，成功后统一关闭应用及其余窗口。
+
+首个应用级采集步骤必须能找到目标；不存在或有重名时明确失败。选中窗口在完成前关闭也会失败，
+不会把输出改成兄弟窗口。外部登记但不由框架管理渲染器的会话不能成为采集目标。
+该路径只采集框架渲染内容，不包含系统菜单、输入法候选窗或原生子 Surface 的外部合成内容。
+显式选窗时，运行时写入实际采集的语义名称，CUIC 在清理临时回执前核对它；没有回执或名称不匹配
+都会失败，避免旧运行时忽略选择器、却把主窗口图片误报为目标窗口。
+
 ## 每个窗口的后台任务
 
 在托管窗口的构建体内调用 `app.rememberTaskScope(key)`，即可复用与 `DesktopApp`

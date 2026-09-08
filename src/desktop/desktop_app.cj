@@ -98,6 +98,15 @@ public class DesktopApp {
         onSemanticAction!: SemanticActionHandler = {_ => false},
         applicationShell!: ?ApplicationShell = None
     ) {
+        let resolvedCapture = match (capture) {
+            case Some(request) => Some(request)
+            case None => resolveDesktopCaptureRequest(None, DesktopCaptureRequest.fromEnvironment(), legacySnapshotRequest())
+        }
+        if (let Some(request) <- resolvedCapture) {
+            if (!request.windowId.isEmpty() && request.windowId != semanticWindowId) {
+                throw IllegalArgumentException("capture window '${request.windowId}' does not match '${semanticWindowId}'")
+            }
+        }
         this.window = configuredWindow(spec, metadata, hints)
         this.applicationShell = applicationShell
         this.ctx = UiContext(window.renderer, theme)
@@ -122,11 +131,7 @@ public class DesktopApp {
         if (wantsVsync != spec.vsync) {
             window.renderer.setVSync(if (wantsVsync) { Int32(1) } else { Int32(0) })
         }
-        this.captureRequest = resolveDesktopCaptureRequest(
-            capture,
-            DesktopCaptureRequest.fromEnvironment(),
-            legacySnapshotRequest()
-        )
+        this.captureRequest = resolvedCapture
         this.profiler = if (profileEnabled()) {
             Some(FrameProfiler(60))
         } else {
@@ -1129,6 +1134,7 @@ public class DesktopApp {
         match (captureRequest) {
             case Some(request) where frames >= request.settleFrames =>
                 ctx.renderer.captureBmp(request.path)
+                recordDesktopCaptureSelection(semanticRuntime.windowId)
                 ctx.requestClose()
             case _ => ()
         }

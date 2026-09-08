@@ -38,11 +38,17 @@ cuic debug [platform] [project] [--device <alias>] [--app <bundle>] [-- <app arg
 ## 截图 / 设备界面获取
 
 ```bash
-cuic prnt [platform] [project] [--output out.png] [--frames N] [-- <app args...>]
+cuic prnt [platform] [project] [--output out.png] [--frames N] [--window <semantic-id>] [-- <app args...>]
 cuic prnt [platform] [project] --device <alias> --app <bundle> --output out.jpeg
 ```
 
 - 桌面：`prnt` 构建后直接启动产物，使用 `DesktopCaptureRequest`，不依赖 `cjpm run` 参数转发。
+- 托管多窗口：通过 `--window settings` 选择 `openWindow(..., semanticWindowId: "settings")`。
+  省略时在第一次应用 `step()` 选择首个存活托管窗口，不跟随系统焦点。初始化预览帧不计入
+  `--frames`；目标完成采集后关闭整个应用，让 CUIC 正常返回。缺失、重名或采集中关闭的目标报错，
+  不自动换窗。普通 `DesktopApp` 默认语义名称是 `main`，指定名称也必须匹配。
+  `--window` 不适用于设备系统截图，且不会启用任何输入模拟通道。
+  显式选窗需要运行时返回实际窗口回执；旧运行时不支持或返回名称不一致时，即使存在图片也不会报成功。
 - 设备：仅调试 cuic 的 `--device <alias> --app <bundle>` 校验设备与包，当前使用系统截屏 fallback
   （输出标注为 fallback）；渲染面穿透通道待 Harmony 侧实现。
 

@@ -150,6 +150,7 @@ class PrntOptions {
     let app: String
     let mode: String
     let appArgs: ArrayList<String>
+    let windowId: String
 
     init(
         platform: String,
@@ -159,7 +160,8 @@ class PrntOptions {
         device: String,
         app: String,
         mode: String,
-        appArgs: ArrayList<String>
+        appArgs: ArrayList<String>,
+        windowId!: String = ""
     ) {
         this.platform = platform
         this.requested = requested
@@ -169,6 +171,7 @@ class PrntOptions {
         this.app = app
         this.mode = mode
         this.appArgs = appArgs
+        this.windowId = windowId
     }
 }
 
@@ -210,12 +213,20 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
     var device = ""
     var app = ""
     var mode = "release"
+    var windowId = ""
     let appArgs = ArrayList<String>()
     var projectSet = false
     var i = start
     if (i < args.size && isPlatform(args[i])) { platform = normalizePlatform(args[i]); i += 1 }
     while (i < args.size) {
         let current = args[i]
+        if (current == "--window") {
+            if (!windowId.isEmpty() || i + 1 >= args.size || args[i + 1].isEmpty() ||
+                args[i + 1].startsWith("-")) {
+                throw CuicError("--window requires one semantic window id")
+            }
+            windowId = args[i + 1]; i += 2; continue
+        }
         if (current == "--output" || current == "-o") {
             if (i + 1 >= args.size) { throw CuicError("--output requires a path") }
             output = args[i + 1]
@@ -257,7 +268,10 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
         projectSet = true
         i += 1
     }
-    PrntOptions(platform, requested, output, frames, device, app, mode, appArgs)
+    if (!windowId.isEmpty() && (!device.isEmpty() || !app.isEmpty())) {
+        throw CuicError("--window selects a desktop renderer, not a device system screenshot")
+    }
+    PrntOptions(platform, requested, output, frames, device, app, mode, appArgs, windowId: windowId)
 }
 
 func parseDebugOptions(args: Array<String>, start: Int64): DebugOptions {
@@ -367,7 +381,7 @@ func helpText(): String {
     "  cuic test [platform] [project] [--mode release|debug]\n" +
     "  cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]\n" +
     "  cuic debug [platform] [project|example] [--device <alias>] [--app <bundle>] [--mode <debug|release>] [-- <app args...>]\n" +
-    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
+    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--window <semantic-id>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
     "  cuic clean [project]\n" +
     "  cuic examples\n" +
     "  cuic version\n\n" +
@@ -1109,16 +1123,26 @@ func printDesktopWindow(options: PrntOptions): Int64 {
     let snapshot = if (lowerBmp) { output } else { output + ".bmp" }
     removeIfExists(snapshot)
     let lease = context.acquireLease()
+    let selectionReceipt = if (options.windowId.isEmpty()) { "" } else {
+        joinPath(context.targetDir, "cuic-window-selection.txt")
+    }
     try {
+        if (!selectionReceipt.isEmpty()) { removeIfExists(selectionReceipt) }
         println("==> building ${basename(project)} (${options.platform})")
         let buildCode = executeCjpm(context, desktopCaptureBuildArguments(options.mode))
         if (buildCode != 0) { return buildCode }
         let executable = desktopCaptureExecutable(context.targetDir, options.mode, {path => exists(path)})
         println("==> capturing ${basename(project)} (${options.platform}) via CangHui capture interface")
         let code = executeApplication(project, executable, options.appArgs.toArray(), framework, snapshot,
-            options.frames, nativeDirectory: context.sdlDirectory())
+            options.frames, nativeDirectory: context.sdlDirectory(), captureWindow: options.windowId,
+            captureWindowReceipt: selectionReceipt)
         if (code != 0) { return code }
+        let actualSelection = if (!selectionReceipt.isEmpty() && exists(selectionReceipt)) {
+            Some(String.fromUtf8(File.readFrom(selectionReceipt)))
+        } else { None<String> }
+        verifyCaptureWindowSelection(options.windowId, actualSelection)
     } finally {
+        if (!selectionReceipt.isEmpty()) { removeIfExists(selectionReceipt) }
         context.releaseLease(lease)
     }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
@@ -1137,6 +1161,15 @@ func parseCaptureFrames(value: String): UInt64 {
         if (frames > UInt64(0)) { return frames }
     } catch (_: Exception) {}
     throw CuicError("--frames requires a positive integer")
+}
+
+func verifyCaptureWindowSelection(expected: String, actual: ?String): Unit {
+    if (expected.isEmpty()) { return }
+    match (actual) {
+        case Some(value) where value == expected => ()
+        case Some(value) => throw CuicError("capture window acknowledgment '${value}' does not match '${expected}'")
+        case None => throw CuicError("application did not acknowledge capture window; runtime may not support --window")
+    }
 }
 
 func desktopCaptureBuildArguments(mode: String): Array<String> {
@@ -1176,10 +1209,13 @@ func executeApplication(
     framework: String,
     capturePath: String,
     captureFrames: UInt64,
-    nativeDirectory!: String = ""
+    nativeDirectory!: String = "",
+    captureWindow!: String = "",
+    captureWindowReceipt!: String = ""
 ): Int64 {
     let environment = applicationEnvironment(framework, capturePath, captureFrames,
-        nativeDirectory: nativeDirectory, project: project)
+        nativeDirectory: nativeDirectory, project: project, captureWindow: captureWindow,
+        captureWindowReceipt: captureWindowReceipt)
     try {
         let process = launch(
             executable,
@@ -1202,7 +1238,9 @@ func applicationEnvironment(
     capturePath: String,
     captureFrames: UInt64,
     nativeDirectory!: String = "",
-    project!: String = ""
+    project!: String = "",
+    captureWindow!: String = "",
+    captureWindowReceipt!: String = ""
 ): HashMap<String, String> {
     let environment = HashMap<String, String>()
     for ((key, value) in getVariables()) { environment.add(key, value) }
@@ -1220,6 +1258,8 @@ func applicationEnvironment(
     environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
     environment.add("CANGHUI_CAPTURE_PATH", capturePath)
     environment.add("CANGHUI_CAPTURE_FRAMES", captureFrames.toString())
+    environment.add("CANGHUI_CAPTURE_WINDOW", if (capturePath.isEmpty()) { "" } else { captureWindow })
+    environment.add("CANGHUI_CAPTURE_WINDOW_RECEIPT", if (capturePath.isEmpty()) { "" } else { captureWindowReceipt })
     // Cangjie cjthreads use an M:N scheduler. A single processor keeps macOS SDL/AppKit
     // capture on one native thread even when the application launches a child process
     // during startup. Respect an explicit caller value for diagnostic overrides.

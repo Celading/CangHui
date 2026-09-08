@@ -54,7 +54,7 @@ cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <
 cuic build [platform] [project] [--mode release|debug]
 cuic test [platform] [project] [--mode release|debug]
 cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]
-cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [-- <app args...>]
+cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--window <semantic-id>] [-- <app args...>]
 cuic clean [project]
 cuic examples
 cuic version
@@ -137,6 +137,18 @@ duplicate modes are rejected before building. Put application arguments after
 `--`; they are forwarded literally. The child inherits stdin/stdout/stderr and
 its exit status is returned, so interactive output is visible before exit.
 Ordinary runs do not apply the screenshot-only macOS processor pinning policy.
+
+For a managed multi-window application, `prnt --window settings` selects the
+window declared with `semanticWindowId: "settings"`, not its title or native ID.
+Omitting the selector chooses the first live managed window at the first
+application step. Initial preview paints do not consume the settle-frame budget;
+successful capture shuts down the application so CUIC can finish. Missing,
+ambiguous or prematurely closed targets fail without retargeting another window.
+Single-window `DesktopApp` uses `main` by default. Device system captures do not
+support this selector; it does not enable input injection.
+Explicit selection also requires an acknowledgment of the actual semantic window
+from the runtime. A missing or mismatched acknowledgment fails even if an image
+exists, so an older runtime cannot silently ignore the selector.
 
 ## Framework Resolution
 
