@@ -130,11 +130,24 @@ can return `-1`; convert to UTF-8 and normalize to grapheme boundaries before
 assigning editing state. The framework uses its internal `NativeTextIndex` for
 this; that internal type is not a public custom-editor API.
 
-This is not a complete native editor. `TextArea` has not adopted whole-line native
-editing geometry; do not use this switch for pages requiring correct bidi TextArea
-editing. The TextField IME anchor follows the native caret, but native composition,
-candidate-window testing and screen-reader integration still need separate work.
-The multi-window host does not yet expose this startup setting.
+`TextArea` also uses complete colored display lines for paint, hit testing, caret,
+selection, decorations and preedit. Left/Right move visually; Up/Down hit the next
+logical row at the current visual x coordinate. Home/End remain logical. Durable
+text and undo keep UTF-8 grapheme boundaries; paint/preedit ranges retain exact
+scalar offsets. Empty rows and CRLF preserve their positions. Requests are cached
+by display text, decoration snapshot and theme color; maximum width is cached by
+the actual font environment instead of reshaping the entire document each frame.
+
+Advanced hosts can compare `Renderer.textLayoutEnvironmentKey()` to detect font
+chain, registry version, backend and raster-scale changes. This is an in-process
+equality key, not something to parse, persist or transmit. Include text, point size
+and style in the application's own cache key as well.
+
+This is not complete native-editor certification. SDL composition events already
+reach the controls, and the desktop host forwards the caret area to SDL. Real
+system-IME/candidate-window testing and screen-reader integration still need work. Soft wrap,
+full typography inheritance and incremental long-document edit performance remain
+open. The multi-window host does not yet expose this startup setting.
 Headless probe rectangles do not verify native glyphs; use `cuic prnt` for pixels.
 
 On Cangjie 1.1.3 / macOS arm64, native pixel tests exposed a GC unwind failure
@@ -178,8 +191,9 @@ source line instead of rescanning the entire line for every decoration.
 Specs hold no native pointers; the existing renderer owns line and texture caches.
 Rebuild a spec when source or colors change, not for each caret query. Unsupported
 backends/styles return `None` or draw `false` without substituting content. Choose
-a fallback for both paint and geometry together. This is a native colored-line
-interface, not completed TextArea decorations, wrapping or cross-style editing.
+a fallback for both paint and geometry together. TextArea uses it for foreground,
+background and underline decorations; that does not add wrapping or arbitrary
+mixed-size/style editing.
 
 ## Remaining native-text limits
 

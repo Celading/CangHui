@@ -145,6 +145,7 @@ public class TextArea <: Widget {
     private let boundaryCache: TextBoundaryCache
     private let lineCache: TextLineCache
     private let displayCache: TextAreaDisplayCache
+    private let nativeCache: TextAreaNativeCache
     private let lastObservedDisplay: State<UInt64>
     private let decorationCache: TextAreaDecorationCache
     private var decorationSource: ?Observable<TextAreaDecorationSnapshot>
@@ -152,6 +153,7 @@ public class TextArea <: Widget {
     private let autofocusDone: State<Bool>
     private let lastObservedCursor: State<Int64>
     private let lastObservedViewport: State<Size>
+    private let lastObservedNativeLayout: State<String>
     private var frame = Rect.zero()
 
     public init(
@@ -222,11 +224,15 @@ public class TextArea <: Widget {
             TextAreaDisplayCache()
         }.value
         this.lastObservedDisplay = localState<UInt64>("TextArea:${ident}:last-observed-display") {UInt64(0)}
+        this.nativeCache = localState<TextAreaNativeCache>("TextArea:${ident}:native-display") {
+            TextAreaNativeCache()
+        }.value
         this.autofocusDone = localState<Bool>("TextArea:${ident}:autofocused") {false}
         this.lastObservedCursor = localState<Int64>("TextArea:${ident}:last-observed-cursor") {-1}
         this.lastObservedViewport = localState<Size>("TextArea:${ident}:last-observed-viewport") {
             Size(-1.0, -1.0)
         }
+        this.lastObservedNativeLayout = localState<String>("TextArea:${ident}:last-native-layout") { "" }
         // A read-only text area is not an editing stop, so it stays out of Tab traversal.
         if (editable) {
             registerFocusable(ident)
@@ -328,7 +334,28 @@ public class TextArea <: Widget {
     }
 
     private func contentWidth(ctx: UiContext, docLines: Array<String>): Float32 {
+        if (let Some(native) <- nativeDocument(ctx)) { return native.width(ctx) }
         lineCache.maxLineWidth(ctx, docLines, displayCache.revision)
+    }
+
+    private func nativeDocument(ctx: UiContext): ?TextAreaNativeDocument {
+        if (!ctx.renderer.platformTextLayoutEnabled()) { return None }
+        let projection = display()
+        let revision = match (decorationSource) { case Some(value) => value.revision case None => UInt64(0) }
+        let snapshot: ?TextAreaDecorationSnapshot = match (decorationSource) {
+            case Some(value) => Some(value.get())
+            case None => None
+        }
+        Some(nativeCache.resolve(projection.text, displayCache.revision, revision, ctx.theme.text, snapshot, { =>
+            decorationCache.visibleRuns(text.value, text.revision, decorationSource, 0,
+                lineCache.lines(projection.text, displayCache.revision).size,
+                display: Some(projection), displayRevision: displayCache.revision)
+        }, boundaryCache))
+    }
+
+    private func nativeLayoutIdentity(ctx: UiContext): String {
+        if (!ctx.renderer.platformTextLayoutEnabled()) { return "" }
+        "${nativeCache.revision}|" + ctx.renderer.textLayoutEnvironmentKey()
     }
 
     public func draw(ctx: UiContext): Unit {
@@ -372,6 +399,7 @@ public class TextArea <: Widget {
         // cannot pull a deliberately scrolled viewport back to the caret.
         if (ctx.hasFocus(id) && (cursorStateValue.value != lastObservedCursor.value ||
             displayCache.revision != lastObservedDisplay.value ||
+            nativeLayoutIdentity(ctx) != lastObservedNativeLayout.value ||
             viewport.w != lastObservedViewport.value.w || viewport.h != lastObservedViewport.value.h)) {
             revealCaret(ctx, contentW, viewport)
         }
@@ -387,7 +415,7 @@ public class TextArea <: Widget {
             if (projection.active) { projection.selectionEnd } else { edit.selectionEnd() },
             ctx.hasFocus(id), showsVerticalScrollBar, showsHorizontalScrollBar, scrollBar.dragging(ctx),
             hScrollBar.dragging(ctx), chromeMode, wrapModeValue, decorationRuns,
-            projection, contentW)
+            projection, contentW, nativeDocument(ctx), boundaryCache)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -453,10 +481,14 @@ public class TextArea <: Widget {
             case UiEvent.KeyDown(Key.Enter, _) => return recordedEdit(ctx, {=> edit.insert("\n")})
             case UiEvent.KeyDown(Key.Backspace, _) => return recordedEdit(ctx, {=> edit.backspace()})
             case UiEvent.KeyDown(Key.Delete, _) => return recordedEdit(ctx, {=> edit.deleteForward()})
-            case UiEvent.KeyDown(Key.Left, _) => return navigate(ctx, {=> edit.moveLeft()}, {=> edit.extendLeft()})
-            case UiEvent.KeyDown(Key.Right, _) => return navigate(ctx, {=> edit.moveRight()}, {=> edit.extendRight()})
-            case UiEvent.KeyDown(Key.Up, _) => return navigate(ctx, {=> edit.moveLineUp()}, {=> edit.extendLineUp()})
-            case UiEvent.KeyDown(Key.Down, _) => return navigate(ctx, {=> edit.moveLineDown()}, {=> edit.extendLineDown()})
+            case UiEvent.KeyDown(Key.Left, _) => return navigate(ctx,
+                {=> moveAxis(ctx, edit, true, false, false)}, {=> moveAxis(ctx, edit, true, false, true)})
+            case UiEvent.KeyDown(Key.Right, _) => return navigate(ctx,
+                {=> moveAxis(ctx, edit, true, true, false)}, {=> moveAxis(ctx, edit, true, true, true)})
+            case UiEvent.KeyDown(Key.Up, _) => return navigate(ctx,
+                {=> moveAxis(ctx, edit, false, false, false)}, {=> moveAxis(ctx, edit, false, false, true)})
+            case UiEvent.KeyDown(Key.Down, _) => return navigate(ctx,
+                {=> moveAxis(ctx, edit, false, true, false)}, {=> moveAxis(ctx, edit, false, true, true)})
             case UiEvent.KeyDown(Key.Home, _) => return navigate(ctx, {=> edit.moveToLineStart()},
                 {=> edit.extendToLineStart()})
             case UiEvent.KeyDown(Key.End, _) => return navigate(ctx, {=> edit.moveToLineEnd()},
@@ -644,7 +676,10 @@ public class TextArea <: Widget {
         let projection = display()
         let position = projection.cursor(cursorStateValue.value)
         let lineStart = lineStartBeforeOrAt(projection.text, position)
-        let caretX = ctx.renderer.textWidth(projection.text[lineStart..position], pointSize: FontSizes.BODY)
+        let caretX = match (nativeDocument(ctx)) {
+            case Some(native) => native.caret(ctx, position, boundaryCache)
+            case None => ctx.renderer.textWidth(projection.text[lineStart..position], pointSize: FontSizes.BODY)
+        }
         var offset = horizontalScrollStateValue.value
         if (caretX < offset) {
             offset = caretX
@@ -659,10 +694,17 @@ public class TextArea <: Widget {
         lastObservedCursor.value = cursorStateValue.value
         lastObservedDisplay.value = displayCache.revision
         lastObservedViewport.value = Size(viewport.w, viewport.h)
+        lastObservedNativeLayout.value = nativeLayoutIdentity(ctx)
     }
 
     private func pointOffset(ctx: UiContext, x: Float32, y: Float32): Int64 {
         let projection = display()
+        if (let Some(native) <- nativeDocument(ctx)) {
+            let viewport = textViewport(frame)
+            let row = Int64(max(0.0, y - viewport.y + scrollStateValue.value) / CUI_SMALL_H)
+            return projection.documentOffset(native.hit(ctx, row,
+                x - viewport.x + horizontalScrollStateValue.value, boundaryCache))
+        }
         let offset = textAreaCursorForPoint(ctx, frame, TextAreaContent(projection.text,
             projection.cursor(cursorStateValue.value), scrollStateValue.value,
             horizontalScroll: horizontalScrollStateValue.value), Point(x, y))
@@ -686,6 +728,25 @@ public class TextArea <: Widget {
             return true
         }
         false
+    }
+
+    private func moveAxis(ctx: UiContext, edit: TextEditState, horizontal: Bool, forward: Bool, grow: Bool): Unit {
+        if (let Some(native) <- nativeDocument(ctx)) {
+            if (horizontal && !grow && edit.hasSelection()) {
+                edit.moveTo(native.collapse(ctx, edit.selectionStart(), edit.selectionEnd(), forward, boundaryCache))
+                return
+            }
+            let next = native.move(ctx, cursorStateValue.value, horizontal, forward, boundaryCache)
+            if (grow) { edit.extendTo(next) } else { edit.moveTo(next) }
+            return
+        }
+        if (horizontal) {
+            if (forward) { if (grow) { edit.extendRight() } else { edit.moveRight() } }
+            else { if (grow) { edit.extendLeft() } else { edit.moveLeft() } }
+        } else {
+            if (forward) { if (grow) { edit.extendLineDown() } else { edit.moveLineDown() } }
+            else { if (grow) { edit.extendLineUp() } else { edit.moveLineUp() } }
+        }
     }
 
     // Held Shift extends the selection; plain navigation collapses it. Navigation stays
@@ -790,7 +851,9 @@ private func drawTextAreaBox(
     wrapMode: TextAreaWrapMode,
     decorations: Array<TextAreaDecorationRun>,
     composition: TextAreaDisplayProjection,
-    contentW: Float32
+    contentW: Float32,
+    native: ?TextAreaNativeDocument,
+    affinity: TextBoundaryCache
 ): Unit {
     match (chrome) {
         case TextAreaChrome.Field => drawTextBoxChrome(ctx, frame, id)
@@ -798,21 +861,26 @@ private func drawTextAreaBox(
     }
     let viewport = textViewport(frame)
     ctx.renderer.pushClip(viewport)
-    drawTextAreaDecorationBackgrounds(ctx, viewport, content, decorations)
-    if (focused) {
-        drawTextAreaSelection(ctx, viewport, content, selStart, selEnd)
-    }
-    match (wrapMode) {
-        case TextAreaWrapMode.NoWrap =>
-            if (decorations.isEmpty()) {
-                drawLines(ctx, viewport, lines, content.scroll, content.horizontalScroll)
-            } else {
-                drawDecoratedLines(ctx, viewport, content, decorations)
+    try {
+        if (let Some(document) <- native) {
+            document.draw(ctx, viewport, content, id, selStart, selEnd, composition, affinity)
+        } else {
+            drawTextAreaDecorationBackgrounds(ctx, viewport, content, decorations)
+            if (focused) {
+                drawTextAreaSelection(ctx, viewport, content, selStart, selEnd)
             }
-    }
-    drawTextAreaCursor(ctx, viewport, id, content)
-    drawTextAreaComposition(ctx, viewport, id, content, composition)
-    ctx.renderer.popClip()
+            match (wrapMode) {
+                case TextAreaWrapMode.NoWrap =>
+                    if (decorations.isEmpty()) {
+                        drawLines(ctx, viewport, lines, content.scroll, content.horizontalScroll)
+                    } else {
+                        drawDecoratedLines(ctx, viewport, content, decorations)
+                    }
+            }
+            drawTextAreaCursor(ctx, viewport, id, content)
+            drawTextAreaComposition(ctx, viewport, id, content, composition)
+        }
+    } finally { ctx.renderer.popClip() }
     if (showVerticalScrollBar) {
         drawVerticalScrollBar(ctx, frame, content.scroll, textContentHeight(lines), viewport.h, active: barActive)
     }
@@ -960,7 +1028,7 @@ private func drawTextAreaSlice(
     }
 }
 
-private func drawTextAreaUnderline(
+internal func drawTextAreaUnderline(
     ctx: UiContext,
     x: Float32,
     baseline: Float32,

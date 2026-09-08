@@ -100,6 +100,7 @@ class TextAreaDecorationCache {
     private var cachedDisplayRevision: UInt64 = 0
     private var cachedRuns: Array<TextAreaDecorationRun> = []
     private var hasValue = false
+    private var cachedSnapshot: ?TextAreaDecorationSnapshot = None
 
     func visibleRuns(
         text: String,
@@ -114,7 +115,11 @@ class TextAreaDecorationCache {
             case None => return []
             case Some(observable) =>
                 let snapshot = observable.get()
-                if (!hasValue || cachedTextRevision != textRevision ||
+                let sameSnapshot = match (cachedSnapshot) {
+                    case Some(previous) => refEq(previous, snapshot)
+                    case None => false
+                }
+                if (!hasValue || !sameSnapshot || cachedTextRevision != textRevision ||
                     cachedDecorationRevision != observable.revision ||
                     cachedSnapshotRevision != snapshot.documentRevision ||
                     cachedFirstLine != firstLine || cachedLastLine != lastLine ||
@@ -130,6 +135,7 @@ class TextAreaDecorationCache {
                         []
                     }
                     cachedTextRevision = textRevision
+                    cachedSnapshot = Some(snapshot)
                     cachedDecorationRevision = observable.revision
                     cachedSnapshotRevision = snapshot.documentRevision
                     cachedFirstLine = firstLine

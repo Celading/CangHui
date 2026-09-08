@@ -33,6 +33,16 @@ public class TextArea <: Widget
 - **绘制装饰**：`decorations` 接收 [`Observable`](../core/Observable.md)`<TextAreaDecorationSnapshot>`，用于语法高亮、诊断标记或搜索命中。范围是精确的 UTF-8 字节边界；无效范围被忽略，快照修订号与文本不同时回退为普通文本绘制。装饰只影响画面，不接管 tokenizer、文本、光标、IME 或撤销栈。
 - **绘制层级**：装饰背景 → 选区 → 字形/下划线 → 光标。重叠范围按输入顺序“后者覆盖前者”；归一化结果按文本修订、装饰修订和当前可见逻辑行窗口缓存。
 
+### macOS 原生排版预览
+
+在 `DesktopApp.run` 前显式启用 `usePlatformTextLayout(true)` 后，完整的着色显示行
+同时负责像素、点击、光标、选区、装饰和预编辑几何；默认 SDL 路径不变。
+左右键改为视觉顺序，上下键使用当前视觉横坐标命中相邻逻辑行。正式文本仍使用
+UTF-8 字素边界，着色/预编辑范围按精确码点转换。字体环境变化会重测宽度并跟随
+聚焦光标；替换为同修订号的另一份装饰快照也会更新缓存。无原生后端的 probe
+只能验证结构，原生字形需 `cuic prnt`。完整系统 IME、读屏、软换行、排版属性继承
+与长文增量性能仍需验收，详见[字体与限制](../../../reference/fonts.zh-CN.md)。
+
 ## 示例
 
 ```cangjie verify

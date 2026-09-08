@@ -448,6 +448,14 @@ public class Renderer {
         resolveFontChain(font)[0]
     }
 
+    /** Equality-only cache key for logical text metrics in this renderer's current
+     * font chain, registry generation, layout backend and raster scale. Callers
+     * must also key their text, point size and style; do not parse or persist it. */
+    public func textLayoutEnvironmentKey(font!: ?String = None<String>): String {
+        "${max(scaleX, scaleY)}|${Fonts.generation()}|${platformTextLayoutEnabled()}|" +
+            fontPathChainKey(fontPaths(resolveFontChain(font)))
+    }
+
     /** Reports the selected whole-run tier, or a mixed fallback chain's primary tier; not a glyph map. */
     public func fontResolutionForText(
         text: String,
