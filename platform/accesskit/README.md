@@ -3,8 +3,10 @@
 This optional C bridge projects CangHui semantic snapshots into AccessKit C
 0.23.0 trees. The separate `unix_adapter` provides optional Linux native adapter
 registration and a bounded action inbox. Neither loads libraries nor enables a
-debug control channel. A managed-language/window-lifecycle integration is still
-required; this is not a complete provider or part of the default SDK closure.
+debug control channel. Desktop hosts now provide an optional
+`DesktopAccessibilityFactory`/`DesktopAccessibilityAdapter` lifecycle port;
+this C bridge still needs its managed loader, coordinate and idle-activation
+adapter. It is not a complete provider or part of the default SDK closure.
 
 Supply the upstream source at commit
 `0824c4a1e3a4d13ce5582df20e394fba49485a15` and a matching native library:

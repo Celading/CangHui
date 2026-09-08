@@ -511,6 +511,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     private let uiOwnerQueue = UiOwnerQueue()
     private let semanticActionRouter: DesktopSemanticActionRouter
     private let semanticRuntime: SemanticRuntime
+    private var semanticAccessibility: ?DesktopSemanticAccessibility = None
     private let body: () -> Unit
     private var currentWidget: ?Widget = None
     private var captureRequest: ?DesktopCaptureRequest = None
@@ -528,7 +529,8 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         semanticWindowId: String,
         semanticPolicy: SemanticInteractionPolicy,
         semanticLimits: SemanticRuntimeLimits,
-        onSemanticAction: SemanticActionHandler
+        onSemanticAction: SemanticActionHandler,
+        accessibility: ?DesktopAccessibilityFactory
     ) {
         if (fontScale <= 0.0) {
             throw IllegalArgumentException("managed desktop window fontScale must be greater than zero")
@@ -560,6 +562,13 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             handler: {request => actionRouter.dispatch(request)})
         this.body = body
         this.previousTick = window.ticks()
+        try {
+            if (let Some(factory) <- accessibility) {
+                semanticAccessibility = Some(DesktopSemanticAccessibility(resolvedSemanticWindowId,
+                    factory(resolvedSemanticWindowId, spec.title), uiOwnerQueue,
+                    {request => semanticRuntime.dispatch(request)}))
+            }
+        } catch (error: Exception) { window.close(); throw error }
     }
 
     public func windowId(): WindowId { window.id }
@@ -592,6 +601,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         if (closed || wantsClose || ctx.shouldClose) {
             return DesktopWindowStepReceipt(window.id, false, true, detail: "close-requested")
         }
+        if (let Some(native) <- semanticAccessibility) { native.service(window.windowFlags().inputFocus) }
         let _ = uiOwnerQueue.drain()
         // An apply callback may close this window or the entire application. Never touch
         // its released renderer or rebuild its disposed StateStore after that callback.
@@ -632,6 +642,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                     ctx.drawActiveOverlay()
                 })
                 let _ = semanticRuntime.commitFrame()
+                if (let Some(native) <- semanticAccessibility) { native.publish(semanticRuntime.snapshot()) }
             } catch (error: Exception) {
                 semanticRuntime.cancelFrame()
                 throw error
@@ -729,14 +740,18 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
 
     public func close(): Unit {
         if (closed) { return }
-        let _ = uiOwnerQueue.close(reason: "managed desktop window closed")
-        let _ = ctx.finishSharedFrameSurfaces("abandoned")
-        semanticActionRouter.clear()
-        stateStore.clear()
-        window.close()
         closed = true
         wantsClose = true
-        currentWidget = None
+        try {
+            if (let Some(native) <- semanticAccessibility) { native.close() }
+        } finally {
+            let _ = uiOwnerQueue.close(reason: "managed desktop window closed")
+            let _ = ctx.finishSharedFrameSurfaces("abandoned")
+            semanticActionRouter.clear()
+            stateStore.clear()
+            window.close()
+            currentWidget = None
+        }
     }
 
     private func routeEvent(widget: Widget, event: UiEvent): Bool {
@@ -863,11 +878,14 @@ public class DesktopApplication <: Resource {
     private let managedWindows = ArrayList<ManagedDesktopWindowSession>()
     private var closed: Bool = false
     private let applicationShell: ?ApplicationShell
+    private let accessibility: ?DesktopAccessibilityFactory
     private let captureRequest: ?DesktopCaptureRequest
     private var captureTarget: ?WindowId = None
 
-    public init(applicationShell!: ?ApplicationShell = None, capture!: ?DesktopCaptureRequest = None) {
+    public init(applicationShell!: ?ApplicationShell = None, capture!: ?DesktopCaptureRequest = None,
+        accessibility!: ?DesktopAccessibilityFactory = None) {
         this.applicationShell = applicationShell
+        this.accessibility = accessibility
         this.captureRequest = match (capture) {
             case Some(request) => Some(request)
             case None => DesktopCaptureRequest.fromEnvironment()
@@ -912,7 +930,8 @@ public class DesktopApplication <: Resource {
             semanticWindowId,
             semanticPolicy,
             semanticLimits,
-            onSemanticAction)
+            onSemanticAction,
+            accessibility)
         let id = session.windowId()
         if (!windows.register(session)) {
             session.close()
@@ -1167,7 +1186,7 @@ public class DesktopApplication <: Resource {
     public func close(): Unit {
         if (closed) { return }
         windows.requestAllClose()
-        finishRequestedManagedWindows()
+        // The terminal owner closes every window even if one adapter fails to deregister.
         finishApplicationRuntime()
     }
 
@@ -1201,20 +1220,22 @@ public class DesktopApplication <: Resource {
     }
 
     private func finishRequestedManagedWindows(): Unit {
+        var failure: ?Exception = None
         var index = managedWindows.size - 1
         while (index >= 0) {
             if (managedWindows[index].closeRequested()) {
-                closeManagedWindowAt(index)
+                try { closeManagedWindowAt(index) }
+                catch (error: Exception) { failure = Some(preferredDesktopRunFailure(failure, error)) }
             }
             index -= 1
         }
+        if (let Some(error) <- failure) { throw error }
     }
 
     private func closeManagedWindowAt(index: Int64): Unit {
         let session = managedWindows[index]
         let _ = windows.unregister(session.windowId())
-        session.close()
-        managedWindows.remove(at: index)
+        try { session.close() } finally { managedWindows.remove(at: index) }
     }
 
     private func closeRuntimeAfterLastWindow(): Unit {
@@ -1234,11 +1255,11 @@ public class DesktopApplication <: Resource {
         // session remains registered only long enough to observe its close request.
         var index = managedWindows.size - 1
         while (index >= 0) {
-            closeManagedWindowAt(index)
+            try { closeManagedWindowAt(index) }
+            catch (error: Exception) { shellFailure = Some(preferredDesktopRunFailure(shellFailure, error)) }
             index -= 1
         }
-        runtime.close()
-        closed = true
+        try { runtime.close() } finally { closed = true }
         if (let Some(error) <- shellFailure) { throw error }
     }
 

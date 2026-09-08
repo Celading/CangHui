@@ -51,6 +51,7 @@ public class DesktopApp {
     private let stateStore = StateStore()
     private let semanticActionRouter: DesktopSemanticActionRouter
     private let semanticRuntime: SemanticRuntime
+    private var semanticAccessibility: ?DesktopSemanticAccessibility = None
     private let uiOwnerQueue = UiOwnerQueue()
     private let captureRequest: ?DesktopCaptureRequest
     // Per-phase frame timing, enabled with `--profile`; None (and zero cost) in a normal run.
@@ -96,7 +97,8 @@ public class DesktopApp {
         semanticPolicy!: SemanticInteractionPolicy = SemanticInteractionPolicy(),
         semanticLimits!: SemanticRuntimeLimits = SemanticRuntimeLimits(),
         onSemanticAction!: SemanticActionHandler = {_ => false},
-        applicationShell!: ?ApplicationShell = None
+        applicationShell!: ?ApplicationShell = None,
+        accessibility!: ?DesktopAccessibilityFactory = None
     ) {
         let resolvedCapture = match (capture) {
             case Some(request) => Some(request)
@@ -136,6 +138,16 @@ public class DesktopApp {
             Some(FrameProfiler(60))
         } else {
             None
+        }
+        try {
+            if (let Some(factory) <- accessibility) {
+                semanticAccessibility = Some(DesktopSemanticAccessibility(semanticWindowId,
+                    factory(semanticWindowId, spec.title), uiOwnerQueue,
+                    {request => semanticRuntime.dispatch(request)}))
+            }
+        } catch (error: Exception) {
+            try { closeManagedResources() } finally { window.close() }
+            throw error
         }
     }
 
@@ -427,6 +439,7 @@ public class DesktopApp {
 
                 let events = collectPendingEvents()
                 if (let Some(shell) <- applicationShell) { let _ = shell.dispatchPendingActions() }
+                if (let Some(native) <- semanticAccessibility) { native.service(window.windowFlags().inputFocus) }
                 let observedStateGen = currentStateGeneration()
                 let ownerWorkPending = uiOwnerQueue.hasPending()
                 let nonStateInvalidation = continuousRequested || ownerWorkPending || !events.isEmpty() ||
@@ -513,6 +526,11 @@ public class DesktopApp {
         }
         try {
             if (let Some(shell) <- applicationShell) { shell.detach() }
+        } catch (cleanupError: Exception) {
+            runFailure = Some(preferredDesktopRunFailure(runFailure, cleanupError))
+        }
+        try {
+            if (let Some(native) <- semanticAccessibility) { native.close() }
         } catch (cleanupError: Exception) {
             runFailure = Some(preferredDesktopRunFailure(runFailure, cleanupError))
         }
@@ -951,6 +969,7 @@ public class DesktopApp {
         try {
             withActiveSemanticRuntime(semanticRuntime, body)
             let _ = semanticRuntime.commitFrame()
+            if (let Some(native) <- semanticAccessibility) { native.publish(semanticRuntime.snapshot()) }
         } catch (error: Exception) {
             semanticRuntime.cancelFrame()
             throw error

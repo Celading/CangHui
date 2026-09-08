@@ -77,11 +77,33 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
 - `publish` 和 `close` 由 UI 主线程调用；`close` 不可撤销。每个窗口/原生适配器实例使用独立
   session，关闭适配器时必须关闭 session。它不会自动安装系统无障碍库或注销原生回调。
 
+## 桌面原生适配接口
+
+`DesktopApp` 和 `DesktopApplication` 都接受可选的 `accessibility` 工厂：
+`DesktopAccessibilityFactory = (String, String) -> DesktopAccessibilityAdapter`。
+两个参数是窗口语义 ID 和标题；每次必须返回一个全新的适配器实例，不能跨窗口复用。
+不传此参数时保持原有构建与运行方式，不自动下载或加载原生库。
+
+适配器实现 `publish`、`setWindowFocused`、`poll` 以及 `Resource.close/isClosed`。
+宿主在每次语义提交后提供完整的 `SemanticNativeSnapshot`，在已有事件循环中轮询原生动作，
+并从 SDL 实测 `inputFocus` 传递窗口焦点；逻辑控件焦点仍在语义树内。每轮最多取 128 个动作，
+通过该窗口原有的 UI 队列、连续帧检查和最终动作策略执行，单窗口空闲时也会轮询。
+`poll` 必须非阻塞；原生回调线程只能写入有界收件箱，不能直接执行组件或业务回调。
+
+窗口关闭或适配器发布/轮询失败时，宿主先撤销语义会话再注销原生适配器，已排队动作不能
+投递到已关闭或替换的窗口。某一适配器注销失败不会阻止应用关闭其他托管窗口。
+工厂抛错会中止该窗口创建；已经分配但尚未返回的原生资源由工厂自行释放。
+
+这是窗口生命周期接线，不是现成的系统读屏实现：平台适配器仍需负责库装载、原生注册、
+空闲时的读屏激活、坐标换算、线程和动态库生命周期。快照矩形仍为窗口内逻辑坐标，
+不能直接宣称是多 DPI 下的屏幕坐标。动作回执为 UI owner 的执行结果，不等于读屏发声证明。
+
 ## 当前边界
 
 可选的 [AccessKit C 树投影桥](../../platform/accesskit/README.md) 可把已有原生 ID、父子关系、
 角色与状态转成有界原生树，并拒绝无效的整树更新。另有 Linux 原生适配器的注册、
-令牌撤销和有界动作收件箱源码；仍需接入窗口生命周期，没有自动安装或完整仓颉宿主封装，
+令牌撤销和有界动作收件箱源码；窗口已提供可选适配接口，但仍缺这一原生桥的正式加载器、
+坐标及激活接线，没有自动安装或完整仓颉宿主封装，
 不是只引用依赖即可启用的读屏 provider。
 
 这套运行时提供跨宿主的语义事实和安全动作模型，不等于 macOS AX、Windows UIA、Linux

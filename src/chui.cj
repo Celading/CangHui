@@ -375,6 +375,9 @@ public import chui.component.classifyViewport
 public import chui.component.componentApiVersion
 public import chui.desktop.DesktopApp
 public import chui.desktop.DesktopApplication
+public import chui.desktop.DesktopAccessibilityAction
+public import chui.desktop.DesktopAccessibilityAdapter
+public import chui.desktop.DesktopAccessibilityFactory
 public import chui.desktop.DesktopCaptureRequest
 public import chui.desktop.DesktopWindowSession
 public import chui.desktop.DesktopWindowStateReceipt
