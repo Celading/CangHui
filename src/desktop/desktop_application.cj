@@ -624,8 +624,14 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         semanticActionRouter.bind(widget)
         // Scene3DView registers only against this window's frame-local context during layout.
         ctx.beginFrameSurfaceRegistration()
+        let layoutRevision = window.currentMetrics().transformRevision
         widget.layout(ctx, Rect(0.0, 0.0, Float32(window.width), Float32(window.height)))
         let _ = widget.handle(ctx, UiEvent.Frame(ctx.frame))
+        if (layoutRevision != window.currentMetrics().transformRevision) {
+            applyWindowMetrics(window.currentMetrics())
+            ctx.beginFrameSurfaceRegistration()
+            widget.layout(ctx, Rect(0.0, 0.0, Float32(window.width), Float32(window.height)))
+        }
 
         ctx.beginSharedFrameCompositionAttempt()
         let sharedOutcome = executeManagedSharedFrameTerminal(ctx, { =>
@@ -778,6 +784,10 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                 widget.handle(ctx, UiEvent.WindowMetricsChanged(window.currentMetrics()))
             case UiEvent.WindowMetricsChanged(metrics) =>
                 applyWindowMetrics(metrics)
+                // Managed events are dispatched before the next build; following input
+                // must not hit the previous-size tree with newly normalized coordinates.
+                ctx.beginFrameSurfaceRegistration()
+                widget.layout(ctx, Rect(0.0, 0.0, Float32(window.width), Float32(window.height)))
                 widget.handle(ctx, event)
             case UiEvent.Pointer(pointer) =>
                 ctx.lastPointerEvent = Some(pointer)

@@ -432,8 +432,8 @@ public class DesktopApp {
                 ctx.frame = frame
                 advanceThemeTransition(frame.deltaMs)
                 advanceDeviceRotationTransition(frame.deltaMs)
-                let viewportW = window.width
-                let viewportH = window.height
+                var viewportW = window.width
+                var viewportH = window.height
                 ctx.viewportWidth = Float32(viewportW)
                 ctx.viewportHeight = Float32(viewportH)
 
@@ -460,6 +460,15 @@ public class DesktopApp {
                     // Drain a bounded snapshot before build. Reentrant posts remain pending for the
                     // next frame, and State writes made here are included in this frame's generation.
                     let _ = uiOwnerQueue.drain()
+                    // Polling and owner callbacks may both replace the window transform.
+                    // Build and layout must sample AFTER those operations, not before them.
+                    if (ctx.inputTransformRevision != window.currentMetrics().transformRevision) {
+                        applyWindowMetrics(window.currentMetrics())
+                    }
+                    viewportW = window.width
+                    viewportH = window.height
+                    ctx.viewportWidth = Float32(viewportW)
+                    ctx.viewportHeight = Float32(viewportH)
                     let frameStateGen = currentStateGeneration()
                     let tBuild = FrameProfiler.now()
                     let widget = if (frameGraphEnabled) {
@@ -477,12 +486,22 @@ public class DesktopApp {
                     ctx.adoptFocusRing(stateStore.focusRing())
                     semanticActionRouter.bind(widget)
                     ctx.beginFrameSurfaceRegistration()
+                    let layoutRevision = window.currentMetrics().transformRevision
                     widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
                     let tEvents = FrameProfiler.now()
                     dispatchCollectedEvents(widget, events)
                     debugUiScript.observe(widget, ctx, viewportW, viewportH)
                     debugUiScript.executeNext(ctx, { event => dispatchSyntheticEvent(widget, event) })
                     dispatchEvent(widget, UiEvent.Frame(frame))
+                    // Input/frame callbacks can also change zoom. Never draw/publish an
+                    // old-size layout with the newly committed renderer/native geometry.
+                    if (layoutRevision != window.currentMetrics().transformRevision) {
+                        applyWindowMetrics(window.currentMetrics())
+                        viewportW = window.width
+                        viewportH = window.height
+                        ctx.beginFrameSurfaceRegistration()
+                        widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
+                    }
                     let tDraw = FrameProfiler.now()
                     frames += 1
                     let stateChangedDuringFrame = currentStateGeneration() != frameStateGen
@@ -567,14 +586,14 @@ public class DesktopApp {
 
     // Polls every event SDL has queued into a buffer, so the render decision can tell whether any input
     // arrived before deciding whether to build a frame at all. Dispatch is deferred (see below).
-    private func collectPendingEvents(): ArrayList<UiEvent> {
-        let events = ArrayList<UiEvent>()
+    private func collectPendingEvents(): ArrayList<DesktopCollectedEvent> {
+        let events = ArrayList<DesktopCollectedEvent>()
         while (!queuedEvents.isEmpty()) {
-            events.add(queuedEvents.remove(at: 0))
+            events.add(DesktopCollectedEvent(queuedEvents.remove(at: 0), window.currentMetrics().transformRevision))
         }
         var current = window.pollEvent()
         while (let Some(event) <- current) {
-            events.add(event)
+            events.add(DesktopCollectedEvent(event, window.currentMetrics().transformRevision))
             current = window.pollEvent()
         }
         events
@@ -583,8 +602,13 @@ public class DesktopApp {
     // Dispatches the collected events in arrival order against the freshly built tree, bracketing each
     // with the same pointer bookkeeping the loop used to do inline — the per-event sequence
     // (prepare, route, complete) is unchanged, only deferred past the render decision.
-    private func dispatchCollectedEvents(widget: Widget, events: ArrayList<UiEvent>): Unit {
-        for (event in events) {
+    private func dispatchCollectedEvents(widget: Widget, events: ArrayList<DesktopCollectedEvent>): Unit {
+        for (collected in events) {
+            if (!collected.validAt(ctx.inputTransformRevision)) {
+                let _ = ctx.cancelPointerInteraction(widget)
+                continue
+            }
+            let event = collected.event
             preparePointer(event)
             routeEvent(widget, event)
             completePointer(event)
@@ -628,9 +652,11 @@ public class DesktopApp {
             case UiEvent.WindowDisplayScaleChanged =>
                 applyWindowMetrics(window.refreshDisplayScale())
                 dispatchEvent(widget, UiEvent.WindowMetricsChanged(window.currentMetrics()))
-            case UiEvent.WindowMetricsChanged(metrics) =>
-                applyWindowMetrics(metrics)
-                dispatchEvent(widget, event)
+            case UiEvent.WindowMetricsChanged(_) =>
+                // A queued snapshot must not roll back a newer owner-requested scale.
+                let current = window.currentMetrics()
+                applyWindowMetrics(current)
+                dispatchEvent(widget, UiEvent.WindowMetricsChanged(current))
             case UiEvent.Pointer(pointer) =>
                 ctx.lastPointerEvent = Some(pointer)
                 let legacy = pointerEventToLegacyUiEvent(pointer)

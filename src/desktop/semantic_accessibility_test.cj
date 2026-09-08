@@ -2,10 +2,10 @@ package chui.desktop
 
 import std.collection.ArrayList
 import std.env.getVariable
-import chui.core.{Button, ControlSemantics, SemanticActionKind, SemanticInteractionPolicy,
+import chui.core.{Button, ControlSemantics, FrameHandler, SemanticActionKind, SemanticInteractionPolicy,
     SemanticNativeSnapshot, SemanticNode, SemanticRuntime, SemanticTreeSnapshot,
     UiOwnerQueue, UiOwnerTaskStatus}
-import sdl.{Rect, WindowSpec}
+import sdl.{Rect, WindowSpec, WindowScaleSettings, UiEvent, MouseButton, Key}
 
 private class AccessibilityTestAdapter <: DesktopAccessibilityAdapter {
     var latest: ?SemanticNativeSnapshot = None
@@ -43,6 +43,88 @@ private class AccessibilityTestAdapter <: DesktopAccessibilityAdapter {
 }
 
 private class AccessibilityCount { var calls: Int64 = 0 }
+
+private class AccessibilityGeometryRecorder <: DesktopAccessibilityAdapter & DesktopAccessibilityGeometryAdapter {
+    var geometry: ?DesktopAccessibilityGeometry = None
+    var logicalWidth: Float32 = -1.0
+    var expectedWidth: Float32 = -1.0
+    var closed = false
+    var published: () -> Unit = {=> ()}
+
+    public func setWindowGeometry(value: DesktopAccessibilityGeometry): Unit { geometry = Some(value) }
+    public func publish(snapshot: SemanticNativeSnapshot): Unit {
+        logicalWidth = snapshot.tree.node("stretch").getOrThrow().frame.w
+        expectedWidth = Float32(geometry.getOrThrow().metrics.logicalWidth)
+        published()
+    }
+    public func setWindowFocused(_: Bool): Unit { () }
+    public func poll(): ?DesktopAccessibilityAction { None }
+    public func close(): Unit { closed = true }
+    public func isClosed(): Bool { closed }
+}
+
+@Test
+func accessibilitySingleWindowOwnerScalePublishesMatchingLayoutAndGeometry(): Unit {
+    if (accessibilityWindowTestSkipped()) { return }
+    let backend = AccessibilityGeometryRecorder()
+    let app = DesktopApp(WindowSpec("Accessibility owner scale", 240, 120, vsync: false,
+        highDpi: false, supersample: 1), accessibility: Some({_, _ => backend}))
+    backend.published = {=> app.requestWindowClose() }
+    let activations = AccessibilityCount()
+    app.queuePointerClick(20.0, 10.0)
+    let _ = app.postToUi({=> app.setScaling(WindowScaleSettings(followSystem: false, zoom: 2.0)) })
+    app.run({=> Button("Stretch", {=> activations.calls += 1 }).key("stretch") })
+    @Expect(backend.logicalWidth, backend.expectedWidth)
+    @Expect(backend.expectedWidth, 120.0)
+    @Expect(backend.closed)
+    @Expect(activations.calls, 0)
+}
+
+@Test
+func accessibilitySingleWindowFrameScalePublishesMatchingLayoutAndGeometry(): Unit {
+    if (accessibilityWindowTestSkipped()) { return }
+    let backend = AccessibilityGeometryRecorder()
+    let app = DesktopApp(WindowSpec("Accessibility frame scale", 240, 120, vsync: false,
+        highDpi: false, supersample: 1), accessibility: Some({_, _ => backend}))
+    backend.published = {=> app.requestWindowClose() }
+    app.run({=> FrameHandler(onFrame: {_ =>
+        app.setScaling(WindowScaleSettings(followSystem: false, zoom: 2.0))
+    }) { Button("Stretch", {=> ()}).key("stretch") } })
+    @Expect(backend.logicalWidth, backend.expectedWidth)
+    @Expect(backend.expectedWidth, 120.0)
+}
+
+@Test
+func accessibilityManagedWindowFrameScalePublishesMatchingLayoutAndGeometry(): Unit {
+    if (accessibilityWindowTestSkipped()) { return }
+    let backend = AccessibilityGeometryRecorder()
+    let app = DesktopApplication(accessibility: Some({_, _ => backend}))
+    try {
+        let _ = app.openWindow(WindowSpec("Accessibility managed frame scale", 240, 120,
+            vsync: false, highDpi: false, supersample: 1), {=>
+            FrameHandler(onFrame: {_ =>
+                let _ = app.setWindowScaling(app.activeWindow().getOrThrow(),
+                    WindowScaleSettings(followSystem: false, zoom: 2.0))
+            }) { Button("Stretch", {=> ()}).key("stretch") }
+        })
+        @Expect(backend.logicalWidth, backend.expectedWidth)
+        @Expect(backend.expectedWidth, 120.0)
+    } finally { app.close() }
+    @Expect(backend.closed)
+}
+
+@Test
+func collectedCoordinatesCannotCrossAnOwnerTransformReplacement(): Unit {
+    for (event in [UiEvent.MouseMove(20.0, 12.0), UiEvent.MouseDown(MouseButton.Left, 20.0, 12.0),
+        UiEvent.MouseUp(MouseButton.Left, 20.0, 12.0), UiEvent.MouseWheel(0.0, 1.0, 20.0, 12.0)]) {
+        let collected = DesktopCollectedEvent(event, UInt64(3))
+        @Expect(collected.validAt(UInt64(3)))
+        @Expect(!collected.validAt(UInt64(4)))
+    }
+    for (event in [UiEvent.KeyDown(Key.Enter, false), UiEvent.PointerCancelled, UiEvent.Quit]) {
+        @Expect(DesktopCollectedEvent(event, UInt64(3)).validAt(UInt64(4)))
+    }
+}
 
 private func accessibilityTree(revision: UInt64): SemanticTreeSnapshot {
     SemanticTreeSnapshot("main", revision, [SemanticNode("save", Rect.zero(), "Button", "button",
