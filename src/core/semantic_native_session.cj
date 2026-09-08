@@ -47,6 +47,8 @@ public class SemanticNativeSession {
     private var nextId = UInt64(1)
     private var current: ?SemanticNativeSnapshot = None
     private var unchangedSince = UInt64(0)
+    private var semanticUnchangedSince = UInt64(0)
+    private var geometryUnchangedSince = HashMap<String, UInt64>()
 
     public init(windowId: String) {
         let _ = SemanticTreeSnapshot(windowId, UInt64(0), [])
@@ -99,11 +101,31 @@ public class SemanticNativeSession {
                 bindings.add(SemanticNativeBinding(node.id, ids[node.id], parent))
             }
             var continuous = false
+            var consecutive = false
+            var semanticContinuous = false
             if (let Some(previous) <- current) {
-                continuous = owned.revision - previous.tree.revision == UInt64(1) &&
-                    previous.tree.sameContent(owned)
+                consecutive = owned.revision - previous.tree.revision == UInt64(1)
+                continuous = consecutive && previous.tree.sameContent(owned)
+                semanticContinuous = consecutive && previous.tree.sameContent(owned, includeGeometry: false)
+            }
+            let nextGeometry = HashMap<String, UInt64>()
+            for (node in owned.nodes) {
+                var since = owned.revision
+                if (consecutive) {
+                    if (let Some(before) <- previousNodes.get(node.id)) {
+                        if (before.frame.x == node.frame.x && before.frame.y == node.frame.y &&
+                            before.frame.w == node.frame.w && before.frame.h == node.frame.h) {
+                            if (let Some(previousSince) <- geometryUnchangedSince.get(node.id)) {
+                                since = previousSince
+                            }
+                        }
+                    }
+                }
+                nextGeometry[node.id] = since
             }
             if (!continuous) { unchangedSince = owned.revision }
+            if (!semanticContinuous) { semanticUnchangedSince = owned.revision }
+            geometryUnchangedSince = nextGeometry
             current = Some(SemanticNativeSnapshot(owned, bindings.toArray()))
             nextId = allocated
         }
@@ -132,7 +154,7 @@ public class SemanticNativeSession {
         action: SemanticActionKind,
         handler: SemanticNativeActionHandler
     ): UiOwnerTicket {
-        enqueueAction(queue, nativeId, observedRevision, action, handler, false)
+        enqueueAction(queue, nativeId, observedRevision, action, handler, false, false)
     }
 
     /**
@@ -149,13 +171,31 @@ public class SemanticNativeSession {
         action: SemanticActionKind,
         handler: SemanticNativeActionHandler
     ): UiOwnerTicket {
-        enqueueAction(queue, nativeId, observedRevision, action, handler, true)
+        enqueueAction(queue, nativeId, observedRevision, action, handler, true, false)
+    }
+
+    /**
+     * Explicit native continuity across unrelated geometry-only animation. Every intervening
+     * ordered tree must retain ALL non-geometric content; the target and every ancestor must
+     * additionally retain their geometry. Topology, state, label, value, action or skipped-frame
+     * changes reject, including changed-then-restored content. The two older APIs stay strict.
+     * The handler must still dispatch through SemanticRuntime for current source/action policy.
+     */
+    public func postUnchangedTargetAction(
+        queue: UiOwnerQueue,
+        nativeId: UInt64,
+        observedRevision: UInt64,
+        action: SemanticActionKind,
+        handler: SemanticNativeActionHandler
+    ): UiOwnerTicket {
+        enqueueAction(queue, nativeId, observedRevision, action, handler, true, true)
     }
 
     private func enqueueAction(queue: UiOwnerQueue, nativeId: UInt64, observedRevision: UInt64,
-        action: SemanticActionKind, handler: SemanticNativeActionHandler, allowUnchanged: Bool): UiOwnerTicket {
+        action: SemanticActionKind, handler: SemanticNativeActionHandler, allowUnchanged: Bool,
+        stableTarget: Bool): UiOwnerTicket {
         queue.post({=>
-            let request = resolveAction(nativeId, observedRevision, action, allowUnchanged)
+            let request = resolveAction(nativeId, observedRevision, action, allowUnchanged, stableTarget)
             match (request) {
                 case Some(value) => handler(value)
                 case None => throw IllegalStateException("native semantic action is stale, unsupported or closed")
@@ -165,20 +205,22 @@ public class SemanticNativeSession {
 
     /** Owner-side close is terminal. Already queued actions fail when drained. */
     public func close(): Unit {
-        synchronized(mutex) { closed = true; current = None }
+        synchronized(mutex) { closed = true; current = None; geometryUnchangedSince.clear() }
     }
 
     private func resolveAction(nativeId: UInt64, revision: UInt64, action: SemanticActionKind,
-        allowUnchanged: Bool): ?SemanticActionRequest {
+        allowUnchanged: Bool, stableTarget: Bool): ?SemanticActionRequest {
         synchronized(mutex) {
             if (closed) { return None }
             let frame = match (current) { case Some(value) => value; case None => return None }
             if (frame.tree.revision != revision) {
-                if (!allowUnchanged || revision < unchangedSince || revision > frame.tree.revision) { return None }
+                let since = if (stableTarget) { semanticUnchangedSince } else { unchangedSince }
+                if (!allowUnchanged || revision < since || revision > frame.tree.revision) { return None }
             }
             for (binding in frame.bindings) {
                 if (binding.nativeId != nativeId) { continue }
                 let node = frame.tree.node(binding.semanticId).getOrThrow()
+                if (stableTarget && !targetGeometryContinuous(frame.tree, node, revision)) { return None }
                 if (!node.enabled || (node.readOnly && semanticActionName(action) != "focus")) { return None }
                 for (allowed in node.actions) {
                     if (semanticActionName(allowed) == semanticActionName(action)) {
@@ -190,6 +232,21 @@ public class SemanticNativeSession {
             }
             None
         }
+    }
+
+    private func targetGeometryContinuous(tree: SemanticTreeSnapshot, node: SemanticNode,
+        revision: UInt64): Bool {
+        var currentNode = node
+        while (true) {
+            let since = match (geometryUnchangedSince.get(currentNode.id)) {
+                case Some(value) => value
+                case None => return false
+            }
+            if (revision < since) { return false }
+            if (currentNode.parentId.isEmpty()) { return true }
+            currentNode = tree.node(currentNode.parentId).getOrThrow()
+        }
+        false
     }
 }
 

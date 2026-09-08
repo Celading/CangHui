@@ -270,10 +270,10 @@ public struct SemanticTreeSnapshot {
     }
 
     /** Full ordered semantic content; revision is deliberately compared by the caller. */
-    internal func sameContent(other: SemanticTreeSnapshot): Bool {
+    internal func sameContent(other: SemanticTreeSnapshot, includeGeometry!: Bool = true): Bool {
         if (windowId != other.windowId || nodes.size != other.nodes.size) { return false }
         for (index in 0..nodes.size) {
-            if (!sameSemanticNode(nodes[index], other.nodes[index])) { return false }
+            if (!sameSemanticNode(nodes[index], other.nodes[index], includeGeometry: includeGeometry)) { return false }
         }
         true
     }
@@ -816,10 +816,11 @@ private func semanticFocusOrder(values: HashMap<String, Int64>, id: String): Int
     }
 }
 
-private func sameSemanticNode(left: SemanticNode, right: SemanticNode): Bool {
+private func sameSemanticNode(left: SemanticNode, right: SemanticNode, includeGeometry!: Bool = true): Bool {
+    if (includeGeometry && (left.frame.x != right.frame.x || left.frame.y != right.frame.y ||
+        left.frame.w != right.frame.w || left.frame.h != right.frame.h)) { return false }
     if (left.id != right.id || left.parentId != right.parentId || left.order != right.order ||
-        left.frame.x != right.frame.x || left.frame.y != right.frame.y || left.frame.w != right.frame.w ||
-        left.frame.h != right.frame.h || left.widgetType != right.widgetType || left.role != right.role ||
+        left.widgetType != right.widgetType || left.role != right.role ||
         left.label != right.label || left.value != right.value || left.placeholder != right.placeholder ||
         left.enabled != right.enabled || left.readOnly != right.readOnly ||
         optionBoolName(left.focused) != optionBoolName(right.focused) ||

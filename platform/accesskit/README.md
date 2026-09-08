@@ -78,7 +78,7 @@ its UI owner; these public calls are not a concurrently callable owner API.
    from acknowledging a newer activation. Ordinary `publish` stays strictly increasing.
 3. Poll native actions before advancing the next semantic frame. Each action is
    copied with the last submitted revision at callback ingress. Forward it through
-   `SemanticNativeSession.postUnchangedAction`, the existing UI owner queue and final
+   `SemanticNativeSession.postUnchangedTargetAction`, the existing UI owner queue and final
    `SemanticRuntime` validation. This inbox is not a second UI dispatcher, and
    AT-SPI requests do not carry the reader client's observed tree revision.
 4. The inbox holds 128 actions per adapter. Unsupported/root-target/foreign-tree,
@@ -109,6 +109,14 @@ dispatch receipt is only ingress acknowledgment; inspect owner completion too.
 Keep semantic IDs tied to the same user intent; hidden callback changes cannot
 be inferred from identical public semantics. Full managed host and platform
 input-reliability acceptance remain separate from this bounded continuity rule.
+
+Desktop hosts explicitly use `postUnchangedTargetAction` to tolerate unrelated
+geometry-only animation. Every intervening ordered tree must retain all other
+semantic content, and the target plus every ancestor must retain their complete
+rectangles. A sibling's hover translation can therefore coexist with focus on a
+stationary field. Target/ancestor motion, topology changes, any state/value/action
+change, missing revisions and changed-then-restored content still reject. This
+does not change either older API or bypass the final runtime's source policy.
 
 ## Managed loader boundary
 

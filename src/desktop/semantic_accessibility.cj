@@ -80,7 +80,7 @@ internal class DesktopSemanticAccessibility <: Resource {
             // Match the bounded native inbox. Continuous producers cannot starve paint/close.
             for (_ in 0..128) {
                 let action = match (adapter.poll()) { case Some(value) => value; case None => break }
-                let _ = session.postUnchangedAction(queue, action.nativeId, action.revision,
+                let _ = session.postUnchangedTargetAction(queue, action.nativeId, action.revision,
                     action.action, {request =>
                         let receipt = dispatch(request)
                         if (!receipt.ok) {
