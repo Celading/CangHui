@@ -161,6 +161,44 @@ func packageNamesAreCompilerFriendly(): Unit {
     @Expect(sanitizePackageName("2026 Demo"), "app_2026_demo")
 }
 
+@When[debug]
+@Test
+func uiShellUsesVerifiedContextStagingAndPreservesDebugScript(): Unit {
+    let context = ExecutionContext("/tmp/sdk-consumer", "/tmp/immutable-framework",
+        stagingRoot: "/tmp/verified-shell-staging")
+    let script = "focus welcome.ready\nkey Enter"
+    let environment = uiShellEnvironment(context, script)
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect((environment.get(key) ?? "").contains(context.sdlDirectory()))
+    @Expect(environment.get("CANGHUI_HARMONYOS_SANS") ?? "", runtimeHarmonyFont(context.framework))
+    @Expect(environment.get("CANGHUI_DEBUG_UI_SCRIPT_HEX") ?? "", encodeCuicKModeText(script))
+    @Expect(environment.get("CANGHUI_CAPTURE_PATH") ?? "", "")
+}
+
+@When[debug]
+@Test
+func uiShellDefaultContextAlsoUsesKeyedStaging(): Unit {
+    let context = ExecutionContext("/tmp/shell-consumer", "/tmp/source-framework")
+    let environment = uiShellEnvironment(context, "snapshot")
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect((environment.get(key) ?? "").contains(context.sdlDirectory()))
+    @Expect(context.sdlDirectory() != joinPath(context.framework, "sdl/.sdl3"))
+}
+
+@When[!debug]
+@Test
+func uiShellReleaseDoesNotConstructPrivilegedEnvironment(): Unit {
+    let context = ExecutionContext("/tmp/shell-consumer", "/tmp/source-framework",
+        stagingRoot: "/tmp/verified-shell-staging")
+    var rejected = false
+    try {
+        let _ = uiShellEnvironment(context, "snapshot")
+    } catch (_: CuicError) { rejected = true }
+    @Expect(rejected)
+}
+
 @Test
 func windowsAbsolutePathsAreRecognized(): Unit {
     @Expect(isWindowsAbsolute("C:\\work\\CangHui"))

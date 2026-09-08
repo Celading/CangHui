@@ -103,7 +103,7 @@ func runUiShell(project: String, script: String): Int64 {
         let buildCode = executeCjpm(context, ["build", "-g"])
         if (buildCode != 0) { return buildCode }
         let executable = debugUiExecutable(context.targetDir)
-        let environment = uiShellEnvironment(framework, script)
+        let environment = uiShellEnvironment(context, script)
         let process = launch(
             executable,
             [],
@@ -133,15 +133,16 @@ func debugUiExecutable(targetDir: String): String {
 }
 
 @When[debug]
-func uiShellEnvironment(framework: String, script: String): HashMap<String, String> {
+func uiShellEnvironment(context: ExecutionContext, script: String): HashMap<String, String> {
     requireDebugChannelBuild("cuic shell")
-    let environment = applicationEnvironment(framework, "", UInt64(0))
+    let environment = applicationEnvironment(context.framework, "", UInt64(0),
+        nativeDirectory: context.sdlDirectory())
     environment.add("CANGHUI_DEBUG_UI_SCRIPT_HEX", encodeCuicKModeText(script))
     environment
 }
 
 @When[!debug]
-func uiShellEnvironment(_: String, _: String): HashMap<String, String> {
+func uiShellEnvironment(_: ExecutionContext, _: String): HashMap<String, String> {
     requireDebugChannelBuild("cuic shell")
     HashMap<String, String>()
 }

@@ -25,6 +25,8 @@ SDK 新模板采用 `WindowScaleSettings()`：跟随系统显示缩放，UI zoom
 
 `cuic` 是 release 工具，拒绝模拟和观察入口；`cuic-debug` 是明确分开的开发工具。
 不要将后者或 debug 应用作为产品分发。`prntx` 的协议范围见[无图观察](prntx.zh-CN.md)。
+运行真实窗口的一次性 `cuic-debug shell` 同样使用已验证的原生缓存，不要求在只读
+SDK 内创建 `sdl/.sdl3`，也不需要使用者手动设置动态库路径。
 
 需要 Kit 时，在同一应用增加可选依赖，两个路径必须指向同一 SDK：
 
