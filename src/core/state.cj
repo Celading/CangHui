@@ -243,7 +243,29 @@ public class StateStore {
         }
     }
 
-    /** Removes every retained state value. */
+    /** Retains an explicitly owned task scope; ordinary remembered values are not disposed. */
+    func rememberTaskScope(key: String, queue: UiOwnerQueue, policy: UiTaskPolicy): UiTaskScope {
+        if (!buildActive) { throw IllegalStateException("Remembered task scope requires an active build") }
+        validateKey(key)
+        let path = scopedKey(key)
+        if (visited.contains(path)) {
+            throw IllegalStateException("Duplicate remembered state key '${key}' in the same scope")
+        }
+        visited.add(path)
+        match (entries.get(path)) {
+            case Some(stored) => match (stored as RememberedUiTaskScope) {
+                case Some(owned) => owned.reuse(queue, policy)
+                case None => throw IllegalStateException("Remembered state key '${key}' changed value type")
+            }
+            case None =>
+                let owned = RememberedUiTaskScope(path, queue, policy)
+                let _ = entries.add(path, owned)
+                addedDuringBuild.add(path)
+                owned.scope
+        }
+    }
+
+    /** Removes every retained value and closes only explicitly owned task scopes. */
     public func clear(): Unit {
         // A callback can request a reset while RetainedWidgetNode still owns a HitTest/Paint phase.
         // Cancelling the runtime here would make that callback's finally/endPhase throw. Preserve
@@ -344,12 +366,12 @@ public class StateStore {
     }
 
     private func rollbackAddedEntries(): Unit {
-        for (key in addedDuringBuild) { let _ = entries.remove(key) }
+        for (key in addedDuringBuild) { removeRememberedEntry(key) }
         addedDuringBuild.clear()
     }
 
     private func removeObsoleteEntries(): Unit {
-        for (key in obsoleteDuringBuild) { let _ = entries.remove(key) }
+        for (key in obsoleteDuringBuild) { removeRememberedEntry(key) }
         obsoleteDuringBuild.clear()
     }
 
@@ -365,12 +387,21 @@ public class StateStore {
     }
 
     private func clearImmediately(): Unit {
+        for ((_, entry) in entries) {
+            if (let Some(owned) <- (entry as RememberedUiTaskScope)) { owned.scope.close() }
+        }
         entries.clear()
         retainedUi.clear()
         addedDuringBuild.clear()
         obsoleteDuringBuild.clear()
         retainedBuildPending = false
         visited.clear()
+    }
+
+    private func removeRememberedEntry(key: String): Unit {
+        if (let Some(entry) <- entries.remove(key)) {
+            if (let Some(owned) <- (entry as RememberedUiTaskScope)) { owned.scope.close() }
+        }
     }
 
     func pushScope(key: String): Unit {

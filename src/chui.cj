@@ -158,6 +158,7 @@ public import chui.core.GestureHandlers
 public import chui.core.GestureSurface
 public import chui.core.UiTaskPolicy
 public import chui.core.UiTaskScope
+public import chui.core.rememberUiTaskScope
 public import chui.core.UiTaskSubmission
 public import chui.core.UiTaskSubmissionStatus
 public import chui.core.uiTaskPolicyName
