@@ -6,6 +6,7 @@
 
 - 新增 `rememberUiTaskScope`，沿用 Keyed/StateStore 保留视图任务，成功卸载、回滚
   新条目和清空时自动取消；不关闭共享 UI 队列，也不改变普通 remembered state 的所有权。
+  DesktopApp 通过 `rememberTaskScope` 安全绑定内部队列，修正文档中不存在的队列 getter。
 
 - 应用打包指南区分源码 SDK 携带依赖与普通源码工程，并补充 macOS bundle 图标、
   现有 `setWindowIcon` 用法及恢复时保留独立图像数据的说明；未新增图标 API。

@@ -5,7 +5,8 @@
 UiTaskScope 在已有 UiOwnerQueue 上提供有界的后台准备生命周期。prepare 在 worker 执行并返回不可变结果；apply 通过 owner queue 回到 UI owner，才允许修改 State 或组件。
 
 ```cangjie
-let scope = UiTaskScope("app.search", app.uiOwnerQueue(),
+let queue = UiOwnerQueue() // 自定义宿主负责在 UI 线程 drain 和关闭队列。
+let scope = UiTaskScope("app.search", queue,
     policy: UiTaskPolicy.LatestOnly)
 
 let ticket = scope.submit(
@@ -27,7 +28,7 @@ UiTaskSubmission.status() 在进入 owner queue 后映射原有 UiOwnerReceipt�
 ```cangjie
 app.run {
     if (showSearch.value) {
-        let scope = rememberUiTaskScope("search.load", app.uiOwnerQueue(),
+        let scope = app.rememberTaskScope("search.load",
             policy: UiTaskPolicy.LatestOnly)
         Button("搜索", {=>
             let query = searchText.value
@@ -36,6 +37,9 @@ app.run {
     }
 }
 ```
+
+`DesktopApp.rememberTaskScope` 绑定应用内部队列，只能在该应用的构建中调用，不公开
+队列的 drain/close 权限。自定义宿主用 `rememberUiTaskScope(key, queue, policy:)`。
 
 作用域沿用 StateStore 和 `Keyed` 的身份规则，在重建间保留。视图成功卸载、存储清空
 或新建条目所属的构建回滚时，框架调用 `close()`。取消的 retained frame 不会误关

@@ -19,7 +19,7 @@ import chui.core.{AnimationSpec, CursorShape, DeviceRotationTransition, Retained
     SemanticInteractionPolicy, SemanticRuntime, SemanticRuntimeLimits, SemanticTreeDiff,
     SemanticTreeSnapshot, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRetainedRoot,
     buildRoot, UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip,
-    withActiveSemanticRuntime}
+    withActiveSemanticRuntime, UiTaskScope, UiTaskPolicy, rememberUiTaskScope, currentStateStore}
 import chui.graphics.{DamageRegion, FrameDamageRect, FrameExecutionReceipt, FrameExternalMode, FrameGraph,
     FrameGraphRuntime, FramePassDescriptor, FramePassExecutionResult, FramePassId, FramePassKind,
     GraphicsAlphaMode,
@@ -246,6 +246,14 @@ public class DesktopApp {
     /** Current owner epoch for optimistic `postToUi(baseEpoch:)` preparation. */
     public func uiOwnerEpoch(): UInt64 {
         uiOwnerQueue.currentEpoch()
+    }
+
+    /** View-owned preparation bound to this application's private owner queue. */
+    public func rememberTaskScope(key: String, policy!: UiTaskPolicy = UiTaskPolicy.LatestOnly): UiTaskScope {
+        if (!refEq((currentStateStore() as Object).getOrThrow(), (stateStore as Object).getOrThrow())) {
+            throw IllegalStateException("Task scope must be remembered in its owning application's build")
+        }
+        rememberUiTaskScope(key, uiOwnerQueue, policy: policy)
     }
 
     /** Effective layout posture, using viewport aspect ratio until a provider reports. */

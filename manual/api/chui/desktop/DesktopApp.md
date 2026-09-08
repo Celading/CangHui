@@ -64,6 +64,7 @@ main(): Unit {
 | [`useBaseCursor(...)`](#usebasecursor) | 设置窗口的基础光标——没有控件申请其它形状时显示的形状（如绘图画布上的十字线）。 |
 | [`clearRememberedState()`](#clearrememberedstate) | 在下一次重建前丢弃全部 `rememberState` 局部值。 |
 | [`postToUi(...)`](#posttoui) | 从任意线程投递任务，在下一次声明式构建前由 UI owner 串行执行。 |
+| [`rememberTaskScope(...)`](#remembertaskscope) | 在该应用的构建中保留视图任务，卸载后取消未应用结果，不暴露内部队列。 |
 | [`uiOwnerEpoch()`](#uiownerepoch) | 读取 owner epoch，供 worker 准备乐观提交条件。 |
 | [`deviceRotation()`](#devicerotation) | 返回供布局使用的有效方向；尚无宿主报告时按视口宽高回退。 |
 | [`reportedDeviceRotation()`](#reporteddevicerotation) | 返回宿主最后报告的方向，未报告时保持 `Unknown`。 |
@@ -160,6 +161,18 @@ public func useBaseCursor(kind: SystemCursor): Unit
 
 ```cangjie
 public func clearRememberedState(): Unit
+```
+
+### rememberTaskScope
+
+在该应用的声明式构建内调用，沿用 `Keyed` 身份，自动绑定内部 UI 队列。
+视图成功卸载时取消任务，重挂后创建新作用域。队列不随视图关闭。
+构建之外或另一个应用的构建中调用会报错。详细生命周期与取消边界见
+[`UiTaskScope`](../core/UiTaskScope.md#随视图卸载取消)。
+
+```cangjie
+public func rememberTaskScope(key: String,
+    policy!: UiTaskPolicy = UiTaskPolicy.LatestOnly): UiTaskScope
 ```
 
 ### postToUi
