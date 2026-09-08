@@ -1,6 +1,7 @@
 package chui.desktop
 
 import std.collection.ArrayList
+import chui.system.ApplicationShell
 import sdl.{FrameInfo, GamepadButton, GamepadConnectionState, GamepadDevice, Key, MouseButton, Rect,
     SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowMetrics, WindowSpec, WindowScaleSettings,
     gamepadButtonName, pointerEventToLegacyUiEvent}
@@ -816,8 +817,10 @@ public class DesktopApplication <: Resource {
     private let windows: WindowRegistry
     private let managedWindows = ArrayList<ManagedDesktopWindowSession>()
     private var closed: Bool = false
+    private let applicationShell: ?ApplicationShell
 
-    public init() {
+    public init(applicationShell!: ?ApplicationShell = None) {
+        this.applicationShell = applicationShell
         runtime = SdlRuntime()
         windows = WindowRegistry()
     }
@@ -980,12 +983,20 @@ public class DesktopApplication <: Resource {
         if (limit <= 0 || limit > 4096) {
             throw IllegalArgumentException("desktop event pump limit must be in 1..4096")
         }
+        if (closed) { return [] }
+        if (let Some(shell) <- applicationShell) {
+            let result = shell.attach()
+            if (!result.ok()) { throw IllegalStateException(result.message) }
+        }
         let receipts = ArrayList<WindowDispatchReceipt>()
         while (receipts.size < limit) {
             match (pumpOne()) {
                 case Some(receipt) => receipts.add(receipt)
                 case None => break
             }
+        }
+        if (!closed) {
+            if (let Some(shell) <- applicationShell) { let _ = shell.dispatchPendingActions() }
         }
         receipts.toArray()
     }
@@ -1096,6 +1107,11 @@ public class DesktopApplication <: Resource {
 
     private func finishApplicationRuntime(): Unit {
         if (closed) { return }
+        // Detach may fail, but must not strand native windows/runtime.
+        var shellFailure: ?Exception = None
+        try {
+            if (let Some(shell) <- applicationShell) { shell.detach() }
+        } catch (error: Exception) { shellFailure = Some(error) }
         // A process-level quit also owns every managed native window, even when a host-owned
         // session remains registered only long enough to observe its close request.
         var index = managedWindows.size - 1
@@ -1105,6 +1121,7 @@ public class DesktopApplication <: Resource {
         }
         runtime.close()
         closed = true
+        if (let Some(error) <- shellFailure) { throw error }
     }
 
     private func delayOneMillisecond(): Unit {

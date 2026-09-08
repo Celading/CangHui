@@ -26,6 +26,45 @@ The default `HeadlessSystemShellProvider` is deterministic and is intended for
 kMode, CI and unsupported-host probes. Native providers are implemented by
 platform adapters; a fallback result is not a native runtime claim.
 
+## Native macOS menus
+
+Choose `desktopApplicationShell(manifest)` explicitly and give it to the desktop
+application owner. The existing `ApplicationShell(manifest)` stays headless.
+
+```cangjie
+let shell = desktopApplicationShell(manifest)
+shell.registerAction(AppAction("file.open", "Open", shortcut: Some("CmdOrCtrl+O")),
+    { => openDocument() })
+let app = DesktopApp(WindowSpec("Demo", 800, 600), applicationShell: Some(shell))
+app.run { Label("Use the File menu to open a document") }
+```
+
+On macOS this attaches an AppKit application menu, declared action menus and a
+Window menu. About uses the manifest's name and version. Window commands use the
+native responder chain. A declared action without a registered handler is disabled;
+handlers can also be registered after attachment. Native callbacks queue actions,
+which the owner dispatches outside AppKit callbacks. Registration, menu updates
+and lifecycle calls must run on the native main thread.
+
+`DesktopApplication(applicationShell: Some(shell))` shares one shell across its
+windows. Its `pump()` / `run()` attaches and dispatches the shell; `pumpOne()` alone
+only routes a native event. Single-window `run()` and application shutdown detach
+the shell. Custom owners use `attach()`, `dispatchPendingActions(limit: 64)` and
+`detach()` themselves. Detachment is terminal; create a new shell for another
+application lifetime. Only one native shell can own the process menu at a time.
+
+Replacing a menu disconnects its old action targets and discards queued actions.
+Detachment restores the previous menus if they are still owned by this provider;
+it does not replace the SDL application delegate. The native queue is bounded to
+256 actions and fails explicitly on overflow; there is no remote control endpoint.
+
+Only `ApplicationMenu` reports native support in this provider. Settings remain
+an in-memory fallback. App icons, Dock actions/badges, status items, notifications
+and OS deep-link registration are not implemented here. Menu labels currently
+use English system commands. On other operating systems this factory selects the
+headless provider. Bundled icons, signing and distribution remain separate from
+native menu support; see [application packaging](application-packaging.md).
+
 ## Stable Action Identity
 
 Actions use dotted IDs such as `file.open`, `app.settings` and `app.quit`.

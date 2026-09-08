@@ -27,6 +27,7 @@ import chui.graphics.{DamageRegion, FrameDamageRect, FrameExecutionReceipt, Fram
     SdlFrameGraphExecutor, bridgeScene3DExternalSurface, bridgeScene3DSharedFrameImport,
     sdlFramePhysicalPixelCount}
 import chui.kmode.kModeEnabled
+import chui.system.ApplicationShell
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
@@ -79,6 +80,7 @@ public class DesktopApp {
     private var deviceRotationTransition: ?DeviceRotationTransition = None
     private let deviceRotationAnimation: AnimationSpec
     private let debugUiScript = DebugUiScriptRunner()
+    private let applicationShell: ?ApplicationShell
 
     public init(
         spec: WindowSpec,
@@ -93,9 +95,11 @@ public class DesktopApp {
         semanticWindowId!: String = "main",
         semanticPolicy!: SemanticInteractionPolicy = SemanticInteractionPolicy(),
         semanticLimits!: SemanticRuntimeLimits = SemanticRuntimeLimits(),
-        onSemanticAction!: SemanticActionHandler = {_ => false}
+        onSemanticAction!: SemanticActionHandler = {_ => false},
+        applicationShell!: ?ApplicationShell = None
     ) {
         this.window = configuredWindow(spec, metadata, hints)
+        this.applicationShell = applicationShell
         this.ctx = UiContext(window.renderer, theme)
         let actionRouter = DesktopSemanticActionRouter(this.ctx, fallback: onSemanticAction)
         this.semanticActionRouter = actionRouter
@@ -382,6 +386,10 @@ public class DesktopApp {
         // cleanup/affinity failure must never replace the originating application exception.
         var runFailure: ?Exception = None
         try {
+            if (let Some(shell) <- applicationShell) {
+                let result = shell.attach()
+                if (!result.ok()) { throw IllegalStateException(result.message) }
+            }
             match (profiler) {
                 case Some(_) =>
                     println("[profile] 渲染后端 ${ctx.renderer.driverName()}｜超采样 ${ctx.renderer.supersampleFactor()}x｜视口 ${window.width}x${window.height} @ ${window.scale}x｜帧节奏 ${resolvedFramePacingName(resolvedPacing)}")
@@ -413,6 +421,7 @@ public class DesktopApp {
                 ctx.viewportHeight = Float32(viewportH)
 
                 let events = collectPendingEvents()
+                if (let Some(shell) <- applicationShell) { let _ = shell.dispatchPendingActions() }
                 let observedStateGen = currentStateGeneration()
                 let ownerWorkPending = uiOwnerQueue.hasPending()
                 let nonStateInvalidation = continuousRequested || ownerWorkPending || !events.isEmpty() ||
@@ -496,6 +505,11 @@ public class DesktopApp {
             stateStore.cancelRetainedFrame()
             let _ = ctx.finishSharedFrameSurfaces("executor-failed")
             runFailure = Some(error)
+        }
+        try {
+            if (let Some(shell) <- applicationShell) { shell.detach() }
+        } catch (cleanupError: Exception) {
+            runFailure = Some(preferredDesktopRunFailure(runFailure, cleanupError))
         }
         try {
             let _ = uiOwnerQueue.close(reason: "desktop application closed")

@@ -465,6 +465,7 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
 public class ApplicationShell {
     public let manifest: ApplicationManifest
     private let provider: SystemShellProvider
+    private let runtime: ApplicationShellRuntime
     private let actionRegistry = AppActionRegistry()
     private let registeredDeepLinks = ArrayList<AppDeepLinkRoute>()
 
@@ -475,7 +476,19 @@ public class ApplicationShell {
         }
         this.manifest = manifest
         this.provider = provider
+        this.runtime = ApplicationShellRuntime(provider)
     }
+
+    /** Attach after the native application exists, on its UI owner thread. */
+    public func attach(): SystemShellResult { runtime.attach(manifest) }
+
+    /** Native callbacks never execute business handlers from inside AppKit. */
+    public func dispatchPendingActions(limit!: Int64 = 64): Array<SystemShellResult> {
+        runtime.dispatch(limit, {id => actionRegistry.invoke(id)})
+    }
+
+    /** Terminal and idempotent; disconnect native targets before SDL shutdown. */
+    public func detach(): Unit { runtime.detach() }
 
     public func capability(surface: SystemSurface): SystemSurfaceState {
         provider.state(surface)

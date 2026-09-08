@@ -14,6 +14,10 @@
 - macOS CI 与 full-build 指引只使用准备好的 SDL 动态库目录，避免宽泛 Homebrew
   搜索路径覆盖系统图像库、导致 CoreText 彩色 emoji 绘制崩溃；不修改全局环境。
 
+- 新增显式 `desktopApplicationShell`：macOS 原生菜单、About 名称/版本及窗口命令。
+  单／多窗口应用管理挂载、队列派发和卸载恢复，未绑定动作禁用，旧菜单动作失效。
+  默认 Headless 不变；图标、Dock、通知与其他平台原生 Shell 不包含在本次实现内。
+
 - CUIC debug shell 使用当前执行上下文的已验证原生缓存，修复离线 SDK 应用启动时
   仍查找旧源码树动态库目录的问题；release 控制通道仍关闭。
 

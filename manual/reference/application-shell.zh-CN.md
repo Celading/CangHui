@@ -21,6 +21,39 @@ let surfaces = shell.projectSystemSurfaces()
 默认的 `HeadlessSystemShellProvider` 用于 kMode、CI 和不支持原生能力的宿主。
 它提供确定性回放，但 fallback 或 queued 结果不等于真实系统能力已经完成。
 
+## macOS 原生菜单
+
+显式选择 `desktopApplicationShell(manifest)`，交给桌面应用管理。
+原有 `ApplicationShell(manifest)` 仍使用 Headless Provider，不改变默认行为。
+
+```cangjie
+let shell = desktopApplicationShell(manifest)
+shell.registerAction(AppAction("file.open", "打开", shortcut: Some("CmdOrCtrl+O")),
+    { => openDocument() })
+let app = DesktopApp(WindowSpec("Demo", 800, 600), applicationShell: Some(shell))
+app.run { Label("使用文件菜单打开文档") }
+```
+
+macOS 下会挂载 AppKit 应用菜单、自定义动作菜单和 Window 菜单。About 使用
+manifest 的应用名和版本；窗口命令交给原生响应链处理。只有声明、尚未绑定 handler
+的动作会禁用；挂载后也可以绑定。原生回调只入队，应用再派发 handler，避免在
+AppKit 回调中执行业务。注册、菜单更新和生命周期调用都必须在原生主线程进行。
+
+多窗口使用 `DesktopApplication(applicationShell: Some(shell))`，各窗口共用一个
+Shell。其 `pump()` / `run()` 负责挂载和派发；单独调用 `pumpOne()` 只路由一个原生
+事件。单窗口 `run()` 退出和应用关闭时会卸载。自定义宿主自行调用 `attach()`、
+`dispatchPendingActions(limit: 64)`、`detach()`。卸载后不能重挂同一实例；新的应用
+生命周期使用新 Shell。同一进程只允许一个原生 Shell 持有菜单。
+
+替换菜单会断开旧动作对象并清空待派发队列；卸载时，若菜单仍由本 Provider 持有，
+恢复原有菜单。整个过程不替换 SDL 的 application delegate。原生队列最多容纳
+256 个动作，溢出明确失败，不提供远程控制入口。
+
+本 Provider 只有 `ApplicationMenu` 报告 native；设置仍是内存 fallback。应用图标、
+Dock 动作和徽标、状态项、通知以及系统 Deep Link 注册尚未接通。系统命令标签暂为
+英文；其他操作系统下此工厂选择 Headless Provider。图标打包、签名和分发与原生菜单
+是分别验收的能力，见[应用打包](application-packaging.zh-CN.md)。
+
 ## 稳定 Action 标识
 
 Action 使用 `file.open`、`app.settings`、`app.quit` 这类带分段的稳定 ID。
