@@ -725,10 +725,9 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                 widget.handle(ctx, event)
             case UiEvent.WindowFocusChanged(false) =>
                 inputAnchor.invalidate()
-                ctx.leftMouseDown = false
-                ctx.clearDrag()
-                ctx.clearPress()
+                let _ = ctx.cancelPointerInteraction(widget)
                 widget.handle(ctx, event)
+            case UiEvent.PointerCancelled => ctx.cancelPointerInteraction(widget)
             case UiEvent.WindowFocusChanged(true) =>
                 inputAnchor.invalidate()
                 if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
@@ -761,6 +760,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     private func applyWindowMetrics(metrics: WindowMetrics): Unit {
         inputAnchor.invalidate()
         if (ctx.inputTransformRevision != metrics.transformRevision) {
+            if (let Some(widget) <- currentWidget) { let _ = ctx.cancelPointerInteraction(widget) }
             ctx.leftMouseDown = false
             ctx.clearDrag()
             ctx.clearPress()

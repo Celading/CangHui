@@ -256,6 +256,8 @@ func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
 
 @Test
 func uiShellParsesBoundedOneShotActions(): Unit {
+    let cancel = parseUiShellSelection(["cuic", "shell", "cancel"], 2)
+    @Expect(cancel.script, "cancel")
     let click = parseUiShellSelection(["cuic", "shell", "click", "12.5", "30"], 2)
     let focus = parseUiShellSelection(["cuic", "shell", "focus", "search-field"], 2)
 

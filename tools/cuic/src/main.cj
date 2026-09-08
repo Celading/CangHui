@@ -353,7 +353,7 @@ func helpText(): String {
     "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
     "  cuic shell click|touch [project] <x> <y>\n" +
     "  cuic shell focus [project] <component-id>\n" +
-    "  cuic shell snapshot [project]\n" +
+    "  cuic shell snapshot|cancel [project]\n" +
     "  cuic shell run [project] (--events <script>|--script <file>)\n" +
     "  cuic frame trace <project> --scenario <name>\n" +
     "  cuic frame replay <trace.json> --executor null\n" +

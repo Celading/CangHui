@@ -64,7 +64,7 @@ public class ZStack <: Widget {
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         match (event) {
-            case UiEvent.Frame(_) =>
+            case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 for (child in children) {
                     let _ = child.handle(ctx, event)
                 }
@@ -526,7 +526,7 @@ private func alignedRect(bounds: Rect, width: Float32, height: Float32, alignmen
 
 internal func dispatchChildren(children: Array<Widget>, ctx: UiContext, event: UiEvent): Bool {
     match (event) {
-        case UiEvent.Frame(_) =>
+        case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
             for (child in children) {
                 let _ = child.handle(ctx, event)
             }

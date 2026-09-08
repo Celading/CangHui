@@ -202,6 +202,12 @@ public class ClientWindowChrome {
                 } else {
                     style.titleBar(frame).contains(x, y)
                 }
+            case UiEvent.PointerCancelled | UiEvent.WindowFocusChanged(false) =>
+                let owned = dragging || controlPress.isActive()
+                dragging = false
+                let _ = controlPress.release(None)
+                if (owned) { Mouse.capture(false) }
+                owned
             case UiEvent.MouseUp(MouseButton.Left, x, y) =>
                 let released = style.controlAt(frame, x, y)
                 let hadControlPress = controlPress.isActive()

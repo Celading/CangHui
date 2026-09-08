@@ -3,7 +3,30 @@ package chui.desktop
 @When[debug]
 import chui.core.{State, Theme, UiContext, VStack}
 @When[debug]
-import sdl.{Key, Renderer}
+import sdl.{Key, Renderer, UiEvent}
+
+@When[debug]
+@Test
+func debugUiCancelHasNoCoordinatesAndDoesNotAcceptExtraArguments(): Unit {
+    let root = VStack {}
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+    let cancels = State<Int64>(0)
+    let runner = DebugUiScriptRunner("cancel")
+    runner.observe(root, ctx, 400, 200)
+    runner.executeNext(ctx, {event => match (event) {
+        case UiEvent.PointerCancelled => cancels.value += 1
+        case _ => @Fail("Cancel must not dispatch mouse release")
+    }})
+    @Expect(cancels.value, 1)
+    let bad = DebugUiScriptRunner("cancel 10 20")
+    bad.observe(root, ctx, 400, 200)
+    bad.executeNext(ctx, {_ => cancels.value += 1})
+    var rejected = false
+    try { bad.executeNext(ctx, {_ => cancels.value += 1}) }
+    catch (e: Exception) { rejected = e.message.contains("invalid argument count") }
+    @Expect(rejected)
+    @Expect(cancels.value, 1)
+}
 
 @When[debug]
 @Test

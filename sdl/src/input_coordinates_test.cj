@@ -1,5 +1,17 @@
 package sdl
 
+@Test
+func pointerCancelRemainsDistinctFromReleaseAfterNormalization(): Unit {
+    let event = PointerEvent(PointerPhase.Cancel, PointerDeviceKind.Touch, UInt64(7), 30.0, 40.0,
+        capturedDisplayScale: 2.0, transformRevision: UInt64(1))
+    let receipt = normalizePointerEvent(event, InputTransform(2.0, UInt64(1)))
+    @Expect(receipt.accepted())
+    match (pointerEventToLegacyUiEvent(receipt.event.getOrThrow())) {
+        case UiEvent.PointerCancelled => @Expect(true)
+        case _ => @Fail("Cancellation must not become a successful mouse release")
+    }
+}
+
 private func normalizedPointerAt(scale: Float32): PointerNormalizationReceipt {
     normalizePointerEvent(
         PointerEvent(PointerPhase.Move, PointerDeviceKind.Touch, UInt64(9),

@@ -63,6 +63,7 @@ public enum Scene3DViewInputEvent {
     | PointerDown(Float32, Float32, Scene3DHitTestResult)
     | PointerMove(Float32, Float32)
     | PointerUp(Float32, Float32)
+    | PointerCancelled
     | PointerWheel(Float32, Float32, Float32, Float32)
     | GamepadConnectionChanged(GamepadDevice, GamepadConnectionState)
     | GamepadAxisMotion(UInt32, GamepadAxis, Float32)
@@ -462,6 +463,10 @@ public class Scene3DView <: Widget {
             case UiEvent.MouseMove(x, y) =>
                 if (ctx.hasFocus(controlId)) {
                     return controller.dispatchInput(Scene3DViewInputEvent.PointerMove(x - frame.x, y - frame.y))
+                }
+            case UiEvent.PointerCancelled =>
+                if (ctx.hasFocus(controlId)) {
+                    return controller.dispatchInput(Scene3DViewInputEvent.PointerCancelled)
                 }
             case UiEvent.MouseUp(MouseButton.Left, x, y) =>
                 if (ctx.hasFocus(controlId)) {

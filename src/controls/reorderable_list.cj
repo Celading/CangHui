@@ -120,6 +120,12 @@ public class ReorderableList <: Widget {
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         let dragging = dragIndex.value >= 0
         match (event) {
+            case UiEvent.PointerCancelled =>
+                dragIndex.value = -1
+                grabOffset.value = 0.0
+                if (ctx.isDragging(dragId)) { ctx.clearDrag() }
+                for (row in rows) { let _ = row.handle(ctx, event) }
+                return dragging
             case UiEvent.Frame(_) =>
                 for (row in rows) {
                     let _ = row.handle(ctx, event)

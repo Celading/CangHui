@@ -74,6 +74,7 @@ public class DesktopApp {
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
     private let inputAnchor = TextInputAnchorState()
     private var loopEntered = false
+    private var currentWidget: ?Widget = None
     private var themeTransition: ?ThemeTransition = None
     private var deviceRotationTransition: ?DeviceRotationTransition = None
     private let deviceRotationAnimation: AnimationSpec
@@ -434,6 +435,7 @@ public class DesktopApp {
                         buildRoot(body, stateStore)
                     }
                     let tLayout = FrameProfiler.now()
+                    currentWidget = Some(widget)
                     ctx.adoptFocusRing(stateStore.focusRing())
                     semanticActionRouter.bind(widget)
                     ctx.beginFrameSurfaceRegistration()
@@ -490,6 +492,7 @@ public class DesktopApp {
         try {
             let _ = uiOwnerQueue.close(reason: "desktop application closed")
             semanticActionRouter.clear()
+            currentWidget = None
             closeThemeTransition()
             closeDeviceRotationTransition()
             stateStore.clear()
@@ -568,7 +571,12 @@ public class DesktopApp {
                 inputAnchor.invalidate()
             case UiEvent.WindowFocusChanged(_) =>
                 inputAnchor.invalidate()
+                match (event) {
+                    case UiEvent.WindowFocusChanged(false) => let _ = ctx.cancelPointerInteraction(widget)
+                    case _ => ()
+                }
                 if (!ctx.dispatchOverlay(event)) { dispatchEvent(widget, event) }
+            case UiEvent.PointerCancelled => let _ = ctx.cancelPointerInteraction(widget)
             case UiEvent.WindowDisplayScaleChanged =>
                 applyWindowMetrics(window.refreshDisplayScale())
                 dispatchEvent(widget, UiEvent.WindowMetricsChanged(window.currentMetrics()))
@@ -629,6 +637,7 @@ public class DesktopApp {
     private func applyWindowMetrics(metrics: WindowMetrics): Unit {
         frameGraphExecutor.setPhysicalPixelScale(metrics.displayScale * Float32(ctx.renderer.supersampleFactor()))
         if (ctx.inputTransformRevision != metrics.transformRevision) {
+            if (let Some(widget) <- currentWidget) { let _ = ctx.cancelPointerInteraction(widget) }
             ctx.leftMouseDown = false
             ctx.clearDrag()
             ctx.clearPress()

@@ -379,7 +379,7 @@ public class InteractionSurface <: Widget {
                 ctx.releasePointerCapture(controlId)
                 return true
             }
-            case UiEvent.WindowFocusChanged(false) =>
+            case UiEvent.PointerCancelled | UiEvent.WindowFocusChanged(false) =>
                 return cancelGesture(ctx)
             case _ => ()
         }

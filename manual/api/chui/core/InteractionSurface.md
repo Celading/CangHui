@@ -58,6 +58,9 @@ public init(
 
 ## 交互契约
 
+- `UiEvent.PointerCancelled` 放弃当前按压／拖动，不调用激活或 `onDragEnd`；活动
+  手势通过 `onDragCancel` 结束，后续松手不会重新提交。宿主失焦、输入变换替换
+  使用同一取消路径。自定义控件应清理自己的临时预览，不把取消当作 MouseUp。
 - 主键在面内按下并在面内松开才激活；按住后移出会永久取消本次按压，即使回到内部再松开也不触发；
 - 键盘焦点到达后 Enter 与空格激活；鼠标点击不会伪造 focus-visible；
 - `ControlRole` 提供 Button、Link、Checkbox、Switch 与 `Custom(String)` 语义角色；空 Custom role 在构造时拒绝；

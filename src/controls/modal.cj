@@ -148,6 +148,10 @@ public class Modal <: Widget {
     }
 
     private func handleModal(ctx: UiContext, event: UiEvent): Bool {
+        match (event) {
+            case UiEvent.PointerCancelled => routeToContent(ctx, event); return true
+            case _ => ()
+        }
         // The panel is revealed by clipping. Do not activate visually hidden content (including
         // keyboard/text actions); Escape and an actual backdrop press still dismiss immediately.
         if (entrance.value < 1.0) {

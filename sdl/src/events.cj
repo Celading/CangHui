@@ -316,6 +316,8 @@ public enum UiEvent {
     | MouseMove(Float32, Float32)
     | MouseDown(MouseButton, Float32, Float32)
     | MouseUp(MouseButton, Float32, Float32)
+    /** Abandon the current primary pointer transaction; never a successful release. */
+    | PointerCancelled
     | MouseWheel(Float32, Float32, Float32, Float32)
     | Pointer(PointerEvent)
     | GamepadConnectionChanged(GamepadDevice, GamepadConnectionState)

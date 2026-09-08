@@ -280,6 +280,6 @@ public func pointerEventToLegacyUiEvent(event: PointerEvent): UiEvent {
         case PointerPhase.Down => UiEvent.MouseDown(MouseButton.Left, event.x, event.y)
         case PointerPhase.Move => UiEvent.MouseMove(event.x, event.y)
         case PointerPhase.Up => UiEvent.MouseUp(MouseButton.Left, event.x, event.y)
-        case PointerPhase.Cancel => UiEvent.MouseUp(MouseButton.Left, event.x, event.y)
+        case PointerPhase.Cancel => UiEvent.PointerCancelled
     }
 }

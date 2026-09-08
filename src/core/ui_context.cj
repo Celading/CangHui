@@ -76,6 +76,7 @@ public class UiContext {
     public var dragId: String = ""
     public var pressedId: String = ""
     private var pointerCaptureId: String = ""
+    private var cancellingPointer = false
     // Single-slot overlay: a hovered `Tooltip` registers here during draw and the shell
     // paints it above everything after the tree. Empty text means no tooltip this frame.
     public var tooltipText: String = ""
@@ -724,6 +725,46 @@ public class UiContext {
             i -= 1
         }
         false
+    }
+
+    /**
+     * Cancels a window's primary pointer transaction without activating or dropping.
+     * Notify every registered overlay and the tree before disposing owner state.
+     * Unlike ordinary input, an overlay cannot swallow lifecycle cancellation.
+     * Custom hosts call this for PointerCancelled, focus loss or transform replacement.
+     */
+    public func cancelPointerInteraction(root: Widget): Bool {
+        if (cancellingPointer) { return false }
+        cancellingPointer = true
+        let oldPress = pressedId
+        let oldDrag = dragId
+        let oldCapture = pointerCaptureId
+        var handled = false
+        try {
+            let snapshot = overlays.toArray()
+            var i = snapshot.size - 1
+            while (i >= 0) {
+                let overlay = snapshot[i]
+                if (isRegistered(overlay)) {
+                    let consumed = overlay.dispatch(this, UiEvent.PointerCancelled)
+                    handled = consumed || handled
+                }
+                i -= 1
+            }
+            let consumed = root.handle(this, UiEvent.PointerCancelled)
+            handled = consumed || handled
+        } finally {
+            if (!oldPress.isEmpty()) { cancelInkRipple(oldPress) }
+            if (!oldDrag.isEmpty()) { cancelInkRipple(oldDrag) }
+            if (!oldCapture.isEmpty()) { cancelInkRipple(oldCapture) }
+            leftMouseDown = false
+            clearDrag()
+            clearPress()
+            pointerCaptureId = ""
+            cancellingPointer = false
+            requestFrame()
+        }
+        handled
     }
 
     private func isRegistered(overlay: Overlay): Bool {

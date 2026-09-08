@@ -29,16 +29,16 @@ func shellCommand(_: Array<String>, _: Int64): Int64 {
 
 func parseUiShellSelection(args: Array<String>, start: Int64): UiShellSelection {
     if (start >= args.size) {
-        throw CuicError("shell requires click, touch, down, move, up, focus, key, text, snapshot, or run")
+        throw CuicError("shell requires click, touch, down, move, up, cancel, focus, key, text, snapshot, or run")
     }
     let action = args[start]
     if (action == "run") {
         return parseUiShellRun(args, start + 1)
     }
-    if (action == "snapshot") {
-        if (start + 2 < args.size) { throw CuicError("shell snapshot accepts one project") }
+    if (action == "snapshot" || action == "cancel") {
+        if (start + 2 < args.size) { throw CuicError("shell ${action} accepts one project") }
         let requested = if (start + 1 < args.size) { args[start + 1] } else { "" }
-        return UiShellSelection(resolveProject(requested, ""), "snapshot")
+        return UiShellSelection(resolveProject(requested, ""), action)
     }
     if (action == "click" || action == "touch" || action == "down" || action == "press" ||
         action == "move" || action == "up" || action == "release") {

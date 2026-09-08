@@ -48,6 +48,7 @@ for command in \
   "pview" \
   "prntx" \
   "shell snapshot ." \
+  "shell cancel ." \
   "frame trace . --scenario release-gate" \
   "frame replay unavailable.json --executor null"; do
   set +e

@@ -341,6 +341,9 @@ public class ComponentProbe {
                     ctx.clearDrag()
                     ctx.clearPress()
                     session.finishEvent(consumed)
+                } else if (command == "cancel") {
+                    requireProbeArity(parts, 1, command)
+                    session.finishEvent(ctx.cancelPointerInteraction(widget))
                 } else if (command == "key") {
                     requireProbeArity(parts, 2, command)
                     let key = parseProbeKey(parts[1])

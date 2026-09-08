@@ -6,7 +6,8 @@ Surface 回调若提供物理像素，只允许在输入桥这一处转换，业
 ## 输入模型
 
 `sdl.PointerEvent` 保留以下平台事实，直到桌面运行时的兼容边界才降低为既有
-`MouseMove/MouseDown/MouseUp`：
+`MouseMove/MouseDown/MouseUp`；`Cancel` 独立转换为 `UiEvent.PointerCancelled`，
+不能转换为正常松手：
 
 - `coordinateSpace`：逻辑视口、SDL 窗口坐标、窗口物理像素、Surface 像素或屏幕像素；
 - `capturedDisplayScale` 与 `transformRevision`：事件捕获时的坐标变换；
@@ -50,6 +51,12 @@ app.setScaling(WindowScaleSettings(followSystem: false, zoom: 1.25))
 上述新 API 需要包含本页实现的框架提交，不能假定历史 Git pin 已包含它们。
 
 ## 一个窗口，一套换算
+
+输入变换替换或窗口失焦会先取消当前指针交互，再清理按压、拖动及捕获。
+取消不点击、不提交重排；连续调节控件保留最后一次已接受的值，不额外应用松手坐标。
+自定义宿主应调用 `ctx.cancelPointerInteraction(root)`，让已登记浮层和组件树都收到
+取消通知；自定义控件通过 `PointerCancelled` 清理临时状态，Scene3D 输入处理器对应
+`Scene3DViewInputEvent.PointerCancelled`。这些是框架事件保证，不替代物理设备验收。
 
 `WindowCoordinateTransform` 提供共同的输入／IME 依据：
 

@@ -169,7 +169,7 @@ public class LazyColumn <: Widget {
         let content = lazyContentHeight(count, itemHeight, spacing)
         let viewportH = frame.h
         match (event) {
-            case UiEvent.Frame(_) =>
+            case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 for (pair in visibleItems) {
                     let (_, widget) = pair
                     let _ = widget.handle(ctx, event)

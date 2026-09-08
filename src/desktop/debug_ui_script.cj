@@ -92,6 +92,12 @@ class DebugUiScriptRunner {
         let parts = line.split(" ")
         if (parts.isEmpty()) { return }
         let operation = parts[0]
+        if (operation == "cancel") {
+            requireDebugUiArity(parts, 1, operation)
+            dispatch(UiEvent.PointerCancelled)
+            emitDebugUiResult(operation, true, "", 0, "")
+            return
+        }
         if (operation == "click" || operation == "touch") {
             requireDebugUiArity(parts, 3, operation)
             let x = Float32.parse(parts[1])

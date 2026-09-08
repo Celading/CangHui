@@ -148,7 +148,7 @@ public class LazyList <: Widget {
         let content = rowTops[count]
         let viewportH = frame.h
         match (event) {
-            case UiEvent.Frame(_) =>
+            case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 for (pair in visibleItems) {
                     let (_, widget) = pair
                     let _ = widget.handle(ctx, event)

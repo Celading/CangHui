@@ -119,7 +119,7 @@ public class SplitView <: Widget {
             case _ => ()
         }
         match (event) {
-            case UiEvent.Frame(_) =>
+            case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 let _ = first.handle(ctx, event)
                 let _ = second.handle(ctx, event)
                 return false
