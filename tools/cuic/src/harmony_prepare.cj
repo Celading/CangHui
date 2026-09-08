@@ -67,7 +67,7 @@ func prepareHarmonyProjection(project: String, framework: String, manifest: Appl
         if (!exists(receiptPath)) {
             throw CuicError("Harmony projection output already exists without a CangHui receipt: ${output}")
         }
-        let existing = String.fromUtf8(File.readFrom(receiptPath))
+        let existing = String.fromUtf8(readHarmonyRegularFile(receiptPath))
         if (!containsText(existing, "\"inputDigest\":\"${inputDigest}\"")) {
             throw CuicError("Harmony projection source drift detected; review and remove the generated output before regenerating")
         }
@@ -117,7 +117,7 @@ private func collectHarmonySources(project: String, manifest: ApplicationManifes
         if (FileInfo(path).isSymbolicLink()) {
             throw CuicError("Harmony projection source must not be a symbolic link: ${relative}")
         }
-        let bytes = File.readFrom(path)
+        let bytes = readHarmonyRegularFile(path)
         if (bytes.size > HARMONY_PROJECTION_MAX_SOURCE_BYTES) {
             throw CuicError("Harmony projection source is too large: ${relative}")
         }
@@ -332,7 +332,7 @@ private func harmonyPathDigest(path: String): String {
     for ((relative, file) in sorted) {
         if (relative == "canghui-harmony-projection-receipt.json") { continue }
         value.append(relative); value.append("=")
-        value.append(harmonyByteDigest(File.readFrom(file))); value.append("|")
+        value.append(harmonyByteDigest(readHarmonyRegularFile(file))); value.append("|")
     }
     harmonyStableDigest(value.toString())
 }
@@ -360,4 +360,15 @@ func harmonyByteDigest(bytes: Array<UInt8>): String {
     var code: Int64 = 71
     for (byte in bytes) { code = (code * 131 + Int64(byte)) % 2147483647 }
     "chui-harmony-bytes-v1:${bytes.size}:${max(Int64(1), code)}"
+}
+
+// A FIFO passes exists() and can block readFrom waiting for a writer. Project
+// and provider trees must be stable during preparation; this is file-type
+// admission, not a race-free open or publisher-authentication guarantee.
+func readHarmonyRegularFile(path: String): Array<UInt8> {
+    let info = FileInfo(path)
+    if (info.isSymbolicLink() || !info.isRegular()) {
+        throw CuicError("Harmony projection input must be a regular file: ${path}")
+    }
+    File.readFrom(path)
 }

@@ -1,7 +1,7 @@
 package cuic
 
 import std.collection.{ArrayList, HashSet}
-import std.fs.{File, FileInfo, Path, exists}
+import std.fs.{FileInfo, Path, exists}
 
 let HARMONY_PROVIDER_SCHEMA = "canghui.harmony-provider/v1"
 let HARMONY_FRAMEWORK_VERSION = "0.17.0"
@@ -38,7 +38,7 @@ func loadHarmonyProviderPack(requestedRoot: String): HarmonyProviderPack {
     if (!exists(manifestPath) || FileInfo(manifestPath).isSymbolicLink()) {
         throw CuicError("Harmony provider manifest is missing: ${manifestPath}")
     }
-    let text = String.fromUtf8(File.readFrom(manifestPath))
+    let text = String.fromUtf8(readHarmonyRegularFile(manifestPath))
     let keys = HashSet<String>()
     var schema = ""
     var providerVersion = ""
@@ -95,7 +95,7 @@ func loadHarmonyProviderPack(requestedRoot: String): HarmonyProviderPack {
         }
         let source = canonicalPackagingPath(joinPath(root, relative), "Harmony provider artifact")
         if (source == root || !startsWithText(source, root + "/") ||
-            FileInfo(source).isSymbolicLink() || packagingDirectoryExists(source)) {
+            FileInfo(source).isSymbolicLink() || !FileInfo(source).isRegular()) {
             throw CuicError("Harmony provider artifact must be a regular file inside the provider root: ${relative}")
         }
         if (paths.contains(relative)) {
@@ -105,7 +105,7 @@ func loadHarmonyProviderPack(requestedRoot: String): HarmonyProviderPack {
         artifacts.add(relative)
     }
     HarmonyProviderPack(root, providerVersion, frameworkCommit, targetAbi, artifacts.toArray(),
-        harmonyByteDigest(File.readFrom(manifestPath)))
+        harmonyByteDigest(readHarmonyRegularFile(manifestPath)))
 }
 
 func validGitCommitId(value: String): Bool {
@@ -134,7 +134,7 @@ func harmonyProviderDigest(pack: HarmonyProviderPack): String {
     value.append(pack.manifestDigest)
     for (relative in pack.artifacts) {
         value.append("|"); value.append(relative); value.append("=")
-        value.append(harmonyByteDigest(File.readFrom(joinPath(pack.root, relative))))
+        value.append(harmonyByteDigest(readHarmonyRegularFile(joinPath(pack.root, relative))))
     }
     harmonyStableDigest(value.toString())
 }

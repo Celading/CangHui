@@ -57,6 +57,9 @@ bash scripts/verify-probe-option-disambiguation.sh
 echo "==> cuic CLI smoke"
 bash tools/cuic/scripts/test-cli.sh
 
+echo "==> Harmony projection special-file rejection"
+python3 scripts/test-harmony-file-types.py --cuic tools/cuic/target/release/bin/main
+
 echo "==> cuic install smoke"
 bash tools/cuic/scripts/test-install.sh
 

@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- `cuic prepare harmony` 在读取 provider 清单、载荷、源文件、资源和生成缓存前
+  拒绝 FIFO 等特殊文件，避免等待外部写入者；普通文件和无变化重放保持不变。
+  Reject special files before Harmony projection reads, including cached output,
+  so named pipes cannot leave preparation waiting for a writer.
+
 - 新增 `rememberUiTaskScope`，沿用 Keyed/StateStore 保留视图任务，成功卸载、回滚
   新条目和清空时自动取消；不关闭共享 UI 队列，也不改变普通 remembered state 的所有权。
   DesktopApp 通过 `rememberTaskScope` 安全绑定内部队列，修正文档中不存在的队列 getter。
