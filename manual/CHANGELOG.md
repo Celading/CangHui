@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- `DesktopApplication.syncWindow(id)` 显式等待单个窗口的原生状态并刷新实测尺寸，
+  修复多窗口验收将 Linux 异步调整尺寸当成即时完成的假设；普通尺寸请求不增加阻塞。
+  Add an explicit managed-window synchronization barrier without blocking normal resize requests.
+
 - Linux 的 CUIC `doctor` 和构建前置检查统一要求 SDL 3.4.0 或更高版本，
   在编译前拒绝缺少当前绑定函数的旧库。
   Linux doctor and bootstrap now reject SDL versions below 3.4.0 before compilation.

@@ -38,6 +38,32 @@ app.run()
 
 ## 路由规则
 
+### 请求尺寸与确认尺寸
+
+`setWindowSize(id, width, height)` 使用逻辑内容单位，返回 `true` 表示已经向托管
+窗口提交请求，不保证窗口系统立即采用了目标尺寸。正常交互中，由后续窗口事件刷新
+`windowState(id)`；不要用请求值冒充实测尺寸。
+
+需要立即读取稳定的原生状态（例如自动化验收）时，在同一原生 UI 线程显式调用：
+
+```cangjie
+let requested = app.setWindowSize(mainWindow, 960, 640)
+let synchronized = app.syncWindow(mainWindow)
+let measured = app.windowState(mainWindow)
+```
+
+`syncWindow` 等待该窗口的待处理原生状态并刷新布局／输入坐标所用的实测 metrics，
+不更改其他窗口。未知或已关闭的窗口返回 `false`，原生同步超时会抛出异常。
+同步成功也不表示窗口系统一定接受了请求尺寸，仍应读取 `windowState`；系统可能限制
+窗口大小。它可能等待系统动画，不应放进逐帧动画路径或替代正常事件循环。
+
+English: resize is a request; `syncWindow(id)` is an explicit native-state barrier
+that refreshes measured metrics. It can block and throw on timeout. Unknown or
+closed windows return false. Always inspect measured state; do not synchronize
+every animation frame.
+
+### 事件归属
+
 - 带 `WindowId` 的指针、键盘、窗口和 drop 事件只进入对应 session。
 - `Quit` 请求关闭全部窗口；单窗 `WindowCloseRequested` 只关闭目标窗口。
 - 进程级手柄事件路由给活动窗口，并在焦点转移、设备断开或窗口关闭时释放归属。
@@ -53,5 +79,6 @@ present 后释放 lease，并为每窗自动提交独立语义树、差分和类
 活动窗口动作的完整同等能力。
 macOS 已有非跳过的双原生窗口创建、绘制、聚焦与独立关闭烟测。窗口事件 envelope 解码和
 精确路由矩阵目前由确定性测试分别覆盖；本轮不把测试内直接路由 envelope 改写成真实系统
-输入穿过 `SdlRuntime.pollEvent()` 的端到端回执。Windows 与 Linux 保留代码路径，但在各自
-宿主回执到位前不声称主机级运行证明。
+输入穿过 `SdlRuntime.pollEvent()` 的端到端回执。Linux/X11 另有虚拟显示器与软件渲染下的
+双窗口创建、显式尺寸同步、绘制和独立关闭验证，不替代物理输入、GPU 或系统桌面集成证明。
+Windows 在本机运行回执到位前仍不声称主机级运行证明。

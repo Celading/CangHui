@@ -656,6 +656,11 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         applyWindowMetrics(window.currentMetrics())
     }
 
+    func syncNativeState(): Unit {
+        window.sync()
+        applyWindowMetrics(window.refreshDisplayScale())
+    }
+
     func delay(ms: UInt32): Unit { window.delay(ms) }
 
     func stateReceipt(): DesktopWindowStateReceipt {
@@ -912,10 +917,22 @@ public class DesktopApplication <: Resource {
         }
     }
 
-    /** Resizes one native window in logical content units, then adopts measured geometry. */
+    /** Requests a native resize in logical units. Measured geometry may converge asynchronously. */
     public func setWindowSize(id: WindowId, width: Int32, height: Int32): Bool {
         match (findManagedWindow(id)) {
             case Some(session) => session.setSize(width, height); true
+            case None => false
+        }
+    }
+
+    /**
+     * Explicit UI-owner barrier for one managed window, followed by measured-metrics refresh.
+     * Returns false for an unmanaged/closed window; native timeout throws, not false success.
+     * Do not call per animation frame: a window system may wait for its own animations.
+     */
+    public func syncWindow(id: WindowId): Bool {
+        match (findManagedWindow(id)) {
+            case Some(session) => session.syncNativeState(); true
             case None => false
         }
     }

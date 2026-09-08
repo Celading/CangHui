@@ -71,10 +71,6 @@ extend SdlWindow {
         ensureSdl(unsafe { SDL_SetWindowFullscreen(windowPtr, fullscreen) }, "SDL_SetWindowFullscreen")
     }
 
-    public func sync(): Unit {
-        ensureSdl(unsafe { SDL_SyncWindow(windowPtr) }, "SDL_SyncWindow")
-    }
-
     public func flash(operation!: WindowFlash = WindowFlash.Briefly): Unit {
         ensureSdl(unsafe { SDL_FlashWindow(windowPtr, flashCode(operation)) }, "SDL_FlashWindow")
     }

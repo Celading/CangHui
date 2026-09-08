@@ -511,11 +511,14 @@ private func runDesktopNativeDoubleWindowSmoke(): DesktopNativeSmokeReceipt {
 
         // Resize the actual native window. A fabricated size payload is not native resize proof.
         let didResize = app.setWindowSize(first, 240, 150)
+        // SDL accepts asynchronous resize requests on X11/Wayland. Confirm actual native
+        // state before asserting exact measured geometry; the regular setter stays nonblocking.
+        let didSyncResize = app.syncWindow(first)
         // Old queued notifications must not restore old geometry after a newer transaction.
         let resize = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowResized(200, 140)))
         let resizedFirst = app.windowState(first).getOrThrow()
         let untouchedSecond = app.windowState(second).getOrThrow()
-        if (!didResize || !resize.ok || resizedFirst.logicalWidth != 240 || resizedFirst.logicalHeight != 150 ||
+        if (!didResize || !didSyncResize || !resize.ok || resizedFirst.logicalWidth != 240 || resizedFirst.logicalHeight != 150 ||
             untouchedSecond.logicalWidth != 180 || untouchedSecond.logicalHeight != 140) {
             app.close()
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
@@ -596,7 +599,7 @@ private func runDesktopNativeDoubleWindowSmoke(): DesktopNativeSmokeReceipt {
             UiEvent.MouseDown(MouseButton.Left, 20.0, 20.0)))
         if (unknown.ok || unknown.code != "window-not-registered" ||
             firstSceneInput.total() != beforeUnknownFirst || secondSceneInput.total() != beforeUnknownSecond ||
-            app.windowState(WindowId(UInt32(999999))).isSome()) {
+            app.windowState(WindowId(UInt32(999999))).isSome() || app.syncWindow(WindowId(UInt32(999999)))) {
             app.close()
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
                 "unknown-window-did-not-fail-closed", "unknown WindowId mutated a managed scene")
@@ -608,7 +611,7 @@ private func runDesktopNativeDoubleWindowSmoke(): DesktopNativeSmokeReceipt {
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
                 "double-window-step-failed", "expected two presented managed-window receipts")
         }
-        if (!app.closeWindow(first) || app.semanticSnapshot(first).isSome() || app.isClosed() ||
+        if (!app.closeWindow(first) || app.syncWindow(first) || app.semanticSnapshot(first).isSome() || app.isClosed() ||
             !app.closeWindow(second) || !app.isClosed()) {
             app.close()
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
@@ -636,4 +639,14 @@ func desktopApplicationCreatesAndRunsTwoRealWindowsOrEmitsExplicitHeadlessReceip
     let receipt = runDesktopNativeDoubleWindowSmoke()
     println("[desktop-native-double-window] ${receipt.code}: ${receipt.detail}")
     @Expect(receipt.accepted())
+}
+
+@Test
+func desktopApplicationSyncRejectsUnknownAndClosedOwnersWithoutNativeCreation(): Unit {
+    let app = DesktopApplication()
+    let unknown = WindowId(UInt32(999999))
+    @Expect(!app.syncWindow(unknown))
+    @Expect(app.sessionCount(), 0)
+    app.close()
+    @Expect(!app.syncWindow(unknown))
 }

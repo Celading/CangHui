@@ -244,6 +244,12 @@ public class SdlWindow <: Resource {
         commitMetrics(measuredWindowMetrics(currentMetrics(), pixelWidth, pixelHeight, transform))
     }
 
+    /** Explicit native-state barrier; normal event processing does not call this. */
+    public func sync(): Unit {
+        ensureScaleOwner()
+        ensureSdl(unsafe { SDL_SyncWindow(windowPtr) }, "SDL_SyncWindow")
+    }
+
     private func ensureScaleOwner(): Unit {
         if (isClosed() || !sameNativeThread(ownerThreadId, unsafe { SDL_GetCurrentThreadID() })) {
             throw IllegalStateException("window metrics require the open window's native UI owner")
