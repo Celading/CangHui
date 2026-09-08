@@ -1,6 +1,11 @@
 package sdl
 
 extend SdlWindow {
+    /** Actual initialized SDL backend; not the requested SDL_VIDEODRIVER hint. */
+    public func videoDriver(): String {
+        let value = unsafe { SDL_GetCurrentVideoDriver() }
+        if (value.isNull()) { "" } else { value.toString() }
+    }
     public func title(): String {
         let value = unsafe { SDL_GetWindowTitle(windowPtr) }
         if (value.isNull()) {

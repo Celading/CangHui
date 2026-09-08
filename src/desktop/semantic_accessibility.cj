@@ -1,5 +1,6 @@
 package chui.desktop
 
+import sdl.SdlWindow
 import chui.core.{SemanticActionKind, SemanticActionRequest, SemanticActionReceipt,
     SemanticNativeSession, SemanticNativeSnapshot, SemanticTreeSnapshot, UiOwnerQueue}
 
@@ -60,6 +61,15 @@ internal class DesktopSemanticAccessibility <: Resource {
             failClosed()
             throw error
         }
+    }
+
+    func updateGeometry(window: SdlWindow): Unit {
+        if (closed) { return }
+        try {
+            if (let Some(provider) <- (adapter as DesktopAccessibilityGeometryAdapter)) {
+                provider.setWindowGeometry(desktopAccessibilityGeometry(window))
+            }
+        } catch (error: Exception) { failClosed(); throw error }
     }
 
     /** Poll even while idle so native actions can wake the existing owner/render path. */

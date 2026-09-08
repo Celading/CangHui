@@ -37,6 +37,11 @@ public struct WindowCoordinateTransform {
     public func logicalToWindow(rect: Rect): Rect {
         Rect(rect.x * windowScale, rect.y * windowScale, rect.w * windowScale, rect.h * windowScale)
     }
+
+    /** Physical backing pixels, excluding temporary renderer supersampling. */
+    public func logicalToPixels(rect: Rect): Rect {
+        Rect(rect.x * renderScale, rect.y * renderScale, rect.w * renderScale, rect.h * renderScale)
+    }
 }
 
 internal func resolveWindowTransform(

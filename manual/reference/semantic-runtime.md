@@ -95,8 +95,12 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
 工厂抛错会中止该窗口创建；已经分配但尚未返回的原生资源由工厂自行释放。
 
 平台适配器负责库装载、原生注册、空闲时的读屏激活、坐标换算、线程和动态库生命周期。
-快照矩形仍为窗口内逻辑坐标，
-不能直接宣称是多 DPI 下的屏幕坐标。动作回执为 UI owner 的执行结果，不等于读屏发声证明。
+快照矩形仍为窗口内逻辑坐标。需要几何信息的适配器另实现
+`DesktopAccessibilityGeometryAdapter.setWindowGeometry`：宿主提供已有的 `WindowMetrics`、
+实际 SDL video driver，以及可选的 `DesktopAccessibilityScreenBounds`（客户区 inner / 含装饰 outer）。
+`DesktopAccessibilityGeometry.logicalToPixels` 复用窗口坐标变换，不计入渲染超采样。
+`screen=None` 表示没有可信的屏幕原点，不表示 `(0,0)`。包装适配器时也必须转发这个伴随接口。
+动作回执为 UI owner 的执行结果，不等于读屏发声证明。
 
 ## 可选 Linux AccessKit 适配器（预览）
 
@@ -120,8 +124,10 @@ let app = DesktopApp(WindowSpec("My app", 720, 480),
 `cuic shell` 或任意命令/文本注入通道。
 
 原生注销是异步的，因此库引用保留到进程退出，不能在关闭窗口时卸载动态库。
-目前验证覆盖 Linux X11 的树读取、迟到激活、真实窗口聚焦、类型化动作和关闭；
-屏幕坐标、多 DPI、原生文本范围、读屏发声与 SDK 原生依赖交付尚未完成。其他平台不会
+当前工厂只接受有实测屏幕坐标的 X11 后端；未知原点、Wayland 或不支持的像素密度会明确失败，
+不会静默发布错误坐标。它以窗口现有 renderScale 投影节点，并提供实测客户区与装饰边界。
+窗口移动更新屏幕原点；缩放或尺寸改变必须等到对应的新布局提交，空闲重放仍使用已提交布局的变换。
+跨显示器系统 DPI、原生文本范围、读屏发声与 SDK 原生依赖交付尚未完成。其他平台不会
 导出这个 Linux 专用工厂；不传 `accessibility` 的默认路径没有额外原生依赖。
 
 ## 当前边界
@@ -129,7 +135,7 @@ let app = DesktopApp(WindowSpec("My app", 720, 480),
 可选的 [AccessKit C 树投影桥](../../platform/accesskit/README.md) 可把已有原生 ID、父子关系、
 角色与状态转成有界原生树，并拒绝无效的整树更新。另有 Linux 原生适配器的注册、
 令牌撤销和有界动作收件箱源码，现可通过上述可选 Linux 工厂接入桌面宿主。
-它还不是只引用依赖即可交付的完整读屏 SDK，尤其不能把逻辑矩形当作真实屏幕坐标。
+它还不是只引用依赖即可交付的完整读屏 SDK；直接使用 C 桥时仍须由调用方完成坐标投影。
 
 这套运行时提供跨宿主的语义事实和安全动作模型，不等于 macOS AX、Windows UIA、Linux
 AT-SPI 或 HarmonyOS 原生无障碍 provider 已完整实现并全部验证。`DesktopApp` 与 `DesktopApplication`

@@ -439,7 +439,10 @@ public class DesktopApp {
 
                 let events = collectPendingEvents()
                 if (let Some(shell) <- applicationShell) { let _ = shell.dispatchPendingActions() }
-                if (let Some(native) <- semanticAccessibility) { native.service(window.windowFlags().inputFocus) }
+                if (let Some(native) <- semanticAccessibility) {
+                    native.updateGeometry(window)
+                    native.service(window.windowFlags().inputFocus)
+                }
                 let observedStateGen = currentStateGeneration()
                 let ownerWorkPending = uiOwnerQueue.hasPending()
                 let nonStateInvalidation = continuousRequested || ownerWorkPending || !events.isEmpty() ||
@@ -969,7 +972,10 @@ public class DesktopApp {
         try {
             withActiveSemanticRuntime(semanticRuntime, body)
             let _ = semanticRuntime.commitFrame()
-            if (let Some(native) <- semanticAccessibility) { native.publish(semanticRuntime.snapshot()) }
+            if (let Some(native) <- semanticAccessibility) {
+                native.updateGeometry(window)
+                native.publish(semanticRuntime.snapshot())
+            }
         } catch (error: Exception) {
             semanticRuntime.cancelFrame()
             throw error

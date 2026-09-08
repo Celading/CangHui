@@ -7,7 +7,8 @@ debug control channel. Desktop hosts now provide an optional
 `DesktopAccessibilityFactory`/`DesktopAccessibilityAdapter` lifecycle port.
 The opt-in Linux `linuxAccessKitAccessibility(nativeLibrary, bridgeLibrary)`
 factory loads explicit trusted absolute paths and connects this bridge to either
-desktop host. Coordinate/text mapping and SDK dependency delivery remain open;
+desktop host. The factory currently requires measured X11 screen geometry;
+text mapping, other native geometry backends and SDK dependency delivery remain open;
 this preview is not a complete reader SDK or part of the default dependency closure.
 
 Supply the upstream source at commit
@@ -116,6 +117,16 @@ an adapter. It rejects NUL text before C-string conversion and caches detached
 tree/binding arrays for idle activation. No direct business callback is passed
 to AccessKit; copied actions enter the existing host queue and final runtime.
 No bridge library is loaded unless the application explicitly calls the factory.
+
+The managed adapter also implements `DesktopAccessibilityGeometryAdapter`.
+Both desktop owners supply current `WindowMetrics` and measured X11 client/outer
+bounds. Node rectangles use the existing logical-to-backing-pixel transform,
+excluding renderer supersampling. Window movement updates the native origin;
+resize/scale changes wait for a matching semantic layout publication. Idle replay
+keeps the committed tree's transform. Decorators must forward the geometry port.
+Unknown global positions are `None`, not `(0,0)`. The current Linux factory rejects
+Wayland, unknown positions and unsupported pixel densities rather than publishing
+misleading screen rectangles. This is not cross-monitor DPI certification.
 
 Supply matching trusted native and bridge binaries. ABI/symbol checks are NOT
 publisher authentication or transitive compatibility verification. ELF dependency

@@ -19,8 +19,9 @@ foreign {
  * environment-controlled selection. Loading executable code is not authenticated
  * by an ABI check. Libraries intentionally remain loaded until process exit:
  * upstream adapter destruction deregisters asynchronously, without joining callbacks.
- * Logical rectangles only in this revision: screen/DPI geometry and native text
- * ranges still require integration. This factory is not a complete reader SDK.
+ * This preview requires measured X11 screen bounds and projects through the
+ * window's existing scale transform. Other native geometry backends, text ranges
+ * and reader SDK dependency delivery still require integration.
  */
 @When[os == "Linux"]
 public func linuxAccessKitAccessibility(nativeLibrary: String, bridgeLibrary: String): DesktopAccessibilityFactory {
@@ -29,13 +30,15 @@ public func linuxAccessKitAccessibility(nativeLibrary: String, bridgeLibrary: St
 }
 
 @When[os == "Linux"]
-private class LinuxAccessibilityAdapter <: DesktopAccessibilityAdapter {
+private class LinuxAccessibilityAdapter <: DesktopAccessibilityAdapter & DesktopAccessibilityGeometryAdapter {
     private let api: LinuxAccessibilityApi
     private let windowId: String
     private let title: String
     private var token: UInt64
     private var latest: ?SemanticTreeSnapshot = None
     private var bindings: Array<SemanticNativeBinding> = []
+    private var geometry: ?DesktopAccessibilityGeometry = None
+    private var committedGeometry: ?DesktopAccessibilityGeometry = None
 
     init(api: LinuxAccessibilityApi, windowId: String, title: String) {
         api.checkText(title)
@@ -48,16 +51,34 @@ private class LinuxAccessibilityAdapter <: DesktopAccessibilityAdapter {
 
     public func publish(snapshot: SemanticNativeSnapshot): Unit {
         requireOpen()
+        let measured = geometry.getOrThrow()
         api.require(snapshot.tree.windowId == windowId, "foreign window")
         // Cache detached data, never a caller-mutable array, for idle activation.
         let tree = SemanticTreeSnapshot(snapshot.tree.windowId, snapshot.tree.revision, snapshot.tree.nodes)
         let ownedBindings = snapshot.bindings.clone()
-        let update = api.buildTree(title, tree, ownedBindings)
+        api.windowBounds(token, measured.screen.getOrThrow())
+        let update = api.buildTree(title, tree, ownedBindings, measured)
         // The checked bridge consumes on every path; all symbols resolved before allocation.
         api.require(unsafe { CFunc<(UInt64, UInt64, AccessibilityRef) -> Bool>(
             api.symbol("chui_ak_unix_publish"))(token, tree.revision, update) }, "tree publication")
         latest = Some(tree)
         bindings = ownedBindings
+        committedGeometry = Some(measured)
+    }
+
+    public func setWindowGeometry(value: DesktopAccessibilityGeometry): Unit {
+        requireOpen()
+        api.require(value.videoDriver == "x11" && value.screen.isSome(),
+            "screen geometry unavailable: this preview requires measured X11 coordinates")
+        geometry = Some(value)
+        if (let Some(previous) <- committedGeometry) {
+            // Moving a window does not require semantic redraw. A scale/resize
+            // transaction, however, must wait for its matching committed layout.
+            if (sameAccessibilityTransform(previous.metrics, value.metrics)) {
+                api.windowBounds(token, value.screen.getOrThrow())
+                committedGeometry = Some(value)
+            }
+        }
     }
 
     public func setWindowFocused(focused: Bool): Unit {
@@ -71,7 +92,7 @@ private class LinuxAccessibilityAdapter <: DesktopAccessibilityAdapter {
         if (let Some(tree) <- latest) {
             let refresh = unsafe { CFunc<(UInt64) -> Bool>(api.symbol("chui_ak_unix_needs_refresh"))(token) }
             if (refresh) {
-                let update = api.buildTree(title, tree, bindings)
+                let update = api.buildTree(title, tree, bindings, committedGeometry.getOrThrow())
                 // A concurrent deactivation may withdraw the request after needs_refresh.
                 // False still consumes the update; the next poll observes any newer activation.
                 unsafe { let _ = CFunc<(UInt64, UInt64, AccessibilityRef) -> Bool>(
@@ -102,6 +123,8 @@ private class LinuxAccessibilityAdapter <: DesktopAccessibilityAdapter {
         token = UInt64(0)
         latest = None
         bindings = []
+        geometry = None
+        committedGeometry = None
         unsafe { CFunc<(UInt64) -> Unit>(api.symbol("chui_ak_unix_close"))(previous) }
     }
 
@@ -121,7 +144,7 @@ private class LinuxAccessibilityApi {
         bridge = open(bridgePath)
         for (name in ["chui_ak_unix_abi_version", "chui_ak_unix_new", "chui_ak_unix_publish",
             "chui_ak_unix_needs_refresh", "chui_ak_unix_refresh", "chui_ak_unix_focus",
-            "chui_ak_unix_poll", "chui_ak_unix_close", "chui_ak_tree_new", "chui_ak_tree_add",
+            "chui_ak_unix_poll", "chui_ak_unix_close", "chui_ak_unix_bounds", "chui_ak_tree_new", "chui_ak_tree_add",
             "chui_ak_tree_finish", "chui_ak_tree_free"]) {
             var address = AccessibilityRef()
             unsafe { try (text = LibC.mallocCString(name).asResource()) {
@@ -155,7 +178,17 @@ private class LinuxAccessibilityApi {
     }
     func symbol(name: String): AccessibilityRef { symbols[name] }
 
-    func buildTree(title: String, tree: SemanticTreeSnapshot, bindings: Array<SemanticNativeBinding>): AccessibilityRef {
+    func windowBounds(token: UInt64, bounds: DesktopAccessibilityScreenBounds): Unit {
+        let outer = bounds.outer
+        let inner = bounds.inner
+        require(unsafe { CFunc<(UInt64, Float64, Float64, Float64, Float64,
+            Float64, Float64, Float64, Float64) -> Bool>(symbol("chui_ak_unix_bounds"))(
+                token, Float64(outer.x), Float64(outer.y), Float64(outer.w), Float64(outer.h),
+                Float64(inner.x), Float64(inner.y), Float64(inner.w), Float64(inner.h)) }, "window bounds")
+    }
+
+    func buildTree(title: String, tree: SemanticTreeSnapshot, bindings: Array<SemanticNativeBinding>,
+        geometry: DesktopAccessibilityGeometry): AccessibilityRef {
         let index = HashMap<String, SemanticNativeBinding>()
         for (binding in bindings) { index[binding.semanticId] = binding }
         var transaction = AccessibilityRef()
@@ -165,7 +198,7 @@ private class LinuxAccessibilityApi {
             } }
             require(transaction.isNotNull(), "tree allocation")
             for (node in tree.nodes) {
-                appendNode(transaction, index[node.id], node)
+                appendNode(transaction, index[node.id], node, geometry)
             }
             let result = unsafe { CFunc<(AccessibilityRef) -> AccessibilityRef>(
                 symbol("chui_ak_tree_finish"))(transaction) }
@@ -179,8 +212,10 @@ private class LinuxAccessibilityApi {
         }
     }
 
-    private func appendNode(tree: AccessibilityRef, binding: SemanticNativeBinding, node: SemanticNode): Unit {
+    private func appendNode(tree: AccessibilityRef, binding: SemanticNativeBinding, node: SemanticNode,
+        geometry: DesktopAccessibilityGeometry): Unit {
         for (text in [node.role, node.label, node.value, node.placeholder]) { checkText(text) }
+        let frame = geometry.logicalToPixels(node.frame)
         var states = UInt32(0)
         if (!node.enabled) { states += 1 }
         if (node.readOnly) { states += 2 }
@@ -205,8 +240,8 @@ private class LinuxAccessibilityApi {
                     require(CFunc<(AccessibilityRef, UInt64, UInt64, CString, CString, CString, CString,
                         Float64, Float64, Float64, Float64, UInt32, UInt32) -> Bool>(symbol("chui_ak_tree_add"))(
                         tree, binding.nativeId, binding.parentNativeId, role.value, label.value, value.value,
-                        placeholder.value, Float64(node.frame.x), Float64(node.frame.y), Float64(node.frame.w),
-                        Float64(node.frame.h), states, actions), "node projection")
+                        placeholder.value, Float64(frame.x), Float64(frame.y), Float64(frame.w),
+                        Float64(frame.h), states, actions), "node projection")
                   }
                 }
               }

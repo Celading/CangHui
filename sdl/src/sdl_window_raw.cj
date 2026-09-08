@@ -1,6 +1,7 @@
 package sdl
 
 foreign {
+    func SDL_GetCurrentVideoDriver(): CString
     func SDL_SetWindowRelativeMouseMode(window: CPointer<Unit>, enabled: Bool): Bool
 
     func SDL_CreateWindowAndRenderer(

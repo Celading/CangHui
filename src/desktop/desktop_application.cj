@@ -601,7 +601,10 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         if (closed || wantsClose || ctx.shouldClose) {
             return DesktopWindowStepReceipt(window.id, false, true, detail: "close-requested")
         }
-        if (let Some(native) <- semanticAccessibility) { native.service(window.windowFlags().inputFocus) }
+        if (let Some(native) <- semanticAccessibility) {
+            native.updateGeometry(window)
+            native.service(window.windowFlags().inputFocus)
+        }
         let _ = uiOwnerQueue.drain()
         // An apply callback may close this window or the entire application. Never touch
         // its released renderer or rebuild its disposed StateStore after that callback.
@@ -642,7 +645,10 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                     ctx.drawActiveOverlay()
                 })
                 let _ = semanticRuntime.commitFrame()
-                if (let Some(native) <- semanticAccessibility) { native.publish(semanticRuntime.snapshot()) }
+                if (let Some(native) <- semanticAccessibility) {
+                    native.updateGeometry(window)
+                    native.publish(semanticRuntime.snapshot())
+                }
             } catch (error: Exception) {
                 semanticRuntime.cancelFrame()
                 throw error
