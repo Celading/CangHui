@@ -121,12 +121,21 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
     var platform = hostPlatform()
     var requested = ""
     var output = ""
+    var runtimeManifest = ""
     var json = false
     var platformSet = false
     var i = start
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--runtime-manifest") {
+            if (!runtimeManifest.isEmpty() || i + 1 >= args.size || startsWithText(args[i + 1], "-")) {
+                throw CuicError("--runtime-manifest requires one project-relative JSON file")
+            }
+            runtimeManifest = args[i + 1]
+            i += 2
+            continue
+        }
         if (value == "--output") {
             if (i + 1 >= args.size || startsWithText(args[i + 1], "-")) {
                 throw CuicError("--output requires a project-relative directory")
@@ -150,7 +159,7 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
         throw CuicError("package build currently supports macos, windows and linux")
     }
     let project = resolveProject(requested, "")
-    buildApplicationArtifact(project, platform, output, json)
+    buildApplicationArtifact(project, platform, output, json, linuxRuntimeManifest: runtimeManifest)
 }
 
 func loadApplicationManifest(project: String): ApplicationManifest {

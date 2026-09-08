@@ -57,6 +57,7 @@ bash tools/cuic/scripts/test-install.sh
 bash scripts/audit-network-control-surface.sh
 python3 scripts/test-ci-loader-env.py
 python3 scripts/test-linux-runtime-audit.py
+python3 scripts/test-linux-runtime-assembly.py
 bash scripts/verify-privileged-release-exclusion.sh
 python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
 git diff --check

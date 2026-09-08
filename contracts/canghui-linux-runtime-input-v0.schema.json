@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Explicit Linux runtime inputs for CUIC assembly",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "machine", "libraries", "font", "notices", "systemDirectories"],
+  "properties": {
+    "schema": {"const": "canghui.linux-runtime-input.v0"},
+    "machine": {"enum": ["AArch64", "Advanced Micro Devices X86-64"]},
+    "libraries": {
+      "type": "array", "minItems": 1, "maxItems": 127,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "source", "sha256", "licenses"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.+\\-]*\\.so(?:\\.[0-9]+)*$"},
+          "source": {"type": "string", "minLength": 1},
+          "sha256": {"$ref": "#/$defs/hash"},
+          "licenses": {"$ref": "#/$defs/notices"}
+        }
+      }
+    },
+    "font": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source", "sha256", "licenses"],
+      "properties": {
+        "source": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "licenses": {"$ref": "#/$defs/notices"}
+      }
+    },
+    "notices": {"$ref": "#/$defs/notices"},
+    "systemDirectories": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "file": {
+      "type": "object", "additionalProperties": false, "required": ["source", "sha256"],
+      "properties": {"source": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/hash"}}
+    },
+    "notices": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/file"}}
+  }
+}

@@ -31,7 +31,13 @@ class ApplicationPackagingArtifactReceipt {
     }
 }
 
-func buildApplicationArtifact(project: String, platform: String, requestedOutput: String, json: Bool): Int64 {
+func buildApplicationArtifact(project: String, platform: String, requestedOutput: String, json: Bool,
+    linuxRuntimeManifest!: String = ""): Int64 {
+    validateLinuxRuntimeRequest(platform, hostPlatform(), linuxRuntimeManifest)
+    if (!linuxRuntimeManifest.isEmpty()) {
+        ensurePackagingPathStaysInsideProject(canonicalPackagingPath(project, "project"),
+            joinPath(project, linuxRuntimeManifest), "runtime manifest")
+    }
     let manifest = loadApplicationManifest(project)
     let output = resolvePackagingOutputRoot(project, platform, manifest, requestedOutput)
     ensurePackagingDestinationAvailable(output)
@@ -54,6 +60,14 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
             sdkFramework = framework
             limitations.add("source-sdk-native-closure-included-not-publisher-signed")
         } else { limitations.add("runtime-dependencies-remain-host-managed") }
+    } else if (!linuxRuntimeManifest.isEmpty()) {
+        let buildCode = runPackagingBuild(project, "linux", json)
+        if (buildCode != 0) { return buildCode }
+        let context = ExecutionContext(project, ensureFrameworkRoot(project))
+        executable = builtExecutable(context.targetDir)
+        hostReplay = "same-host-build-and-runtime-assembly-not-launched"
+        limitations.add("runtime-license-records-carried-not-legally-reviewed")
+        limitations.add("dynamic-plugins-and-desktop-installation-not-verified")
     } else if (platform != hostPlatform()) {
         limitations.add("target-host-build-not-run-on-${hostPlatform()}")
         limitations.add("executable-and-native-runtime-not-included")
@@ -67,7 +81,8 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     limitations.add("unsigned-artifact")
 
     let receipt = writeApplicationPackagingArtifact(
-        project, platform, manifest, output, executable, hostReplay, limitations.toArray(), sourceSdkFramework: sdkFramework
+        project, platform, manifest, output, executable, hostReplay, limitations.toArray(),
+        sourceSdkFramework: sdkFramework, linuxRuntimeManifest: linuxRuntimeManifest
     )
     let receiptPath = joinPath(output, applicationPackagingReceiptPath(platform))
     File.writeTo(receiptPath, renderApplicationPackagingReceiptJson(receipt).toArray())
@@ -88,17 +103,21 @@ func applicationPackagingReceiptPath(platform: String): String {
 }
 
 func runMacPackagingBuild(project: String, quiet: Bool): Int64 {
+    runPackagingBuild(project, "macos", quiet)
+}
+
+func runPackagingBuild(project: String, platform: String, quiet: Bool): Int64 {
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let boot = bootstrap("macos", framework, stagingRoot: context.stagingRoot, quiet: quiet)
+    let boot = bootstrap(platform, framework, stagingRoot: context.stagingRoot, quiet: quiet)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
     try {
-        if (!quiet) { println("==> cjpm build (macos) in ${project}") }
+        if (!quiet) { println("==> cjpm build (${platform}) in ${project}") }
         if (quiet) { executeCjpmQuiet(context, ["build"]) } else { executeCjpm(context, ["build"]) }
     } finally {
         context.releaseLease(lease)
@@ -204,7 +223,8 @@ func ensurePackagingInputTreeStaysInsideProject(
 
 func writeApplicationPackagingArtifact(project: String, platform: String,
     manifest: ApplicationManifest, output: String, executable: String,
-    hostReplay: String, limitations: Array<String>, sourceSdkFramework!: String = ""): ApplicationPackagingArtifactReceipt {
+    hostReplay: String, limitations: Array<String>, sourceSdkFramework!: String = "",
+    linuxRuntimeManifest!: String = ""): ApplicationPackagingArtifactReceipt {
     ensurePackagingDirectory(output)
     let generated = ArrayList<String>()
     let copied = ArrayList<String>()
@@ -220,10 +240,21 @@ func writeApplicationPackagingArtifact(project: String, platform: String,
         copyWindowsApplicationArtifact(project, manifest, output, generated, copied)
     } else {
         writeLinuxApplicationArtifact(project, manifest, output, generated, copied)
+        if (!linuxRuntimeManifest.isEmpty()) {
+            assembleLinuxApplicationRuntime(project, output, executable, linuxRuntimeManifest, manifest.identifier)
+            for (path in ["bin/${manifest.identifier}", "bin/${manifest.identifier}.bin", "run.sh", "runtime/receipt.json"]) {
+                generated.add(path)
+            }
+            copied.add("declared Linux runtime -> lib/ and runtime/ (see runtime/receipt.json)")
+            executableIncluded = true
+        }
     }
     generated.add(applicationPackagingReceiptPath(platform))
+    let kind = if (platform == "linux" && executableIncluded) {
+        "linux-unsigned-runtime-bundle"
+    } else { packagingArtifactKind(platform) }
     ApplicationPackagingArtifactReceipt(
-        platform, packagingArtifactKind(platform), manifest, generated.toArray(), copied.toArray(),
+        platform, kind, manifest, generated.toArray(), copied.toArray(),
         executableIncluded, false, hostReplay, limitations
     )
 }

@@ -68,7 +68,7 @@ macOS 默认输出到 `dist/<Name>.app`，Windows 与 Linux 默认输出到
 并记录该无签名 bundle 尚未完成启动验收，release trim/strip、发布安全审计、
 发布者签名与公证均未验证。携带依赖不等于已在另一台机器通过验收。
 
-Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪装成已经跨平台编译：
+默认情况下，Windows 与 Linux 路由可以在其他宿主上生成输入树，但不会伪装成已经跨平台编译：
 
 - Windows 生成 executable manifest、版本资源源码、AppUserModelID、资源与图标输入。
 - Linux 生成 desktop entry、`share/applications`、图标树和应用资源树。
@@ -82,6 +82,50 @@ macOS 和 Windows 的产物命名保持不变。
 图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
 文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
 
+## 用 CUIC 组装 Linux 运行包
+
+在 Linux 构建宿主上，通过显式输入清单启用运行包组装：
+
+```text
+cuic package build linux . --runtime-manifest packaging/runtime.json \
+  --output dist/linux-runtime --json
+```
+
+命令先走正常 CUIC 构建流程，再复制声明的库、字体和许可说明。构建宿主需要
+Python 3.11+、GNU `readelf` 和 `patchelf`。它不会下载依赖，也不会自动搜集
+宿主上的库。不传 `--runtime-manifest` 时仍只生成上面的输入树；该选项不提供交叉编译。
+
+按 [`canghui-linux-runtime-input-v0.schema.json`](../../contracts/canghui-linux-runtime-input-v0.schema.json)
+准备清单：
+
+| 字段 | 必填内容 |
+| --- | --- |
+| `schema` | `canghui.linux-runtime-input.v0` |
+| `machine` | `AArch64` 或 `Advanced Micro Devices X86-64` |
+| `libraries` | 全部非系统运行库；每项包含加载器所需的 `name`、`source`、小写 `sha256` 和非空 `licenses` |
+| `font` | 一份可用于启动的字体，包含 `source`、`sha256` 和非空 `licenses` |
+| `notices` | 非空的应用／框架许可说明列表 |
+| `systemDirectories` | 目标 glibc 基础库的显式目录；只检查，不复制这些系统库 |
+
+每条许可说明包含 `source` 和 `sha256`。文件来源可以是绝对路径或相对于该清单
+的路径，便于选择工程外的 SDK；清单文件本身必须位于工程内。只使用可信输入：
+工具只复制你明确声明的内容，不会搬走整个 SDK。库名应匹配 ELF 的 `DT_NEEDED`，
+不能随意重命名，也不能把 `libc.so.6` 等系统基础库放进 `libraries`。
+
+运行包在原有桌面入口／资源树外，增加 `bin/<identifier>` 启动器、
+`bin/<identifier>.bin` 可执行文件、`lib/`、`runtime/fonts/`、`runtime/licenses/`、
+`runtime/receipt.json` 和 `run.sh`。复制后的 ELF 使用包内 `$ORIGIN` 搜索路径，
+不修改原始构建文件。启动器选择随包启动字体并原样转交参数，不要求设置
+`LD_LIBRARY_PATH`。可执行 `./dist/linux-runtime/run.sh`，或将包的 `bin` 目录加入
+`PATH`，使用 desktop entry 中的 identifier 启动。安装仍由安装器负责；不支持
+在包外创建指向启动器的符号链接来代替上述入口。
+
+成功组装后，产物类型为 `linux-unsigned-runtime-bundle`，`executableIncluded`
+为 `true`；运行包 receipt 仍写 `assembled-not-launched`。哈希与 ELF 依赖检查
+不代表已验证启动、动态插件、许可合规、签名或桌面集成。许可原文会随包保留并与
+输入关联，再分发仍需审核。组装失败不会签发完整打包 receipt，但可能留下未完成的
+桌面入口／资源树；检查失败输出后，重试时使用新的输出目录。
+
 ## Linux 运行包元数据预检
 
 框架与打包维护者可以检查独立组装的 Linux 运行包，而不执行其中的程序：
@@ -91,8 +135,8 @@ python3 scripts/audit-linux-runtime.py dist/MyApp --executable bin/main \
   --system-dir /lib/aarch64-linux-gnu
 ```
 
-该维护脚本需要 Python 3.11+ 和 GNU `readelf`，不负责组装运行包，也不改变当前
-Linux `cuic package build` 只生成输入树的边界。可执行文件须位于运行包内，
+该维护脚本需要 Python 3.11+ 和 GNU `readelf`，不负责组装运行包；上面的可选
+CUIC 运行包流程在重定位后调用该检查。可执行文件须位于运行包内，
 动态库放在 `lib/`。显式指定目标系统库目录；检查不使用 `ldd` 或环境变量中的
 加载路径。审计宿主有合适的 `readelf` 时，也可以提供目标 sysroot 内的库目录。
 
@@ -136,7 +180,8 @@ macOS 的窗口图标更新作用于应用图标，不是每个窗口独立的�
 
 - macOS 可生成本地无签名 `.app`；签名、公证、自包含运行时闭合和启动验收仍是独立门。
 - Windows 生成资源编译输入；PE 可执行文件、资源编译、签名和 MSIX 发布仍未完成。
-- Linux 生成桌面打包输入树；真实宿主可执行回放、系统安装、托盘和通知仍未完成。
+- Linux 默认生成桌面打包输入树；显式提供同宿主运行清单时，还可组装无签名运行包。
+  真实桌面启动、安装、托盘和通知行为仍需分别验收。
 
 `cuic doctor` 会报告声明、引用资源和两份打包 schema 是否就绪，但就绪状态不等于
 运行时或发布证明。

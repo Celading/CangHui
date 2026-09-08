@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- Linux `cuic package build` 增加可选 `--runtime-manifest`，按哈希固定的显式清单
+  携带原生库、启动字体和许可原文，并将复制后的 ELF 重定位到包内路径。
+  默认仍只生成输入树，组装成功不代表已运行、可合法再分发或完成桌面安装。
+  Add opt-in same-host Linux runtime assembly with pinned inputs and relocatable launchers.
+
 - 增加 Linux 运行包 ELF 元数据审计脚本和 CI 回归，检查显式依赖、架构、
   glibc 要求与包内搜索路径；不执行载荷，也不将检查通过等同于运行／分发认证。
   Add a non-executing Linux runtime dependency audit, separate from packaging and launch proof.
