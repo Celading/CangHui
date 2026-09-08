@@ -228,7 +228,13 @@ public struct SemanticNode {
         this.editable = editable
         this.selectionStart = selectionStart
         this.selectionEnd = selectionEnd
-        this.actions = if (enabled && !readOnly) { actions.clone() } else { [] }
+        let allowed = ArrayList<SemanticActionKind>()
+        if (enabled) {
+            for (action in actions) {
+                if (!readOnly || semanticActionName(action) == "focus") { allowed.add(action) }
+            }
+        }
+        this.actions = allowed.toArray()
     }
 }
 
@@ -468,7 +474,9 @@ public class SemanticRuntime {
             case None => return rejected(request, "node-not-found")
         }
         if (!target.enabled) { return rejected(request, "node-disabled") }
-        if (target.readOnly) { return rejected(request, "node-readonly") }
+        if (target.readOnly && semanticActionName(request.action) != "focus") {
+            return rejected(request, "node-readonly")
+        }
         if (!containsSemanticAction(target.actions, request.action)) {
             return rejected(request, "action-not-supported")
         }

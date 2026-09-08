@@ -147,7 +147,7 @@ public class SemanticNativeSession {
             for (binding in frame.bindings) {
                 if (binding.nativeId != nativeId) { continue }
                 let node = frame.tree.node(binding.semanticId).getOrThrow()
-                if (!node.enabled || node.readOnly) { return None }
+                if (!node.enabled || (node.readOnly && semanticActionName(action) != "focus")) { return None }
                 for (allowed in node.actions) {
                     if (semanticActionName(allowed) == semanticActionName(action)) {
                         return Some(SemanticActionRequest(windowId, revision, node.id, action,

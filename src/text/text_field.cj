@@ -79,10 +79,9 @@ public class TextField <: Widget {
         this.displayCache = localState<TextAreaDisplayCache>("TextField:${ident}:display") {TextAreaDisplayCache()}.value
         this.xOffset = localState<Float32>("TextField:${ident}:xoff") {0.0}
         this.autofocusDone = localState<Bool>("TextField:${ident}:autofocused") {false}
-        // A read-only field is not an editing stop, so it stays out of Tab traversal (mirrors TextArea).
-        if (editable) {
-            registerFocusable(ident)
-        }
+        // Read-only fields still support reading, selection and copying. Editability is not
+        // availability: keep keyboard/accessibility navigation, while editing stays gated.
+        registerFocusable(ident)
         emit(this)
     }
 
@@ -171,7 +170,7 @@ public class TextField <: Widget {
             shortcut: if (isEditable) { "TextInput" } else { "" },
             actionOwner: id,
             readOnly: Some(!isEditable),
-            typedActions: if (isEditable) { [SemanticActionKind.Focus] } else { [] }
+            typedActions: [SemanticActionKind.Focus]
         ))
         drawTextBoxChrome(ctx, frame, id)
         // Values longer than the field must not paint past its surface; selection, text and

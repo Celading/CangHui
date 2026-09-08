@@ -36,7 +36,10 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
 ```
 
 动作必须同时匹配 `windowId`、`expectedRevision`、`nodeId`、控件声明的 action 与来源策略。
-旧 revision、错误窗口、禁用/只读控件、未声明动作和未授权来源都会得到拒绝回执。
+旧 revision、错误窗口、禁用控件、未声明动作和未授权来源都会得到拒绝回执。
+只读节点保留其已声明的 `Focus`，但拒绝其他动作；只读不等于禁用，也不会凭空增加聚焦能力。
+只读 `TextField` 可通过键盘与无障碍入口聚焦，保留选择和普通文本复制；输入和删除仍被禁止，密码复制限制不变。
+只读 `TextArea` 当前仍不参加焦点遍历；这项修复没有改变它的交互范围。
 `Voice` 与 `Agent` 默认关闭；`Accessibility`、`Keyboard` 与 `Gamepad` 默认允许，但真正的
 宿主入口仍由应用或平台适配器持有。类型化动作不会转换为坐标、命令字符串或外部控制通道。
 

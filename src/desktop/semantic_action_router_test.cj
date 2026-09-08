@@ -35,6 +35,28 @@ private class SemanticRouterFallbackCounter {
 }
 
 @Test
+func readonlyStockTextFieldAcceptsAccessibleFocusWithoutEditing(): Unit {
+    let ctx = UiContext(Renderer.headless(), Theme.light())
+    let store = StateStore()
+    let text = State<String>("read me")
+    let root = buildRoot({=> TextField(text, key: "readonly.field", editable: false) }, store)
+    ctx.adoptFocusRing(store.focusRing())
+    root.layout(ctx, Rect(0.0, 0.0, 300.0, 48.0))
+    let router = DesktopSemanticActionRouter(ctx)
+    router.bind(root)
+    let runtime = SemanticRuntime("readonly", handler: {request => router.dispatch(request)})
+    runtime.beginFrame()
+    withActiveSemanticRuntime(runtime, {=> root.draw(ctx)})
+    let tree = runtime.commitFrame()
+    let receipt = runtime.dispatch(SemanticActionRequest("readonly", tree.revision,
+        "readonly.field", SemanticActionKind.Focus, SemanticActionSource.Accessibility))
+    @Expect(receipt.ok)
+    @Expect(ctx.hasFocus("readonly.field"))
+    let _ = root.handle(ctx, UiEvent.TextInput("changed"))
+    @Expect(text.value, "read me")
+}
+
+@Test
 func semanticActionRouterInvokesTheRevisionBoundControlWithoutCoordinates(): Unit {
     let ctx = UiContext(Renderer.headless(), Theme.light())
     ctx.adoptFocusRing(["save"])
