@@ -8,6 +8,19 @@ private func sdkRejects(action: () -> Unit): Bool {
 }
 
 @Test
+func sourceSdkRejectsDirectoryPayloadBeforeHashingOrCoverageChecks(): Unit {
+    let root = joinPath(currentDirectory(), "target/source-sdk-payload-type-fixture")
+    Directory.create(joinPath(root, "payload"), recursive: true)
+    File.writeTo(joinPath(root, "SHA256SUMS"),
+        ("0000000000000000000000000000000000000000000000000000000000000000  payload\n").toArray())
+    var message = ""
+    try { verifySourceSdkFiles(root, ["libSDL3.dylib", "libSDL3_ttf.dylib"]) }
+    catch (error: CuicError) { message = error.message }
+    @Expect(message.contains("must be a regular file: payload"))
+    _ = removeIfExists(root, recursive: true)
+}
+
+@Test
 func sourceSdkCompilerGateRejectsVersionPrefixAndWrongTarget(): Unit {
     @Expect(sourceSdkCompilerMatches("Cangjie Compiler: 1.1.3 (cjnative)\nTarget: aarch64-apple-darwin\n"))
     for (output in ["Cangjie Compiler: 1.1.30 (cjnative)\nTarget: aarch64-apple-darwin",

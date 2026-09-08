@@ -72,6 +72,9 @@ cuic sdk compare /path/to/current/framework /path/to/candidate/framework --json
 SDK 清单不超过 16 KiB，包清单不超过 64 KiB。v1 仅接受三段数字的稳定包版本和上述
 macOS arm64 / Cangjie 1.1.3 组合；编译器版本和目标必须精确匹配。
 
+账本中的每个载荷都必须是普通文件；目录、命名管道、socket 和符号链接会在哈希前
+被拒绝，避免校验因读取特殊文件而等待。校验不保证另一个同权限进程同时替换文件时的原子性。
+
 `ok: true` 表示完整性和包身份检查通过，**不是认证发布者、验证原生二进制可运行或批准升级**。
 同时检查 `hostPrerequisites` 和 `pairedWithThisCuic`。`higher/lower/equal` 只比较声明的包版本；
 不同 Git 提交返回 `different-commit-order-unknown`，不会假定候选提交一定更新。

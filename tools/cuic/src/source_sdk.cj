@@ -86,8 +86,14 @@ func verifySourceSdkFiles(root: String, nativeNames: Array<String>): Unit {
         let relative = substringFrom(line, 66)
         validateManifestRelativePath(relative, "SDK checksum entry")
         let input = joinPath(root, relative)
-        if (seen.contains(relative) || FileInfo(input).isSymbolicLink()) {
+        let info = FileInfo(input)
+        if (seen.contains(relative) || info.isSymbolicLink()) {
             throw CuicError("duplicate or symlink source SDK entry")
+        }
+        // exists() also accepts FIFOs and sockets. Never hand a special file to
+        // shasum: opening a FIFO can wait forever for an unrelated writer.
+        if (!info.isRegular()) {
+            throw CuicError("source SDK artifact must be a regular file: " + relative)
         }
         ensurePackagingPathStaysInsideProject(root, input, "SDK checksum entry")
         requireFile(input, "source SDK artifact is missing")
