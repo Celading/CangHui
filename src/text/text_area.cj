@@ -28,7 +28,7 @@ public enum TextAreaWrapMode {
     | NoWrap
 }
 
-/** A non-durable IME preedit transaction owned by one TextArea identity. */
+/** A non-durable IME preedit transaction owned by one editor identity. */
 public struct TextCompositionSnapshot {
     public let active: Bool
     public let preedit: String
@@ -361,9 +361,7 @@ public class TextArea <: Widget {
     public func draw(ctx: UiContext): Unit {
         let edit = editState()
         edit.normalizeCursor()
-        if (!ctx.hasFocus(id) && compositionStateValue.value.active) {
-            clearComposition()
-        }
+        reconcileComposition(ctx)
         recordControlSemantics(ctx, frame, "TextArea", ControlSemantics(
             "textarea",
             label: semanticLabel,
@@ -419,6 +417,7 @@ public class TextArea <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        reconcileComposition(ctx)
         // A read-only area is not an editing target, so it does not request the text cursor.
         if (isEditable) {
             claimHoverIfInside(ctx, event, frame, id, CursorShape.Text)
@@ -478,6 +477,11 @@ public class TextArea <: Widget {
                 }
             case UiEvent.TextComposition(value) => return handleComposition(ctx, edit, value)
             case UiEvent.TextInput(value) => return commitComposition(ctx, edit, value)
+            case UiEvent.WindowFocusChanged(false) => clearComposition()
+            case UiEvent.KeyDown(Key.Escape, _) =>
+                if (ctx.hasFocus(id) && compositionStateValue.value.active) {
+                    clearComposition(); ctx.requestFrame(); return true
+                }
             case UiEvent.KeyDown(Key.Enter, _) => return recordedEdit(ctx, {=> edit.insert("\n")})
             case UiEvent.KeyDown(Key.Backspace, _) => return recordedEdit(ctx, {=> edit.backspace()})
             case UiEvent.KeyDown(Key.Delete, _) => return recordedEdit(ctx, {=> edit.deleteForward()})
@@ -590,6 +594,12 @@ public class TextArea <: Widget {
         let previous = compositionStateValue.value
         if (previous.active || !previous.preedit.isEmpty()) {
             compositionStateValue.value = TextCompositionSnapshot(generation: previous.generation + UInt64(1))
+        }
+    }
+
+    private func reconcileComposition(ctx: UiContext): Unit {
+        if (!ctx.hasFocus(id) || !isEditable || compositionStateValue.value.documentRevision != text.revision) {
+            clearComposition()
         }
     }
 

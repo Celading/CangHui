@@ -164,7 +164,12 @@ public class Modal <: Widget {
             return true
         }
         match (event) {
-            case UiEvent.KeyDown(Key.Escape, _) => dismiss(ctx)
+            case UiEvent.KeyDown(Key.Escape, _) =>
+                // A focused editor may cancel transient IME input before the dialog closes.
+                match (content) {
+                    case Some(body) => if (!body.handle(ctx, event)) { dismiss(ctx) }
+                    case None => dismiss(ctx)
+                }
             case UiEvent.KeyDown(Key.Tab, _) =>
                 cycleDialogFocus(ctx, if (Keyboard.modifiers().shift) {
                     -1
