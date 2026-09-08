@@ -33,7 +33,7 @@ internal struct TextFieldTypography {
     }
 }
 
-private func nativeIndex(text: String, typography: TextFieldTypography): NativeTextIndex {
+internal func nativeIndex(text: String, typography: TextFieldTypography): NativeTextIndex {
     match (typography.boundaries) {
         case Some(cache) => cache.nativeIndex(text)
         case None => NativeTextIndex(text)

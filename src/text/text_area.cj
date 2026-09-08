@@ -565,38 +565,8 @@ public class TextArea <: Widget {
         event: TextCompositionEvent,
         captureCurrentRange: Bool
     ): Unit {
-        let previous = compositionStateValue.value
-        var start = edit.selectionStart()
-        var end = edit.selectionEnd()
-        if (!captureCurrentRange && previous.active) {
-            start = previous.replacementStartByte
-            end = previous.replacementEndByte
-        }
-        if (validCompositionReplacement(event.replacementStartByte, event.replacementEndByte)) {
-            start = event.replacementStartByte
-            end = event.replacementEndByte
-        }
-        let characterCount = utf8CharacterCount(event.text)
-        let selectionStart = if (event.selectionStart < 0) {
-            characterCount
-        } else {
-            min(event.selectionStart, characterCount)
-        }
-        let selectionLength = if (event.selectionLength < 0) {
-            Int64(0)
-        } else {
-            min(event.selectionLength, characterCount - selectionStart)
-        }
-        compositionStateValue.value = TextCompositionSnapshot(
-            active: true,
-            preedit: event.text,
-            selectionStart: selectionStart,
-            selectionLength: selectionLength,
-            replacementStartByte: start,
-            replacementEndByte: end,
-            documentRevision: text.revision,
-            generation: previous.generation + UInt64(1)
-        )
+        compositionStateValue.value = updatedTextComposition(text.value, text.revision,
+            compositionStateValue.value, edit, event, captureCurrentRange)
     }
 
     private func commitComposition(ctx: UiContext, edit: TextEditState, value: String): Bool {
@@ -613,8 +583,7 @@ public class TextArea <: Widget {
     }
 
     private func validCompositionReplacement(start: Int64, end: Int64): Bool {
-        start >= 0 && end >= start && end <= text.value.size &&
-            normalizedTextCursor(text.value, start) == start && normalizedTextCursor(text.value, end) == end
+        validTextCompositionRange(text.value, start, end)
     }
 
     private func clearComposition(): Unit {
@@ -920,16 +889,6 @@ private func drawTextAreaComposition(
             Pen(width: 1.0, color: ctx.theme.accent))
     }
     ctx.requestFrame()
-}
-
-private func utf8CharacterCount(value: String): Int64 {
-    var count: Int64 = 0
-    var cursor: Int64 = 0
-    while (cursor < value.size) {
-        cursor = nextTextBoundary(value, cursor)
-        count += 1
-    }
-    count
 }
 
 private func drawTextAreaDecorationBackgrounds(

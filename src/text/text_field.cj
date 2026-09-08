@@ -1,6 +1,6 @@
 package chui.text
 
-import sdl.{FontSizes, Key, MouseButton, Rect, Size, UiEvent}
+import sdl.{FontSizes, Key, MouseButton, Rect, Size, TextCompositionEvent, TextCompositionPhase, UiEvent}
 import sdl.input.{Clipboard, Keyboard}
 import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, GraphemeIndex, SemanticActionKind, State, UiContext,
     Widget, claimHoverIfInside, emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
@@ -32,6 +32,8 @@ public class TextField <: Widget {
     private var anchorStateValue: State<Int64>
     private let history: UndoHistory
     private let boundaryCache: TextBoundaryCache
+    private let compositionStateValue: State<TextCompositionSnapshot>
+    private let displayCache: TextAreaDisplayCache
     // Horizontal follow window: how many pixels the text is slid left so the caret stays
     // inside the field's inner width. Retained across rebuilds; recomputed each draw.
     private let xOffset: State<Float32>
@@ -46,6 +48,7 @@ public class TextField <: Widget {
         key!: ?String = None,
         cursor!: ?State<Int64> = None,
         anchor!: ?State<Int64> = None,
+        composition!: ?State<TextCompositionSnapshot> = None,
         editable!: Bool = true,
         placeholder!: String = ""
     ) {
@@ -69,6 +72,11 @@ public class TextField <: Widget {
         }
         this.history = localState<UndoHistory>("TextField:${ident}:history") {UndoHistory()}.value
         this.boundaryCache = localState<TextBoundaryCache>("TextField:${ident}:graphemes") {TextBoundaryCache()}.value
+        this.compositionStateValue = match (composition) {
+            case Some(value) => value
+            case None => localState<TextCompositionSnapshot>("TextField:${ident}:composition") {TextCompositionSnapshot()}
+        }
+        this.displayCache = localState<TextAreaDisplayCache>("TextField:${ident}:display") {TextAreaDisplayCache()}.value
         this.xOffset = localState<Float32>("TextField:${ident}:xoff") {0.0}
         this.autofocusDone = localState<Bool>("TextField:${ident}:autofocused") {false}
         // A read-only field is not an editing stop, so it stays out of Tab traversal (mirrors TextArea).
@@ -111,6 +119,7 @@ public class TextField <: Widget {
 
     /** Reverts the last edit group; also bound to Ctrl+Z. */
     public func undo(): Unit {
+        clearComposition()
         if (secureEntryEnabled) {
             return
         }
@@ -122,6 +131,7 @@ public class TextField <: Widget {
 
     /** Reapplies the last undone edit; also bound to Ctrl+Y / Ctrl+Shift+Z. */
     public func redo(): Unit {
+        clearComposition()
         if (secureEntryEnabled) {
             return
         }
@@ -143,11 +153,14 @@ public class TextField <: Widget {
         let typography = resolvedTypography(ctx)
         let edit = editState()
         edit.normalizeCursor()
-        let visibleText = if (secureEntryEnabled) { secureMask(text.value) } else { text.value }
+        reconcileComposition(ctx)
+        let projection = display()
+        let displayCursor = projection.cursor(cursorStateValue.value)
+        let visibleText = if (secureEntryEnabled) { secureMask(projection.text) } else { projection.text }
         let visibleCursor = if (secureEntryEnabled) {
-            secureDisplayOffset(text.value, cursorStateValue.value)
+            secureDisplayOffset(projection.text, displayCursor)
         } else {
-            cursorStateValue.value
+            displayCursor
         }
         recordControlSemantics(ctx, frame, "TextField", ControlSemantics(
             if (secureEntryEnabled) { "password" } else { "textfield" },
@@ -166,23 +179,32 @@ public class TextField <: Widget {
         let shift = followCursorShift(ctx, visibleText, visibleCursor, typography)
         ctx.renderer.pushClip(frame.inset(2.0))
         if (ctx.hasFocus(id)) {
+            let start = if (projection.active) { projection.selectionStart } else { edit.selectionStart() }
+            let end = if (projection.active) { projection.selectionEnd } else { edit.selectionEnd() }
             let selectionStart = if (secureEntryEnabled) {
-                secureDisplayOffset(text.value, edit.selectionStart())
+                secureDisplayOffset(projection.text, start)
             } else {
-                edit.selectionStart()
+                start
             }
             let selectionEnd = if (secureEntryEnabled) {
-                secureDisplayOffset(text.value, edit.selectionEnd())
+                secureDisplayOffset(projection.text, end)
             } else {
-                edit.selectionEnd()
+                end
             }
             drawTextFieldSelection(ctx, frame, visibleText, selectionStart, selectionEnd, xShift: shift,
                 typography: typography)
         }
-        if (text.value.isEmpty() && !placeholderText.isEmpty()) {
+        if (projection.text.isEmpty() && !placeholderText.isEmpty()) {
             drawTextFieldPlaceholder(ctx, frame, placeholderText, shift, typography)
         } else {
             drawTextFieldText(ctx, frame, visibleText, shift, typography)
+        }
+        if (projection.active) {
+            let start = if (secureEntryEnabled) { secureDisplayOffset(projection.text, projection.preeditStart) }
+                else { projection.preeditStart }
+            let end = if (secureEntryEnabled) { secureDisplayOffset(projection.text, projection.preeditEnd) }
+                else { projection.preeditEnd }
+            drawTextFieldPreeditUnderline(ctx, frame, visibleText, start, end, shift, typography)
         }
         drawTextFieldCursor(ctx, frame, id, visibleText, visibleCursor, xShift: shift, typography: typography)
         ctx.renderer.popClip()
@@ -214,6 +236,7 @@ public class TextField <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        reconcileComposition(ctx)
         // A read-only field is not an editing target, so it does not request the text cursor.
         if (isEditable) {
             claimHoverIfInside(ctx, event, frame, id, CursorShape.Text)
@@ -227,7 +250,13 @@ public class TextField <: Widget {
                     edit.extendTo(sourceCursorForPoint(ctx, x, typography))
                     return true
                 }
-            case UiEvent.TextInput(value) => return recordedEdit(ctx, {=> edit.insert(value)})
+            case UiEvent.TextComposition(value) => return handleComposition(ctx, edit, value)
+            case UiEvent.TextInput(value) => return commitComposition(ctx, edit, value)
+            case UiEvent.WindowFocusChanged(false) => clearComposition()
+            case UiEvent.KeyDown(Key.Escape, _) =>
+                if (ctx.hasFocus(id) && compositionStateValue.value.active) {
+                    clearComposition(); ctx.requestFrame(); return true
+                }
             case UiEvent.KeyDown(Key.Backspace, _) => return recordedEdit(ctx, {=> edit.backspace()})
             case UiEvent.KeyDown(Key.Delete, _) => return recordedEdit(ctx, {=> edit.deleteForward()})
             case UiEvent.KeyDown(Key.Left, _) => return navigateHorizontal(ctx, edit, false, typography)
@@ -260,6 +289,7 @@ public class TextField <: Widget {
         if (frame.contains(x, y)) {
             ctx.focus(id)
             let offset = sourceCursorForPoint(ctx, x, typography)
+            clearComposition()
             if (ctx.clickCount == 2) {
                 edit.selectWordAt(offset)
             } else if (ctx.clickCount >= 3) {
@@ -281,6 +311,7 @@ public class TextField <: Widget {
             return false
         }
         boundaryCache.clearAffinity()
+        clearComposition()
         if (secureEntryEnabled) {
             action()
             return true
@@ -298,6 +329,7 @@ public class TextField <: Widget {
     }
 
     private func applySnapshot(state: TextSnapshot): Unit {
+        clearComposition()
         boundaryCache.clearAffinity()
         text.value = state.text
         cursorStateValue.value = state.cursor
@@ -308,6 +340,7 @@ public class TextField <: Widget {
     private func navigateHorizontal(ctx: UiContext, edit: TextEditState, right: Bool,
         typography: TextFieldTypography): Bool {
         if (!ctx.hasFocus(id)) { return false }
+        clearComposition()
         let visible = if (secureEntryEnabled) { secureMask(text.value) } else { text.value }
         let cursor = if (secureEntryEnabled) { secureDisplayOffset(text.value, edit.cursor.value) }
             else { edit.cursor.value }
@@ -345,6 +378,7 @@ public class TextField <: Widget {
             return false
         }
         boundaryCache.clearAffinity()
+        clearComposition()
         if (Keyboard.modifiers().shift) {
             growSelection()
         } else {
@@ -358,6 +392,7 @@ public class TextField <: Widget {
         if (!ctx.hasFocus(id) || !Keyboard.modifiers().command) {
             return false
         }
+        clearComposition()
         if (code == LETTER_A) {
             boundaryCache.clearAffinity()
             edit.selectAll()
@@ -426,14 +461,61 @@ public class TextField <: Widget {
     }
 
     private func sourceCursorForPoint(ctx: UiContext, x: Float32, typography: TextFieldTypography): Int64 {
+        let projection = display()
         if (!secureEntryEnabled) {
-            return textFieldCursorForPoint(ctx, frame, text.value, x, xShift: xOffset.value,
-                typography: typography)
+            return projection.documentOffset(textFieldCursorForPoint(ctx, frame, projection.text, x,
+                xShift: xOffset.value, typography: typography))
         }
-        let visible = secureMask(text.value)
+        let visible = secureMask(projection.text)
         let displayOffset = textFieldCursorForPoint(ctx, frame, visible, x, xShift: xOffset.value,
             typography: typography)
-        secureSourceOffset(text.value, displayOffset)
+        projection.documentOffset(secureSourceOffset(projection.text, displayOffset))
+    }
+
+    private func display(): TextAreaDisplayProjection {
+        displayCache.resolve(text.value, text.revision, compositionStateValue.value)
+    }
+
+    private func reconcileComposition(ctx: UiContext): Unit {
+        if (!ctx.hasFocus(id) || !isEditable || compositionStateValue.value.documentRevision != text.revision) {
+            clearComposition()
+        }
+    }
+
+    private func clearComposition(): Unit {
+        let previous = compositionStateValue.value
+        if (previous.active || !previous.preedit.isEmpty()) {
+            compositionStateValue.value = TextCompositionSnapshot(generation: previous.generation + UInt64(1))
+        }
+    }
+
+    private func handleComposition(ctx: UiContext, edit: TextEditState, event: TextCompositionEvent): Bool {
+        if (!ctx.hasFocus(id) || !isEditable) { return false }
+        let unset = event.replacementStartByte == -1 && event.replacementEndByte == -1
+        if (!unset && !validTextCompositionRange(text.value, event.replacementStartByte, event.replacementEndByte)) {
+            return false
+        }
+        match (event.phase) {
+            case TextCompositionPhase.Cancel => clearComposition()
+            case TextCompositionPhase.Commit => return commitComposition(ctx, edit, event.text)
+            case TextCompositionPhase.Begin => compositionStateValue.value = updatedTextComposition(
+                text.value, text.revision, compositionStateValue.value, edit, event, true)
+            case TextCompositionPhase.Update => compositionStateValue.value = updatedTextComposition(
+                text.value, text.revision, compositionStateValue.value, edit, event, false)
+        }
+        ctx.requestFrame()
+        true
+    }
+
+    private func commitComposition(ctx: UiContext, edit: TextEditState, value: String): Bool {
+        if (!ctx.hasFocus(id) || !isEditable) { return false }
+        let composition = compositionStateValue.value
+        if (composition.active && composition.documentRevision == text.revision &&
+            validTextCompositionRange(text.value, composition.replacementStartByte, composition.replacementEndByte)) {
+            cursorStateValue.value = composition.replacementEndByte
+            anchorStateValue.value = composition.replacementStartByte
+        }
+        return recordedEdit(ctx, {=> edit.insert(flattenLines(value))})
     }
 
     private func resolvedTypography(ctx: UiContext): TextFieldTypography {

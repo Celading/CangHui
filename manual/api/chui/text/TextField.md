@@ -25,6 +25,7 @@ public class TextField <: Widget
 - **水平跟随**：值比控件宽时文本窗口左移，且仅在光标越出可视窗口时移动（桌面编辑器的常见手感）；偏移有限制，文本尾部不会脱离右缘。
 - **继承排版**：通用 Widget `.fontSize(...)`、`.fontFamily(...)`、`.bold()`、`.italic()` 等修饰器会作用于字段文字与 placeholder；相同的有效字号、字族和样式也用于水平跟随、点击定位、选区与光标，避免视觉位置和编辑位置漂移。外框高度仍遵循标准控件高，可继续用布局修饰器显式指定产品所需高度。
 - **焦点与 IME**：聚焦时每帧把光标矩形上报为 IME 候选窗锚点，输入法窗口跟随光标；`editable: false` 渲染为只读且不进入 Tab 焦点遍历，但仍可点选、全选与复制。
+- **组合输入**：Begin/Update 只生成临时显示文本，提交才替换文档中的选区并进入撤销记录；Esc、失焦、文档外部变更和普通编辑会清理临时状态。预编辑光标、选区、下划线、水平跟随与点击使用同一显示投影，不把显示偏移写回文档。`composition` 可接管与 TextArea 相同的 `TextCompositionSnapshot`；它不是第二份可编辑文档。`.secureEntry()` 对预编辑也遮罩，语义仍不暴露密码值，撤销历史仍禁用。原生候选窗口、不同平台输入法和读屏须独立验收。
 
 ## 示例
 
@@ -80,6 +81,7 @@ public init(
     key!: ?String = None,
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None,
+    composition!: ?State<TextCompositionSnapshot> = None,
     editable!: Bool = true,
     placeholder!: String = ""
 )
@@ -91,6 +93,7 @@ public init(
 - `key!`: `?String` — 显式控件标识；默认 `None`，按声明顺序自动派生。需要编辑状态跨结构变化保留时传入稳定键。
 - `cursor!`: `?State<Int64>` — 外部接管的光标字节偏移；默认 `None`，控件在自身标识下保留光标，初值在文本末尾。
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
+- `composition!`: `?State<TextCompositionSnapshot>` — 可选的临时组合输入快照；默认按控件标识保留。预编辑选区按 Unicode scalar 计数，文档替换范围仍是精确 UTF-8 字节范围。密码模式的外部状态仍由应用保管，不是可清零的安全容器。
 - `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读，拒绝编辑事件且不进入 Tab 焦点遍历。
 - `placeholder!`: `String` — 字段为空时以暗色文本显示的提示；默认 `""`（无提示）。不影响值或编辑。
 
