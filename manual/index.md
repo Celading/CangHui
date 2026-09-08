@@ -56,6 +56,9 @@ cuic prnt macos . --output artifacts/ui.png
 与项目匹配的 debug cuic。只有验证窗口外壳、输入法、系统菜单、设备合成等平台事实时，
 系统截图才是必要证据，且不能替代结构化/ASCII 结果。
 
+桌面 `prnt` 默认捕获 release 构建。仅在验收调试专用界面时指定 `--mode debug`；
+命令会构建并启动对应 profile，不会在目标缺失时改用另一种构建。
+
 公开面审计：
 
 ```bash

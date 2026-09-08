@@ -495,6 +495,36 @@ func prntOptionsDefaultToRelease(): Unit {
 }
 
 @Test
+func desktopCaptureBuildAndExecutableUseTheRequestedMode(): Unit {
+    let debugArgs = desktopCaptureBuildArguments("debug")
+    @Expect(debugArgs.size, 2)
+    @Expect(debugArgs[0], "build")
+    @Expect(debugArgs[1], "-g")
+    let releaseArgs = desktopCaptureBuildArguments("release")
+    @Expect(releaseArgs.size, 1)
+    @Expect(releaseArgs[0], "build")
+    @Expect(desktopCaptureExecutable("/tmp/capture", "debug", {_ => true}),
+        "/tmp/capture/debug/bin/main")
+    @Expect(desktopCaptureExecutable("/tmp/capture", "release", {_ => true}),
+        "/tmp/capture/release/bin/main")
+    @Expect(desktopCaptureExecutable("C:\\capture", "debug", {path => endsWithText(path, ".exe")}),
+        "C:\\capture/debug/bin/main.exe")
+}
+
+@Test
+func desktopCaptureCannotFallBackToTheOppositeProfile(): Unit {
+    for (mode in ["debug", "release"]) {
+        let other = if (mode == "debug") { "release" } else { "debug" }
+        var rejected = false
+        try {
+            let _ = desktopCaptureExecutable("/tmp/capture", mode,
+                {path => containsText(path, "/${other}/")})
+        } catch (_: CuicError) { rejected = true }
+        @Expect(rejected)
+    }
+}
+
+@Test
 func prntOptionsRejectMissingDeviceValue(): Unit {
     var rejected = false
     try {

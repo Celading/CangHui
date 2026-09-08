@@ -1096,9 +1096,9 @@ func printDesktopWindow(options: PrntOptions): Int64 {
     let lease = context.acquireLease()
     try {
         println("==> building ${basename(project)} (${options.platform})")
-        let buildCode = executeCjpm(context, ["build"])
+        let buildCode = executeCjpm(context, desktopCaptureBuildArguments(options.mode))
         if (buildCode != 0) { return buildCode }
-        let executable = builtExecutable(context.targetDir)
+        let executable = desktopCaptureExecutable(context.targetDir, options.mode, {path => exists(path)})
         println("==> capturing ${basename(project)} (${options.platform}) via CangHui capture interface")
         let code = executeApplication(project, executable, options.appArgs.toArray(), framework, snapshot,
             options.frames, nativeDirectory: context.sdlDirectory())
@@ -1122,6 +1122,18 @@ func parseCaptureFrames(value: String): UInt64 {
         if (frames > UInt64(0)) { return frames }
     } catch (_: Exception) {}
     throw CuicError("--frames requires a positive integer")
+}
+
+func desktopCaptureBuildArguments(mode: String): Array<String> {
+    if (normalizeBuildMode(mode) == "debug") { ["build", "-g"] } else { ["build"] }
+}
+
+func desktopCaptureExecutable(targetDir: String, mode: String, present: (String) -> Bool): String {
+    let profile = normalizeBuildMode(mode)
+    for (path in builtExecutableCandidates(targetDir, profile)) {
+        if (present(path)) { return path }
+    }
+    throw CuicError("${profile} capture build completed but its executable was not found")
 }
 
 func builtExecutable(targetDir: String): String {
