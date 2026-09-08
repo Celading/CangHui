@@ -68,6 +68,7 @@ echo "==> Linux runtime metadata audit regression"
 python3 scripts/test-linux-runtime-audit.py
 python3 scripts/test-linux-runtime-assembly.py
 python3 scripts/test-linux-source-sdk.py
+python3 scripts/test-linux-desktop-install.py
 
 echo "==> iOS provisioning profile decoder"
 bash scripts/test-ios-provisioning-profile.sh

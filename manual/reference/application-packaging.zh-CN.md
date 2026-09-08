@@ -146,6 +146,30 @@ Linux 启动器将清单中的 `application.identifier` 传给 SDL 的应用身�
 输入关联，再分发仍需审核。组装失败不会签发完整打包 receipt，但可能留下未完成的
 桌面入口／资源树；检查失败输出后，重试时使用新的输出目录。
 
+## Linux 桌面安装布局与原生验收
+
+运行包可放在安装器管理的私有目录，并保留完整相对布局。在桌面会话的可执行
+搜索目录中放置一个转发到包内 `bin/<identifier>` 的启动脚本；不要把包内启动器
+直接做成包外符号链接。将 `share/applications` 和 `share/icons` 合入相应 XDG
+数据目录，且不要覆盖系统 `hicolor/index.theme`。仅在终端设置 PATH 不代表
+桌面启动器也能找到程序；应从桌面的应用注册表按 identifier 验收。
+
+框架维护者可在隔离 Linux/X11 会话中，对使用 SVG 应用图标的真实 CUIC 运行包执行：
+
+```bash
+python3 scripts/verify-linux-desktop-install.py \
+  --bundle dist/linux-runtime --output /tmp/chui-desktop-acceptance-new
+```
+
+输出目录必须不存在；脚本只创建私有测试前缀，验证 GIO 注册发现／启动、
+图标多尺寸解码、窗口身份与关闭请求，以及可恢复移除／恢复后的新进程查询。
+需要已有窗口管理器、Gtk3/GIO Python introspection、hicolor/SVG 解码器、
+xdotool、xprop 和 libX11；不会替你安装依赖。它是可选验收工具，不是生产安装器，
+也不证明进程退出码、持久化、系统菜单视觉、其他桌面环境或发行签名。
+正式安装／卸载仍需由安装器管理文件归属，不能递归清空用户共享的数据目录。
+
+目录约定参见 [XDG 基础目录规范](https://specifications.freedesktop.org/basedir/latest/)。
+
 ## Linux 运行包元数据预检
 
 框架与打包维护者可以检查独立组装的 Linux 运行包，而不执行其中的程序：
