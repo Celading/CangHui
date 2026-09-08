@@ -83,10 +83,12 @@ static void limits_deactivation_and_revoke(void) {
     find_session(h)->updating = true;
     send(h, 2, ACCESSKIT_ACTION_CLICK);
     find_session(h)->updating = false;
-    for (unsigned i = 0; i < CHUI_AK_INGRESS + 1; ++i) send(h, 2, ACCESSKIT_ACTION_FOCUS);
-    assert(chui_ak_unix_dropped(h) == 3);
-    deactivate((void *)(uintptr_t)h);
     uint64_t target, revision; uint32_t action;
+    assert(chui_ak_unix_poll(h, &target, &revision, &action));
+    assert(target == 2 && revision == 1 && action == CHUI_AK_ACTIVATE);
+    for (unsigned i = 0; i < CHUI_AK_INGRESS + 1; ++i) send(h, 2, ACCESSKIT_ACTION_FOCUS);
+    assert(chui_ak_unix_dropped(h) == 2);
+    deactivate((void *)(uintptr_t)h);
     assert(!chui_ak_unix_poll(h, &target, &revision, &action));
     send(h, 2, ACCESSKIT_ACTION_CLICK);
     chui_ak_unix_close(h);

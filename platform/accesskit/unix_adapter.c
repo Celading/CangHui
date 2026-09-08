@@ -57,10 +57,12 @@ static void receive_action(struct accesskit_action_request *request, void *userd
     if (s) {
         if (!action || request->target_node <= 1 ||
             memcmp(request->target_tree.bytes, ACCESSKIT_TREE_ID_ROOT.bytes, sizeof(request->target_tree.bytes)) ||
-            !s->revision || s->updating || s->count == CHUI_AK_INGRESS) {
+            !s->revision || s->count == CHUI_AK_INGRESS) {
             dropped(s);
         } else {
             unsigned tail = (s->head + s->count++) % CHUI_AK_INGRESS;
+            /* During publication keep the previous revision. Only the managed
+             * continuity gate can prove this action crosses unchanged frames. */
             s->queue[tail] = (struct ingress){request->target_node, s->revision, action};
         }
     }

@@ -268,6 +268,15 @@ public struct SemanticTreeSnapshot {
         }
         None
     }
+
+    /** Full ordered semantic content; revision is deliberately compared by the caller. */
+    internal func sameContent(other: SemanticTreeSnapshot): Bool {
+        if (windowId != other.windowId || nodes.size != other.nodes.size) { return false }
+        for (index in 0..nodes.size) {
+            if (!sameSemanticNode(nodes[index], other.nodes[index])) { return false }
+        }
+        true
+    }
 }
 
 /** A deterministic ID-level diff suitable for accessibility refresh and non-visual inspection. */

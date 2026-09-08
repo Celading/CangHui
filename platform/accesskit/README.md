@@ -68,12 +68,14 @@ its UI owner; these public calls are not a concurrently callable owner API.
    they never enter managed code or build a tree on a foreign thread.
 3. Poll native actions before advancing the next semantic frame. Each action is
    copied with the last submitted revision at callback ingress. Forward it through
-   `SemanticNativeSession.postAction`, the existing UI owner queue and final
+   `SemanticNativeSession.postUnchangedAction`, the existing UI owner queue and final
    `SemanticRuntime` validation. This inbox is not a second UI dispatcher, and
    AT-SPI requests do not carry the reader client's observed tree revision.
-4. The inbox holds 128 actions per adapter. Unsupported/root-target/foreign-tree/prepublication,
-   during-publication and overflow requests are dropped; `dropped` is a saturating
+4. The inbox holds 128 actions per adapter. Unsupported/root-target/foreign-tree,
+   prepublication and overflow requests are dropped; `dropped` is a saturating
    count, not an application callback. Deactivation clears pending inbox entries.
+   During publication actions retain the previous revision, never an invented new
+   revision; the managed continuity check determines whether they remain valid.
 5. Forward actual window focus and, under X11, native outer/inner window bounds.
    Do not invent screen positions on Wayland. The adapter does not convert DPI.
 6. Close the semantic session/owner queue, then close the native handle on its
@@ -88,13 +90,15 @@ callback machine code after library unload. No `dlclose` safety is promised.
 Tests include deterministic lifecycle doubles and concurrent late-callback stress;
 native AT-SPI acceptance is a separate integration check, not inferred from them.
 
-Integration limitation: semantic revisions currently advance each frame. An
-action received after the host drains but before it publishes the next frame can
-arrive at `SemanticNativeSession` with an older revision and be rejected, even
-when the visible content did not change. A successful native dispatch receipt
-does not prove application execution. The host integration must resolve this
-timing gap without substituting the newest revision blindly or reusing removed
-identities; the current source is not an input-reliability completion claim.
+Semantic revisions advance each frame. `postUnchangedAction` can bridge that
+timing gap only when every intervening frame was published and its full ordered
+semantic content remained identical. Changed-then-restored content, skipped
+revisions, disabled/unsupported actions and revoked identities still reject.
+The original `postAction` remains strictly revision-bound. A successful native
+dispatch receipt is only ingress acknowledgment; inspect owner completion too.
+Keep semantic IDs tied to the same user intent; hidden callback changes cannot
+be inferred from identical public semantics. Full managed host and platform
+input-reliability acceptance remain separate from this bounded continuity rule.
 
 ## Upstream AT-SPI state correction
 

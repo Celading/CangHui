@@ -68,6 +68,10 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
   组件在已提交帧中消失后重新出现，或 role/widgetType 改变，会分配新 ID，避免旧动作误投。
 - `postAction` 通过现有 `UiOwnerQueue` 排队，并在主线程执行时重新检查帧修订号、组件身份、
   动作声明和关闭状态。返回 ticket 不代表动作已生效，必须检查队列完成回执。
+- 原生事件可能跨越没有内容变化的绘制帧，可显式使用 `postUnchangedAction`：只有观察版本
+  至执行版本之间每一帧都已发布，且整棵有序语义树持续相同时，才生成当前版本的请求。
+  任意中间变化（即使随后恢复）、漏帧、移除重建、禁用或关闭均不能借此放行。
+  默认 `postAction` 不变；节点 ID 必须持续代表同一用户意图，不能暗中改绑业务含义。
 - 处理器仍须调用窗口的 `dispatchSemanticAction`，由原来的来源策略和动作路由完成最终校验。
   不要直接调用业务回调，也不要把旧动作改绑到最新修订号。
 - `publish` 和 `close` 由 UI 主线程调用；`close` 不可撤销。每个窗口/原生适配器实例使用独立

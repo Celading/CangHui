@@ -46,6 +46,7 @@ public class SemanticNativeSession {
     private var closed = false
     private var nextId = UInt64(1)
     private var current: ?SemanticNativeSnapshot = None
+    private var unchangedSince = UInt64(0)
 
     public init(windowId: String) {
         let _ = SemanticTreeSnapshot(windowId, UInt64(0), [])
@@ -97,6 +98,12 @@ public class SemanticNativeSession {
                 let parent = if (node.parentId.isEmpty()) { UInt64(1) } else { ids[node.parentId] }
                 bindings.add(SemanticNativeBinding(node.id, ids[node.id], parent))
             }
+            var continuous = false
+            if (let Some(previous) <- current) {
+                continuous = owned.revision - previous.tree.revision == UInt64(1) &&
+                    previous.tree.sameContent(owned)
+            }
+            if (!continuous) { unchangedSince = owned.revision }
             current = Some(SemanticNativeSnapshot(owned, bindings.toArray()))
             nextId = allocated
         }
@@ -125,8 +132,30 @@ public class SemanticNativeSession {
         action: SemanticActionKind,
         handler: SemanticNativeActionHandler
     ): UiOwnerTicket {
+        enqueueAction(queue, nativeId, observedRevision, action, handler, false)
+    }
+
+    /**
+     * Native ingress that may cross only a continuous run of identical FULL semantic frames.
+     * Missing revisions or any intermediate change reset continuity, even if later restored.
+     * Final owner drain validates continuity again, then produces an exact-current request for
+     * SemanticRuntime. This does not relax postAction, policy, identity or declared-action checks.
+     * Hosts must publish every committed frame and keep IDs tied to the same semantic intent.
+     */
+    public func postUnchangedAction(
+        queue: UiOwnerQueue,
+        nativeId: UInt64,
+        observedRevision: UInt64,
+        action: SemanticActionKind,
+        handler: SemanticNativeActionHandler
+    ): UiOwnerTicket {
+        enqueueAction(queue, nativeId, observedRevision, action, handler, true)
+    }
+
+    private func enqueueAction(queue: UiOwnerQueue, nativeId: UInt64, observedRevision: UInt64,
+        action: SemanticActionKind, handler: SemanticNativeActionHandler, allowUnchanged: Bool): UiOwnerTicket {
         queue.post({=>
-            let request = resolveAction(nativeId, observedRevision, action)
+            let request = resolveAction(nativeId, observedRevision, action, allowUnchanged)
             match (request) {
                 case Some(value) => handler(value)
                 case None => throw IllegalStateException("native semantic action is stale, unsupported or closed")
@@ -139,18 +168,21 @@ public class SemanticNativeSession {
         synchronized(mutex) { closed = true; current = None }
     }
 
-    private func resolveAction(nativeId: UInt64, revision: UInt64, action: SemanticActionKind): ?SemanticActionRequest {
+    private func resolveAction(nativeId: UInt64, revision: UInt64, action: SemanticActionKind,
+        allowUnchanged: Bool): ?SemanticActionRequest {
         synchronized(mutex) {
             if (closed) { return None }
             let frame = match (current) { case Some(value) => value; case None => return None }
-            if (frame.tree.revision != revision) { return None }
+            if (frame.tree.revision != revision) {
+                if (!allowUnchanged || revision < unchangedSince || revision > frame.tree.revision) { return None }
+            }
             for (binding in frame.bindings) {
                 if (binding.nativeId != nativeId) { continue }
                 let node = frame.tree.node(binding.semanticId).getOrThrow()
                 if (!node.enabled || (node.readOnly && semanticActionName(action) != "focus")) { return None }
                 for (allowed in node.actions) {
                     if (semanticActionName(allowed) == semanticActionName(action)) {
-                        return Some(SemanticActionRequest(windowId, revision, node.id, action,
+                        return Some(SemanticActionRequest(windowId, frame.tree.revision, node.id, action,
                             SemanticActionSource.Accessibility))
                     }
                 }

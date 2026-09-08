@@ -24,7 +24,8 @@ CHUI_AK_API bool chui_ak_unix_bounds(uint64_t handle, double outer_x, double out
 /* Returns one copied native action using bridge-local action bits. The host
  * must forward via SemanticNativeSession and its existing owner queue/runtime.
  * Native revision means last successfully submitted frame at callback ingress,
- * not an AT-SPI-client-supplied version. Pending/stale ingress is discarded.
+ * not an AT-SPI-client-supplied version. During publication it retains the
+ * previous revision; the managed continuity gate must validate it on drain.
  */
 CHUI_AK_API bool chui_ak_unix_poll(uint64_t handle, uint64_t *target,
                                  uint64_t *revision, uint32_t *action);
