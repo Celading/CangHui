@@ -136,7 +136,7 @@ func debugUiExecutable(targetDir: String): String {
 func uiShellEnvironment(context: ExecutionContext, script: String): HashMap<String, String> {
     requireDebugChannelBuild("cuic shell")
     let environment = applicationEnvironment(context.framework, "", UInt64(0),
-        nativeDirectory: context.sdlDirectory())
+        nativeDirectory: context.sdlDirectory(), project: context.project)
     environment.add("CANGHUI_DEBUG_UI_SCRIPT_HEX", encodeCuicKModeText(script))
     environment
 }

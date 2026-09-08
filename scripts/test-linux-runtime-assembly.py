@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import subprocess
 from pathlib import Path
 import tempfile
 import unittest
@@ -137,9 +138,25 @@ class AssemblyTests(unittest.TestCase):
             script = assembly.launcher(value)
             self.assertIn('"$@"', script)
             self.assertIn(f'/bin/{value}.bin', script)
+            self.assertIn(f"export SDL_APP_ID='{value}'", script)
         for value in ["../evil", "x;cmd", "a..b", ".demo", "demo.", "--", "a\ncmd"]:
             with self.assertRaises(ValueError):
                 assembly.launcher(value)
+
+    def test_launcher_sets_child_identity_and_preserves_arguments(self):
+        bundle = self.base / "bundle with spaces"
+        binary_dir = bundle / "bin"
+        binary_dir.mkdir(parents=True)
+        binary = binary_dir / "dev.example.demo.bin"
+        binary.write_text('#!/bin/sh\nprintf "%s\\n" "$SDL_APP_ID" "$@"\n')
+        binary.chmod(0o755)
+        wrapper = binary_dir / "dev.example.demo"
+        wrapper.write_text(assembly.launcher("dev.example.demo"))
+        environment = dict(os.environ, SDL_APP_ID="inherited.wrong.identity")
+        result = subprocess.check_output(["/bin/sh", str(wrapper), "space value", "literal %f $HOME"],
+                                         env=environment, text=True, timeout=5)
+        self.assertEqual(result.splitlines(), ["dev.example.demo", "space value", "literal %f $HOME"])
+        self.assertEqual(environment["SDL_APP_ID"], "inherited.wrong.identity")
 
 
 if __name__ == "__main__":

@@ -59,7 +59,8 @@ class CuicKModeSession {
 
     init(context: ExecutionContext) {
         requireDebugChannelBuild("cuic kMode/probe runtime")
-        let environment = kModeChildEnvironment(context.framework, nativeDirectory: context.sdlDirectory())
+        let environment = kModeChildEnvironment(context.framework,
+            nativeDirectory: context.sdlDirectory(), project: context.project)
         // The caller already built this exact debug target under its lease.
         // cjpm run would rebuild another target without the verified native paths.
         let executable = canonicalPackagingPath(debugUiExecutable(context.targetDir), "debug executable")
@@ -503,18 +504,19 @@ func runKModeExchange(projectValue: String, operation: String, endpoint: String,
 }
 
 @When[debug]
-func kModeChildEnvironment(framework: String, nativeDirectory!: String = ""): HashMap<String, String> {
+func kModeChildEnvironment(framework: String, nativeDirectory!: String = "", project!: String = ""): HashMap<String, String> {
     requireDebugChannelBuild("cuic kMode/probe runtime")
     // Reuse the normal launcher's verified Cangjie runtime/native/font closure.
     // A consumer need not compile with --set-runtime-rpath just to use a probe.
-    let environment = applicationEnvironment(framework, "", UInt64(0), nativeDirectory: nativeDirectory)
+    let environment = applicationEnvironment(framework, "", UInt64(0),
+        nativeDirectory: nativeDirectory, project: project)
     environment.add("CANGHUI_KMODE", "1")
     environment.add("CANGHUI_KMODE_TRANSPORT", "stdio")
     environment
 }
 
 @When[!debug]
-func kModeChildEnvironment(_framework: String, nativeDirectory!: String = ""): HashMap<String, String> {
+func kModeChildEnvironment(_framework: String, nativeDirectory!: String = "", project!: String = ""): HashMap<String, String> {
     requireDebugChannelBuild("cuic kMode/probe runtime")
     HashMap<String, String>()
 }

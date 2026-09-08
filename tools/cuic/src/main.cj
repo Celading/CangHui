@@ -647,6 +647,10 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
         args.add("LD_LIBRARY_PATH=${sdl}:${readEnv("LD_LIBRARY_PATH")}")
     }
     args.add("CANGHUI_HARMONYOS_SANS=${font}")
+    if (!cjpmArgs.isEmpty() && cjpmArgs[0] == "run") {
+        let identity = linuxApplicationIdentity(context.project, hostPlatform())
+        if (!identity.isEmpty()) { args.add("SDL_APP_ID=${identity}") }
+    }
     args.add("cjpm")
     for (arg in targetArgs) { args.add(arg) }
     executeCommand("/usr/bin/env", args.toArray(), context.project)
@@ -674,6 +678,10 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
         args.add("LD_LIBRARY_PATH=${sdl}:${readEnv("LD_LIBRARY_PATH")}")
     }
     args.add("CANGHUI_HARMONYOS_SANS=${font}")
+    if (!cjpmArgs.isEmpty() && cjpmArgs[0] == "run") {
+        let identity = linuxApplicationIdentity(context.project, hostPlatform())
+        if (!identity.isEmpty()) { args.add("SDL_APP_ID=${identity}") }
+    }
     args.add("cjpm")
     for (arg in targetArgs) { args.add(arg) }
     executeCommandQuiet("/usr/bin/env", args.toArray(), context.project)
@@ -1172,7 +1180,8 @@ func executeApplication(
     captureFrames: UInt64,
     nativeDirectory!: String = ""
 ): Int64 {
-    let environment = applicationEnvironment(framework, capturePath, captureFrames, nativeDirectory: nativeDirectory)
+    let environment = applicationEnvironment(framework, capturePath, captureFrames,
+        nativeDirectory: nativeDirectory, project: project)
     try {
         let process = launch(
             executable,
@@ -1194,10 +1203,13 @@ func applicationEnvironment(
     framework: String,
     capturePath: String,
     captureFrames: UInt64,
-    nativeDirectory!: String = ""
+    nativeDirectory!: String = "",
+    project!: String = ""
 ): HashMap<String, String> {
     let environment = HashMap<String, String>()
     for ((key, value) in getVariables()) { environment.add(key, value) }
+    let identity = linuxApplicationIdentity(project, hostPlatform())
+    if (!identity.isEmpty()) { environment.add("SDL_APP_ID", identity) }
     let sdl = if (nativeDirectory.isEmpty()) { joinPath(framework, "sdl/.sdl3") } else { nativeDirectory }
     let runtime = cangjieRuntimeLibraryDirectory()
     if (hostPlatform() == "macos") {

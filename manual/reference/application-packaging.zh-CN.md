@@ -124,6 +124,13 @@ Python 3.11+、GNU `readelf` 和 `patchelf`。它不会下载依赖，也不会�
 `PATH`，使用 desktop entry 中的 identifier 启动。安装仍由安装器负责；不支持
 在包外创建指向启动器的符号链接来代替上述入口。
 
+Linux 启动器将清单中的 `application.identifier` 传给 SDL 的应用身份，
+使 X11 窗口类与 `.desktop` 的 `StartupWMClass` 对齐。`cuic run`、`prnt` 和
+调试启动也使用这个声明；没有应用声明的旧工程保留 SDL 默认行为。
+不要在应用中另设冲突的 `SdlHint.AppId`。直接运行构建出的裸二进制不经过 CUIC
+或打包启动器时，应自行通过已有 `ApplicationMetadata`／`AppMetadata.identifier`
+设置身份。该映射不等于已验证所有桌面环境的归组、通知、菜单或 Wayland 行为。
+
 成功组装后，产物类型为 `linux-unsigned-runtime-bundle`，`executableIncluded`
 为 `true`；运行包 receipt 仍写 `assembled-not-launched`。哈希与 ELF 依赖检查
 不代表已验证启动、动态插件、许可合规、签名或桌面集成。许可原文会随包保留并与

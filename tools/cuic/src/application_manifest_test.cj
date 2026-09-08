@@ -287,6 +287,37 @@ func packagingOutputRejectsTraversalAndNonEmptyOverwrite(): Unit {
 }
 
 @Test
+func linuxRuntimeIdentityKeepsLegacyAndOtherPlatformsUnchanged(): Unit {
+    let project = joinPath(currentDirectory(), "target/linux-runtime-identity-fixture")
+    _ = removeIfExists(project, recursive: true)
+    Directory.create(project, recursive: true)
+    let path = joinPath(project, "canghui.toml")
+    @Expect(linuxApplicationIdentity(project, "linux"), "")
+    File.writeTo(path, "[scripts]\nstart = \"run\"\n".toArray())
+    @Expect(linuxApplicationIdentity(project, "linux"), "")
+    File.writeTo(path, "[application]\nidentifier = \"dev.example.demo\"\n[assets]\napplication-icon = \"not-yet-built.png\"\n".toArray())
+    @Expect(linuxApplicationIdentity(project, "linux"), "dev.example.demo")
+    @Expect(linuxApplicationIdentity(project, "macos"), "")
+    @Expect(linuxApplicationIdentity(project, "windows"), "")
+    if (hostPlatform() == "linux") {
+        let environment = applicationEnvironment(project, "", UInt64(0), project: project)
+        @Expect(environment.get("SDL_APP_ID") ?? "", "dev.example.demo")
+    }
+    File.writeTo(path, "[application]\nidentifier = \"bad;identity\"\n".toArray())
+    var rejected = false
+    try { let _ = linuxApplicationIdentity(project, "linux") }
+    catch (_: CuicError) { rejected = true }
+    @Expect(rejected)
+    _ = removeIfExists(path)
+    Directory.create(path)
+    rejected = false
+    try { let _ = linuxApplicationIdentity(project, "linux") }
+    catch (_: CuicError) { rejected = true }
+    @Expect(rejected)
+    _ = removeIfExists(project, recursive: true)
+}
+
+@Test
 func packagingRejectsSymlinkEscapeForOutputAndAssets(): Unit {
     let fixture = joinPath(currentDirectory(), "target/application-packaging-symlink-fixture")
     _ = removeIfExists(fixture, recursive: true)

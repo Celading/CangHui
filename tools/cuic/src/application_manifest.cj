@@ -1,7 +1,7 @@
 package cuic
 
 import std.collection.ArrayList
-import std.fs.{File, exists}
+import std.fs.{File, FileInfo, exists}
 
 let APPLICATION_MANIFEST_FILE = "canghui.toml"
 let PACKAGING_PLAN_SCHEMA = "canghui.packaging-plan.v0"
@@ -160,6 +160,24 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
     }
     let project = resolveProject(requested, "")
     buildApplicationArtifact(project, platform, output, json, linuxRuntimeManifest: runtimeManifest)
+}
+
+// Runtime identity does not require packaging assets to exist. Legacy projects
+// and script-only manifests keep SDL's own fallback identity.
+func linuxApplicationIdentity(project: String, platform: String): String {
+    if (platform != "linux" || project.isEmpty()) { return "" }
+    let path = joinPath(project, APPLICATION_MANIFEST_FILE)
+    if (!exists(path)) { return "" }
+    let info = FileInfo(path)
+    if (info.isSymbolicLink() || !info.isRegular()) {
+        throw CuicError("application identity manifest must be a regular file: ${path}")
+    }
+    let manifest = parseApplicationManifest(String.fromUtf8(File.readFrom(path)))
+    let identifier = manifest.identifier
+    if (!identifier.isEmpty() && !isApplicationIdentifier(identifier)) {
+        throw CuicError("application.identifier is not a valid Linux application identity")
+    }
+    identifier
 }
 
 func loadApplicationManifest(project: String): ApplicationManifest {

@@ -120,6 +120,7 @@ def launcher(identifier):
             "case $0 in */*) script=$0 ;; *) script=$(command -v -- \"$0\") ;; esac\n"
             'bundle_root=$(CDPATH= cd -- "${script%/*}/.." && pwd)\n'
             'export CANGHUI_HARMONYOS_SANS="$bundle_root/runtime/fonts/default.ttf"\n'
+            f"export SDL_APP_ID='{identifier}'\n"
             f'exec "$bundle_root/bin/{identifier}.bin" "$@"\n')
 
 
