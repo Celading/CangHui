@@ -47,6 +47,9 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
   自己持有的副本，不会反向污染已提交树。
 - `SemanticNode` 保存父子身份、声明顺序、逻辑矩形、role、label/value/placeholder、状态与
   类型化动作。`role == "password"` 的 value 在进入树之前强制清空。
+- 使用带 `UiContext` 的 `recordControlSemantics` 时，已注册控件缺省的 `focused` 会从
+  当前焦点状态补齐；焦点切换也会出现在语义差分中。控件显式声明的值保持不变，
+  未注册节点和不带上下文的旧接口不会凭空获得焦点状态。
 - 默认上限为 2048 节点、32 层、256 KiB 文本；编译期硬上限分别为 4096、64 与 1 MiB。
   重复 ID、未平衡父栈或越界帧会整体失败，不提交半棵树。
 - 自定义宿主可直接使用 `SemanticRuntime.beginFrame`、`record`、`commitFrame` / `cancelFrame`；

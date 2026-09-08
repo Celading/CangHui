@@ -128,8 +128,35 @@ public func recordControlSemantics(
         case Some(environment) => if (!environment.interactionOwner.isEmpty()) { return }
         case None => ()
     }
-    recordControlSemanticsResolved(frame, widgetType, semantics, ctx.interactionsEnabled(),
-        ctx.semanticFocusOrder(semantics.actionOwner))
+    let focusOrder = ctx.semanticFocusOrder(semantics.actionOwner)
+    let resolved = resolveControlSemanticFocus(semantics, focusOrder, ctx.hasFocus(semantics.actionOwner))
+    recordControlSemanticsResolved(frame, widgetType, resolved, ctx.interactionsEnabled(), focusOrder)
+}
+
+// Stock controls need not duplicate the context's focus state in every draw method.
+// Preserve explicit custom semantics and do not invent focus for unregistered nodes.
+private func resolveControlSemanticFocus(
+    semantics: ControlSemantics, focusOrder: ?Int64, focused: Bool
+): ControlSemantics {
+    if (semantics.focused.isSome() || focusOrder.isNone()) { return semantics }
+    ControlSemantics(
+        semantics.role,
+        label: semantics.label,
+        value: semantics.value,
+        placeholder: semantics.placeholder,
+        action: semantics.action,
+        shortcut: semantics.shortcut,
+        actionOwner: semantics.actionOwner,
+        selected: semantics.selected,
+        expanded: semantics.expanded,
+        enabled: semantics.enabled,
+        readOnly: semantics.readOnly,
+        focused: Some(focused),
+        editable: semantics.editable,
+        selectionStart: semantics.selectionStart,
+        selectionEnd: semantics.selectionEnd,
+        typedActions: semantics.typedActions
+    )
 }
 
 /**
