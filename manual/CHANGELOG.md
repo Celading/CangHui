@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+- Linux 的 CUIC `doctor` 和构建前置检查统一要求 SDL 3.4.0 或更高版本，
+  在编译前拒绝缺少当前绑定函数的旧库。
+  Linux doctor and bootstrap now reject SDL versions below 3.4.0 before compilation.
+
 - `cuic prepare harmony` 在读取 provider 清单、载荷、源文件、资源和生成缓存前
   拒绝 FIFO 等特殊文件，避免等待外部写入者；普通文件和无变化重放保持不变。
   Reject special files before Harmony projection reads, including cached output,

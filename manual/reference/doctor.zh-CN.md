@@ -63,6 +63,11 @@ detach/reattach 重放，以及模拟器/真机验证器。完整 CangHui 场景
 
 只有显式请求 `ios` 或 `harmonyos` 时，doctor 才会运行签名和已连接设备相关命令，使默认桌面诊断保持有界、可预测。
 
+Linux 的 `doctor` 与构建前置检查都会通过 `pkg-config` 要求 `sdl3 >= 3.4.0`。
+较旧版本缺少绑定使用的函数，不能仅凭“已经安装 SDL”判断可用。
+若安装在非系统目录，请通过 `PKG_CONFIG_PATH` 指向对应 `.pc` 文件，
+并确保应用运行时能加载同一版本的动态库。
+
 iOS 分组会把已经可检查的静态包启动流程与尚未完成的 GUI 后端分开报告。构建脚本、Objective-C 启动辅助、回放脚本和双目标结果各自独立显示；在 iOS 应用目标完成设备验收前，`CAMetalLayer/MTKView` 原生 surface 渲染器仍是阻塞项。
 
 如果 iOS SDK 不在默认的 `/Library/Frameworks/Cangjie/1.3.0-alpha-ios`，请设置 `CANGHUI_IOS_HOME` 或 `CANGJIE_IOS_HOME`。

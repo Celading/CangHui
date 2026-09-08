@@ -1,6 +1,13 @@
 package cuic
 
 @Test
+func nativePkgConfigRequirementMatchesRequiredSdlSymbols(): Unit {
+    @Expect(pkgConfigRequirement("sdl3"), "sdl3 >= 3.4.0")
+    @Expect(pkgConfigRequirement("sdl3-ttf"), "sdl3-ttf")
+    @Expect(pkgConfigRequirement("other"), "other")
+}
+
+@Test
 func doctorOptionsKeepCompatibilityAndMachineModes(): Unit {
     let options = parseDoctorOptions([
         "cuic", "doctor", "ipad", "--project", "demo", "--json", "--verbose"

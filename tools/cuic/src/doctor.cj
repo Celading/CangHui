@@ -409,8 +409,10 @@ func doctorLinuxGroup(host: String): DoctorGroup {
     if (host == "linux") {
         checks.add(doctorProgramCheck("linux.pkg-config", "pkg-config", "pkg-config", ["--version"],
             "Install pkg-config with the host package manager."))
-        checks.add(doctorInvocationCheck("linux.sdl3", "SDL3 development package", "pkg-config", ["--exists", "sdl3"],
-            "Install the SDL3 development package and refresh PKG_CONFIG_PATH."))
+        let sdlRequirement = pkgConfigRequirement("sdl3")
+        checks.add(doctorInvocationCheck("linux.sdl3", "${sdlRequirement} development package", "pkg-config",
+            ["--exists", sdlRequirement],
+            "Install ${sdlRequirement} and refresh PKG_CONFIG_PATH; older libraries lack required binding symbols."))
         checks.add(doctorInvocationCheck("linux.sdl3-ttf", "SDL3_ttf development package", "pkg-config", ["--exists", "sdl3-ttf"],
             "Install the SDL3_ttf development package and refresh PKG_CONFIG_PATH."))
     } else {

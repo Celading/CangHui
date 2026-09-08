@@ -573,9 +573,16 @@ func homebrewLibrary(formula: String, library: String): String {
     path
 }
 
+// The bindings include PNG, page-size and window progress APIs added in SDL 3.4.
+// Keep doctor and bootstrap on the same requirement; existence alone is not ABI readiness.
+func pkgConfigRequirement(packageName: String): String {
+    if (packageName == "sdl3") { "sdl3 >= 3.4.0" } else { packageName }
+}
+
 func pkgConfigLibrary(packageName: String, library: String): String {
-    let (existsCode, _, _) = executeWithOutput("pkg-config", ["--exists", packageName])
-    if (existsCode != 0) { throw CuicError("pkg-config package '${packageName}' is not installed") }
+    let requirement = pkgConfigRequirement(packageName)
+    let (existsCode, _, _) = executeWithOutput("pkg-config", ["--exists", requirement])
+    if (existsCode != 0) { throw CuicError("pkg-config requirement '${requirement}' is missing or incompatible") }
     let (prefixCode, stdoutBytes, _) = executeWithOutput("pkg-config", ["--variable=libdir", packageName])
     if (prefixCode != 0) { throw CuicError("cannot resolve library directory for '${packageName}'") }
     let path = joinPath(trimAscii(String.fromUtf8(stdoutBytes)), library)
