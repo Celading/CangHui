@@ -97,7 +97,7 @@ def safe_search_path(value, owner, root):
     return (owner.parent / suffix).resolve().is_relative_to(root)
 
 
-def audit(root, executable, system_dirs, reader=inspect):
+def audit(root, executable, system_dirs, reader=inspect, *, library_directory="lib", additional_libraries=()):
     root = Path(root).resolve(strict=True)
     binary = regular(root / executable)
     if not binary.is_relative_to(root):
@@ -105,10 +105,24 @@ def audit(root, executable, system_dirs, reader=inspect):
     system_dirs = [Path(path).resolve(strict=True) for path in system_dirs]
     if any(not path.is_dir() or path.is_relative_to(root) for path in system_dirs):
         raise ValueError("system directories must be outside the bundle")
-    library_root = root / "lib"
+    directory = Path(library_directory)
+    if directory.is_absolute() or not directory.parts or ".." in directory.parts:
+        raise ValueError("invalid bundle library directory")
+    library_root = (root / directory).resolve()
+    if not library_root.is_relative_to(root):
+        raise ValueError("library directory escapes bundle")
     findings, files, supplied, seen = [], [], {}, set()
     machine = reader(binary)["machine"]
     queue = [binary]
+    if len(additional_libraries) >= MAX_FILES:
+        raise ValueError("declared SDK library count exceeds limit")
+    for name in additional_libraries:
+        if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9_.+\-]+", name) or name in {".", ".."}:
+            raise ValueError("invalid declared SDK library name")
+        path = regular(library_root / name)
+        if not path.is_relative_to(library_root):
+            raise ValueError("declared SDK library escapes bundle")
+        queue.append(path)
     while queue:
         path = queue.pop(0)
         if path in seen:

@@ -4,8 +4,13 @@
 
 ## Unreleased
 
+- 增加 Linux 精确提交 SDK 候选导出：复用配对 CUIC 构建，显式哈希原生输入、
+  完整库集合 ELF 审计、普通文件 SDL 链接副本、可搬迁资产清单与许可原文。
+  Linux SDK 消费入口仍关闭，候选导出不等于应用交付或桌面安装验收。
+  Export exact-revision Linux SDK candidates with audited explicit native inputs; consumer execution remains gated.
+
 - SDK 预检区分 macOS 系统版本与 Linux glibc 要求，跨平台同提交不再误报 CUIC 配对；
-  兼容既有 macOS v1 清单。Linux v2 当前只支持预检，导出和执行链仍未开放。
+  兼容既有 macOS v1 清单。Linux v2 支持预检和候选导出，消费执行链仍未开放。
   Add target-aware SDK inspection and comparison without implying Linux SDK execution support.
 
 - Linux `cuic package build` 增加可选 `--runtime-manifest`，按哈希固定的显式清单

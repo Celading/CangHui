@@ -146,6 +146,29 @@ class ClosureTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "outside the bundle"):
             audit.audit(self.root, "bin/main", [self.root / "lib"], reader=lambda path: self.table[path])
 
+    def test_declared_sdk_library_is_inspected_not_ignored(self):
+        extra = self.add(self.root / "lib/liboptional.so", ["libmissing.so"])
+        result = audit.audit(self.root, "bin/main", [self.system], reader=lambda path: copy.deepcopy(self.table[path]),
+                             additional_libraries=["liboptional.so"])
+        self.assertIn("unbundled-dependency", {item["code"] for item in result["findings"]})
+        self.assertNotIn("uninspected-library-entry", {item["code"] for item in result["findings"]})
+        self.table[extra]["needed"] = []
+        result = audit.audit(self.root, "bin/main", [self.system], reader=lambda path: copy.deepcopy(self.table[path]),
+                             additional_libraries=["liboptional.so"])
+        self.assertEqual(result["findings"], [])
+        self.assertEqual(len(result["files"]), 3)
+        self.assertIn("uninspected-library-entry", self.codes())  # Default stays strict.
+
+    def test_sdk_library_names_and_directory_cannot_escape(self):
+        for name in ["../libui.so", "/libui.so", "..", "a\\b.so", "lib.so;run"]:
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                audit.audit(self.root, "bin/main", [self.system], reader=lambda path: copy.deepcopy(self.table[path]),
+                            additional_libraries=[name])
+        for directory in ["../system", str(self.system)]:
+            with self.subTest(directory=directory), self.assertRaises(ValueError):
+                audit.audit(self.root, "bin/main", [self.system], reader=lambda path: copy.deepcopy(self.table[path]),
+                            library_directory=directory)
+
 
 if __name__ == "__main__":
     unittest.main()

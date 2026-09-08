@@ -96,7 +96,7 @@ v2 使用 `target=linux-arm64` 或 `linux-x86_64`，并以 `libc=glibc`、
 版本；这不验证所有符号版本、CPU／内核要求或原生库能否加载。同一源码提交、同一
 CUIC 版本但目标平台不同，也不会显示为 `pairedWithThisCuic: true`。
 
-**当前 Linux 仅开放清单预检，不提供可消费的 Linux SDK 导出／构建链。**
+**当前 Linux 提供清单预检与维护者候选导出，尚不提供可消费的 Linux SDK 构建链。**
 结果中的 `targetExecutionImplemented: false` 会明确区分这一点，尝试构建这种 SDK
 会被拒绝；不要手工修改清单来绕过它。上一节的 macOS v1 SDK 消费方式保持不变。
 目标实现、工具配对和宿主前置条件是三个独立检查；目标已实现不代表另外两项已通过。
@@ -118,3 +118,26 @@ python3 scripts/build-source-sdk.py --revision <commit> --output /tmp/chui-sdk-c
 导出器要求本机已具备编译器、Homebrew 原生依赖及其许可证，过程不下载或安装依赖。
 会同时生成目录与 `.tar.gz`，输出归档校验值。需要实际完成新目录消费、无图/像素回放、
 只读 SDK、禁网/禁 Homebrew 测试和应用搬迁测试后，才能提升交付状态。
+
+### Linux 候选导出（开发中）
+
+在对应架构的 Linux/glibc 宿主上，准备 Cangjie 1.1.3、GNU readelf、patchelf，以及
+[显式原生输入清单](application-packaging.zh-CN.md#用-cuic-组装-linux-运行包)，再运行：
+
+```bash
+python3 scripts/build-linux-source-sdk.py --revision <commit> \
+  --runtime-manifest /path/to/native-input.json --output /tmp/chui-linux-sdk-candidate
+```
+
+输入清单须声明 SDL 两个加载名 `libSDL3.so.0`／`libSDL3_ttf.so.0`，不声明其链接名；
+导出器会生成内容相同的普通文件链接副本。所有依赖都必须显式提供哈希与许可文件，
+默认字体须与选定源码提交一致；不自动搜索宿主库，也不复制 glibc 基础库。
+支持导出策略的目标为 Linux arm64/x86_64；某个架构的运行验证不能代替另一个架构的验证。
+
+候选携带同一提交的 release/debug CUIC、框架与 Kit 源码、原生库、字体、许可记录和
+完整 SHA256SUMS。ELF 审计逐项检查 SDK 声明库及其传递依赖，glibc 下限来自这些文件
+的符号需求，不是兼容性承诺。`runtime/native-input.json` 中的资产路径可随候选搬迁，
+但应用仍须按实际依赖选取运行库，不能将整个 SDK 库集合无条件当作应用运行包。
+
+导出成功状态是 `exported-not-consumer-verified`；Linux SDK 消费入口仍拒绝执行。
+候选不是安装器、预编译框架、已签名发行包，也不证明桌面安装、动态插件和分发许可合规。

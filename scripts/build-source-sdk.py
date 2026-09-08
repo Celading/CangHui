@@ -184,21 +184,8 @@ def copy_framework_notices(output, framework):
         shutil.copyfile(framework / name, destination / name)
 
 
-def build(output, revision):
-    if platform.system() != "Darwin" or platform.machine() != "arm64":
-        raise ValueError("this exporter only validates macOS arm64")
-    compiler = run("cjc", "--version")
-    if compiler.splitlines() != ["Cangjie Compiler: 1.1.3 (cjnative)", "Target: aarch64-apple-darwin"]:
-        raise ValueError("Cangjie 1.1.3 is required for this source SDK ABI")
-    revision = run("git", "-C", ROOT, "rev-parse", revision + "^{commit}")
-    output = output.resolve()
-    output.mkdir(parents=True, exist_ok=False)  # Never overwrite an earlier delivery.
-    framework = output / "framework"
-    export_revision(revision, SOURCE_ROOTS, framework)
-    export_unicode_license(output, framework, revision)
-    copy_framework_notices(output, framework)
-    if not (framework / "src/core/probe_observation.cj").exists():
-        raise ValueError("selected revision predates observation/v1")
+def build_cli_pair(output, revision, verify_binary):
+    """Build both tools from the same archive; target policy belongs to the caller."""
     cli_version = ""
     with tempfile.TemporaryDirectory(prefix="chui-sdk-build-") as temporary:
         staging = pathlib.Path(temporary)
@@ -220,9 +207,32 @@ def build(output, revision):
             subprocess.run(command, cwd=cli, check=True)
             name = "cuic-debug" if debug else "cuic"
             shutil.copy2(cli / "target" / ("debug" if debug else "release") / "bin/main", output / "bin" / name)
-            if any(not system_dependency(d) for d in dependencies(output / "bin" / name)):
-                raise ValueError("CUIC is not standalone from the build toolchain")
+            verify_binary(output / "bin" / name)
             print(run(output / "bin" / name, "version"), flush=True)
+    return cli_version
+
+
+def verify_macos_cli(binary):
+    if any(not system_dependency(d) for d in dependencies(binary)):
+        raise ValueError("CUIC is not standalone from the build toolchain")
+
+
+def build(output, revision):
+    if platform.system() != "Darwin" or platform.machine() != "arm64":
+        raise ValueError("this exporter only validates macOS arm64")
+    compiler = run("cjc", "--version")
+    if compiler.splitlines() != ["Cangjie Compiler: 1.1.3 (cjnative)", "Target: aarch64-apple-darwin"]:
+        raise ValueError("Cangjie 1.1.3 is required for this source SDK ABI")
+    revision = run("git", "-C", ROOT, "rev-parse", revision + "^{commit}")
+    output = output.resolve()
+    output.mkdir(parents=True, exist_ok=False)  # Never overwrite an earlier delivery.
+    framework = output / "framework"
+    export_revision(revision, SOURCE_ROOTS, framework)
+    export_unicode_license(output, framework, revision)
+    copy_framework_notices(output, framework)
+    if not (framework / "src/core/probe_observation.cj").exists():
+        raise ValueError("selected revision predates observation/v1")
+    cli_version = build_cli_pair(output, revision, verify_macos_cli)
     compiler_root = pathlib.Path(shutil.which("cjc")).resolve().parent.parent
     copy_licenses(compiler_root, output / "licenses/cangjie")
     names, origins, minimum = native_closure(output)
