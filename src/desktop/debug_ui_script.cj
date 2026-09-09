@@ -31,22 +31,34 @@ class DebugUiScriptRunner {
     private var revision: UInt64 = 0
     private var previous: ?DebugUiObservation = None
     private var current: ?DebugUiObservation = None
+    private let requestedWindow: String
 
     init() {
         commands = parseDebugUiScript(debugUiScriptText())
+        requestedWindow = if (commands.isEmpty()) { "" } else { debugUiRequestedWindow() }
     }
 
     // Deterministic in-process tests use the same bounded parser, never a new transport.
-    init(script: String) {
+    init(script: String, windowId!: String = "") {
         commands = parseDebugUiScript(script)
+        requestedWindow = validateDebugUiWindow(windowId)
+    }
+
+    func windowId(): String { requestedWindow }
+
+    func requireWindow(actual: String): Unit {
+        if (active() && !requestedWindow.isEmpty() && actual != requestedWindow) {
+            throw IllegalArgumentException("debug UI window '${requestedWindow}' does not match '${actual}'")
+        }
     }
 
     func active(): Bool {
         !commands.isEmpty() && !completed
     }
 
-    func observe(widget: Widget, ctx: UiContext, width: Int32, height: Int32): Unit {
+    func observe(widget: Widget, ctx: UiContext, width: Int32, height: Int32, windowId!: String = ""): Unit {
         if (!active()) { return }
+        requireWindow(windowId)
         revision += 1
         previous = current
         current = Some(DebugUiObservation(
@@ -55,7 +67,8 @@ class DebugUiScriptRunner {
             height,
             ctx.focusId,
             widget.focusableIds(),
-            widget.interactionOwnerIds()
+            widget.interactionOwnerIds(),
+            windowId: windowId
         ))
     }
 
@@ -71,6 +84,7 @@ class DebugUiScriptRunner {
                 // Reporting completion must not turn a failed script into a successful process.
                 throw Exception("debug UI script failed: ${message}")
             }
+            recordDebugUiWindow(current.getOrThrow().windowId)
             emitDebugUiResult("complete", true, current.getOrThrow().snapshotJson(), 0, "")
             return
         }
@@ -126,6 +140,9 @@ class DebugUiScriptRunner {
         }
         if (operation == "focus") {
             requireDebugUiArity(parts, 2, operation)
+            if (ctx.hasOverlay()) {
+                throw IllegalArgumentException("focus by id cannot verify overlay ownership; use key Tab")
+            }
             let id = parts[1]
             let observation = current.getOrThrow()
             if (!containsDebugUiId(observation.focusableIds, id)) {
@@ -179,19 +196,22 @@ class DebugUiObservation {
     let focusId: String
     let focusableIds: Array<String>
     let interactionIds: Array<String>
+    let windowId: String
 
     init(revision: UInt64, width: Int32, height: Int32, focusId: String,
-        focusableIds: Array<String>, interactionIds: Array<String>) {
+        focusableIds: Array<String>, interactionIds: Array<String>, windowId!: String = "") {
         this.revision = revision
         this.width = width
         this.height = height
         this.focusId = focusId
         this.focusableIds = focusableIds
         this.interactionIds = interactionIds
+        this.windowId = windowId
     }
 
     func snapshotJson(): String {
         "{\"protocol\":\"canghui.ui-observation.v0\",\"revision\":${revision}," +
+            "\"windowId\":" + debugUiJsonQuote(windowId) + "," +
             "\"viewport\":{\"width\":${width},\"height\":${height}}," +
             "\"focus\":" + debugUiJsonQuote(focusId) + "," +
             "\"focusable\":" + debugUiJsonArray(focusableIds) + "," +
@@ -330,7 +350,9 @@ class DebugUiScriptRunner {
 
     func active(): Bool { false }
 
-    func observe(_: Widget, _: UiContext, _: Int32, _: Int32): Unit {}
+    func requireWindow(_: String): Unit {}
+
+    func observe(_: Widget, _: UiContext, _: Int32, _: Int32, windowId!: String = ""): Unit {}
 
     func executeNext(_: UiContext, _: (UiEvent) -> Unit): Unit {}
 }

@@ -95,6 +95,10 @@ cuic shell focus [project] <component-id>
 cuic shell run [project] --events 'snapshot
 click 120 48
 diff'
+cuic shell run [project] --window settings --events 'focus search
+key CmdOrCtrl+A
+text query
+snapshot'
 ```
 
 - `shell` 只构建并启动一个 debug 子进程；不连接任意现有 PID，不开放 socket、listener、
@@ -105,6 +109,13 @@ diff'
 - `snapshot` 返回 viewport、当前焦点、可聚焦节点和交互所有者；`diff` 返回相邻渲染帧
   的新增/移除节点与焦点变化。先用它确认真实运行态，再用 `pview` 查几何、`prnt` 查像素。
 - release cuic 会拒绝 `shell`，release 应用也不会保留脚本 opt-in 与结果协议标记。
+- `shell run --window` 按 `semanticWindowId` 选择窗口，不使用系统当前焦点。托管
+  应用有多个窗口时必须明确选择；缺失、重名或中途关闭的目标会失败，不自动转向其他窗口。
+  脚本在全部窗口的初始创建完成、进入应用 `step/run` 后执行，结束或失败时关闭这次
+  测试应用拥有的全部窗口。坐标以目标窗口的 UI 逻辑坐标为准，不再次应用系统缩放。
+  原始 `DesktopApp` 也会校验窗口名称。显式选窗需要支持该能力的配对框架源码和
+  运行时选窗回执；不能仅凭启动参数宣称选窗成功。当前只支持托管框架窗口，不操作外部自定义窗口会话。
+  浮层打开时禁止按 ID 强制聚焦背景控件，请用 `key Tab`／`key Shift+Tab` 通过正常焦点路由。
 - Debug `key` 支持 `Ctrl+A`、`Shift+Tab`、`CmdOrCtrl+Z` 等组合键，名称不区分
   ASCII 大小写。修饰键为 Shift、Ctrl/Control、Alt/Option、Cmd/Command/Meta；
   `CmdOrCtrl` 在 macOS 使用 Command，其他平台使用 Ctrl。重复、未知或空键会报错。

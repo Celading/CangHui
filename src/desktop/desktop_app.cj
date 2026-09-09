@@ -109,6 +109,7 @@ public class DesktopApp {
                 throw IllegalArgumentException("capture window '${request.windowId}' does not match '${semanticWindowId}'")
             }
         }
+        debugUiScript.requireWindow(semanticWindowId)
         this.window = configuredWindow(spec, metadata, hints)
         this.applicationShell = applicationShell
         this.ctx = UiContext(window.renderer, theme)
@@ -490,7 +491,7 @@ public class DesktopApp {
                     widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
                     let tEvents = FrameProfiler.now()
                     dispatchCollectedEvents(widget, events)
-                    debugUiScript.observe(widget, ctx, viewportW, viewportH)
+                    debugUiScript.observe(widget, ctx, viewportW, viewportH, windowId: semanticRuntime.windowId)
                     debugUiScript.executeNext(ctx, { event => dispatchSyntheticEvent(widget, event) })
                     dispatchEvent(widget, UiEvent.Frame(frame))
                     // Input/frame callbacks can also change zoom. Never draw/publish an

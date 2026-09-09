@@ -715,6 +715,13 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
             case UiEvent.WindowDestroyed => wantsClose = true
             case _ => ()
         }
+        dispatchLogicalInput(event)
+    }
+
+    // Script coordinates already use this window's UI space; do not normalize twice
+    // or replace the modifier scope established by the shared script runner.
+    private func dispatchLogicalInput(event: UiEvent): Bool {
+        if (closed) { return false }
         let widget = match (currentWidget) {
             case Some(value) => value
             case None => return false
@@ -724,6 +731,13 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
         completePointer(event)
         if (ctx.shouldClose) { wantsClose = true }
         consumed
+    }
+
+    @When[debug]
+    func executeDebugUi(runner: DebugUiScriptRunner): Unit {
+        let widget = currentWidget.getOrThrow()
+        runner.observe(widget, ctx, window.width, window.height, windowId: semanticRuntime.windowId)
+        runner.executeNext(ctx, {event => let _ = dispatchLogicalInput(event)})
     }
 
     func focusNativeWindow(): Unit { window.raiseWindow() }
@@ -917,6 +931,9 @@ public class DesktopApplication <: Resource {
     private let accessibility: ?DesktopAccessibilityFactory
     private let captureRequest: ?DesktopCaptureRequest
     private var captureTarget: ?WindowId = None
+    private let debugUiScript = DebugUiScriptRunner()
+    @When[debug]
+    private var debugUiTarget: ?WindowId = None
 
     public init(applicationShell!: ?ApplicationShell = None, capture!: ?DesktopCaptureRequest = None,
         accessibility!: ?DesktopAccessibilityFactory = None) {
@@ -1144,7 +1161,7 @@ public class DesktopApplication <: Resource {
                     receipts.add(session.step())
                 } catch (error: Exception) {
                     session.requestClose()
-                    if (captureRequest.isSome()) {
+                    if (captureRequest.isSome() || debugUiScript.active()) {
                         try { close() } catch (_: Exception) { () }
                         throw error
                     }
@@ -1153,6 +1170,8 @@ public class DesktopApplication <: Resource {
                 }
             }
         }
+        stepDebugUi(debugUiScript)
+        if (closed) { return receipts.toArray() }
         if (let Some(id) <- captureTarget) {
             match (findManagedWindow(id)) {
                 case Some(session) where session.captureCompleted() => close(); return receipts.toArray()
@@ -1193,6 +1212,44 @@ public class DesktopApplication <: Resource {
             case None => throw IllegalArgumentException("capture window '${request.windowId}' was not found among live managed windows")
         }
     }
+
+    @When[debug]
+    internal func stepDebugUi(runner: DebugUiScriptRunner): Unit {
+        if (closed || !runner.active()) { return }
+        try {
+            var selected: ?ManagedDesktopWindowSession = None
+            if (let Some(id) <- debugUiTarget) {
+                selected = findManagedWindow(id)
+                if (selected.isNone() || selected.getOrThrow().closeRequested()) {
+                    throw IllegalStateException("debug UI target closed before script completion")
+                }
+            } else {
+                for (session in managedWindows) {
+                    if (!session.closeRequested() && (runner.windowId().isEmpty() ||
+                        runner.windowId() == session.semanticWindowId())) {
+                        if (selected.isSome()) {
+                            throw IllegalArgumentException("debug UI window is ambiguous; specify a unique --window")
+                        }
+                        selected = Some(session)
+                    }
+                }
+                if (selected.isNone()) { throw IllegalArgumentException("debug UI window was not found") }
+                debugUiTarget = Some(selected.getOrThrow().windowId())
+            }
+            let session = selected.getOrThrow()
+            session.executeDebugUi(runner)
+            if (!runner.active()) { close() }
+            else if (session.closeRequested()) {
+                throw IllegalStateException("debug UI target closed before script completion")
+            }
+        } catch (error: Exception) {
+            try { close() } catch (_: Exception) { () }
+            throw error
+        }
+    }
+
+    @When[!debug]
+    private func stepDebugUi(_: DebugUiScriptRunner): Unit {}
 
     /** Convenience blocking loop built entirely from the public non-blocking pump/step surface. */
     public func run(): Unit {
