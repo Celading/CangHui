@@ -42,37 +42,46 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     }
     let manifest = loadApplicationManifest(project)
     let output = resolvePackagingOutputRoot(project, platform, manifest, requestedOutput)
-    ensurePackagingDestinationAvailable(output)
     ensurePackagingOutputDoesNotOverlapInputs(project, output, manifest)
     if (hardening.enabled) {
         validateMacPackagingHardening(hardening, platform, hostPlatform(), project, ensureFrameworkRoot(project))
     }
 
-    var executable = ""
-    var sdkFramework = linuxSdkPackagingFramework(project, platform, hostPlatform(), linuxRuntimeManifest)
-    var hostReplay = "metadata-only"
+    return withPackagingOutputLease(project, output, {=>
+        buildApplicationArtifactWithOutputLease(project, platform, manifest, output, json,
+            linuxRuntimeManifest, hardening)
+    })
+}
+
+func buildApplicationArtifactWithOutputLease(project: String, platform: String,
+    manifest: ApplicationManifest, output: String, json: Bool, linuxRuntimeManifest: String,
+    hardening: MacPackagingHardening): Int64 {
+    let sdkFramework = linuxSdkPackagingFramework(project, platform, hostPlatform(), linuxRuntimeManifest)
     let limitations = ArrayList<String>()
     let plan = applicationPackagingPlanForManifest(project, platform, manifest)
     for (value in plan.unsupportedCapabilities) { limitations.add(value) }
+    limitations.add("release-trimpath-and-strip-not-verified")
+    limitations.add("release-security-audit-not-run")
+    limitations.add("publisher-signing-and-notarization-not-run")
+    limitations.add("unsigned-artifact")
     if (platform == "macos" && hostPlatform() == "macos") {
-        let buildCode = runPackagingBuild(project, "macos", json, hardening: hardening)
-        if (buildCode != 0) { return buildCode }
-        let framework = ensureFrameworkRoot(project)
-        let context = ExecutionContext(project, framework)
-        executable = builtExecutable(context.targetDir)
-        hostReplay = "same-host-build-complete-not-launched"
-        if (exists(joinPath(framework, SOURCE_SDK_MANIFEST))) {
-            sdkFramework = framework
-            limitations.add("source-sdk-native-closure-included-not-publisher-signed")
-        } else { limitations.add("runtime-dependencies-remain-host-managed") }
+        return runPackagingBuild(project, "macos", json, hardening: hardening, consume: {context =>
+            let macSdkFramework = if (exists(joinPath(context.framework, SOURCE_SDK_MANIFEST))) { context.framework } else { "" }
+            if (!macSdkFramework.isEmpty()) {
+                limitations.add("source-sdk-native-closure-included-not-publisher-signed")
+            } else { limitations.add("runtime-dependencies-remain-host-managed") }
+            finishApplicationArtifact(project, platform, manifest, output,
+                desktopCaptureExecutable(context.targetDir, "release", {path => exists(path)}),
+                "same-host-build-complete-not-launched", limitations.toArray(), macSdkFramework, linuxRuntimeManifest, hardening, json)
+        })
     } else if (!linuxRuntimeManifest.isEmpty() || !sdkFramework.isEmpty()) {
-        let buildCode = runPackagingBuild(project, "linux", json)
-        if (buildCode != 0) { return buildCode }
-        let context = ExecutionContext(project, ensureFrameworkRoot(project))
-        executable = builtExecutable(context.targetDir)
-        hostReplay = "same-host-build-and-runtime-assembly-not-launched"
         limitations.add("runtime-license-records-carried-not-legally-reviewed")
         limitations.add("dynamic-plugins-and-desktop-installation-not-verified")
+        return runPackagingBuild(project, "linux", json, consume: {context =>
+            finishApplicationArtifact(project, platform, manifest, output,
+                desktopCaptureExecutable(context.targetDir, "release", {path => exists(path)}),
+                "same-host-build-and-runtime-assembly-not-launched", limitations.toArray(), sdkFramework, linuxRuntimeManifest, hardening, json)
+        })
     } else if (platform != hostPlatform()) {
         limitations.add("target-host-build-not-run-on-${hostPlatform()}")
         limitations.add("executable-and-native-runtime-not-included")
@@ -80,13 +89,15 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
         limitations.add("platform-runtime-packaging-is-separate-from-this-input-tree")
         limitations.add("executable-and-native-runtime-not-included")
     }
-    limitations.add("release-trimpath-and-strip-not-verified")
-    limitations.add("release-security-audit-not-run")
-    limitations.add("publisher-signing-and-notarization-not-run")
-    limitations.add("unsigned-artifact")
+    finishApplicationArtifact(project, platform, manifest, output, "", "metadata-only",
+        limitations.toArray(), sdkFramework, linuxRuntimeManifest, hardening, json)
+}
 
+func finishApplicationArtifact(project: String, platform: String, manifest: ApplicationManifest,
+    output: String, executable: String, hostReplay: String, limitations: Array<String>,
+    sdkFramework: String, linuxRuntimeManifest: String, hardening: MacPackagingHardening, json: Bool): Int64 {
     var receipt = writeApplicationPackagingArtifact(
-        project, platform, manifest, output, executable, hostReplay, limitations.toArray(),
+        project, platform, manifest, output, executable, hostReplay, limitations,
         sourceSdkFramework: sdkFramework, linuxRuntimeManifest: linuxRuntimeManifest
     )
     if (hardening.enabled) { receipt = hardenMacPackagingArtifact(receipt, output, sdkFramework, hardening, json) }
@@ -108,12 +119,9 @@ func applicationPackagingReceiptPath(platform: String): String {
     }
 }
 
-func runMacPackagingBuild(project: String, quiet: Bool): Int64 {
-    runPackagingBuild(project, "macos", quiet)
-}
-
 func runPackagingBuild(project: String, platform: String, quiet: Bool,
-    hardening!: MacPackagingHardening = MacPackagingHardening()): Int64 {
+    hardening!: MacPackagingHardening = MacPackagingHardening(),
+    consume!: (ExecutionContext) -> Int64 = {_ => 0}): Int64 {
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
     let compileOptions = if (hardening.enabled) { macPackagingCompileOptions(project, framework) } else { "" }
@@ -124,14 +132,11 @@ func runPackagingBuild(project: String, platform: String, quiet: Bool,
     if (probeDiffCode != 0) { return probeDiffCode }
     let boot = bootstrap(platform, framework, stagingRoot: context.stagingRoot, quiet: quiet)
     if (boot != 0) { return boot }
-    let lease = context.acquireLease()
-    try {
+    withPackagingBuildLease(context, {=>
         if (!quiet) { println("==> cjpm build (${platform}) in ${project}") }
         if (quiet) { executeCjpmQuiet(context, ["build"], packagingCompileOptions: compileOptions, packagingLinkOptions: linkOptions) }
         else { executeCjpm(context, ["build"], packagingCompileOptions: compileOptions, packagingLinkOptions: linkOptions) }
-    } finally {
-        context.releaseLease(lease)
-    }
+    }, {=> consume(context) })
 }
 
 func resolvePackagingOutputRoot(project: String, platform: String, manifest: ApplicationManifest,

@@ -8,6 +8,14 @@ kept separate from platform-specific providers.
 
 ## Optional macOS SDK candidate hardening
 
+Packaging holds an output-side `.cuic-lease` throughout generation and checks
+destination availability after acquiring it. Runtime-build routes retain their
+target lease through copying, hardening, auditing and receipt writing. Contending
+CUIC jobs fail immediately rather than waiting or stealing locks. Failures release
+only this invocation's leases, preserving failed candidates and other owners.
+This coordinates CUIC jobs using the same target/output paths; it does not prevent
+external tools from editing files directly.
+
 ```bash
 cuic package build macos . --harden --output dist/Candidate.app
 cuic package build macos . --harden --export-symbol _my_plugin_host --output dist/PluginCandidate.app
