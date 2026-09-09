@@ -45,6 +45,14 @@ Shell。其 `pump()` / `run()` 负责挂载和派发；单独调用 `pumpOne()` 
 `dispatchPendingActions(limit: 64)`、`detach()`。卸载后不能重挂同一实例；新的应用
 生命周期使用新 Shell。同一进程只允许一个原生 Shell 持有菜单。
 
+`shell.isClosed()` 可查询终止状态。`detach()` 即使发生在 `attach()` 之前也会终止该
+实例；之后动作注册／调用、Deep Link、通知、设置写入和系统投影均返回带 `closed`
+说明的 `Failed`，不再调用 Provider 或业务回调。设置读取返回 `None`，能力与通知权限
+查询返回 `Unsupported`，表示这个实例已不可用，并非平台永久缺少该能力。
+卸载会释放已注册的 handler；正在执行的 handler 可以完成，但它在卸载后发起的嵌套
+调用以及队列中余下的动作不会继续执行。关闭前直接调用动作（包括尚未 attach 时）保持原有行为。
+所有生命周期与派发操作仍由同一 UI owner 串行使用，不是跨线程取消或强制终止协议。
+
 替换菜单会断开旧动作对象并清空待派发队列；卸载时，若菜单仍由本 Provider 持有，
 恢复原有菜单。整个过程不替换 SDL 的 application delegate。原生队列最多容纳
 256 个动作，溢出明确失败，不提供远程控制入口。

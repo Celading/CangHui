@@ -130,6 +130,8 @@ public class AppActionRegistry {
     }
 
     public func size(): Int64 { actions.size }
+
+    internal func clear(): Unit { actions.clear(); handlers.clear() }
 }
 
 public struct AppStatusItem {
@@ -492,27 +494,37 @@ public class ApplicationShell {
 
     /** Native callbacks never execute business handlers from inside AppKit. */
     public func dispatchPendingActions(limit!: Int64 = 64): Array<SystemShellResult> {
-        runtime.dispatch(limit, {id => actionRegistry.invoke(id)})
+        runtime.dispatch(limit, {id => invokeAction(id)})
     }
 
     /** Terminal and idempotent; disconnect native targets before SDL shutdown. */
-    public func detach(): Unit { runtime.detach() }
+    public func detach(): Unit {
+        try { runtime.detach() }
+        finally { actionRegistry.clear(); registeredDeepLinks.clear() }
+    }
+
+    /** Terminal state of this instance, including detach before attachment. */
+    public func isClosed(): Bool { runtime.isClosed() }
+
+    private func closedResult(): SystemShellResult {
+        SystemShellResult(SystemShellResultStatus.Failed, message: "application shell is closed")
+    }
 
     public func capability(surface: SystemSurface): SystemSurfaceState {
+        if (isClosed()) { return SystemSurfaceState.Unsupported }
         provider.state(surface)
     }
 
     /** Application-wide badge, not a per-window widget. Native updates require the UI owner thread. */
     public func setBadge(label: ?String): SystemShellResult {
-        if (runtime.isClosed()) {
-            return SystemShellResult(SystemShellResultStatus.Failed, message: "application shell is closed")
-        }
+        if (isClosed()) { return closedResult() }
         validateApplicationBadge(label)
         if (let Some(badge) <- (provider as SystemShellBadgeProvider)) { return badge.setBadge(label) }
         SystemShellResult(SystemShellResultStatus.Unsupported, message: "provider does not support application badges")
     }
 
     public func registerAction(action: AppAction, handler: AppActionHandler): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         if (actionRegistry.contains(action.id)) {
             return SystemShellResult(SystemShellResultStatus.Failed,
                 message: "duplicate application action: " + action.id)
@@ -523,10 +535,12 @@ public class ApplicationShell {
     }
 
     public func invokeAction(id: String): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         actionRegistry.invoke(id)
     }
 
     public func setApplicationMenu(menu: AppMenuBar): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         for (entry in menu.menus) {
             validateRuntimeActionReferences(entry.actionIds, "menu " + entry.id, errors)
@@ -539,6 +553,7 @@ public class ApplicationShell {
     }
 
     public func setStatusItem(item: AppStatusItem): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         validateRuntimeActionReferences(item.actionIds, "status item", errors)
         if (!errors.isEmpty()) {
@@ -549,6 +564,7 @@ public class ApplicationShell {
     }
 
     public func projectSystemSurfaces(): AppSurfaceProjectionResult {
+        if (isClosed()) { return AppSurfaceProjectionResult(closedResult(), closedResult()) }
         let menuResult = match (manifest.applicationMenu) {
             case Some(menu) => setApplicationMenu(menu)
             case None => SystemShellResult(SystemShellResultStatus.Applied,
@@ -563,6 +579,7 @@ public class ApplicationShell {
     }
 
     public func notify(notification: SystemNotification): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         validateRuntimeActionReferences(notification.actionIds, "notification " + notification.id, errors)
         if (!errors.isEmpty()) {
@@ -593,14 +610,17 @@ public class ApplicationShell {
     }
 
     public func notificationPermission(): NotificationPermissionState {
+        if (isClosed()) { return NotificationPermissionState.Unsupported }
         provider.notificationPermission()
     }
 
     public func requestNotificationPermission(): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         provider.requestNotificationPermission()
     }
 
     public func registerDeepLink(route: AppDeepLinkRoute): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         validateRuntimeActionReferences([route.actionId], "deep link " + route.uri, errors)
         if (!errors.isEmpty()) {
@@ -624,6 +644,7 @@ public class ApplicationShell {
     }
 
     public func projectDeepLinks(): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         var status = SystemShellResultStatus.Applied
         for (route in manifest.deepLinks) {
             let result = registerDeepLink(route)
@@ -636,6 +657,7 @@ public class ApplicationShell {
     }
 
     public func handleDeepLink(uri: String): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         validateAppDeepLinkUri(uri)
         for (route in registeredDeepLinks) {
             if (route.uri == uri) { return invokeAction(route.actionId) }
@@ -658,10 +680,12 @@ public class ApplicationShell {
     }
 
     public func readSetting(key: String): ?AppSettingValue {
+        if (isClosed()) { return None }
         provider.readSetting(key)
     }
 
     public func writeSetting(key: String, value: AppSettingValue): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         match (findSetting(manifest.settings, key)) {
             case Some(setting) =>
                 if (setting.sensitive && provider.state(SystemSurface.SecureSettings) != SystemSurfaceState.Native) {
