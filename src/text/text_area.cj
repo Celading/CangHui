@@ -492,10 +492,16 @@ public class TextArea <: Widget {
                 {=> moveAxis(ctx, edit, false, false, false)}, {=> moveAxis(ctx, edit, false, false, true)})
             case UiEvent.KeyDown(Key.Down, _) => return navigate(ctx,
                 {=> moveAxis(ctx, edit, false, true, false)}, {=> moveAxis(ctx, edit, false, true, true)})
-            case UiEvent.KeyDown(Key.Home, _) => return navigate(ctx, {=> edit.moveToLineStart()},
-                {=> edit.extendToLineStart()})
-            case UiEvent.KeyDown(Key.End, _) => return navigate(ctx, {=> edit.moveToLineEnd()},
-                {=> edit.extendToLineEnd()})
+            case UiEvent.KeyDown(Key.Home, _) =>
+                if (ctx.keyModifiers().ctrl) {
+                    return navigate(ctx, {=> edit.moveToStart()}, {=> edit.extendToStart()})
+                }
+                return navigate(ctx, {=> edit.moveToLineStart()}, {=> edit.extendToLineStart()})
+            case UiEvent.KeyDown(Key.End, _) =>
+                if (ctx.keyModifiers().ctrl) {
+                    return navigate(ctx, {=> edit.moveToEnd()}, {=> edit.extendToEnd()})
+                }
+                return navigate(ctx, {=> edit.moveToLineEnd()}, {=> edit.extendToLineEnd()})
             case UiEvent.KeyDown(Key.Letter(code), _) => return shortcut(ctx, edit, code)
             case UiEvent.Frame(_) =>
                 // One-time initial focus, applied after the frame's pointer

@@ -21,7 +21,7 @@ public class TextArea <: Widget
 ## 说明
 
 - **字节偏移语义**：与 [`TextField`](TextField.md) 相同，光标与选区锚点是 UTF-8 字节偏移。从外部接管 `cursor` 后再从外部移动它（加载文件、程序化粘贴）时必须连同 `anchor` 一起移动，否则陈旧锚点会张开一段用户从未做过的选区，下一次按键将整段替换。完整的编辑操作见 [`TextEditState`](TextEditState.md)。
-- **键盘表**：方向键按字符移动，Up/Down 跨行且尽量保持字节列；Home/End 移到**行**首尾（单行控件则是全文首尾）；Enter 插入换行；按住 Shift 的所有导航键扩展选区；Ctrl+A/C/X/V/Z/Y 与 Ctrl+Shift+Z 同单行控件。
+- **键盘表**：方向键按字符移动，Up/Down 跨行且尽量保持字节列；Home/End 移到**行**首尾，Ctrl+Home/End 移到**全文**首尾；Enter 插入换行。按住 Shift 的导航键（包括 Ctrl+Shift+Home/End）保留锚点并扩展选区；Ctrl+A/C/X/V/Z/Y 与 Ctrl+Shift+Z 同单行控件。
 - **只读模式**：`editable: false` 时保留 Tab／无障碍焦点、移动光标、选择和复制；Ctrl+X 只复制而不删除，粘贴与撤销/重做会被忽略。禁用或隐藏的区域仍不进入焦点遍历。
 - **嵌入式表面**：`chrome: TextAreaChrome.None`（或链式 `.chrome(...)`）只移除默认字段底色与描边；文本、选区、滚动条及共享 `scroll` 状态保持不变，适合编辑器行号和日志分栏。
 - **逻辑行契约**：`wrapMode: TextAreaWrapMode.NoWrap` 是当前唯一支持的模式，也是默认值。视口变窄不会把一个逻辑源代码行拆成多个视觉行；软换行和“逻辑行到视觉行”投影尚未提供，框架不会用一个看似可选但实际不完整的布尔开关暗示它们存在。
