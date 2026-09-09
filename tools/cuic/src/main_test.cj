@@ -34,6 +34,21 @@ func debugTestBuildCarriesPrivilegedDebugGate(): Unit {
     @Expect(debugChannelBuildMarker(), "CANGHUI_PRIVILEGED_DEBUG_BUILD=1")
 }
 
+@Test
+func debugRecoveryUsesPairedSdkToolWithoutRawCompilerFallback(): Unit {
+    let sdk = debugChannelRecoveryHint("source-sdk")
+    @Expect(sdk.contains("bin/cuic-debug shipped in the same source SDK"))
+    @Expect(sdk.contains("do not rebuild or modify"))
+    @Expect(!sdk.contains("cjpm"))
+    @Expect(!sdk.contains("cuic build"))
+    for (channel in ["development", "installed", "", "source-sdk-extra"]) {
+        let hint = debugChannelRecoveryHint(channel)
+        @Expect(hint.contains("cuic build <platform> <framework>/tools/cuic --mode debug"))
+        @Expect(!hint.contains("cjpm"))
+        @Expect(!hint.contains("shipped in the same source SDK"))
+    }
+}
+
 @When[!debug]
 @Test
 func releaseTestBuildRefusesPrivilegedDebugGate(): Unit {
@@ -44,6 +59,7 @@ func releaseTestBuildRefusesPrivilegedDebugGate(): Unit {
         requireDebugChannelBuild("test operation")
     } catch (error: CuicError) {
         refused = containsText(error.message, "unavailable in release cuic")
+        @Expect(error.message.contains(debugChannelRecoveryHint(CUIC_BUILD_CHANNEL)))
     }
     @Expect(refused)
 }
