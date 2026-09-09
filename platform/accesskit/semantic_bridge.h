@@ -52,6 +52,15 @@ CHUI_AK_API bool chui_ak_tree_add(struct chui_ak_tree *tree,
 CHUI_AK_API bool chui_ak_tree_text(struct chui_ak_tree *tree, uint64_t id,
     size_t count, const uint8_t *lengths);
 
+/* No-wrap MultilineTextInput read projection. LF/CRLF each occupies one span,
+ * retained at the preceding run's end. A trailing break creates an empty run.
+ * Up to 4096 generated runs across the transaction. Parent/line-derived IDs
+ * are collision-checked against all semantic and generated IDs at finish.
+ * Additive ABI1 capability; resolve before adapter creation. No glyph geometry,
+ * soft wrap, editing action or IME-preedit projection is implied. */
+CHUI_AK_API bool chui_ak_tree_multiline(struct chui_ak_tree *tree, uint64_t id,
+    size_t count, const uint8_t *lengths);
+
 /* Read-only selection facts for an existing text projection. Indices address
  * editor-selectable spans, not bytes/UTF16/scalars. End-of-run is permitted.
  * Does not enable a native editing action. Invalid range fails the transaction.

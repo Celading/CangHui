@@ -20,7 +20,7 @@ foreign {
  * by an ABI check. Libraries intentionally remain loaded until process exit:
  * upstream adapter destruction deregisters asynchronously, without joining callbacks.
  * This preview requires measured X11 screen bounds and projects through the
- * window's existing scale transform. Other native geometry backends, text ranges
+ * window's existing scale transform. Other native geometry backends, glyph bounds
  * and reader SDK dependency delivery still require integration.
  */
 @When[os == "Linux"]
@@ -145,7 +145,8 @@ private class LinuxAccessibilityApi {
         for (name in ["chui_ak_unix_abi_version", "chui_ak_unix_new", "chui_ak_unix_publish",
             "chui_ak_unix_needs_refresh", "chui_ak_unix_refresh", "chui_ak_unix_focus",
             "chui_ak_unix_poll", "chui_ak_unix_close", "chui_ak_unix_bounds", "chui_ak_tree_new", "chui_ak_tree_add",
-            "chui_ak_tree_finish", "chui_ak_tree_free", "chui_ak_tree_text", "chui_ak_tree_selection"]) {
+            "chui_ak_tree_finish", "chui_ak_tree_free", "chui_ak_tree_text", "chui_ak_tree_selection",
+            "chui_ak_tree_multiline"]) {
             var address = AccessibilityRef()
             unsafe { try (text = LibC.mallocCString(name).asResource()) {
                 address = dlsym(bridge, text.value)
@@ -200,7 +201,7 @@ private class LinuxAccessibilityApi {
             for (node in tree.nodes) {
                 appendNode(transaction, index[node.id], node, geometry)
                 if (let Some(lengths) <- accessibilityTextLengths(node.role, node.value)) {
-                    appendText(transaction, index[node.id].nativeId, lengths)
+                    appendText(transaction, index[node.id].nativeId, lengths, node.role == "textarea")
                     if (let Some((anchor, focus)) <- accessibilityTextSelection(node, lengths)) {
                         require(unsafe { CFunc<(AccessibilityRef, UInt64, UIntNative, UIntNative) -> Bool>(
                             symbol("chui_ak_tree_selection"))(transaction, index[node.id].nativeId,
@@ -220,14 +221,15 @@ private class LinuxAccessibilityApi {
         }
     }
 
-    private func appendText(tree: AccessibilityRef, id: UInt64, lengths: Array<UInt8>): Unit {
+    private func appendText(tree: AccessibilityRef, id: UInt64, lengths: Array<UInt8>, multiline: Bool): Unit {
         unsafe {
             let bytes = LibC.malloc<UInt8>(count: max(Int64(1), lengths.size))
             require(bytes.isNotNull(), "text span allocation")
             try {
                 for (i in 0..lengths.size) { bytes.write(i, lengths[i]) }
                 require(CFunc<(AccessibilityRef, UInt64, UIntNative, CPointer<UInt8>) -> Bool>(
-                    symbol("chui_ak_tree_text"))(tree, id, UIntNative(lengths.size), bytes), "text projection")
+                    symbol(if (multiline) { "chui_ak_tree_multiline" } else { "chui_ak_tree_text" }))(
+                        tree, id, UIntNative(lengths.size), bytes), "text projection")
             } finally { LibC.free(bytes) }
         }
     }

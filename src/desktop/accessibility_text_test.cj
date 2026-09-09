@@ -52,7 +52,7 @@ func nativeSelectionDoesNotGuessMissingDirectionOrRoundInvalidPositions(): Unit 
 
 @Test
 func accessibilityTextDoesNotInventUnsupportedNativeRuns(): Unit {
-    for (role in ["password", "textarea", "label", "button"]) {
+    for (role in ["password", "label", "button"]) {
         @Expect(accessibilityTextLengths(role, "secret").isNone())
     }
     for (text in ["line\nline", "line\r\nline", "x\u{0}y"]) {
@@ -62,4 +62,21 @@ func accessibilityTextDoesNotInventUnsupportedNativeRuns(): Unit {
     for (_ in 0..127) { longCluster += "́" }
     @Expect(accessibilityTextLengths("textfield", longCluster).getOrThrow()[0], UInt8(255))
     @Expect(accessibilityTextLengths("textfield", longCluster + "́").isNone())
+}
+
+@Test
+func accessibilityMultilinePreservesHardBreaksAndDirectionalByteSelection(): Unit {
+    let text = "a你\r\né\n"
+    let lengths = accessibilityTextLengths("textarea", text).getOrThrow()
+    @Expect(lengths.size, Int64(5))
+    @Expect(lengths[2], UInt8(2))
+    @Expect(lengths[3], UInt8(3))
+    @Expect(lengths[4], UInt8(1))
+    let node = SemanticNode("area", Rect.zero(), "TextArea", "textarea", value: text,
+        selectionStart: Some(Int64(1)), selectionEnd: Some(Int64(10)), selectionFocus: Some(Int64(1)))
+    expectNativeSelection(node, lengths, 5, 1)
+    @Expect(accessibilityTextLengths("textarea", "").getOrThrow().isEmpty())
+    @Expect(accessibilityTextLengths("textarea", "\n\n").getOrThrow().size, Int64(2))
+    @Expect(accessibilityTextLengths("textarea", "a\rb").isNone())
+    @Expect(accessibilityTextLengths("textarea", "a\u{0}b").isNone())
 }

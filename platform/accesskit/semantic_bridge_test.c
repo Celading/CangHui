@@ -201,11 +201,15 @@ static void selection_facts_are_directional_bounded_and_noneditable(void) {
     u = chui_ak_tree_finish(t); assert(u); accesskit_tree_update_free(u);
 }
 
+#include "semantic_multiline_test.inc"
+
 int main(void) {
     tree_order_and_ownership(); roles_states_and_actions(); readonly_disabled_password();
     malformed_tree_is_atomic(); invalid_input_rejected(); hard_limits();
     text_read_projection(); text_invalid_and_identity_are_atomic();
     selection_facts_are_directional_bounded_and_noneditable();
-    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 9/9");
+    multiline_runs_and_selection(); multiline_rejection_and_limits();
+    multiline_generated_collision_and_shared_budget();
+    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 12/12");
     return 0;
 }

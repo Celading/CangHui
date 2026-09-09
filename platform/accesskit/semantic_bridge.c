@@ -12,11 +12,16 @@ struct entry {
     uint64_t id, parent;
     struct accesskit_node *node;
     struct accesskit_node *text_run;
+    struct text_line *lines;
+    size_t line_count;
 };
+struct text_line { uint64_t id; struct accesskit_node *node; };
 struct chui_ak_tree {
     struct entry nodes[CHUI_AK_MAX_NODES + 1];
     unsigned slots[CHUI_AK_SLOTS]; /* index + 1; zero means empty */
     unsigned count;
+    unsigned run_count;
+    uint64_t run_ids[CHUI_AK_SLOTS];
     size_t text_bytes;
     uint64_t focus;
     bool failed;
@@ -102,7 +107,7 @@ struct chui_ak_tree *chui_ak_tree_new(const char *window_label) {
     struct accesskit_node *root = accesskit_node_new(ACCESSKIT_ROLE_WINDOW);
     if (!root) { free(tree); return NULL; }
     accesskit_node_set_label(root, window_label);
-    tree->nodes[0] = (struct entry){1, 0, root, NULL};
+    tree->nodes[0] = (struct entry){.id = 1, .node = root};
     tree->count = 1;
     tree->focus = 1;
     index_entry(tree, 0);
@@ -156,18 +161,21 @@ bool chui_ak_tree_add(struct chui_ak_tree *tree,
     }
     if (states & CHUI_AK_FOCUSED) tree->focus = id;
     unsigned index = tree->count++;
-    tree->nodes[index] = (struct entry){id, parent_id, node, NULL};
+    tree->nodes[index] = (struct entry){.id = id, .parent = parent_id, .node = node};
     index_entry(tree, index);
     return true;
 }
 
 static uint64_t text_run_id(uint64_t parent) { return parent ^ (UINT64_C(1) << 63); }
 
+#include "semantic_multiline.inc"
+
 bool chui_ak_tree_text(struct chui_ak_tree *tree, uint64_t id,
     size_t count, const uint8_t *lengths) {
     if (!tree || tree->failed) return false;
     struct entry *entry = lookup(tree, id);
-    if (!entry || entry->text_run || accesskit_node_role(entry->node) != ACCESSKIT_ROLE_TEXT_INPUT ||
+    if (!entry || entry->text_run || tree->run_count >= CHUI_AK_MAX_NODES ||
+        accesskit_node_role(entry->node) != ACCESSKIT_ROLE_TEXT_INPUT ||
         text_run_id(id) <= 1 || count > CHUI_AK_MAX_TEXT || (count && !lengths)) {
         tree->failed = true; return false;
     }
@@ -191,6 +199,7 @@ bool chui_ak_tree_text(struct chui_ak_tree *tree, uint64_t id,
              * for length0, so supply a readable nonnull sentinel for empty text. */
             const uint8_t empty = 0;
             accesskit_node_set_character_lengths(entry->text_run, count, count ? lengths : &empty);
+            ++tree->run_count;
         }
     }
     accesskit_string_free(value);
@@ -202,6 +211,7 @@ bool chui_ak_tree_selection(struct chui_ak_tree *tree, uint64_t id, size_t ancho
     if (!tree || tree->failed) return false;
     struct entry *entry = lookup(tree, id);
     if (!entry || !entry->text_run) { tree->failed = true; return false; }
+    if (entry->lines) return multiline_selection(tree, entry, anchor, focus);
     size_t count = accesskit_node_character_lengths(entry->text_run).length;
     if (anchor > count || focus > count) { tree->failed = true; return false; }
     uint64_t run = text_run_id(id);
@@ -214,7 +224,11 @@ void chui_ak_tree_free(struct chui_ak_tree *tree) {
     if (!tree) return;
     for (unsigned i = 0; i < tree->count; ++i) {
         if (tree->nodes[i].node) accesskit_node_free(tree->nodes[i].node);
-        if (tree->nodes[i].text_run) accesskit_node_free(tree->nodes[i].text_run);
+        if (tree->nodes[i].lines) {
+            for (size_t line = 0; line < tree->nodes[i].line_count; ++line)
+                if (tree->nodes[i].lines[line].node) accesskit_node_free(tree->nodes[i].lines[line].node);
+            free(tree->nodes[i].lines);
+        } else if (tree->nodes[i].text_run) accesskit_node_free(tree->nodes[i].text_run);
     }
     free(tree);
 }
@@ -224,8 +238,18 @@ struct accesskit_tree_update *chui_ak_tree_finish(struct chui_ak_tree *tree) {
     if (tree->failed) { chui_ak_tree_free(tree); return NULL; }
     /* Validate all parents/cycles/depth BEFORE transferring any node ownership. */
     for (unsigned i = 1; i < tree->count; ++i) {
-        if (tree->nodes[i].text_run && lookup(tree, text_run_id(tree->nodes[i].id))) {
-            chui_ak_tree_free(tree); return NULL;
+        struct entry *entry = &tree->nodes[i];
+        if (entry->text_run) {
+            size_t count = entry->lines ? entry->line_count : 1;
+            for (size_t line = 0; line < count; ++line) {
+                uint64_t id = entry->lines ? entry->lines[line].id : text_run_id(entry->id);
+                unsigned at = slot(id);
+                while (tree->run_ids[at] && tree->run_ids[at] != id) at = (at + 1) & (CHUI_AK_SLOTS - 1);
+                if (id <= 1 || lookup(tree, id) || tree->run_ids[at] == id) {
+                    chui_ak_tree_free(tree); return NULL;
+                }
+                tree->run_ids[at] = id;
+            }
         }
         struct entry *direct_parent = lookup(tree, tree->nodes[i].parent);
         if (direct_parent && direct_parent->text_run) { chui_ak_tree_free(tree); return NULL; }
@@ -239,9 +263,8 @@ struct accesskit_tree_update *chui_ak_tree_finish(struct chui_ak_tree *tree) {
             parent = ancestor->parent;
         }
     }
-    /* At most one generated leaf per semantic node; semantic count/depth/text
-     * budgets are unchanged. Generated leaves never participate in actions. */
-    struct accesskit_tree_update *update = accesskit_tree_update_with_capacity_and_focus(tree->count * 2, tree->focus);
+    /* Generated runs have an independent 4096-node budget and no actions. */
+    struct accesskit_tree_update *update = accesskit_tree_update_with_capacity_and_focus(tree->count + tree->run_count, tree->focus);
     if (!update) { chui_ak_tree_free(tree); return NULL; }
     struct accesskit_tree_info *info = accesskit_tree_info_new(1);
     if (!info) { accesskit_tree_update_free(update); chui_ak_tree_free(tree); return NULL; }
@@ -251,10 +274,16 @@ struct accesskit_tree_update *chui_ak_tree_finish(struct chui_ak_tree *tree) {
         accesskit_node_push_child(lookup(tree, tree->nodes[i].parent)->node, tree->nodes[i].id);
     for (unsigned i = 0; i < tree->count; ++i) {
         if (tree->nodes[i].text_run) {
-            uint64_t run = text_run_id(tree->nodes[i].id);
-            accesskit_node_push_child(tree->nodes[i].node, run);
-            accesskit_tree_update_push_node(update, run, tree->nodes[i].text_run);
-            tree->nodes[i].text_run = NULL;
+            struct entry *entry = &tree->nodes[i];
+            size_t count = entry->lines ? entry->line_count : 1;
+            for (size_t line = 0; line < count; ++line) {
+                uint64_t run = entry->lines ? entry->lines[line].id : text_run_id(entry->id);
+                struct accesskit_node *node = entry->lines ? entry->lines[line].node : entry->text_run;
+                accesskit_node_push_child(entry->node, run);
+                accesskit_tree_update_push_node(update, run, node);
+                if (entry->lines) entry->lines[line].node = NULL;
+            }
+            entry->text_run = NULL;
         }
         accesskit_tree_update_push_node(update, tree->nodes[i].id, tree->nodes[i].node);
         tree->nodes[i].node = NULL;

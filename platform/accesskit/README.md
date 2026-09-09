@@ -8,7 +8,7 @@ debug control channel. Desktop hosts now provide an optional
 The opt-in Linux `linuxAccessKitAccessibility(nativeLibrary, bridgeLibrary)`
 factory loads explicit trusted absolute paths and connects this bridge to either
 desktop host. The factory currently requires measured X11 screen geometry;
-multiline text, glyph geometry, native selection editing, other geometry backends and SDK delivery remain open;
+glyph geometry, native selection editing, other geometry backends and SDK delivery remain open;
 this preview is not a complete reader SDK or part of the default dependency closure.
 
 Supply the upstream source at commit
@@ -58,11 +58,12 @@ responsibility. Tree projection does not supply DPI transforms, numeric ranges,
 glyph/selection geometry, IME or reader speech. Those remain separate
 integration requirements, not implied by a valid tree.
 
-## Single-line text reading
+## Text reading
 
 The Linux factory projects plain single-line `TextField` values through the
-additive `chui_ak_tree_text` and `chui_ak_tree_selection` symbols. Rebuild the bridge with this loader;
-an older ABI1 bridge missing either symbol fails before adapter creation. Existing
+additive `chui_ak_tree_text` and `chui_ak_tree_selection` symbols. No-wrap `TextArea`
+uses the additional `chui_ak_tree_multiline` symbol. Rebuild the bridge with this loader;
+an older ABI1 bridge missing any required symbol fails before adapter creation. Existing
 ABI1 call signatures are unchanged.
 
 Character spans reuse CangHui's `GraphemeIndex`, the editor's selection-boundary
@@ -81,17 +82,26 @@ they are never clamped or inferred. Passwords redact all three positions.
 This is read access, not a text-editing protocol. No SetTextSelection action or
 per-character rectangle is invented. Selection follows committed text, not IME
 preedit display text; native composition/marked ranges require separate mapping.
-`TextArea`, values containing CR/LF, and graphemes longer than AccessKit's
-255-byte character-span limit retain normal semantic metadata without this Text
-projection. Multi-line/wrapped layout requires a later mapping.
+Single-line fields containing CR/LF, bare CR in a multiline value, and graphemes
+longer than AccessKit's 255-byte character-span limit retain normal semantic
+metadata without this Text projection.
 
-Each generated leaf uses its parent's native ID XOR `2^63`, preserving the
-session's identity lifetime without depending on array order. The bridge checks
+The current `TextArea` layout is explicitly no-wrap. Each hard LF/CRLF creates
+a separate native run; the break belongs to the preceding run and counts as one
+editor span. A final break preserves an empty final line. Cross-line selections
+map exact document positions to run-local anchor/focus positions, including
+backward selections and the caret immediately before or after a break. This
+does not claim soft wrapping, visual character bounds or spoken-reader behavior.
+
+The first generated leaf uses its parent's native ID XOR `2^63`; subsequent
+lines use a deterministic mix of parent ID and line ordinal. These are internal
+text runs, not stable business/action IDs across document edits. The bridge checks
 the entire transaction for semantic/generated ID collisions and rejects them,
-including semantic IDs added after a text run. Fields with semantic children are
+including collisions between generated runs and semantic IDs added later. Fields with semantic children are
 also rejected rather than flattening their content. Generated leaves have no
-actions; existing semantic node/depth/text limits remain, with at most one extra
-leaf/value copy per semantic field. C callers supply valid editor boundaries;
+actions; existing semantic node/depth/text limits remain, with a separate limit
+of 4096 generated runs across the transaction. Exceeding this limit rejects the
+whole update, never silently truncates a document. C callers supply valid editor boundaries;
 the bridge validates total byte lengths and UTF-8 boundaries, not a second
 grapheme segmentation algorithm.
 

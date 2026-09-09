@@ -4,10 +4,11 @@ import chui.core.{GraphemeIndex, SemanticNode}
 
 // AccessKit characters are editor-selectable UTF-8 spans. Reuse the editor's
 // boundary owner; never split a combining sequence to fit the native UInt8 ABI.
-// This preview represents one unwrapped line, not multiline/glyph geometry.
+// Stock TextArea is NoWrap: hard LF lines, never inferred soft-wrap/glyph geometry.
 internal func accessibilityTextLengths(role: String, text: String): ?Array<UInt8> {
-    if (role != "textfield" || text.size > 1024 * 1024 || text.contains("\u{0}") ||
-        text.contains("\n") || text.contains("\r")) { return None }
+    if ((role != "textfield" && role != "textarea") || text.size > 1024 * 1024 || text.contains("\u{0}")) { return None }
+    if (role == "textfield" && (text.contains("\n") || text.contains("\r"))) { return None }
+    if (role == "textarea" && text.replace("\r\n", "").contains("\r")) { return None }
     let index = GraphemeIndex(text)
     let lengths = Array<UInt8>(index.count, {_ => UInt8(0)})
     for (i in 0..index.count) {
@@ -21,7 +22,7 @@ internal func accessibilityTextLengths(role: String, text: String): ?Array<UInt8
 // Translate only exact editor boundaries. The compatibility min/max fields do
 // not reveal direction by themselves; a missing/invalid focus stays unknown.
 internal func accessibilityTextSelection(node: SemanticNode, lengths: Array<UInt8>): ?(Int64, Int64) {
-    if (node.role != "textfield" || node.selectionStart.isNone() ||
+    if ((node.role != "textfield" && node.role != "textarea") || node.selectionStart.isNone() ||
         node.selectionEnd.isNone() || node.selectionFocus.isNone()) { return None }
     let start = node.selectionStart.getOrThrow()
     let end = node.selectionEnd.getOrThrow()
