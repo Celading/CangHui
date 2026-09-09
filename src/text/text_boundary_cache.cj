@@ -5,6 +5,7 @@ import chui.core.{GraphemeIndex, NativeTextIndex}
 // One UI-owner entry per retained control. No global document cache or listener;
 // normal StateStore disposal releases the previous text and index together.
 class TextBoundaryCache {
+    let semanticGlyphs = NativeSemanticGlyphCache()
     private var content = ""
     private var boundaries = GraphemeIndex("")
     private var builds: UInt64 = 0

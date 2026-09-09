@@ -65,6 +65,25 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
 
 ## 原生适配器的组件身份
 
+### 可选的文本字形坐标
+
+启用原生文本布局后，`TextField` 和不换行的 `TextArea` 可发布 `textGeometry`。
+它由不可变的 `SemanticTextLayout` 和当前绘制原点组成：`SemanticTextGlyph` 保存一个
+编辑字素的 UTF-8 起止位置、硬行号、相对逻辑矩形和实际解析出的文字方向。
+坐标来自正在绘制的原生文本行，不按字符数平分控件宽度。相对布局可复用；滚动和光标跟随
+只更新原点，字体或布局环境变化会重新生成。快照和差分保留这些事实，目标连续性检查也
+会考虑字形或原点变化。`sameContent(..., includeGeometry: false)` 才会显式忽略它们。
+
+密码与正在显示输入法预编辑文本的控件不发布该坐标，避免泄露明文或把临时布局配给正式值。
+未启用原生布局、不支持的文本／样式或无法用连续矩形表达的字素仍可保留普通文本语义，
+`None` 不等于所有字符都在 `(0, 0)`。空文本／末尾换行保留一个零字节、零宽的末行位置。
+自定义控件提供此数据时，必须匹配完整值及现有字素边界；构造器复制数组并拒绝不一致数据。
+
+Linux AccessKit 可选适配器将此数据投影为字符范围和位置命中。它仍要求可信的配套桥库、
+实测 X11 窗口坐标，不代表默认 SDK、Wayland、其他平台读屏或原生编辑协议已经完成。
+
+### 会话与身份
+
 `SemanticNativeSession` 为一个原生适配器实例管理一个窗口的节点 ID。UI 主线程把已提交的
 `SemanticTreeSnapshot` 交给 `publish`，原生回调读取 `snapshot()` 的独立副本。
 语义事实仍来自 `SemanticRuntime`；这一层只管理映射和生命周期，不实现平台读屏协议。

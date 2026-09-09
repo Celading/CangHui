@@ -182,6 +182,7 @@ public struct SemanticNode {
     public let selectionEnd: ?Int64
     /** Active selection endpoint in UTF-8 bytes, not sorted range end. */
     public let selectionFocus: ?Int64
+    public let textGeometry: ?SemanticTextGeometry
     public let actions: Array<SemanticActionKind>
 
     public init(
@@ -203,6 +204,7 @@ public struct SemanticNode {
         selectionStart!: ?Int64 = None,
         selectionEnd!: ?Int64 = None,
         selectionFocus!: ?Int64 = None,
+        textGeometry!: ?SemanticTextGeometry = None,
         actions!: Array<SemanticActionKind> = []
     ) {
         validateSemanticIdentifier(id, "semantic node id")
@@ -232,6 +234,7 @@ public struct SemanticNode {
         this.selectionStart = if (role == "password") { None } else { selectionStart }
         this.selectionEnd = if (role == "password") { None } else { selectionEnd }
         this.selectionFocus = if (role == "password") { None } else { selectionFocus }
+        this.textGeometry = checkedSemanticTextGeometry(role, value, textGeometry)
         let allowed = ArrayList<SemanticActionKind>()
         if (enabled) {
             for (action in actions) {
@@ -422,6 +425,7 @@ public class SemanticRuntime {
             selectionStart: semantics.selectionStart,
             selectionEnd: semantics.selectionEnd,
             selectionFocus: semantics.selectionFocus,
+            textGeometry: semantics.textGeometry,
             actions: actions
         ))
         match (focusOrder) {
@@ -822,6 +826,7 @@ private func semanticFocusOrder(values: HashMap<String, Int64>, id: String): Int
 }
 
 private func sameSemanticNode(left: SemanticNode, right: SemanticNode, includeGeometry!: Bool = true): Bool {
+    if (includeGeometry && !sameSemanticTextGeometry(left.textGeometry, right.textGeometry)) { return false }
     if (includeGeometry && (left.frame.x != right.frame.x || left.frame.y != right.frame.y ||
         left.frame.w != right.frame.w || left.frame.h != right.frame.h)) { return false }
     if (left.id != right.id || left.parentId != right.parentId || left.order != right.order ||
@@ -908,6 +913,7 @@ private func cloneSemanticNode(node: SemanticNode): SemanticNode {
         selectionStart: node.selectionStart,
         selectionEnd: node.selectionEnd,
         selectionFocus: node.selectionFocus,
+        textGeometry: node.textGeometry,
         actions: node.actions.clone())
 }
 
@@ -931,5 +937,6 @@ private func cloneSemanticNodeWithOrder(node: SemanticNode, order: Int64): Seman
         selectionStart: node.selectionStart,
         selectionEnd: node.selectionEnd,
         selectionFocus: node.selectionFocus,
+        textGeometry: node.textGeometry,
         actions: node.actions.clone())
 }

@@ -1291,8 +1291,15 @@ public class Renderer {
     }
 
     /**
-     * Returns the standard line height for the requested point size.
+     * Returns the actual text value's measured logical size using the selected paint backend.
      */
+    public func textSize(text: String, pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular, font!: ?String = None<String>): Size {
+        let metrics = textMetrics(text, pointSize, style, resolveFontChain(font))
+        Size(metrics.width, metrics.height)
+    }
+
+    /** Returns the standard line height, not the height of a particular text value. */
     public func textHeight(
         pointSize!: Float32 = FontSizes.BODY,
         style!: FontStyle = FontStyle.regular,

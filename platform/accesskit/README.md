@@ -8,7 +8,7 @@ debug control channel. Desktop hosts now provide an optional
 The opt-in Linux `linuxAccessKitAccessibility(nativeLibrary, bridgeLibrary)`
 factory loads explicit trusted absolute paths and connects this bridge to either
 desktop host. The factory currently requires measured X11 screen geometry;
-glyph geometry, native selection editing, other geometry backends and SDK delivery remain open;
+native selection editing, other geometry backends and SDK delivery remain open;
 this preview is not a complete reader SDK or part of the default dependency closure.
 
 Supply the upstream source at commit
@@ -62,7 +62,8 @@ integration requirements, not implied by a valid tree.
 
 The Linux factory projects plain single-line `TextField` values through the
 additive `chui_ak_tree_text` and `chui_ak_tree_selection` symbols. No-wrap `TextArea`
-uses the additional `chui_ak_tree_multiline` symbol. Rebuild the bridge with this loader;
+uses the additional `chui_ak_tree_multiline` symbol. Native glyph projection also
+requires `chui_ak_tree_partition` and `chui_ak_tree_run_geometry`. Rebuild the bridge with this loader;
 an older ABI1 bridge missing any required symbol fails before adapter creation. Existing
 ABI1 call signatures are unchanged.
 
@@ -91,7 +92,8 @@ a separate native run; the break belongs to the preceding run and counts as one
 editor span. A final break preserves an empty final line. Cross-line selections
 map exact document positions to run-local anchor/focus positions, including
 backward selections and the caret immediately before or after a break. This
-does not claim soft wrapping, visual character bounds or spoken-reader behavior.
+does not imply soft wrapping or spoken-reader behavior. Optional measured glyph
+bounds are described below.
 
 The first generated leaf uses its parent's native ID XOR `2^63`; subsequent
 lines use a deterministic mix of parent ID and line ordinal. These are internal
@@ -111,19 +113,30 @@ grapheme segmentation algorithm.
 
 `chui_ak_tree_run_geometry` can attach measured bounds, direction-relative
 character positions and advances to an existing generated text run. Its ordinal
-is zero for single-line text or the hard-line ordinal for multiline text. The
+is zero for single-line text or the generated-run ordinal after partitioning. The
 function copies the arrays, validates their count against character lengths,
 checks finite nonnegative advances and extent containment, and rejects duplicate
 attachment. Invalid input rejects the whole transaction. Empty runs and zero-width
 hard breaks are allowed; no editing action is added.
 
-This additive ABI1 function is not yet called by the CangHui semantic loader.
-Stock controls therefore still do not expose character bounds through AT-SPI.
-The runtime must provide renderer-derived, revision-matched geometry before
-this can close that gap. Mixed bidi needs actual directional runs with same-line
-relationships; setting one direction on a mixed line is not a valid substitute.
-The bridge does not infer geometry from a control rectangle or font size.
-Existing consumers need no new symbol until they opt into the geometry call.
+The Linux loader consumes optional `SemanticTextGeometry` from stock TextField
+and no-wrap TextArea when native text layout is enabled. Relative grapheme
+rectangles and resolved directions come from the same renderer layout used to
+paint the control. Its per-frame origin includes clamped/followed scroll offsets;
+the window's existing logical-to-pixel transform supplies native coordinates.
+Password controls and active IME preedit do not publish this payload. SDL-only
+layout, unsupported values/styles or disconnected grapheme selection islands
+retain ordinary text semantics without invented character rectangles.
+
+`chui_ak_tree_partition` divides existing exact character spans into logical-order
+directional runs before geometry/selection attachment. It preserves hard breaks
+and the empty final line, links runs on the same line, and uses the existing
+generated-ID/transaction budget. Missing spans, crossed hard lines, repeated
+partitioning or partitioning after selection/geometry reject the whole tree.
+This does not create another document or add native editing actions. More than
+4096 directional runs in one control omit its optional geometry; the existing
+transaction-wide generated-run limit still applies. The bridge does not infer
+geometry from a control rectangle or font size. Valid C pointers remain required.
 
 ### Adapter lifecycle
 

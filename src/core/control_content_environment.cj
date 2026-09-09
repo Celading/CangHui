@@ -66,6 +66,7 @@ public struct ControlSemantics {
     public let selectionEnd: ?Int64
     /** Active caret endpoint in UTF-8 bytes; None means direction is unknown. */
     public let selectionFocus: ?Int64
+    public let textGeometry: ?SemanticTextGeometry
     /** Typed actions exposed to in-process semantic consumers. String actions remain probe-only. */
     public let typedActions: Array<SemanticActionKind>
 
@@ -86,6 +87,7 @@ public struct ControlSemantics {
         selectionStart!: ?Int64 = None,
         selectionEnd!: ?Int64 = None,
         selectionFocus!: ?Int64 = None,
+        textGeometry!: ?SemanticTextGeometry = None,
         typedActions!: Array<SemanticActionKind> = []
     ) {
         if (role.isEmpty()) { throw IllegalArgumentException("control semantic role must not be empty") }
@@ -106,6 +108,7 @@ public struct ControlSemantics {
         this.selectionStart = if (role == "password") { None } else { selectionStart }
         this.selectionEnd = if (role == "password") { None } else { selectionEnd }
         this.selectionFocus = if (role == "password") { None } else { selectionFocus }
+        this.textGeometry = checkedSemanticTextGeometry(role, value, textGeometry)
         // The semantic contract owns this list. A caller retaining its constructor input cannot
         // mutate the actions later and silently alter a committed runtime tree.
         this.typedActions = typedActions.clone()
@@ -160,6 +163,7 @@ private func resolveControlSemanticFocus(
         selectionStart: semantics.selectionStart,
         selectionEnd: semantics.selectionEnd,
         selectionFocus: semantics.selectionFocus,
+        textGeometry: semantics.textGeometry,
         typedActions: semantics.typedActions
     )
 }

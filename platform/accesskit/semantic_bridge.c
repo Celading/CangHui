@@ -14,6 +14,7 @@ struct entry {
     struct accesskit_node *text_run;
     struct text_line *lines;
     size_t line_count;
+    bool partitioned;
 };
 struct text_line { uint64_t id; struct accesskit_node *node; };
 struct chui_ak_tree {
@@ -221,6 +222,7 @@ bool chui_ak_tree_selection(struct chui_ak_tree *tree, uint64_t id, size_t ancho
 }
 
 #include "semantic_text_geometry.inc"
+#include "semantic_text_partition.inc"
 
 void chui_ak_tree_free(struct chui_ak_tree *tree) {
     if (!tree) return;

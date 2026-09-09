@@ -72,8 +72,8 @@ bool chui_ak_tree_multiline(struct chui_ak_tree *tree, uint64_t id,
 static bool multiline_position(struct entry *entry, size_t offset, accesskit_text_position *out) {
     for (size_t line = 0; line < entry->line_count; ++line) {
         size_t count = accesskit_node_character_lengths(entry->lines[line].node).length;
-        /* Immediately after LF belongs to the NEXT line, including its empty
-         * final run. Immediately before LF remains on the preceding line. */
+        /* At a run boundary use the next logical run (also within a bidi line).
+         * After LF this includes the empty final run; before LF stays here. */
         if (offset < count || (line + 1 == entry->line_count && offset == count)) {
             *out = (accesskit_text_position){entry->lines[line].id, offset};
             return true;

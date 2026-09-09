@@ -2,7 +2,7 @@ package chui.text
 
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, TextCompositionEvent, TextCompositionPhase, UiEvent}
 import sdl.input.Clipboard
-import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, GraphemeIndex, SemanticActionKind, State, UiContext,
+import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, GraphemeIndex, SemanticActionKind, SemanticTextGeometry, State, UiContext,
     Widget, claimHoverIfInside, emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code, so the editing shortcuts read as
@@ -164,6 +164,15 @@ public class TextField <: Widget {
         } else {
             displayCursor
         }
+        let shift = followCursorShift(ctx, visibleText, visibleCursor, typography)
+        var geometry: ?SemanticTextGeometry = None
+        if (!secureEntryEnabled && !projection.active) {
+            if (let Some(layout) <- boundaryCache.semanticGlyphs.resolve(ctx, visibleText, typography)) {
+                let y = frame.centerY() - ctx.renderer.textHeight(pointSize: typography.pointSize,
+                    style: typography.style, font: typography.font) / 2.0
+                geometry = Some(SemanticTextGeometry(layout, frame.x + 8.0 - shift, y))
+            }
+        }
         recordControlSemantics(ctx, frame, "TextField", ControlSemantics(
             if (secureEntryEnabled) { "password" } else { "textfield" },
             label: semanticLabel,
@@ -177,12 +186,12 @@ public class TextField <: Widget {
             selectionStart: Some(edit.selectionStart()),
             selectionEnd: Some(edit.selectionEnd()),
             selectionFocus: Some(edit.cursor.value),
+            textGeometry: geometry,
             typedActions: [SemanticActionKind.Focus]
         ))
         drawTextBoxChrome(ctx, frame, id)
         // Values longer than the field must not paint past its surface; selection, text and
         // caret are clipped together, and all three share the same follow shift.
-        let shift = followCursorShift(ctx, visibleText, visibleCursor, typography)
         ctx.renderer.pushClip(frame.inset(2.0))
         if (ctx.hasFocus(id)) {
             let start = if (projection.active) { projection.selectionStart } else { edit.selectionStart() }

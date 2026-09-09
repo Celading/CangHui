@@ -85,6 +85,15 @@ CHUI_AK_API bool chui_ak_tree_run_geometry(struct chui_ak_tree *tree, uint64_t i
     size_t run, double x, double y, double width, double height,
     uint32_t direction, size_t count, const float *positions, const float *widths);
 
+/* Repartition existing editor spans into logical-order directional runs. Each
+ * count is a whole number of existing character spans; a hard break may only
+ * end a run. Empty count is allowed only for the existing empty final line.
+ * Same-line links are derived from actual LF/CRLF, never from run count.
+ * Call once after text/multiline, BEFORE geometry/selection. Global generated
+ * node budget and identity collision checks remain. Additive ABI1 symbol. */
+CHUI_AK_API bool chui_ak_tree_partition(struct chui_ak_tree *tree, uint64_t id,
+    size_t count, const size_t *span_counts);
+
 /* Consumes the transaction on success OR failure. NULL means no update may be
  * submitted. The caller owns a successful update until transferred to AccessKit.
  * This is not an update-factory fallback: those callbacks may forbid NULL.

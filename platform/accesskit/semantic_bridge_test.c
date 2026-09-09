@@ -203,6 +203,7 @@ static void selection_facts_are_directional_bounded_and_noneditable(void) {
 
 #include "semantic_multiline_test.inc"
 #include "semantic_text_geometry_test.inc"
+#include "semantic_text_partition_test.inc"
 
 int main(void) {
     tree_order_and_ownership(); roles_states_and_actions(); readonly_disabled_password();
@@ -214,6 +215,8 @@ int main(void) {
     geometry_is_copied_directional_and_optional(); geometry_multiline_and_empty_runs();
     geometry_rejects_invalid_input_atomically();
     geometry_rejects_missing_text_overflow_and_wrong_span_counts();
-    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 16/16");
+    partition_preserves_text_lines_selection_and_geometry();
+    partition_rejects_inconsistent_or_reordered_transactions();
+    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 18/18");
     return 0;
 }

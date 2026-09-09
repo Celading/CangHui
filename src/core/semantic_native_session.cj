@@ -114,7 +114,8 @@ public class SemanticNativeSession {
                 if (consecutive) {
                     if (let Some(before) <- previousNodes.get(node.id)) {
                         if (before.frame.x == node.frame.x && before.frame.y == node.frame.y &&
-                            before.frame.w == node.frame.w && before.frame.h == node.frame.h) {
+                            before.frame.w == node.frame.w && before.frame.h == node.frame.h &&
+                            sameSemanticTextGeometry(before.textGeometry, node.textGeometry)) {
                             if (let Some(previousSince) <- geometryUnchangedSince.get(node.id)) {
                                 since = previousSince
                             }

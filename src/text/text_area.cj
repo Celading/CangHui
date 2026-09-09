@@ -4,7 +4,7 @@ import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, TextComp
     TextCompositionPhase, UiEvent}
 import sdl.input.Clipboard
 import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion,
-    ScrollOptions, SemanticActionKind, maxScrollOffset, Observable, State, UiContext, Widget, advanceScrollMotion,
+    ScrollOptions, SemanticActionKind, SemanticTextGeometry, maxScrollOffset, Observable, State, UiContext, Widget, advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawHorizontalScrollBar,
     drawSurface, drawVerticalScrollBar, emit, localState, recordControlSemantics, registerFocusable,
     resolveControlKey, scrollLineIndex, scrollLineRemainder}
@@ -363,21 +363,6 @@ public class TextArea <: Widget {
         let edit = editState()
         edit.normalizeCursor()
         reconcileComposition(ctx)
-        recordControlSemantics(ctx, frame, "TextArea", ControlSemantics(
-            "textarea",
-            label: semanticLabel,
-            value: text.value,
-            action: if (isEditable) { "TextArea.edit()" } else { "" },
-            shortcut: if (isEditable) { "TextInput" } else { "" },
-            actionOwner: id,
-            readOnly: Some(!isEditable),
-            focused: Some(ctx.hasFocus(id)),
-            editable: Some(isEditable),
-            selectionStart: Some(edit.selectionStart()),
-            selectionEnd: Some(edit.selectionEnd()),
-            selectionFocus: Some(edit.cursor.value),
-            typedActions: [SemanticActionKind.Focus]
-        ))
         let docLines = lines()
         let viewport = textViewport(frame)
         let contentW = contentWidth(ctx, docLines)
@@ -404,6 +389,20 @@ public class TextArea <: Widget {
             revealCaret(ctx, contentW, viewport)
         }
         let projection = display()
+        var geometry: ?SemanticTextGeometry = None
+        if (!projection.active) {
+            if (let Some(native) <- nativeDocument(ctx)) {
+                geometry = native.semanticGeometry(ctx, viewport, scrollStateValue.value, horizontalScrollStateValue.value)
+            }
+        }
+        recordControlSemantics(ctx, frame, "TextArea", ControlSemantics(
+            "textarea", label: semanticLabel, value: text.value,
+            action: if (isEditable) { "TextArea.edit()" } else { "" },
+            shortcut: if (isEditable) { "TextInput" } else { "" }, actionOwner: id,
+            readOnly: Some(!isEditable), focused: Some(ctx.hasFocus(id)), editable: Some(isEditable),
+            selectionStart: Some(edit.selectionStart()), selectionEnd: Some(edit.selectionEnd()),
+            selectionFocus: Some(edit.cursor.value), textGeometry: geometry, typedActions: [SemanticActionKind.Focus]
+        ))
         let content = TextAreaContent(projection.text, projection.cursor(cursorStateValue.value), scrollStateValue.value,
             horizontalScroll: horizontalScrollStateValue.value)
         let firstLine = scrollLineIndex(content.scroll)

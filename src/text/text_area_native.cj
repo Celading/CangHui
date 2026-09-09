@@ -1,6 +1,7 @@
 package chui.text
 
-import chui.core.{NativeTextIndex, NativeTextScalarIndex, UiContext, CUI_SMALL_H}
+import chui.core.{NativeTextIndex, NativeTextScalarIndex, UiContext, CUI_SMALL_H,
+    SemanticTextGlyph, SemanticTextLayout, SemanticTextGeometry}
 import sdl.{Color, FontSizes, Rect, Size}
 import sdl.text.{NativeTextColorSpan, NativeTextLineSpec}
 import std.collection.ArrayList
@@ -113,6 +114,9 @@ internal class TextAreaNativeDocument {
     let lines: Array<TextAreaNativeLine>
     private var widthEnvironment = ""
     private var cachedWidth: Float32 = 0.0
+    private var glyphEnvironment = ""
+    private var glyphReady = false
+    private var glyphLayout: ?SemanticTextLayout = None
 
     init(text: String, runs: Array<TextAreaDecorationRun>, color: Color) {
         this.text = text
@@ -147,6 +151,29 @@ internal class TextAreaNativeDocument {
             if (lines[mid].start <= position) { low = mid } else { high = mid - 1 }
         }
         low
+    }
+
+    func semanticGeometry(ctx: UiContext, viewport: Rect, vertical: Float32, horizontal: Float32): ?SemanticTextGeometry {
+        if (!semanticGlyphValueSupported(text) || lines.size > 4096) { return None }
+        let environment = ctx.renderer.textLayoutEnvironmentKey()
+        if (!glyphReady || glyphEnvironment != environment) {
+            let glyphs = ArrayList<SemanticTextGlyph>()
+            var valid = true
+            for (i in 0..lines.size) {
+                let line = lines[i]
+                let end = if (i + 1 < lines.size) { lines[i + 1].start } else { text.size }
+                if (!appendNativeSemanticGlyphs(ctx, glyphs, line.spec.text, line.start, end, i,
+                    Float32(i) * CUI_SMALL_H, line.size(ctx).h, TextFieldTypography(), paint: Some(line.spec))) {
+                    valid = false; break
+                }
+            }
+            glyphLayout = if (valid) { Some(SemanticTextLayout(text, glyphs.toArray())) } else { None }
+            glyphReady = true; glyphEnvironment = environment
+        }
+        match (glyphLayout) {
+            case Some(layout) => Some(SemanticTextGeometry(layout, viewport.x - horizontal, viewport.y - vertical))
+            case None => None
+        }
     }
 
     func width(ctx: UiContext): Float32 {
