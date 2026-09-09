@@ -247,7 +247,7 @@ internal func drawTextFieldSelection(ctx: UiContext, frame: Rect, text: String, 
 
 internal func drawTextFieldCursor(ctx: UiContext, frame: Rect, id: String, text: String, cursor: Int64,
     xShift!: Float32 = 0.0,
-    typography!: TextFieldTypography = TextFieldTypography()): Unit {
+    typography!: TextFieldTypography = TextFieldTypography(), editable!: Bool = true): Unit {
     if (!ctx.hasFocus(id)) {
         return
     }
@@ -264,7 +264,7 @@ internal func drawTextFieldCursor(ctx: UiContext, frame: Rect, id: String, text:
     let caret = Rect(x, frame.centerY() - lineHeight / 2.0, TEXT_CURSOR_W, lineHeight)
     // The IME anchors its candidate window at the caret whenever the field has focus;
     // the blink phase only gates painting.
-    ctx.setTextInputAnchor(caret)
+    if (editable) { ctx.setTextInputAnchor(caret) }
     if (!textCursorVisible(ctx)) {
         return
     }
@@ -321,7 +321,8 @@ internal func drawTextAreaCursor(
     ctx: UiContext,
     viewport: Rect,
     id: String,
-    content: TextAreaContent
+    content: TextAreaContent,
+    editable!: Bool = true
 ): Unit {
     if (!ctx.hasFocus(id)) {
         return
@@ -345,7 +346,7 @@ internal func drawTextAreaCursor(
     let caret = Rect(x, y, TEXT_CURSOR_W, min(lineHeight, CUI_SMALL_H))
     // The IME anchors its candidate window at the caret whenever the area has focus;
     // the blink phase only gates painting.
-    ctx.setTextInputAnchor(caret)
+    if (editable) { ctx.setTextInputAnchor(caret) }
     if (!textCursorVisible(ctx)) {
         return
     }

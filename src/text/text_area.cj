@@ -359,6 +359,7 @@ public class TextArea <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        if (isEditable && ctx.hasFocus(id)) { ctx.requestTextInput() }
         let edit = editState()
         edit.normalizeCursor()
         reconcileComposition(ctx)
@@ -414,7 +415,7 @@ public class TextArea <: Widget {
             if (projection.active) { projection.selectionEnd } else { edit.selectionEnd() },
             ctx.hasFocus(id), showsVerticalScrollBar, showsHorizontalScrollBar, scrollBar.dragging(ctx),
             hScrollBar.dragging(ctx), chromeMode, wrapModeValue, decorationRuns,
-            projection, contentW, nativeDocument(ctx), boundaryCache)
+            projection, contentW, nativeDocument(ctx), boundaryCache, isEditable)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -825,7 +826,8 @@ private func drawTextAreaBox(
     composition: TextAreaDisplayProjection,
     contentW: Float32,
     native: ?TextAreaNativeDocument,
-    affinity: TextBoundaryCache
+    affinity: TextBoundaryCache,
+    editable: Bool
 ): Unit {
     match (chrome) {
         case TextAreaChrome.Field => drawTextBoxChrome(ctx, frame, id)
@@ -835,7 +837,8 @@ private func drawTextAreaBox(
     ctx.renderer.pushClip(viewport)
     try {
         if (let Some(document) <- native) {
-            document.draw(ctx, viewport, content, id, selStart, selEnd, composition, affinity)
+            document.draw(ctx, viewport, content, id, selStart, selEnd, composition, affinity,
+                editable: editable)
         } else {
             drawTextAreaDecorationBackgrounds(ctx, viewport, content, decorations)
             if (focused) {
@@ -849,7 +852,7 @@ private func drawTextAreaBox(
                         drawDecoratedLines(ctx, viewport, content, decorations)
                     }
             }
-            drawTextAreaCursor(ctx, viewport, id, content)
+            drawTextAreaCursor(ctx, viewport, id, content, editable: editable)
             drawTextAreaComposition(ctx, viewport, id, content, composition)
         }
     } finally { ctx.renderer.popClip() }

@@ -7,6 +7,22 @@
 
 `import chui.*` 会重新导出本页类型。
 
+## 原生文字输入会话
+
+`DesktopApplication` 与 `DesktopApp` 创建窗口时不会立即启用原生文字输入。
+窗口绘制出聚焦的可编辑控件后，宿主启动该窗口的文字输入；焦点转到按钮、
+只读文本或不再有编辑请求时停止。只读光标、选区和快捷键复制不依赖文字输入会话。
+会话请求与 IME 锚点分开，光标滚出编辑器视口不会让会话意外中断。
+
+自定义编辑器参见 [`UiContext.requestTextInput()`](../api/chui/core/UiContext.md#requesttextinput--hastextinputrequest)。
+直接使用 `SdlWindow(spec)` 的调用者仍保持旧默认：创建时启用文字输入。
+如需自己管理，使用 `SdlWindow(spec, textInput: false)`，随后在窗口原生 UI
+线程调用 `setTextInputEnabled(true/false)`；调用失败会抛出异常，不缓存为成功。
+不要通过借用的指针绕过窗口的会话状态管理。
+
+这控制原生文字事件和 IME 启停，不代表所有系统的候选窗、软键盘布局、密码键盘
+类型或物理设备输入已经验收。已提交文字不会因为会话停止而回滚。
+
 ## 打开和运行
 
 ```cangjie

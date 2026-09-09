@@ -1180,6 +1180,7 @@ public class DesktopApp {
      * a platform refusal is retried on a later draw, never cached as success.
      */
     private func applyTextInputAnchor(): Unit {
+        window.setTextInputEnabled(ctx.hasTextInputRequest())
         inputAnchor.update(ctx.textInputAnchorRect(), {anchor => window.setTextInputArea(anchor)})
     }
 
@@ -1528,7 +1529,7 @@ private func configuredWindow(spec: WindowSpec, metadata: ?AppMetadata, hints: A
     SdlHints.apply(defaultDesktopHints())
     // Application hints are applied last so a host can explicitly restore the platform default.
     SdlHints.apply(hints)
-    SdlWindow(spec)
+    SdlWindow(spec, textInput: false)
 }
 
 internal func defaultDesktopHints(): Array<SdlHintSetting> {

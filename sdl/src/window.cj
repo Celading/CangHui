@@ -65,6 +65,7 @@ public class SdlWindow <: Resource {
     private let ownerThreadId: UInt64
     private let closeGate: WindowCloseGate
     private let runtime: SdlRuntime
+    private var textInputEnabled: Bool
     private var backingPixelWidth: Int32
     private var backingPixelHeight: Int32
     private var backingDensity: Float32 = 1.0
@@ -84,7 +85,8 @@ public class SdlWindow <: Resource {
     /**
      * Throws `CuiException` when SDL cannot create or initialize the window, renderer, or text input.
      */
-    public init(spec: WindowSpec) {
+    public init(spec: WindowSpec, textInput!: Bool = true) {
+        this.textInputEnabled = textInput
         this.width = spec.width
         this.height = spec.height
         this.scale = spec.scale
@@ -133,7 +135,7 @@ public class SdlWindow <: Resource {
                 configureRenderer(createdRenderer, initialScale, spec.vsync)
                 initialShapeReceipt = applyRoundedWindowShape(window, initialPixelWidth, initialPixelHeight,
                     spec.cornerRadius * initialScale)
-                if (!unsafe { SDL_StartTextInput(window) }) {
+                if (textInput && !unsafe { SDL_StartTextInput(window) }) {
                     throw CuiException("SDL_StartTextInput failed: ${lastSdlError()}")
                 }
                 nativeWindowId = unsafe { SDL_GetWindowID(window) }
@@ -311,6 +313,20 @@ public class SdlWindow <: Resource {
     public func setTextInputArea(rect: Rect): Unit {
         var raw = coordinateTransform().logicalToWindow(rect).toSdlRect()
         ensureSdl(unsafe { SDL_SetTextInputArea(windowPtr, inout raw, 0) }, "SDL_SetTextInputArea")
+    }
+
+    /** Enables native text events/IME only while editing. Must run on the open window owner. */
+    public func setTextInputEnabled(enabled: Bool): Unit {
+        if (isClosed() || !sameNativeThread(ownerThreadId, unsafe { SDL_GetCurrentThreadID() })) {
+            throw IllegalStateException("text input requires the open window's native UI owner")
+        }
+        if (textInputEnabled == enabled) { return }
+        if (enabled) {
+            ensureSdl(unsafe { SDL_StartTextInput(windowPtr) }, "SDL_StartTextInput")
+        } else {
+            ensureSdl(unsafe { SDL_StopTextInput(windowPtr) }, "SDL_StopTextInput")
+        }
+        textInputEnabled = enabled
     }
 
     public func pollEvent(): ?UiEvent {

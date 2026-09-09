@@ -151,6 +151,7 @@ public class TextField <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        if (isEditable && ctx.hasFocus(id)) { ctx.requestTextInput() }
         let typography = resolvedTypography(ctx)
         let edit = editState()
         edit.normalizeCursor()
@@ -211,7 +212,8 @@ public class TextField <: Widget {
                 else { projection.preeditEnd }
             drawTextFieldPreeditUnderline(ctx, frame, visibleText, start, end, shift, typography)
         }
-        drawTextFieldCursor(ctx, frame, id, visibleText, visibleCursor, xShift: shift, typography: typography)
+        drawTextFieldCursor(ctx, frame, id, visibleText, visibleCursor, xShift: shift,
+            typography: typography, editable: isEditable)
         ctx.renderer.popClip()
     }
 

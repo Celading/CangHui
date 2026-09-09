@@ -658,15 +658,24 @@ public class UiContext {
     // forwards changes to the window, so the candidate window follows the caret instead
     // of sitting in a screen corner.
     private var textInputAnchor: ?Rect = None
+    private var textInputRequested: Bool = false
+
+    /** Requests an editing session this frame, even when the caret is outside its viewport. */
+    public func requestTextInput(): Unit { textInputRequested = true }
+
+    /** Whether a drawn editor requested native text input during this frame. */
+    public func hasTextInputRequest(): Bool { textInputRequested }
 
     /** Reports the focused caret rectangle this frame, anchoring the IME candidate window. */
     public func setTextInputAnchor(rect: Rect): Unit {
+        requestTextInput()
         textInputAnchor = Some(rect)
     }
 
     /** Clears the reported caret anchor; the shell calls this before drawing each frame. */
     public func clearTextInputAnchor(): Unit {
         textInputAnchor = None
+        textInputRequested = false
     }
 
     /** The caret rectangle reported during this frame's draw, if a text control has focus. */

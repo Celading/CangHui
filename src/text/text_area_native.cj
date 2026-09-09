@@ -194,7 +194,7 @@ internal class TextAreaNativeDocument {
 
     func draw(ctx: UiContext, viewport: Rect, content: TextAreaContent, id: String,
         selectionStart: Int64, selectionEnd: Int64, composition: TextAreaDisplayProjection,
-        affinity: TextBoundaryCache): Unit {
+        affinity: TextBoundaryCache, editable!: Bool = true): Unit {
         let first = max(Int64(0), Int64(content.scroll / CUI_SMALL_H))
         let last = min(lines.size, first + Int64(viewport.h / CUI_SMALL_H) + 2)
         let origin = viewport.x - content.horizontalScroll
@@ -244,7 +244,7 @@ internal class TextAreaNativeDocument {
                 1.5, min(line.size(ctx).h, CUI_SMALL_H))
             if (caret.right() >= viewport.x && caret.x <= viewport.right() &&
                 caret.bottom() >= viewport.y && caret.y <= viewport.bottom()) {
-                ctx.setTextInputAnchor(caret)
+                if (editable) { ctx.setTextInputAnchor(caret) }
                 if (textCursorVisible(ctx)) { ctx.renderer.fill(caret, ctx.theme.accent) }
             }
         }

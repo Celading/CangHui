@@ -556,7 +556,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
                 limits: semanticLimits,
                 handler: onSemanticAction)
         }
-        this.window = SdlWindow(spec)
+        this.window = SdlWindow(spec, textInput: false)
         this.ctx = UiContext(window.renderer, theme)
         this.ctx.displayScale = window.scale
         this.ctx.fontScale = fontScale
@@ -913,6 +913,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
     }
 
     private func applyTextInputAnchor(): Unit {
+        window.setTextInputEnabled(ctx.hasTextInputRequest())
         inputAnchor.update(ctx.textInputAnchorRect(), {anchor => window.setTextInputArea(anchor)})
     }
 }
