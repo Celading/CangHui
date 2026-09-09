@@ -22,7 +22,7 @@ public class TextArea <: Widget
 
 - **字节偏移语义**：与 [`TextField`](TextField.md) 相同，光标与选区锚点是 UTF-8 字节偏移。从外部接管 `cursor` 后再从外部移动它（加载文件、程序化粘贴）时必须连同 `anchor` 一起移动，否则陈旧锚点会张开一段用户从未做过的选区，下一次按键将整段替换。完整的编辑操作见 [`TextEditState`](TextEditState.md)。
 - **键盘表**：方向键按字符移动，Up/Down 跨行且尽量保持字节列；Home/End 移到**行**首尾（单行控件则是全文首尾）；Enter 插入换行；按住 Shift 的所有导航键扩展选区；Ctrl+A/C/X/V/Z/Y 与 Ctrl+Shift+Z 同单行控件。
-- **只读模式**：`editable: false` 时仍可移动光标、选择和复制；Ctrl+X 只复制而不删除，粘贴与撤销/重做会被忽略，控件不进入 Tab 焦点遍历。
+- **只读模式**：`editable: false` 时保留 Tab／无障碍焦点、移动光标、选择和复制；Ctrl+X 只复制而不删除，粘贴与撤销/重做会被忽略。禁用或隐藏的区域仍不进入焦点遍历。
 - **嵌入式表面**：`chrome: TextAreaChrome.None`（或链式 `.chrome(...)`）只移除默认字段底色与描边；文本、选区、滚动条及共享 `scroll` 状态保持不变，适合编辑器行号和日志分栏。
 - **逻辑行契约**：`wrapMode: TextAreaWrapMode.NoWrap` 是当前唯一支持的模式，也是默认值。视口变窄不会把一个逻辑源代码行拆成多个视觉行；软换行和“逻辑行到视觉行”投影尚未提供，框架不会用一个看似可选但实际不完整的布尔开关暗示它们存在。
 - **双轴滚动**：`scroll` 是垂直偏移，`horizontalScroll` 是横向偏移；两者都可外部接管。触控板/侧倾滚轮的水平分量直接横移，Shift+垂直滚轮也横移，普通垂直滚轮仍纵向滚动。内容装得下时事件让给外层，不留死区。键盘编辑、导航与外部光标变化以最小距离让光标在两轴可见。聚焦时，逻辑视口宽高改变也会重新显示光标（含预编辑光标）；只移动控件位置或普通重绘不会拉回用户手动滚动的位置。这不等于已经完成原生字体度量变化或所有平台 DPI 输入验收。
@@ -76,7 +76,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
-| [`autofocus()`](#autofocus) | 可编辑区域首次出现时申请键盘焦点，返回自身以便链式声明。 |
+| [`autofocus()`](#autofocus) | 区域首次出现时申请键盘焦点，返回自身以便链式声明。 |
 | [`undo()`](#undo) | 回退最近一组编辑；同时绑定在 Ctrl+Z。 |
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
@@ -92,7 +92,7 @@ main(): Unit {
 | [`draw(...)`](#draw) | [`Widget`](../core/Widget.md) 协议实现：绘制底框、选区、可见行、光标与右缘滚动条。 |
 | [`handle(...)`](#handle) | [`Widget`](../core/Widget.md) 协议实现：处理滚动条与滚轮、定位与多击选择、字符输入、Enter 换行、编辑导航键及 Ctrl 快捷键表。 |
 | [`isFlexible()`](#isflexible) | [`Widget`](../core/Widget.md) 协议实现：返回 `true`，在栈布局中参与剩余空间分配。 |
-| [`focusableId()`](#focusableid) | [`Widget`](../core/Widget.md) 协议实现：可编辑时返回控件标识，只读区域返回 `None`。 |
+| [`focusableId()`](#focusableid) | [`Widget`](../core/Widget.md) 协议实现：返回控件标识，包括只读区域。 |
 
 ## 构造函数
 
@@ -125,7 +125,7 @@ public init(
 - `cursor!`: `?State<Int64>` — 外部接管的光标字节偏移；默认 `None`，初值在文本末尾。
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
 - `composition!`: `?State<TextCompositionSnapshot>` — 默认 `None`；外部可观察的非持久化 IME 组合状态。应用通常不需要直接写入；宿主组合事件由控件更新它。
-- `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读：可导航选择复制，不可编辑，不进入 Tab 焦点遍历。
+- `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读：保留焦点、导航选择复制，不可编辑。
 - `chrome!`: `TextAreaChrome` — 默认 `Field`；传 `None` 不绘制默认字段底色和描边。
 - `wrapMode!`: [`TextAreaWrapMode`](TextAreaWrapMode.md) — 默认且当前唯一支持 `NoWrap`。
 - `decorations!`: `?Observable<TextAreaDecorationSnapshot>` — 默认 `None`；可传 `State` 或 `DerivedState` 发布的不可变装饰快照。
@@ -138,7 +138,7 @@ public init(
 
 ### autofocus
 
-可编辑区域首次出现时申请键盘焦点，返回自身以便链式声明。焦点在该帧的指针事件之后一次性生效并显示焦点环；只读区域的申请被忽略。
+区域首次出现时申请键盘焦点，返回自身以便链式声明。焦点在该帧的指针事件之后一次性生效并显示焦点环；只读区域也可申请焦点以便阅读。
 
 ```cangjie
 public func autofocus(): TextArea
@@ -158,7 +158,7 @@ public func accessibilityLabel(value: String): TextArea
 
 ### undo
 
-回退最近一组编辑；同时绑定在 Ctrl+Z。回退后自动滚动到光标所在行；没有可回退的编辑时调用无效果。
+回退最近一组编辑；同时绑定在 Ctrl+Z。回退后自动滚动到光标所在行；没有可回退的编辑时调用无效果。只读模式下调用不会修改文本或消耗撤销历史。
 
 ```cangjie
 public func undo(): Unit
@@ -166,7 +166,7 @@ public func undo(): Unit
 
 ### redo
 
-重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。任何新编辑都会清空重做栈；没有可重做的编辑时调用无效果。
+重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。任何新编辑都会清空重做栈；没有可重做的编辑时调用无效果。只读模式下调用不会修改文本或消耗重做历史。
 
 ```cangjie
 public func redo(): Unit
@@ -307,13 +307,13 @@ public func isFlexible(): Bool
 
 ### focusableId
 
-[`Widget`](../core/Widget.md) 协议实现：可编辑时返回控件标识，只读区域返回 `None`。只读区域从未注册焦点项，无需被 `.enabled(false)` 摘除。
+[`Widget`](../core/Widget.md) 协议实现：返回控件标识，包括只读区域。`.enabled(false)` 或 `.visible(false)` 会通过此标识移除相应焦点项。
 
 ```cangjie
 public func focusableId(): ?String
 ```
 
-**返回值** `?String` — 可编辑时返回参与键盘焦点导航的标识；只读文本区返回 `None`。
+**返回值** `?String` — 参与键盘焦点导航的标识。
 
 ## 另请参阅
 

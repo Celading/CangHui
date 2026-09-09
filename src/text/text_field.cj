@@ -21,7 +21,7 @@ private let LETTER_Z: UInt8 = 90
  * selection the user never made. Editing follows the desktop conventions: mouse and double-click-word
  * selection, the Ctrl+A/C/X/V/Z/Y table, grouped undo, and a horizontal follow window that keeps the
  * caret visible. Caret, selection, and scroll state are retained across the per-frame rebuild under
- * the control identity; `editable: false` renders read-only and stays out of Tab traversal.
+ * the control identity; `editable: false` preserves focus/selection/copying without edits.
  */
 public class TextField <: Widget {
     private let id: String
@@ -118,6 +118,7 @@ public class TextField <: Widget {
 
     /** Reverts the last edit group; also bound to Ctrl+Z. */
     public func undo(): Unit {
+        if (!isEditable) { return }
         clearComposition()
         if (secureEntryEnabled) {
             return
@@ -130,6 +131,7 @@ public class TextField <: Widget {
 
     /** Reapplies the last undone edit; also bound to Ctrl+Y / Ctrl+Shift+Z. */
     public func redo(): Unit {
+        if (!isEditable) { return }
         clearComposition()
         if (secureEntryEnabled) {
             return

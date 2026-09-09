@@ -115,7 +115,7 @@ public func autofocus(): TextField
 
 ### undo
 
-回退最近一组编辑；同时绑定在 Ctrl+Z。分组规则见页首说明；没有可回退的编辑时调用无效果。
+回退最近一组编辑；同时绑定在 Ctrl+Z。分组规则见页首说明；没有可回退的编辑时调用无效果。只读模式下调用不会修改文本或消耗撤销历史。
 
 ```cangjie
 public func undo(): Unit
@@ -123,7 +123,7 @@ public func undo(): Unit
 
 ### redo
 
-重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。任何新编辑都会清空重做栈；没有可重做的编辑时调用无效果。
+重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。任何新编辑都会清空重做栈；没有可重做的编辑时调用无效果。只读模式下调用不会修改文本或消耗重做历史。
 
 ```cangjie
 public func redo(): Unit

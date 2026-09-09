@@ -120,7 +120,7 @@ class TextLineCache {
  * it, or the next keystroke replaces a selection the user never made. The document's line split is
  * cached by the text's revision; the widest line is cached by revision and font metrics, so
  * scrolling neither re-splits nor re-measures the whole document every frame.
- * `editable: false` renders read-only and stays out of Tab traversal.
+ * `editable: false` preserves focus, selection and copying while preventing edits.
  */
 public class TextArea <: Widget {
     private let id: String
@@ -233,10 +233,8 @@ public class TextArea <: Widget {
             Size(-1.0, -1.0)
         }
         this.lastObservedNativeLayout = localState<String>("TextArea:${ident}:last-native-layout") { "" }
-        // A read-only text area is not an editing stop, so it stays out of Tab traversal.
-        if (editable) {
-            registerFocusable(ident)
-        }
+        // Reading/selecting is available even when mutation is forbidden.
+        registerFocusable(ident)
         emit(this)
     }
 
@@ -288,7 +286,7 @@ public class TextArea <: Widget {
         this
     }
 
-    /** Claims keyboard focus the first time an editable area appears (e.g. a compose box). */
+    /** Claims keyboard focus once, including a read-only document selected for reading. */
     public func autofocus(): TextArea {
         autofocusRequested = true
         this
@@ -296,6 +294,7 @@ public class TextArea <: Widget {
 
     /** Reverts the last edit group; also bound to Ctrl+Z. */
     public func undo(): Unit {
+        if (!isEditable) { return }
         match (history.undo(snapshot())) {
             case Some(state) => applySnapshot(state)
             case None => ()
@@ -304,6 +303,7 @@ public class TextArea <: Widget {
 
     /** Reapplies the last undone edit; also bound to Ctrl+Y / Ctrl+Shift+Z. */
     public func redo(): Unit {
+        if (!isEditable) { return }
         match (history.redo(snapshot())) {
             case Some(state) => applySnapshot(state)
             case None => ()
@@ -375,7 +375,7 @@ public class TextArea <: Widget {
             selectionStart: Some(edit.selectionStart()),
             selectionEnd: Some(edit.selectionEnd()),
             selectionFocus: Some(edit.cursor.value),
-            typedActions: if (isEditable) { [SemanticActionKind.Focus] } else { [] }
+            typedActions: [SemanticActionKind.Focus]
         ))
         let docLines = lines()
         let viewport = textViewport(frame)
@@ -419,10 +419,7 @@ public class TextArea <: Widget {
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         reconcileComposition(ctx)
-        // A read-only area is not an editing target, so it does not request the text cursor.
-        if (isEditable) {
-            claimHoverIfInside(ctx, event, frame, id, CursorShape.Text)
-        }
+        claimHoverIfInside(ctx, event, frame, id, CursorShape.Text)
         let edit = editState()
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
@@ -500,9 +497,9 @@ public class TextArea <: Widget {
                 {=> edit.extendToLineEnd()})
             case UiEvent.KeyDown(Key.Letter(code), _) => return shortcut(ctx, edit, code)
             case UiEvent.Frame(_) =>
-                // One-time initial focus for an editable area, applied after the frame's pointer
+                // One-time initial focus, applied after the frame's pointer
                 // events so a stray startup click cannot cancel it; mirrors TextField.
-                if (autofocusRequested && isEditable && !autofocusDone.value) {
+                if (autofocusRequested && !autofocusDone.value) {
                     ctx.focus(id, viaKeyboard: true)
                     autofocusDone.value = true
                 }
@@ -516,12 +513,7 @@ public class TextArea <: Widget {
     }
 
     public func focusableId(): ?String {
-        // A read-only area never registered, so there is nothing for `.enabled` to remove.
-        if (isEditable) {
-            Some(id)
-        } else {
-            None
-        }
+        Some(id)
     }
 
     private func editState(): TextEditState {

@@ -7,7 +7,7 @@ import chui.core.{State, Theme, UiContext}
  * Selection lives in the shared TextEditState as a span between anchor and cursor. Held
  * Shift extends it, plain navigation collapses it, and typing / delete replace it. When
  * anchor and cursor coincide every method reduces to the original caret behavior, which is
- * what keeps controls that never select (a read-only text area) unchanged.
+ * what keeps ordinary collapsed-caret navigation unchanged.
  */
 @Test
 func shiftExtendGrowsSelectionAndPlainMoveCollapses(): Unit {
