@@ -151,6 +151,7 @@ class PrntOptions {
     let mode: String
     let appArgs: ArrayList<String>
     let windowId: String
+    let artifact: String
 
     init(
         platform: String,
@@ -161,7 +162,8 @@ class PrntOptions {
         app: String,
         mode: String,
         appArgs: ArrayList<String>,
-        windowId!: String = ""
+        windowId!: String = "",
+        artifact!: String = ""
     ) {
         this.platform = platform
         this.requested = requested
@@ -172,6 +174,7 @@ class PrntOptions {
         this.mode = mode
         this.appArgs = appArgs
         this.windowId = windowId
+        this.artifact = artifact
     }
 }
 
@@ -214,12 +217,20 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
     var app = ""
     var mode = "release"
     var windowId = ""
+    var artifact = ""
+    var modeSet = false
     let appArgs = ArrayList<String>()
     var projectSet = false
     var i = start
     if (i < args.size && isPlatform(args[i])) { platform = normalizePlatform(args[i]); i += 1 }
     while (i < args.size) {
         let current = args[i]
+        if (current == "--artifact") {
+            if (!artifact.isEmpty() || i + 1 >= args.size || args[i + 1].isEmpty() || startsWithText(args[i + 1], "-")) {
+                throw CuicError("--artifact requires one local .app path")
+            }
+            artifact = args[i + 1]; i += 2; continue
+        }
         if (current == "--window") {
             if (!windowId.isEmpty() || i + 1 >= args.size || args[i + 1].isEmpty() ||
                 args[i + 1].startsWith("-")) {
@@ -254,6 +265,7 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
         if (current == "--mode") {
             if (i + 1 >= args.size) { throw CuicError("--mode requires release or debug") }
             mode = normalizeBuildMode(args[i + 1])
+            modeSet = true
             i += 2
             continue
         }
@@ -271,7 +283,11 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
     if (!windowId.isEmpty() && (!device.isEmpty() || !app.isEmpty())) {
         throw CuicError("--window selects a desktop renderer, not a device system screenshot")
     }
-    PrntOptions(platform, requested, output, frames, device, app, mode, appArgs, windowId: windowId)
+    if (!artifact.isEmpty() && (projectSet || modeSet || !device.isEmpty() || !app.isEmpty())) {
+        throw CuicError("--artifact cannot be combined with a source project, --mode, --device or --app")
+    }
+    PrntOptions(platform, requested, output, frames, device, app, mode, appArgs,
+        windowId: windowId, artifact: artifact)
 }
 
 func parseDebugOptions(args: Array<String>, start: Int64): DebugOptions {
@@ -377,6 +393,8 @@ func helpText(): String {
     "  cuic dependency update [project]\n" +
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
     "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--runtime-manifest <file>] [--json]\n" +
+    "  cuic package run [macos] <trusted.app> [-- <app args...>] (no build or SDK environment)\n" +
+    "  cuic prnt macos --artifact <trusted.app> [--output <file.png>] [--frames <count>] [--window <semantic-id>] [-- <app args...>]\n" +
     "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
     "  cuic build [platform] [project] [--mode release|debug] [--jobs 1..256]\n" +
     "  cuic test [platform] [project] [--mode release|debug] [--jobs 1..256]\n" +
@@ -1055,6 +1073,7 @@ func debugCommand(_args: Array<String>, _start: Int64): Int64 {
 
 func printWindow(args: Array<String>, start: Int64): Int64 {
     let options = parsePrntOptions(args, start)
+    if (!options.artifact.isEmpty()) { return printPackagedApplication(options) }
     if (options.device.size > 0 || options.app.size > 0) {
         return printDeviceWindow(options)
     }

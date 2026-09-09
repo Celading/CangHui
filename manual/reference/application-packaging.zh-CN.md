@@ -82,6 +82,30 @@ macOS 和 Windows 的产物命名保持不变。
 图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
 文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
 
+## 启动与截图已有 macOS 产物
+
+```bash
+cuic package run macos /path/to/MyApp.app -- --my-app-option value
+cuic prnt macos --artifact /path/to/MyApp.app --frames 3 --output preview.png
+```
+
+这两条路径不调用构建器、不查找项目或 SDK，也不修改 `.app`。CUIC 检查
+bundle 的 `Info.plist`、`APPL` 类型和 `Contents/MacOS` 内的真实 Mach-O 入口后，
+直接启动该入口、等待退出并保留退出码。应用参数只从 `--` 后逐项传入，不经 shell。
+目前只支持 macOS 宿主；这不是 Finder/LaunchServices、安装、签名或 Gatekeeper 验收。
+只运行你信任的产物：结构检查不验证发布者，也不是隔离不可信程序的沙箱。
+
+子进程不继承 `DYLD_*`、`LD_*`、`LIBRARY_PATH`、`CANGJIE_*`、`STDX_*`、
+`CANGHUI_*`、`CUI_*`、`CUIC_*`、`SDL_*` 和 `cjProcessorNum` 开发配置。
+普通应用变量、`HOME` 和 `PATH` 保留，工作目录设为 bundle 根目录。
+依赖缺失应修复打包闭包，不能用开发机动态库路径补成运行成功。
+
+`prnt --artifact` 使用应用已有的 CangHui PNG capture 接口，并单独设置本次
+capture 参数；不是系统截图，也不提供点击、焦点或按键注入。支持 `--window`
+及其运行时确认，输出必须是 bundle 外部的 PNG。失败时保留原输出，不接收
+`--mode`、源码项目、`--device` 或 `--app`。不实现 capture 接口的应用可能持续
+运行而不生成图片；由应用正常退出或操作者终止，不能据此宣称已通过截图验收。
+
 ## 用 CUIC 组装 Linux 运行包
 
 Linux `application-icon` 接受 PNG 或 SVG。SVG 原样放入 `scalable/apps`；
