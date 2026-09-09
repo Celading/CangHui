@@ -8,7 +8,7 @@ debug control channel. Desktop hosts now provide an optional
 The opt-in Linux `linuxAccessKitAccessibility(nativeLibrary, bridgeLibrary)`
 factory loads explicit trusted absolute paths and connects this bridge to either
 desktop host. The factory currently requires measured X11 screen geometry;
-text mapping, other native geometry backends and SDK dependency delivery remain open;
+multiline text, text geometry/selection, other native geometry backends and SDK dependency delivery remain open;
 this preview is not a complete reader SDK or part of the default dependency closure.
 
 Supply the upstream source at commit
@@ -55,8 +55,37 @@ no generic Dismiss equivalent; it is not mislabeled as Collapse or HideTooltip.
 
 Rectangle conversion to the native adapter coordinate space remains the host's
 responsibility. Tree projection does not supply DPI transforms, numeric ranges,
-text runs/selection geometry, IME or reader speech. Those remain separate
+glyph/selection geometry, IME or reader speech. Those remain separate
 integration requirements, not implied by a valid tree.
+
+## Single-line text reading
+
+The Linux factory projects plain single-line `TextField` values through the
+additive `chui_ak_tree_text` symbol. Rebuild the bridge together with this loader;
+an older ABI1 bridge missing that symbol fails before adapter creation. Existing
+ABI1 call signatures are unchanged.
+
+Character spans reuse CangHui's `GraphemeIndex`, the editor's selection-boundary
+owner. Combining sequences and ZWJ emoji are not split into scalar-sized editing
+units. AT-SPI text offsets/counts are Unicode scalar offsets, converted by
+AccessKit from those spans; they are not UTF-8 byte offsets or grapheme counts.
+Empty values also expose Text. Passwords never receive a text run.
+
+This is read access, not a text-editing protocol. No SetTextSelection action,
+caret position, selection direction or per-character rectangle is invented.
+`TextArea`, values containing CR/LF, and graphemes longer than AccessKit's
+255-byte character-span limit retain normal semantic metadata without this Text
+projection. Multi-line/wrapped layout and exact selection require a later mapping.
+
+Each generated leaf uses its parent's native ID XOR `2^63`, preserving the
+session's identity lifetime without depending on array order. The bridge checks
+the entire transaction for semantic/generated ID collisions and rejects them,
+including semantic IDs added after a text run. Fields with semantic children are
+also rejected rather than flattening their content. Generated leaves have no
+actions; existing semantic node/depth/text limits remain, with at most one extra
+leaf/value copy per semantic field. C callers supply valid editor boundaries;
+the bridge validates total byte lengths and UTF-8 boundaries, not a second
+grapheme segmentation algorithm.
 
 ## Optional Linux adapter lifecycle
 

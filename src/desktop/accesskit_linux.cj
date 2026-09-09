@@ -145,7 +145,7 @@ private class LinuxAccessibilityApi {
         for (name in ["chui_ak_unix_abi_version", "chui_ak_unix_new", "chui_ak_unix_publish",
             "chui_ak_unix_needs_refresh", "chui_ak_unix_refresh", "chui_ak_unix_focus",
             "chui_ak_unix_poll", "chui_ak_unix_close", "chui_ak_unix_bounds", "chui_ak_tree_new", "chui_ak_tree_add",
-            "chui_ak_tree_finish", "chui_ak_tree_free"]) {
+            "chui_ak_tree_finish", "chui_ak_tree_free", "chui_ak_tree_text"]) {
             var address = AccessibilityRef()
             unsafe { try (text = LibC.mallocCString(name).asResource()) {
                 address = dlsym(bridge, text.value)
@@ -199,6 +199,9 @@ private class LinuxAccessibilityApi {
             require(transaction.isNotNull(), "tree allocation")
             for (node in tree.nodes) {
                 appendNode(transaction, index[node.id], node, geometry)
+                if (let Some(lengths) <- accessibilityTextLengths(node.role, node.value)) {
+                    appendText(transaction, index[node.id].nativeId, lengths)
+                }
             }
             let result = unsafe { CFunc<(AccessibilityRef) -> AccessibilityRef>(
                 symbol("chui_ak_tree_finish"))(transaction) }
@@ -209,6 +212,18 @@ private class LinuxAccessibilityApi {
             if (transaction.isNotNull()) {
                 unsafe { CFunc<(AccessibilityRef) -> Unit>(symbol("chui_ak_tree_free"))(transaction) }
             }
+        }
+    }
+
+    private func appendText(tree: AccessibilityRef, id: UInt64, lengths: Array<UInt8>): Unit {
+        unsafe {
+            let bytes = LibC.malloc<UInt8>(count: max(Int64(1), lengths.size))
+            require(bytes.isNotNull(), "text span allocation")
+            try {
+                for (i in 0..lengths.size) { bytes.write(i, lengths[i]) }
+                require(CFunc<(AccessibilityRef, UInt64, UIntNative, CPointer<UInt8>) -> Bool>(
+                    symbol("chui_ak_tree_text"))(tree, id, UIntNative(lengths.size), bytes), "text projection")
+            } finally { LibC.free(bytes) }
         }
     }
 

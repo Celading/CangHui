@@ -41,6 +41,17 @@ CHUI_AK_API bool chui_ak_tree_add(struct chui_ak_tree *tree,
     double x, double y, double width, double height,
     uint32_t states, uint32_t actions);
 
+/* Optional single-line TextInput read projection. Lengths are editor-selectable
+ * UTF-8 spans (not scalar counts), copied during the call. No glyph geometry,
+ * selection/caret or editing action is inferred. Zero count permits empty text.
+ * Run identity is id XOR 2^63; finish rejects collisions with any semantic ID
+ * or semantic children of this leaf field, including those added later.
+ * Passwords, other roles, invalid spans and multiline text fail atomically.
+ * Additive ABI1 capability: new consumers must resolve this symbol up front.
+ */
+CHUI_AK_API bool chui_ak_tree_text(struct chui_ak_tree *tree, uint64_t id,
+    size_t count, const uint8_t *lengths);
+
 /* Consumes the transaction on success OR failure. NULL means no update may be
  * submitted. The caller owns a successful update until transferred to AccessKit.
  * This is not an update-factory fallback: those callbacks may forbid NULL.

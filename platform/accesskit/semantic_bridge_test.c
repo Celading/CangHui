@@ -116,9 +116,59 @@ static void hard_limits(void) {
     assert(!chui_ak_tree_new(huge)); free(huge);
 }
 
+static void text_read_projection(void) {
+    struct chui_ak_tree *t = chui_ak_tree_new("Window");
+    const uint8_t spans[] = {1, 3, 3, 25};
+    assert(chui_ak_tree_add(t, 2, 1, "textfield", "Text", "A你é👩‍👩‍👧‍👦", "",
+        0, 0, 200, 32, CHUI_AK_READONLY, CHUI_AK_FOCUS));
+    assert(chui_ak_tree_text(t, 2, 4, spans));
+    struct accesskit_node *run = lookup(t, 2)->text_run;
+    assert(accesskit_node_role(run) == ACCESSKIT_ROLE_TEXT_RUN);
+    assert(!accesskit_node_bounds(run).has_value); /* no fabricated glyph rect */
+    assert(!accesskit_node_supports_action(run, ACCESSKIT_ACTION_SET_TEXT_SELECTION));
+    struct accesskit_tree_update *u = chui_ak_tree_finish(t);
+    assert(u);
+    char *dump = accesskit_tree_update_debug(u);
+    assert(dump && strstr(dump, "TextRun") && strstr(dump, "[1, 3, 3, 25]"));
+    accesskit_string_free(dump); accesskit_tree_update_free(u);
+    t = chui_ak_tree_new("");
+    assert(chui_ak_tree_add(t, 2, 1, "textfield", "", "", "", 0, 0, 0, 0, 0, 0));
+    assert(chui_ak_tree_text(t, 2, 0, NULL));
+    u = chui_ak_tree_finish(t); assert(u); accesskit_tree_update_free(u);
+}
+
+static void text_invalid_and_identity_are_atomic(void) {
+    for (unsigned mode = 0; mode < 9; ++mode) {
+        struct chui_ak_tree *t = chui_ak_tree_new("");
+        const char *role = mode == 0 ? "password" : "textfield";
+        const char *value = mode == 1 ? "a\nb" : "你";
+        assert(chui_ak_tree_add(t, 2, 1, role, "", value, "", 0, 0, 30, 32, 0, 0));
+        const uint8_t split[] = {1, 2}, zero[] = {0, 3}, good[] = {3}, excess[] = {4};
+        bool ok = chui_ak_tree_text(t, 2, mode == 2 || mode == 3 ? 2 : 1,
+            mode == 2 ? split : mode == 3 ? zero : mode == 4 ? excess : mode == 5 ? NULL : good);
+        if (mode < 6) { assert(!ok); }
+        else {
+            assert(ok);
+            if (mode == 6) assert(add(t, text_run_id(2), 1, "group", 0, 0));
+            if (mode == 7) assert(add(t, 3, 2, "label", 0, 0));
+            if (mode == 8) assert(!chui_ak_tree_text(t, 2, 1, good));
+        }
+        assert(!chui_ak_tree_finish(t));
+    }
+    struct chui_ak_tree *t = chui_ak_tree_new("");
+    const uint8_t spans[] = {1, 1, 1, 1, 1};
+    for (uint64_t i = 2; i <= CHUI_AK_MAX_NODES + 1; ++i) {
+        assert(add(t, i, 1, "textfield", 0, 0));
+        assert(chui_ak_tree_text(t, i, 5, spans));
+    }
+    struct accesskit_tree_update *u = chui_ak_tree_finish(t);
+    assert(u); accesskit_tree_update_free(u);
+}
+
 int main(void) {
     tree_order_and_ownership(); roles_states_and_actions(); readonly_disabled_password();
     malformed_tree_is_atomic(); invalid_input_rejected(); hard_limits();
-    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 6/6");
+    text_read_projection(); text_invalid_and_identity_are_atomic();
+    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 8/8");
     return 0;
 }
