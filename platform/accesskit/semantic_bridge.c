@@ -198,6 +198,18 @@ bool chui_ak_tree_text(struct chui_ak_tree *tree, uint64_t id,
     return valid;
 }
 
+bool chui_ak_tree_selection(struct chui_ak_tree *tree, uint64_t id, size_t anchor, size_t focus) {
+    if (!tree || tree->failed) return false;
+    struct entry *entry = lookup(tree, id);
+    if (!entry || !entry->text_run) { tree->failed = true; return false; }
+    size_t count = accesskit_node_character_lengths(entry->text_run).length;
+    if (anchor > count || focus > count) { tree->failed = true; return false; }
+    uint64_t run = text_run_id(id);
+    accesskit_node_set_text_selection(entry->node, (accesskit_text_selection){
+        .anchor = {run, anchor}, .focus = {run, focus}});
+    return true;
+}
+
 void chui_ak_tree_free(struct chui_ak_tree *tree) {
     if (!tree) return;
     for (unsigned i = 0; i < tree->count; ++i) {

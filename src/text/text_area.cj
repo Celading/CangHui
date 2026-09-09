@@ -374,6 +374,7 @@ public class TextArea <: Widget {
             editable: Some(isEditable),
             selectionStart: Some(edit.selectionStart()),
             selectionEnd: Some(edit.selectionEnd()),
+            selectionFocus: Some(edit.cursor.value),
             typedActions: if (isEditable) { [SemanticActionKind.Focus] } else { [] }
         ))
         let docLines = lines()

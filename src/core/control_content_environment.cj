@@ -64,6 +64,8 @@ public struct ControlSemantics {
     public let editable: ?Bool
     public let selectionStart: ?Int64
     public let selectionEnd: ?Int64
+    /** Active caret endpoint in UTF-8 bytes; None means direction is unknown. */
+    public let selectionFocus: ?Int64
     /** Typed actions exposed to in-process semantic consumers. String actions remain probe-only. */
     public let typedActions: Array<SemanticActionKind>
 
@@ -83,6 +85,7 @@ public struct ControlSemantics {
         editable!: ?Bool = None,
         selectionStart!: ?Int64 = None,
         selectionEnd!: ?Int64 = None,
+        selectionFocus!: ?Int64 = None,
         typedActions!: Array<SemanticActionKind> = []
     ) {
         if (role.isEmpty()) { throw IllegalArgumentException("control semantic role must not be empty") }
@@ -100,8 +103,9 @@ public struct ControlSemantics {
         this.readOnly = readOnly
         this.focused = focused
         this.editable = editable
-        this.selectionStart = selectionStart
-        this.selectionEnd = selectionEnd
+        this.selectionStart = if (role == "password") { None } else { selectionStart }
+        this.selectionEnd = if (role == "password") { None } else { selectionEnd }
+        this.selectionFocus = if (role == "password") { None } else { selectionFocus }
         // The semantic contract owns this list. A caller retaining its constructor input cannot
         // mutate the actions later and silently alter a committed runtime tree.
         this.typedActions = typedActions.clone()
@@ -155,6 +159,7 @@ private func resolveControlSemanticFocus(
         editable: semantics.editable,
         selectionStart: semantics.selectionStart,
         selectionEnd: semantics.selectionEnd,
+        selectionFocus: semantics.selectionFocus,
         typedActions: semantics.typedActions
     )
 }
@@ -236,6 +241,10 @@ private func recordControlSemanticsResolved(
     }
     match (semantics.selectionEnd) {
         case Some(value) => properties.add(ProbeProperty("selectionEnd", value.toString()))
+        case None => ()
+    }
+    match (semantics.selectionFocus) {
+        case Some(value) => properties.add(ProbeProperty("selectionFocus", value.toString()))
         case None => ()
     }
     recordActiveProbeControlSemantics(frame, widgetType, semantics, properties.toArray(),

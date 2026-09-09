@@ -52,6 +52,13 @@ CHUI_AK_API bool chui_ak_tree_add(struct chui_ak_tree *tree,
 CHUI_AK_API bool chui_ak_tree_text(struct chui_ak_tree *tree, uint64_t id,
     size_t count, const uint8_t *lengths);
 
+/* Read-only selection facts for an existing text projection. Indices address
+ * editor-selectable spans, not bytes/UTF16/scalars. End-of-run is permitted.
+ * Does not enable a native editing action. Invalid range fails the transaction.
+ */
+CHUI_AK_API bool chui_ak_tree_selection(struct chui_ak_tree *tree, uint64_t id,
+    size_t anchor, size_t focus);
+
 /* Consumes the transaction on success OR failure. NULL means no update may be
  * submitted. The caller owns a successful update until transferred to AccessKit.
  * This is not an update-factory fallback: those callbacks may forbid NULL.

@@ -170,6 +170,10 @@ public class TextField <: Widget {
             shortcut: if (isEditable) { "TextInput" } else { "" },
             actionOwner: id,
             readOnly: Some(!isEditable),
+            editable: Some(isEditable),
+            selectionStart: Some(edit.selectionStart()),
+            selectionEnd: Some(edit.selectionEnd()),
+            selectionFocus: Some(edit.cursor.value),
             typedActions: [SemanticActionKind.Focus]
         ))
         drawTextBoxChrome(ctx, frame, id)

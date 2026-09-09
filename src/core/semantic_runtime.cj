@@ -180,6 +180,8 @@ public struct SemanticNode {
     public let editable: ?Bool
     public let selectionStart: ?Int64
     public let selectionEnd: ?Int64
+    /** Active selection endpoint in UTF-8 bytes, not sorted range end. */
+    public let selectionFocus: ?Int64
     public let actions: Array<SemanticActionKind>
 
     public init(
@@ -200,6 +202,7 @@ public struct SemanticNode {
         editable!: ?Bool = None,
         selectionStart!: ?Int64 = None,
         selectionEnd!: ?Int64 = None,
+        selectionFocus!: ?Int64 = None,
         actions!: Array<SemanticActionKind> = []
     ) {
         validateSemanticIdentifier(id, "semantic node id")
@@ -226,8 +229,9 @@ public struct SemanticNode {
         this.readOnly = readOnly
         this.focused = focused
         this.editable = editable
-        this.selectionStart = selectionStart
-        this.selectionEnd = selectionEnd
+        this.selectionStart = if (role == "password") { None } else { selectionStart }
+        this.selectionEnd = if (role == "password") { None } else { selectionEnd }
+        this.selectionFocus = if (role == "password") { None } else { selectionFocus }
         let allowed = ArrayList<SemanticActionKind>()
         if (enabled) {
             for (action in actions) {
@@ -417,6 +421,7 @@ public class SemanticRuntime {
             editable: semantics.editable,
             selectionStart: semantics.selectionStart,
             selectionEnd: semantics.selectionEnd,
+            selectionFocus: semantics.selectionFocus,
             actions: actions
         ))
         match (focusOrder) {
@@ -827,6 +832,7 @@ private func sameSemanticNode(left: SemanticNode, right: SemanticNode, includeGe
         optionBoolName(left.editable) != optionBoolName(right.editable) ||
         optionInt64Name(left.selectionStart) != optionInt64Name(right.selectionStart) ||
         optionInt64Name(left.selectionEnd) != optionInt64Name(right.selectionEnd) ||
+        optionInt64Name(left.selectionFocus) != optionInt64Name(right.selectionFocus) ||
         optionBoolName(left.selected) != optionBoolName(right.selected) ||
         optionBoolName(left.expanded) != optionBoolName(right.expanded) ||
         left.actions.size != right.actions.size) {
@@ -901,6 +907,7 @@ private func cloneSemanticNode(node: SemanticNode): SemanticNode {
         editable: node.editable,
         selectionStart: node.selectionStart,
         selectionEnd: node.selectionEnd,
+        selectionFocus: node.selectionFocus,
         actions: node.actions.clone())
 }
 
@@ -923,5 +930,6 @@ private func cloneSemanticNodeWithOrder(node: SemanticNode, order: Int64): Seman
         editable: node.editable,
         selectionStart: node.selectionStart,
         selectionEnd: node.selectionEnd,
+        selectionFocus: node.selectionFocus,
         actions: node.actions.clone())
 }

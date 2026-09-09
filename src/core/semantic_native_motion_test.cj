@@ -46,6 +46,7 @@ private func motionChangedNode(node: SemanticNode, field: String): SemanticNode 
         editable: if (field == "editable") { Some(true) } else { node.editable },
         selectionStart: if (field == "selection-start") { Some(Int64(1)) } else { node.selectionStart },
         selectionEnd: if (field == "selection-end") { Some(Int64(2)) } else { node.selectionEnd },
+        selectionFocus: if (field == "selection-focus") { Some(Int64(1)) } else { node.selectionFocus },
         actions: if (field == "actions") { [] } else { node.actions })
 }
 
@@ -53,7 +54,7 @@ private func motionChangedNode(node: SemanticNode, field: String): SemanticNode 
 func nativeTargetContinuityRejectsUnrelatedSemanticChangesEvenAfterRestoration(): Unit {
     for (field in ["widget", "role", "parent", "order", "label", "value", "placeholder",
         "selected", "expanded", "disabled", "readonly", "focused", "editable",
-        "selection-start", "selection-end", "actions"]) {
+        "selection-start", "selection-end", "selection-focus", "actions"]) {
         let session = SemanticNativeSession("main")
         let queue = UiOwnerQueue()
         let original = nativeMotionTree(UInt64(1), 0.0)

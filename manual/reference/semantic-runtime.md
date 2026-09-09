@@ -50,6 +50,10 @@ let receipt = app.dispatchSemanticAction(SemanticActionRequest(
   自己持有的副本，不会反向污染已提交树。
 - `SemanticNode` 保存父子身份、声明顺序、逻辑矩形、role、label/value/placeholder、状态与
   类型化动作。`role == "password"` 的 value 在进入树之前强制清空。
+- `TextField` 与 `TextArea` 从既有编辑状态发布 UTF-8 字节位置：`selectionStart`／
+  `selectionEnd` 是排序后的选区，`selectionFocus` 是光标实际所在端点。后者为 `None`
+  表示方向未知，不能默认光标位于末端。空选区三个位置相同；密码清除这三个位置。
+  这些事实随快照、语义差分、probe 与设计快照传递，不创建第二套编辑状态。
 - 使用带 `UiContext` 的 `recordControlSemantics` 时，已注册控件缺省的 `focused` 会从
   当前焦点状态补齐；焦点切换也会出现在语义差分中。控件显式声明的值保持不变，
   未注册节点和不带上下文的旧接口不会凭空获得焦点状态。
@@ -134,10 +138,12 @@ let app = DesktopApp(WindowSpec("My app", 720, 480),
 窗口移动更新屏幕原点；缩放或尺寸改变必须等到对应的新布局提交，空闲重放仍使用已提交布局的变换。
 单行普通 `TextField` 已提供原生 Text 读取：字素边界复用编辑器索引，AT-SPI 对外使用
 Unicode 标量偏移，而不是 UTF-8 字节偏移。空文本可读取；密码不投影文本子节点。
-需要与加载器配套重建包含 `chui_ak_tree_text` 的 C 桥，旧桥缺符号会明确失败。
+同一文本框的光标和正反向选区也映射到原生读取接口；只有精确的字素边界且方向已知才投影，
+不会把字节内部位置取整或猜成光标。需要配套重建包含 `chui_ak_tree_text` 与
+`chui_ak_tree_selection` 的 C 桥，旧桥缺符号会明确失败。
 `TextArea`、含换行的值、超过原生 255 字节限制的单个字素暂只保留原有语义元数据。
-没有伪造字符坐标、选择方向或光标位置，也没有新增原生文本修改动作。
-跨显示器系统 DPI、完整文本范围/选择、IME、读屏发声与 SDK 原生依赖交付尚未完成。其他平台不会
+选择数据对应已提交文本，不包含 IME 预编辑显示区间；没有伪造字符坐标或新增原生文本修改动作。
+跨显示器系统 DPI、多行文本范围、原生修改选区、IME、读屏发声与 SDK 原生依赖交付尚未完成。其他平台不会
 导出这个 Linux 专用工厂；不传 `accessibility` 的默认路径没有额外原生依赖。
 
 ## 当前边界

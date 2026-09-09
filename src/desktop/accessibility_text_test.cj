@@ -1,5 +1,8 @@
 package chui.desktop
 
+import chui.core.SemanticNode
+import sdl.Rect
+
 @Test
 func accessibilityTextPreservesEditorGraphemesRatherThanScalars(): Unit {
     let lengths = accessibilityTextLengths("textfield", "A你é👩‍👩‍👧‍👦").getOrThrow()
@@ -9,6 +12,42 @@ func accessibilityTextPreservesEditorGraphemesRatherThanScalars(): Unit {
     @Expect(lengths[2], UInt8(3))
     @Expect(lengths[3], UInt8(25))
     @Expect(accessibilityTextLengths("textfield", "").getOrThrow().isEmpty())
+}
+
+private func selectionNode(start: ?Int64, end: ?Int64, focus: ?Int64): SemanticNode {
+    SemanticNode("field", Rect.zero(), "TextField", "textfield", value: "a你éb",
+        selectionStart: start, selectionEnd: end, selectionFocus: focus)
+}
+
+private func expectNativeSelection(node: SemanticNode, lengths: Array<UInt8>, anchor: Int64, focus: Int64): Unit {
+    let (actualAnchor, actualFocus) = accessibilityTextSelection(node, lengths).getOrThrow()
+    @Expect(actualAnchor, anchor)
+    @Expect(actualFocus, focus)
+}
+
+@Test
+func nativeSelectionMapsDirectionalExactGraphemeBytes(): Unit {
+    let lengths = accessibilityTextLengths("textfield", "a你éb").getOrThrow()
+    let forward = selectionNode(Some(Int64(1)), Some(Int64(7)), Some(Int64(7)))
+    let backward = selectionNode(Some(Int64(1)), Some(Int64(7)), Some(Int64(1)))
+    expectNativeSelection(forward, lengths, 1, 3)
+    expectNativeSelection(backward, lengths, 3, 1)
+    let caret = selectionNode(Some(Int64(8)), Some(Int64(8)), Some(Int64(8)))
+    expectNativeSelection(caret, lengths, 4, 4)
+    let empty = SemanticNode("empty", Rect.zero(), "TextField", "textfield",
+        selectionStart: Some(Int64(0)), selectionEnd: Some(Int64(0)), selectionFocus: Some(Int64(0)))
+    expectNativeSelection(empty, [], 0, 0)
+}
+
+@Test
+func nativeSelectionDoesNotGuessMissingDirectionOrRoundInvalidPositions(): Unit {
+    let lengths = accessibilityTextLengths("textfield", "a你éb").getOrThrow()
+    for ((start, end, focus) in [(1, 7, 4), (-1, 7, 7), (7, 1, 1), (1, 9, 9),
+        (2, 7, 7), (4, 5, 5)]) {
+        @Expect(accessibilityTextSelection(selectionNode(Some(start), Some(end), Some(focus)), lengths).isNone())
+    }
+    @Expect(accessibilityTextSelection(selectionNode(Some(Int64(1)), Some(Int64(7)), None), lengths).isNone())
+    @Expect(accessibilityTextSelection(selectionNode(None, Some(Int64(7)), Some(Int64(7))), lengths).isNone())
 }
 
 @Test

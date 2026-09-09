@@ -8,7 +8,7 @@ debug control channel. Desktop hosts now provide an optional
 The opt-in Linux `linuxAccessKitAccessibility(nativeLibrary, bridgeLibrary)`
 factory loads explicit trusted absolute paths and connects this bridge to either
 desktop host. The factory currently requires measured X11 screen geometry;
-multiline text, text geometry/selection, other native geometry backends and SDK dependency delivery remain open;
+multiline text, glyph geometry, native selection editing, other geometry backends and SDK delivery remain open;
 this preview is not a complete reader SDK or part of the default dependency closure.
 
 Supply the upstream source at commit
@@ -61,8 +61,8 @@ integration requirements, not implied by a valid tree.
 ## Single-line text reading
 
 The Linux factory projects plain single-line `TextField` values through the
-additive `chui_ak_tree_text` symbol. Rebuild the bridge together with this loader;
-an older ABI1 bridge missing that symbol fails before adapter creation. Existing
+additive `chui_ak_tree_text` and `chui_ak_tree_selection` symbols. Rebuild the bridge with this loader;
+an older ABI1 bridge missing either symbol fails before adapter creation. Existing
 ABI1 call signatures are unchanged.
 
 Character spans reuse CangHui's `GraphemeIndex`, the editor's selection-boundary
@@ -71,11 +71,19 @@ units. AT-SPI text offsets/counts are Unicode scalar offsets, converted by
 AccessKit from those spans; they are not UTF-8 byte offsets or grapheme counts.
 Empty values also expose Text. Passwords never receive a text run.
 
-This is read access, not a text-editing protocol. No SetTextSelection action,
-caret position, selection direction or per-character rectangle is invented.
+The stock controls publish sorted UTF-8 `selectionStart`/`selectionEnd` and an
+optional `selectionFocus`, the actual caret endpoint. The Linux loader converts
+exact editor boundaries into native anchor/focus indices. A reversed selection
+keeps the same sorted range but has its caret at the start, not the end. Missing
+direction, out-of-range endpoints or interior-grapheme positions remain unknown;
+they are never clamped or inferred. Passwords redact all three positions.
+
+This is read access, not a text-editing protocol. No SetTextSelection action or
+per-character rectangle is invented. Selection follows committed text, not IME
+preedit display text; native composition/marked ranges require separate mapping.
 `TextArea`, values containing CR/LF, and graphemes longer than AccessKit's
 255-byte character-span limit retain normal semantic metadata without this Text
-projection. Multi-line/wrapped layout and exact selection require a later mapping.
+projection. Multi-line/wrapped layout requires a later mapping.
 
 Each generated leaf uses its parent's native ID XOR `2^63`, preserving the
 session's identity lifetime without depending on array order. The bridge checks

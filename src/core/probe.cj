@@ -801,13 +801,16 @@ private class ComponentProbeSession {
             // Descriptions may specialize stock semantics. Actual owner/state facts may not.
             if (node.property(property.name).isNone() || ["actionOwner", "focusOrder", "selected",
                 "expanded", "enabled", "disabled", "readonly", "editable", "focused",
-                "selectionStart", "selectionEnd", "value"].contains(property.name)) {
+                "selectionStart", "selectionEnd", "selectionFocus", "value"].contains(property.name)) {
                 putProbeProperty(merged, property)
             }
         }
         if (probePropertyValue(properties, "role") == "password") {
             putProbeProperty(merged, ProbeProperty("role", "password"))
             removeProbeProperty(merged, "value")
+            removeProbeProperty(merged, "selectionStart")
+            removeProbeProperty(merged, "selectionEnd")
+            removeProbeProperty(merged, "selectionFocus")
         }
         if (node.state("disabled") || probePropertyValue(properties, "disabled") == "true") {
             removeProbeProperty(merged, "action")

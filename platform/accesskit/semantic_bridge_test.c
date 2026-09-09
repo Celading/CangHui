@@ -165,10 +165,47 @@ static void text_invalid_and_identity_are_atomic(void) {
     assert(u); accesskit_tree_update_free(u);
 }
 
+static void selection_facts_are_directional_bounded_and_noneditable(void) {
+    struct chui_ak_tree *t = chui_ak_tree_new("");
+    const uint8_t spans[] = {1, 3, 3, 1};
+    assert(chui_ak_tree_add(t, 2, 1, "textfield", "", "a你éb", "", 0, 0, 20, 32,
+        CHUI_AK_READONLY, CHUI_AK_FOCUS));
+    assert(chui_ak_tree_text(t, 2, 4, spans));
+    for (size_t focus = 1; focus <= 3; focus += 2) {
+        size_t anchor = 4 - focus;
+        assert(chui_ak_tree_selection(t, 2, anchor, focus));
+        accesskit_opt_text_selection selection = accesskit_node_text_selection(lookup(t, 2)->node);
+        assert(selection.has_value);
+        assert(selection.value.anchor.node == text_run_id(2));
+        assert(selection.value.focus.node == text_run_id(2));
+        assert(selection.value.anchor.character_index == anchor);
+        assert(selection.value.focus.character_index == focus);
+        assert(!accesskit_node_supports_action(lookup(t, 2)->node, ACCESSKIT_ACTION_SET_TEXT_SELECTION));
+    }
+    assert(chui_ak_tree_selection(t, 2, 4, 4));
+    struct accesskit_tree_update *u = chui_ak_tree_finish(t);
+    assert(u); accesskit_tree_update_free(u);
+    for (unsigned kind = 0; kind < 4; ++kind) {
+        t = chui_ak_tree_new("");
+        assert(add(t, 2, 1, "textfield", 0, 0));
+        const uint8_t ascii[] = {1, 1, 1, 1, 1};
+        if (kind != 0) assert(chui_ak_tree_text(t, 2, 5, ascii));
+        assert(!chui_ak_tree_selection(t, kind == 1 ? 999 : 2,
+            kind == 2 ? SIZE_MAX : 0, kind == 3 ? 6 : 0));
+        assert(!chui_ak_tree_finish(t));
+    }
+    t = chui_ak_tree_new("");
+    assert(chui_ak_tree_add(t, 2, 1, "textfield", "", "", "", 0, 0, 0, 0, 0, 0));
+    assert(chui_ak_tree_text(t, 2, 0, NULL));
+    assert(chui_ak_tree_selection(t, 2, 0, 0));
+    u = chui_ak_tree_finish(t); assert(u); accesskit_tree_update_free(u);
+}
+
 int main(void) {
     tree_order_and_ownership(); roles_states_and_actions(); readonly_disabled_password();
     malformed_tree_is_atomic(); invalid_input_rejected(); hard_limits();
     text_read_projection(); text_invalid_and_identity_are_atomic();
-    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 8/8");
+    selection_facts_are_directional_bounded_and_noneditable();
+    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 9/9");
     return 0;
 }

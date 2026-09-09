@@ -145,7 +145,7 @@ private class LinuxAccessibilityApi {
         for (name in ["chui_ak_unix_abi_version", "chui_ak_unix_new", "chui_ak_unix_publish",
             "chui_ak_unix_needs_refresh", "chui_ak_unix_refresh", "chui_ak_unix_focus",
             "chui_ak_unix_poll", "chui_ak_unix_close", "chui_ak_unix_bounds", "chui_ak_tree_new", "chui_ak_tree_add",
-            "chui_ak_tree_finish", "chui_ak_tree_free", "chui_ak_tree_text"]) {
+            "chui_ak_tree_finish", "chui_ak_tree_free", "chui_ak_tree_text", "chui_ak_tree_selection"]) {
             var address = AccessibilityRef()
             unsafe { try (text = LibC.mallocCString(name).asResource()) {
                 address = dlsym(bridge, text.value)
@@ -201,6 +201,11 @@ private class LinuxAccessibilityApi {
                 appendNode(transaction, index[node.id], node, geometry)
                 if (let Some(lengths) <- accessibilityTextLengths(node.role, node.value)) {
                     appendText(transaction, index[node.id].nativeId, lengths)
+                    if (let Some((anchor, focus)) <- accessibilityTextSelection(node, lengths)) {
+                        require(unsafe { CFunc<(AccessibilityRef, UInt64, UIntNative, UIntNative) -> Bool>(
+                            symbol("chui_ak_tree_selection"))(transaction, index[node.id].nativeId,
+                            UIntNative(anchor), UIntNative(focus)) }, "text selection projection")
+                    }
                 }
             }
             let result = unsafe { CFunc<(AccessibilityRef) -> AccessibilityRef>(
