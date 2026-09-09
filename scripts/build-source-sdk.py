@@ -20,7 +20,7 @@ import tempfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE_ROOTS = ["src", "sdl/src", "sdl/cjpm.toml", "cjpm.toml", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md",
-                "assets/fonts", "packages/kit", "manual"]
+                "assets/fonts", "packages/kit", "manual", "scripts/audit-macos-release.sh"]
 
 
 def run(*args, cwd=None):

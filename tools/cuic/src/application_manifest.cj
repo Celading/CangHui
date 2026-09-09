@@ -123,12 +123,22 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
     var requested = ""
     var output = ""
     var runtimeManifest = ""
+    var harden = false
+    let exports = ArrayList<String>()
     var json = false
     var platformSet = false
     var i = start
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--harden") {
+            if (harden) { throw CuicError("duplicate --harden") }
+            harden = true; i += 1; continue
+        }
+        if (value == "--export-symbol") {
+            if (i + 1 >= args.size) { throw CuicError("--export-symbol requires a Mach-O symbol name") }
+            exports.add(args[i + 1]); i += 2; continue
+        }
         if (value == "--runtime-manifest") {
             if (!runtimeManifest.isEmpty() || i + 1 >= args.size || startsWithText(args[i + 1], "-")) {
                 throw CuicError("--runtime-manifest requires one project-relative JSON file")
@@ -160,7 +170,8 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
         throw CuicError("package build currently supports macos, windows and linux")
     }
     let project = resolveProject(requested, "")
-    buildApplicationArtifact(project, platform, output, json, linuxRuntimeManifest: runtimeManifest)
+    buildApplicationArtifact(project, platform, output, json, linuxRuntimeManifest: runtimeManifest,
+        hardening: MacPackagingHardening(enabled: harden, exports: exports.toArray()))
 }
 
 // Runtime identity does not require packaging assets to exist. Legacy projects

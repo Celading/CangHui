@@ -6,6 +6,45 @@
 assets and system-surface policy. The declaration is consumed by `cuic` and is
 kept separate from platform-specific providers.
 
+## Optional macOS SDK candidate hardening
+
+```bash
+cuic package build macos . --harden --output dist/Candidate.app
+cuic package build macos . --harden --export-symbol _my_plugin_host --output dist/PluginCandidate.app
+```
+
+Requires a paired macOS source SDK carrying `framework/scripts/audit-macos-release.sh`.
+New SDK templates include the following `[package]` bindings. For existing projects,
+append the variables to existing fields; preserve your flags and dependencies:
+
+```toml
+[package]
+override-compile-option = "${CUIC_PACKAGE_COMPILE_OPTIONS}"
+link-option = "-headerpad_max_install_names ${CUIC_PACKAGE_LINK_OPTIONS}"
+```
+
+Ordinary CUIC build/test/run clear these reserved variables; only hardening sets
+them for the build child. CJPM 1.1.3 expands unset variables to empty strings.
+The original project, profile/target merging, relative dependencies and lock files
+remain CJPM-owned: CUIC does not copy or rewrite the dependency graph. The current
+binding check accepts single-line double-quoted fields in `[package]`, not selection
+of a member from a workspace manifest. Upgrade old SDKs as a paired unit.
+
+Hardening trims resolved project/framework source prefixes, limits linker exports
+to `_main` and explicitly named Mach-O symbols, strips only the **copied bundle
+entry** with that keep-list, renews its ad-hoc signature and runs the candidate
+audit. The list is carried as `Contents/Resources/canghui-release-exports.txt`.
+Compiler `--strip-all` is not used because it can break dynamic symbol lookup.
+If additional dependencies leak their source paths, add precise `--trimpath`
+options to your existing override field; do not relax the audit threshold.
+
+The audit uses system inspectors, a fixed 2000-symbol limit and no inherited shell
+hooks. Only success writes `candidateAuditPassed: true`; failure retains the
+candidate for inspection without a success receipt or overwriting an existing
+output directory. This does not prove plugin/reflection behavior, application
+launch, another host, Developer ID, Hardened Runtime, notarization or store
+acceptance. Plugin hosts must test their dynamic lookups and callbacks themselves.
+
 ## Minimal declaration
 
 ```toml

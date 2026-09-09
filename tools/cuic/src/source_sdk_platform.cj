@@ -26,7 +26,10 @@ func sourceSdkExecutionImplemented(target: String): Bool {
 }
 
 func sourceSdkInitLinkOption(sdkMode: Bool, platform: String): String {
-    if (sdkMode && platform == "macos") { "link-option = \"-headerpad_max_install_names\"\n" } else { "" }
+    if (sdkMode && platform == "macos") {
+        "override-compile-option = \"" + packageVariable(PACKAGE_COMPILE_ENV) + "\"\n" +
+        "link-option = \"-headerpad_max_install_names " + packageVariable(PACKAGE_LINK_ENV) + "\"\n"
+    } else { "" }
 }
 
 func validateSourceSdkPlatformFields(fields: HashMap<String, String>, requested: String): Unit {

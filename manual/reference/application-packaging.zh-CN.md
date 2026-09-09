@@ -82,6 +82,42 @@ macOS 和 Windows 的产物命名保持不变。
 图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
 文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
 
+## macOS SDK 候选包硬化
+
+```bash
+cuic package build macos . --harden --output dist/Candidate.app
+# 原生插件通过 dlsym 查找宿主函数时，显式保留其 Mach-O 名称：
+cuic package build macos . --harden --export-symbol _my_plugin_host --output dist/PluginCandidate.app
+```
+
+这是配对 macOS 源码 SDK 的可选路径，不是发布者签名。新 SDK 的 `cuic init`
+会生成以下绑定；迁移旧项目时，将变量追加到原有字段，保留自己的参数，**不要覆盖**
+原来的配置或依赖。SDK 还必须携带 `framework/scripts/audit-macos-release.sh`；
+旧 SDK 需整体升级，不能单独替换 CUIC。
+
+```toml
+[package]
+override-compile-option = "${CUIC_PACKAGE_COMPILE_OPTIONS}"
+link-option = "-headerpad_max_install_names ${CUIC_PACKAGE_LINK_OPTIONS}"
+```
+
+普通 CUIC build/test/run 清空这两个保留变量，硬化打包才向构建子进程注入参数。
+未设置变量时，CJPM 1.1.3 将它们展开为空。打包仍在原工程内执行，由 CJPM 处理
+profile、target、相对依赖与锁文件；CUIC 不复制依赖图、不重写 manifest。
+当前绑定检查支持 `[package]` 下的单行双引号字段，不支持 workspace 根包选择。
+
+`--harden` 裁除工程和框架的已解析源码路径，仅链接导出 `_main` 及重复指定的
+`--export-symbol`，在 **复制到产物后的入口** 上按相同保留表 strip，再重新 ad-hoc
+签名并执行候选安全审计。保留表位于 `Contents/Resources/canghui-release-exports.txt`。
+不使用编译器 `--strip-all`，它可能破坏动态符号查找。额外依赖的源码根如仍泄漏，
+应在自己的 override 编译参数中补充精确 `--trimpath`，不可放宽审计阈值。
+
+审计固定使用系统检查工具和 2000 符号上限，不继承外部 shell hook 或放宽阈值。
+只有成功后 receipt 才写入 `candidateAuditPassed: true`；失败保留待检查产物，
+不写成功 receipt、不覆盖已有目录。该字段不证明插件/反射行为、应用运行、其他
+机器兼容、Developer ID、Hardened Runtime、公证或商店验收。插件宿主必须回归
+自己的动态查找和回调流程；导出列表不完整时，应修复声明而不是隐藏失败。
+
 ## 启动与截图已有 macOS 产物
 
 ```bash

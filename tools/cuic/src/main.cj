@@ -392,7 +392,7 @@ func helpText(): String {
     "  cuic scripts run <name> [project]\n" +
     "  cuic dependency update [project]\n" +
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
-    "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--runtime-manifest <file>] [--json]\n" +
+    "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--runtime-manifest <file>] [--harden] [--export-symbol <_name>] [--json]\n" +
     "  cuic package run [macos] <trusted.app> [-- <app args...>] (no build or SDK environment)\n" +
     "  cuic prnt macos --artifact <trusted.app> [--output <file.png>] [--frames <count>] [--window <semantic-id>] [-- <app args...>]\n" +
     "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
@@ -670,7 +670,8 @@ func cjpmArgsWithTarget(args: Array<String>, targetDir: String): Array<String> {
     out.toArray()
 }
 
-func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
+func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>,
+    packagingCompileOptions!: String = "", packagingLinkOptions!: String = ""): Int64 {
     let sdl = context.sdlDirectory()
     let font = runtimeHarmonyFont(context.framework)
     let buildArgs = if (exists(joinPath(context.framework, SOURCE_SDK_MANIFEST))) { sourceSdkBuildArguments(cjpmArgs) } else { cjpmArgs }
@@ -680,10 +681,12 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
             "cjpm",
             targetArgs,
             context.project,
-            windowsCjpmEnvironment(sdl, font)
+            packagingBuildEnvironment(windowsCjpmEnvironment(sdl, font), packagingCompileOptions, packagingLinkOptions)
         )
     }
     let args = ArrayList<String>()
+    args.add("${PACKAGE_COMPILE_ENV}=${packagingCompileOptions}")
+    args.add("${PACKAGE_LINK_ENV}=${packagingLinkOptions}")
     args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
@@ -700,7 +703,8 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
     executeCommand("/usr/bin/env", args.toArray(), context.project)
 }
 
-func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
+func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>,
+    packagingCompileOptions!: String = "", packagingLinkOptions!: String = ""): Int64 {
     let sdl = context.sdlDirectory()
     let font = runtimeHarmonyFont(context.framework)
     let buildArgs = if (exists(joinPath(context.framework, SOURCE_SDK_MANIFEST))) { sourceSdkBuildArguments(cjpmArgs) } else { cjpmArgs }
@@ -710,11 +714,13 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
             "cjpm",
             targetArgs,
             context.project,
-            windowsCjpmEnvironment(sdl, font),
+            packagingBuildEnvironment(windowsCjpmEnvironment(sdl, font), packagingCompileOptions, packagingLinkOptions),
             quiet: true
         )
     }
     let args = ArrayList<String>()
+    args.add("${PACKAGE_COMPILE_ENV}=${packagingCompileOptions}")
+    args.add("${PACKAGE_LINK_ENV}=${packagingLinkOptions}")
     args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")

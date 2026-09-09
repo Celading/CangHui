@@ -10,6 +10,9 @@ REQUIRED = ("LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md")
 
 
 class SourceNoticeTests(unittest.TestCase):
+    def test_hardening_auditor_is_a_checksummed_source_export(self):
+        self.assertIn("scripts/audit-macos-release.sh", SDK["SOURCE_ROOTS"])
+
     def test_source_selection_retains_all_referenced_framework_notices(self):
         for name in REQUIRED:
             with self.subTest(name=name):

@@ -15,10 +15,11 @@ class ApplicationPackagingArtifactReceipt {
     let signed: Bool
     let hostReplay: String
     let limitations: Array<String>
+    let candidateAuditPassed: Bool
 
     init(platform: String, artifactKind: String, manifest: ApplicationManifest,
         generatedFiles: Array<String>, copiedAssets: Array<String>, executableIncluded: Bool,
-        signed: Bool, hostReplay: String, limitations: Array<String>) {
+        signed: Bool, hostReplay: String, limitations: Array<String>, candidateAuditPassed!: Bool = false) {
         this.platform = platform
         this.artifactKind = artifactKind
         this.manifest = manifest
@@ -28,11 +29,12 @@ class ApplicationPackagingArtifactReceipt {
         this.signed = signed
         this.hostReplay = hostReplay
         this.limitations = limitations
+        this.candidateAuditPassed = candidateAuditPassed
     }
 }
 
 func buildApplicationArtifact(project: String, platform: String, requestedOutput: String, json: Bool,
-    linuxRuntimeManifest!: String = ""): Int64 {
+    linuxRuntimeManifest!: String = "", hardening!: MacPackagingHardening = MacPackagingHardening()): Int64 {
     validateLinuxRuntimeRequest(platform, hostPlatform(), linuxRuntimeManifest)
     if (!linuxRuntimeManifest.isEmpty()) {
         ensurePackagingPathStaysInsideProject(canonicalPackagingPath(project, "project"),
@@ -42,6 +44,9 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     let output = resolvePackagingOutputRoot(project, platform, manifest, requestedOutput)
     ensurePackagingDestinationAvailable(output)
     ensurePackagingOutputDoesNotOverlapInputs(project, output, manifest)
+    if (hardening.enabled) {
+        validateMacPackagingHardening(hardening, platform, hostPlatform(), project, ensureFrameworkRoot(project))
+    }
 
     var executable = ""
     var sdkFramework = linuxSdkPackagingFramework(project, platform, hostPlatform(), linuxRuntimeManifest)
@@ -50,7 +55,7 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     let plan = applicationPackagingPlanForManifest(project, platform, manifest)
     for (value in plan.unsupportedCapabilities) { limitations.add(value) }
     if (platform == "macos" && hostPlatform() == "macos") {
-        let buildCode = runMacPackagingBuild(project, json)
+        let buildCode = runPackagingBuild(project, "macos", json, hardening: hardening)
         if (buildCode != 0) { return buildCode }
         let framework = ensureFrameworkRoot(project)
         let context = ExecutionContext(project, framework)
@@ -80,10 +85,11 @@ func buildApplicationArtifact(project: String, platform: String, requestedOutput
     limitations.add("publisher-signing-and-notarization-not-run")
     limitations.add("unsigned-artifact")
 
-    let receipt = writeApplicationPackagingArtifact(
+    var receipt = writeApplicationPackagingArtifact(
         project, platform, manifest, output, executable, hostReplay, limitations.toArray(),
         sourceSdkFramework: sdkFramework, linuxRuntimeManifest: linuxRuntimeManifest
     )
+    if (hardening.enabled) { receipt = hardenMacPackagingArtifact(receipt, output, sdkFramework, hardening, json) }
     let receiptPath = joinPath(output, applicationPackagingReceiptPath(platform))
     File.writeTo(receiptPath, renderApplicationPackagingReceiptJson(receipt).toArray())
     if (json) {
@@ -106,9 +112,12 @@ func runMacPackagingBuild(project: String, quiet: Bool): Int64 {
     runPackagingBuild(project, "macos", quiet)
 }
 
-func runPackagingBuild(project: String, platform: String, quiet: Bool): Int64 {
+func runPackagingBuild(project: String, platform: String, quiet: Bool,
+    hardening!: MacPackagingHardening = MacPackagingHardening()): Int64 {
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
+    let compileOptions = if (hardening.enabled) { macPackagingCompileOptions(project, framework) } else { "" }
+    let linkOptions = hardening.linkOptions()
     let diffCode = runKModeDiff(project, quiet: true)
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
@@ -118,7 +127,8 @@ func runPackagingBuild(project: String, platform: String, quiet: Bool): Int64 {
     let lease = context.acquireLease()
     try {
         if (!quiet) { println("==> cjpm build (${platform}) in ${project}") }
-        if (quiet) { executeCjpmQuiet(context, ["build"]) } else { executeCjpm(context, ["build"]) }
+        if (quiet) { executeCjpmQuiet(context, ["build"], packagingCompileOptions: compileOptions, packagingLinkOptions: linkOptions) }
+        else { executeCjpm(context, ["build"], packagingCompileOptions: compileOptions, packagingLinkOptions: linkOptions) }
     } finally {
         context.releaseLease(lease)
     }
@@ -621,6 +631,7 @@ func renderApplicationPackagingReceipt(receipt: ApplicationPackagingArtifactRece
     println("Executable included: ${receipt.executableIncluded}")
     println("Signed: ${receipt.signed}")
     println("Host replay: ${receipt.hostReplay}")
+    println("Candidate audit passed: ${receipt.candidateAuditPassed}")
     renderPlanList("Generated files", receipt.generatedFiles)
     renderPlanList("Copied assets", receipt.copiedAssets)
     renderPlanList("Limitations", receipt.limitations)
@@ -650,6 +661,8 @@ func renderApplicationPackagingReceiptJson(receipt: ApplicationPackagingArtifact
     out.append(",\"executableIncluded\":")
     out.append(receipt.executableIncluded.toString())
     out.append(",\"signed\":false")
+    out.append(",\"candidateAuditPassed\":")
+    out.append(receipt.candidateAuditPassed.toString())
     out.append(",\"hostReplay\":")
     out.append(cuicJsonQuote(receipt.hostReplay))
     out.append(",\"limitations\":")
