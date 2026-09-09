@@ -64,6 +64,9 @@ echo "==> cuic install smoke"
 bash tools/cuic/scripts/test-install.sh
 
 # 7. Platform and security script tests.
+echo "==> macOS release audit failure-policy regression"
+python3 scripts/test-macos-release-audit.py
+
 echo "==> Linux runtime metadata audit regression"
 python3 scripts/test-linux-runtime-audit.py
 python3 scripts/test-linux-runtime-assembly.py
