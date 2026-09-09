@@ -118,15 +118,21 @@ func requireFrozenFrameworkDependency(project: String): Unit {
     if (frameworkRootCandidate(project)) { return }
     let spec = frameworkDependencySpec(project)
     let integrated = integratedFrameworkRoot()
-    let normalizedProject = trimTrailingSlash(project)
-    if (!spec.isGit() && !integrated.isEmpty() &&
-        (normalizedProject == integrated || startsWithText(normalizedProject, integrated + "/"))) {
+    if (!spec.isGit() && integratedFrameworkContainsProject(project, integrated)) {
         return
     }
     let problem = frameworkDependencyLockProblem(spec, lockedFrameworkCommit(project))
     if (!problem.isEmpty()) {
         throw CuicError("${problem} Run 'cuic dependency update ${project}' explicitly before build-like commands.")
     }
+}
+
+func integratedFrameworkContainsProject(project: String, integrated: String): Bool {
+    if (project.isEmpty() || integrated.isEmpty()) { return false }
+    let normalizedProject = canonicalPackagingPath(project, "project")
+    let normalizedRoot = canonicalPackagingPath(integrated, "CangHui framework")
+    normalizedProject == normalizedRoot || startsWithText(normalizedProject, normalizedRoot + "/") ||
+        (hostPlatform() == "windows" && startsWithText(normalizedProject, normalizedRoot + "\\"))
 }
 
 func cjpmCacheRoot(project: String): String {

@@ -11,6 +11,10 @@ cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]
 ```
 
 - 默认生产（release）语义。
+- 项目路径支持相对路径和绝对路径。源码仓内的工具、SDL 等子包可以直接交给
+  `cuic build/test`；源码仓身份按解析后的真实目录判定，不按字符串前缀判断。
+  通过 `..` 或符号链接指向仓外的项目不享受源码子包豁免，声明 Git 依赖的项目仍须
+  通过 commitId 与依赖锁一致性检查。安装版 SDK 不因此自动接管任意源码子包。
 - 无参数时优先当前 `cjpm.toml` 项目，否则回退 `notepad` 示例。
 - `run --mode debug` 构建并运行对应的 debug 产物，不回退到旧 release 文件。
 - 未知参数、重复或无效的 `--mode` 在构建前报错；应用参数必须放在 `--` 后，按原值转交。

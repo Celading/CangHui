@@ -504,13 +504,26 @@ func resolveFrameworkRoot(project: String): String {
 }
 
 func integratedFrameworkRoot(): String {
-    let candidate = parentPath(parentPath(cliRoot()))
-    if (frameworkRootCandidate(candidate) && exists(joinPath(candidate, "tools/cuic/cjpm.toml"))) {
-        return trimTrailingSlash(candidate)
+    integratedFrameworkRootAt(cliRoot(), currentDirectory())
+}
+
+func integratedFrameworkRootAt(cliDirectory: String, workingDirectory: String): String {
+    // Resolve the CLI directory before walking parents. A relative tools/cuic
+    // previously became an empty root and hid the valid working-directory fallback.
+    if (!cliDirectory.isEmpty()) {
+        let directory = if (startsWithText(cliDirectory, "/") || isWindowsAbsolute(cliDirectory)) {
+            cliDirectory
+        } else { joinPath(workingDirectory, cliDirectory) }
+        if (exists(directory)) {
+            let candidate = parentPath(parentPath(canonicalPackagingPath(directory, "CUIC source")))
+            if (frameworkRootCandidate(candidate) && exists(joinPath(candidate, "tools/cuic/cjpm.toml"))) {
+                return canonicalPackagingPath(candidate, "CangHui framework")
+            }
+        }
     }
-    let cwd = currentDirectory()
+    let cwd = workingDirectory
     if (frameworkRootCandidate(cwd) && exists(joinPath(cwd, "tools/cuic/cjpm.toml"))) {
-        return trimTrailingSlash(cwd)
+        return canonicalPackagingPath(cwd, "CangHui framework")
     }
     ""
 }
