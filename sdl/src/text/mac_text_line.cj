@@ -41,7 +41,7 @@ protected struct NativeTextRaster {
 // One immutable native line owns BOTH measurement and raster/caret geometry.
 // The API owner must outlive it. No UTF-8 offset is passed to a CoreText index API.
 @When[os == "macOS"]
-internal class MacTextLine {
+internal class MacTextLine <: PlatformTextLine {
     private let api: MacTextApi
     private let pointer: MacRef
     private var closed = false
@@ -109,7 +109,10 @@ internal class MacTextLine {
         }
     }
 
-    func caretUtf16(index: Int64): (Float32, Float32) {
+    public func nativeMetrics(): NativeTextMetrics { metrics }
+    public func primarySourcePath(): String { sourcePath }
+
+    public func caretUtf16(index: Int64): (Float32, Float32) {
         ensureOpen()
         var secondary = 0.0
         let x = unsafe { CFunc<(MacRef, Int64, CPointer<Float64>) -> Float64>(api.symbol(1,
@@ -117,7 +120,7 @@ internal class MacTextLine {
         (Float32(x), Float32(secondary))
     }
 
-    func hitUtf16(x: Float32): Int64 {
+    public func hitUtf16(x: Float32): Int64 {
         ensureOpen()
         var point = MacTextPoint()
         point.x = Float64(x)
@@ -137,7 +140,7 @@ internal class MacTextLine {
 
     // Logical selection may paint disconnected visual intervals in a bidi line.
     // Run endpoints disambiguate CTLine's primary/secondary positions at bidi boundaries.
-    func selectionUtf16(start: Int64, end: Int64): Array<(Float32, Float32)> {
+    public func selectionUtf16(start: Int64, end: Int64): Array<(Float32, Float32)> {
         ensureOpen()
         let spans = ArrayList<(Float32, Float32)>()
         if (start >= end) { return spans.toArray() }
@@ -175,7 +178,7 @@ internal class MacTextLine {
         spans.toArray()
     }
 
-    func raster(color: NativeTextColor): NativeTextRaster {
+    public func raster(color: NativeTextColor): NativeTextRaster {
         ensureOpen()
         let bounds = unsafe { CFunc<(MacRef, MacRef) -> MacTextRect>(api.symbol(1,
             "CTLineGetImageBounds"))(pointer, MacRef()) }
@@ -235,7 +238,7 @@ internal class MacTextLine {
         }
     }
 
-    func close(): Unit {
+    public func close(): Unit {
         if (closed) { return }
         closed = true
         api.release(pointer)

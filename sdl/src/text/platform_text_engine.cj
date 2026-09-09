@@ -2,16 +2,14 @@ package sdl.text
 
 import std.collection.HashMap
 
-@When[os == "macOS"]
 @C
-internal struct MacTextDestination {
+internal struct PlatformTextDestination {
     var x: Float32 = 0.0
     var y: Float32 = 0.0
     var w: Float32 = 0.0
     var h: Float32 = 0.0
 }
 
-@When[os == "macOS"]
 foreign {
     func SDL_CreateTexture(renderer: CPointer<Unit>, format: UInt32, access: Int32,
         width: Int32, height: Int32): CPointer<Unit>
@@ -21,15 +19,14 @@ foreign {
     func SDL_SetTextureBlendMode(texture: CPointer<Unit>, mode: UInt32): Bool
     func SDL_SetTextureScaleMode(texture: CPointer<Unit>, mode: Int32): Bool
     func SDL_RenderTexture(renderer: CPointer<Unit>, texture: CPointer<Unit>, source: CPointer<Unit>,
-        destination: CPointer<MacTextDestination>): Bool
+        destination: CPointer<PlatformTextDestination>): Bool
     func SDL_CreateSurfaceFrom(width: Int32, height: Int32, format: UInt32,
         pixels: CPointer<UInt8>, pitch: Int32): CPointer<Unit>
     func SDL_DuplicateSurface(surface: CPointer<Unit>): CPointer<Unit>
     func SDL_DestroySurface(surface: CPointer<Unit>): Unit
 }
 
-@When[os == "macOS"]
-internal class MacTextTexture {
+internal class PlatformTextTexture {
     let pointer: CPointer<Unit>
     let width: Int32
     let height: Int32
@@ -42,19 +39,18 @@ internal class MacTextTexture {
     func close(): Unit { unsafe { SDL_DestroyTexture(pointer) } }
 }
 
-@When[os == "macOS"]
-internal class MacPlatformTextEngine <: PlatformTextEngine {
-    private let api = MacTextApi()
+internal class NativePlatformTextEngine <: PlatformTextEngine {
+    private let api: PlatformTextLineFactory
     private let renderer: CPointer<Unit>
     private let defaultPath: String
-    private let lines = GenerationCache<MacTextLine>(64, {line => line.close()})
-    private let textures = HashMap<String, MacTextTexture>()
+    private let lines = GenerationCache<PlatformTextLine>(64, {line => line.close()})
+    private let textures = HashMap<String, PlatformTextTexture>()
     private var textureBytes: Int64 = 0
     private var shaped: UInt64 = 0
     private var closed = false
 
-    init(renderer: CPointer<Unit>, defaultPath: String) {
-        this.renderer = renderer; this.defaultPath = defaultPath
+    init(renderer: CPointer<Unit>, defaultPath: String, api: PlatformTextLineFactory) {
+        this.renderer = renderer; this.defaultPath = defaultPath; this.api = api
     }
 
     private func key(text: String, size: Float32, flags: Int32, paths: Array<String>,
@@ -69,11 +65,11 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
     }
 
     private func line(text: String, size: Float32, flags: Int32, paths: Array<String>,
-        paint!: ?NativeTextLineSpec = None): MacTextLine {
+        paint!: ?NativeTextLineSpec = None): PlatformTextLine {
         if (closed) { throw NativeTextException("Platform text engine is closed") }
         let cacheKey = key(text, size, flags, paths, paint: paint)
         if (let Some(cached) <- lines.get(cacheKey)) { return cached }
-        let created = MacTextLine(api, text, paths, defaultPath, size, (flags & 1) != 0, paint: paint)
+        let created = api.createLine(text, paths, defaultPath, size, (flags & 1) != 0, paint: paint)
         lines.put(cacheKey, created)
         shaped++
         created
@@ -81,11 +77,11 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
 
     public func measure(text: String, size: Float32, flags: Int32, paths: Array<String>,
         paint!: ?NativeTextLineSpec): NativeTextMetrics {
-        line(text, size, flags, paths, paint: paint).metrics
+        line(text, size, flags, paths, paint: paint).nativeMetrics()
     }
 
     public func resolvedPath(text: String, size: Float32, flags: Int32, paths: Array<String>): String {
-        line(text, size, flags, paths).sourcePath
+        line(text, size, flags, paths).primarySourcePath()
     }
 
     public func caret(text: String, index: Int64, size: Float32, flags: Int32,
@@ -109,8 +105,8 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
         line(text, size, flags, paths, paint: paint).selectionUtf16(start, end)
     }
 
-    private func upload(raster: NativeTextRaster): MacTextTexture {
-        // RGBA32 is ABGR8888 on the supported little-endian macOS targets.
+    private func upload(raster: NativeTextRaster): PlatformTextTexture {
+        // RGBA32 is ABGR8888 on the supported little-endian desktop targets.
         let texture = unsafe { SDL_CreateTexture(renderer, 0x16762004, 0, raster.width, raster.height) }
         if (texture.isNull()) { throw NativeTextException("Platform text texture allocation failed") }
         let pixels = unsafe { LibC.malloc<UInt8>(count: raster.pixels.size) }
@@ -121,7 +117,7 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
                 "platform text upload")
             ensureNative(unsafe { SDL_SetTextureBlendMode(texture, 1) }, "platform text blend")
             ensureNative(unsafe { SDL_SetTextureScaleMode(texture, 1) }, "platform text scale")
-            MacTextTexture(texture, raster)
+            PlatformTextTexture(texture, raster)
         } catch (e: Exception) { unsafe { SDL_DestroyTexture(texture) }; throw e }
         finally { unsafe { LibC.free(pixels) } }
     }
@@ -141,7 +137,7 @@ internal class MacPlatformTextEngine <: PlatformTextEngine {
                 textureBytes += raster.pixels.size
                 created
         }
-        var target = MacTextDestination()
+        var target = PlatformTextDestination()
         target.x = x + texture.x; target.y = y + texture.y
         target.w = Float32(texture.width); target.h = Float32(texture.height)
         ensureNative(unsafe { SDL_RenderTexture(renderer, texture.pointer, CPointer<Unit>(), inout target) },

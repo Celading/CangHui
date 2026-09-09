@@ -38,7 +38,7 @@ internal struct MacTextRect {
 // The only dynamically loaded libraries are fixed OS frameworks. This is not a
 // public plugin loader; all symbols below have SDK-verified signatures.
 @When[os == "macOS"]
-internal class MacTextApi {
+internal class MacTextApi <: PlatformTextLineFactory {
     private var cf = MacRef()
     private var ct = MacRef()
     private var cg = MacRef()
@@ -225,7 +225,12 @@ internal class MacTextApi {
         }
     }
 
-    func close(): Unit {
+    public func createLine(text: String, paths: Array<String>, defaultPath: String,
+        size: Float32, bold: Bool, paint!: ?NativeTextLineSpec): PlatformTextLine {
+        MacTextLine(this, text, paths, defaultPath, size, bold, paint: paint)
+    }
+
+    public func close(): Unit {
         if (closed) { return }
         closed = true
         symbols.clear()

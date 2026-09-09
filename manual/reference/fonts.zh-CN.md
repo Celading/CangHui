@@ -61,9 +61,9 @@ assets/fonts/HARMONYOS_SANS_SOURCE.txt
 
 稳定的机器可读契约是 [`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json)。
 
-## macOS 原生排版预览
+## 可选原生排版预览
 
-`DesktopApp` 可以在首次 `run` 之前显式启用 CoreText：
+`DesktopApp` 可以在首次 `run` 之前显式启用 macOS CoreText 或 Linux Pango：
 
 ```cangjie
 let app = DesktopApp(WindowSpec("Native text", 720, 480))
@@ -81,13 +81,31 @@ let enabled = renderer.usePlatformTextLayout(true)
 
 `platformTextLayoutEnabled()` 返回当前状态。传入 `false` 恢复 SDL_ttf。
 切换会清空测量缓存，因此不能在测量与绘制之间切换，也不要逐个标签反复切换。
-默认仍使用 SDL_ttf；无设备渲染器和其他平台请求启用时返回 `false`。
+默认仍使用 SDL_ttf；无设备渲染器、未支持的平台，以及缺少所需原生库的 Linux
+宿主请求启用时返回 `false`。
 
-普通和粗体文本由同一个保留的 CoreText line 提供宽高、像素与光标几何。
-注册的字体文件仍是主字体；按序回退描述符及 CoreText 系统回退可提供缺字和
+普通和粗体文本由同一个保留的原生行提供宽高、像素与光标几何。
+macOS 注册的字体文件仍是主字体；按序回退描述符及 CoreText 系统回退可提供缺字和
 彩色 emoji。随包 HarmonyOS Sans 的 Regular、Bold 命名实例分别选择。
 回退字形可能随 macOS 版本变化。斜体、下划线和删除线的测量与绘制仍一起使用
 SDL_ttf；预览不保证所有字体的样式一致性。
+
+Linux 需要 Pango1.48+（含 PangoCairo／PangoFT2）、Cairo、Fontconfig、GObject
+和 GLib 系统库，无需新增 CJPM 依赖，CUIC 也不会自动安装这些系统包。
+启用前会检查所需函数。Linux 只使用已解析的应用／随包／默认字体文件链，
+通过私有字体别名保留文件顺序，避免同 family 名的文件互换；不会全局注册字体，
+也不会自动搜索未声明的系统回退链。HarmonyOS Sans 变量粗体选择 weight700；
+只有 Regular 的字体文件不会凭空获得新的 Bold 字体。缺字需要提供合适字体解决，
+单色 emoji 可显示不代表全部 ZWJ 组合或彩色 emoji 都可用。
+
+Pango 的字节索引和命中字符数会在内部转换到既有 UTF-16 API。分数字形几何避免
+缩放时整数宽度取整造成偏移，像素仍按请求字号重新栅格化，不是拉伸低分辨率图片。
+不同原生后端不保证跨平台像素相同。Linux 对内嵌 NUL 或超过1MiB 的单行明确报错，
+不会截断字符串。禁用／关闭会释放行、字体映射和纹理引用；注册了 GType 回调的
+原生库保持进程驻留，防止回调指向已卸载代码。
+
+Linux 原生测试需显式设置 `CANGHUI_TEST_PANGO=1`，并提供上述系统库、DejaVu Sans、
+随包 HarmonyOS 字体及独立显示会话。未启用时，普通单元测试总数不代表原生排版已验收。
 
 原生排版和纹理缓存归渲染器持有，禁用或关闭时释放。单张栅格不超过
 16384 × 4096 像素及 16 MiB RGBA；超限会明确报错，不会悄悄截断。

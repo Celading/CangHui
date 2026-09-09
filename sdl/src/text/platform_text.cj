@@ -22,10 +22,15 @@ internal interface PlatformTextEngine {
 
 @When[os == "macOS"]
 internal func createPlatformTextEngine(renderer: CPointer<Unit>, defaultPath: String): ?PlatformTextEngine {
-    try { Some(MacPlatformTextEngine(renderer, defaultPath)) } catch (_: NativeTextException) { None }
+    try { Some(NativePlatformTextEngine(renderer, defaultPath, MacTextApi())) } catch (_: NativeTextException) { None }
 }
 
-@When[os != "macOS"]
+@When[os == "Linux"]
+internal func createPlatformTextEngine(renderer: CPointer<Unit>, defaultPath: String): ?PlatformTextEngine {
+    try { Some(NativePlatformTextEngine(renderer, defaultPath, PangoTextApi())) } catch (_: NativeTextException) { None }
+}
+
+@When[os != "macOS" && os != "Linux"]
 internal func createPlatformTextEngine(_renderer: CPointer<Unit>, _defaultPath: String): ?PlatformTextEngine {
     None
 }

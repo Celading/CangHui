@@ -15,7 +15,8 @@ public class DesktopApp
 ## 说明
 
 `usePlatformTextLayout(enabled: Bool): Bool` 只允许在首次 `run` 前由 UI owner 调用；
-启用可用的 macOS CoreText 预览时返回 `true`，不支持或已经启动时返回 `false`。
+启用可用的 macOS CoreText 或 Linux Pango 预览时返回 `true`，不支持、缺少原生库
+或已经启动时返回 `false`。
 `platformTextLayoutEnabled(): Bool` 查询当前模式。默认仍是 SDL_ttf；
 TextField 的原生几何、样式回退及 TextArea/IME 限制见[字体说明](../../../reference/fonts.zh-CN.md)。
 

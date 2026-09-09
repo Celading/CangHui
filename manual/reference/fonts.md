@@ -86,9 +86,9 @@ primary face, **not** a complete per-glyph font map. The recording renderer incl
 The stable machine-readable contract is
 [`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json).
 
-## macOS native layout preview
+## Optional native layout preview
 
-`DesktopApp` can explicitly enable CoreText before its first `run`:
+`DesktopApp` can explicitly enable CoreText on macOS or Pango on Linux before its first `run`:
 
 ```cangjie
 let app = DesktopApp(WindowSpec("Native text", 720, 480))
@@ -107,15 +107,40 @@ let enabled = renderer.usePlatformTextLayout(true)
 `platformTextLayoutEnabled()` reports the active mode. Passing `false` restores
 SDL_ttf. Switching clears measurement caches; do not switch between measurement
 and drawing, or toggle it for each label. SDL_ttf remains the default, and headless
-renderers and other platforms return `false` when asked to enable this preview.
+renderers, unsupported platforms and Linux hosts missing the required native
+libraries return `false` when asked to enable this preview.
 
-For regular and bold runs, one retained CoreText line supplies advances, raster
-output and native caret geometry. Registered font files remain the
+For regular and bold runs, one retained native line supplies advances, raster
+output and native caret geometry. On macOS, registered font files remain the
 primary source; ordered fallback descriptors and CoreText's system fallback can
 provide missing glyphs and color emoji. The bundled HarmonyOS Sans Regular and
 Bold named faces are selected separately. Fallback glyphs can vary with macOS.
 Italic, underline and strikethrough still use SDL_ttf for both measurement and
 drawing; this preview does not promise all-font style parity.
+
+Linux requires Pango1.48+ with PangoCairo/PangoFT2, Cairo, Fontconfig, GObject
+and GLib system libraries. No additional CJPM dependency is needed; CUIC does
+not install these OS packages automatically. The loader checks its required
+symbols before enabling the preview. Linux uses only files from the resolved
+application/bundled/default font chain, with private per-map aliases preserving
+file order even when families share a name. It does not register fonts globally
+or discover an unrestricted system fallback cascade. HarmonyOS Sans variable
+bold selects weight700; a regular-only font does not gain an invented bold face.
+Missing glyphs remain missing until an appropriate font is supplied. In
+particular, available monochrome emoji do not imply complete ZWJ/color-emoji support.
+
+Pango byte indices and scalar hit counts are converted internally to the existing
+UTF-16 API. Unhinted fractional geometry avoids integer advance rounding when
+the raster scale changes. Rasterization still occurs at the requested size,
+not by stretching one low-resolution bitmap. Native engines may produce different
+pixels on different platforms. Linux rejects embedded NUL and lines over1MiB
+with an explicit text error rather than truncating the string. Its line, font-map
+and texture references are released on disable/close; native GType libraries
+remain process-resident to keep registered callbacks valid.
+
+Linux native test fixtures require `CANGHUI_TEST_PANGO=1`, these libraries,
+DejaVu Sans, the bundled HarmonyOS font and an owned display session. Without
+that opt-in, ordinary unit-test totals do not prove native Pango coverage.
 
 Native line and texture caches are renderer-owned and released on disable/close.
 One raster is limited to 16384 × 4096 pixels and 16 MiB RGBA; an oversized run
