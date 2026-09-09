@@ -5,7 +5,7 @@ import std.convert.*
 import std.env.{getCommandLine, getVariable}
 import sdl.{DeviceRotation, DeviceRotationEvent, DeviceRotationSource, FrameInfo, Key, MouseButton, Rect,
     SdlWindow, Surface, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, WindowScaleSettings, pointerEventToLegacyUiEvent}
-import sdl.input.{Cursor, Keyboard, SystemCursor}
+import sdl.input.{Cursor, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
 import sdl.dialogs.FileDialogs
@@ -591,10 +591,11 @@ public class DesktopApp {
         while (!queuedEvents.isEmpty()) {
             events.add(DesktopCollectedEvent(queuedEvents.remove(at: 0), window.currentMetrics().transformRevision))
         }
-        var current = window.pollEvent()
-        while (let Some(event) <- current) {
-            events.add(DesktopCollectedEvent(event, window.currentMetrics().transformRevision))
-            current = window.pollEvent()
+        var current = window.pollEventEnvelope()
+        while (let Some(envelope) <- current) {
+            events.add(DesktopCollectedEvent(envelope.event, window.currentMetrics().transformRevision,
+                modifierMask: envelope.modifierMask))
+            current = window.pollEventEnvelope()
         }
         events
     }
@@ -609,9 +610,12 @@ public class DesktopApp {
                 continue
             }
             let event = collected.event
-            preparePointer(event)
-            routeEvent(widget, event)
-            completePointer(event)
+            let _ = ctx.withEventModifiers(collected.modifierMask, {=>
+                preparePointer(event)
+                routeEvent(widget, event)
+                completePointer(event)
+                false
+            })
         }
     }
 
@@ -696,7 +700,7 @@ public class DesktopApp {
                 // Tab traversal is a shell responsibility: it walks the build-order
                 // focus ring and is not forwarded to the focused control, so a text
                 // field cannot swallow it. Shift reverses direction.
-                if (Keyboard.modifiers().shift) {
+                if (ctx.keyModifiers().shift) {
                     ctx.focusPrevious()
                 } else {
                     ctx.focusNext()

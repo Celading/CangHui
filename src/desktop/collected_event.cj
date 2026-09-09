@@ -6,10 +6,12 @@ import sdl.UiEvent
 internal struct DesktopCollectedEvent {
     let event: UiEvent
     let transformRevision: UInt64
+    let modifierMask: ?UInt16
 
-    init(event: UiEvent, transformRevision: UInt64) {
+    init(event: UiEvent, transformRevision: UInt64, modifierMask!: ?UInt16 = None) {
         this.event = event
         this.transformRevision = transformRevision
+        this.modifierMask = modifierMask
     }
 
     func validAt(revision: UInt64): Bool {

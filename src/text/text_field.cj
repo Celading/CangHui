@@ -1,7 +1,7 @@
 package chui.text
 
 import sdl.{FontSizes, Key, MouseButton, Rect, Size, TextCompositionEvent, TextCompositionPhase, UiEvent}
-import sdl.input.{Clipboard, Keyboard}
+import sdl.input.Clipboard
 import chui.core.{Bindable, ControlSemantics, CUI_CONTROL_H, CursorShape, GraphemeIndex, SemanticActionKind, State, UiContext,
     Widget, claimHoverIfInside, emit, localState, recordControlSemantics, registerFocusable, resolveControlKey}
 
@@ -347,7 +347,7 @@ public class TextField <: Widget {
         let visible = if (secureEntryEnabled) { secureMask(text.value) } else { text.value }
         let cursor = if (secureEntryEnabled) { secureDisplayOffset(text.value, edit.cursor.value) }
             else { edit.cursor.value }
-        let growSelection = Keyboard.modifiers().shift
+        let growSelection = ctx.keyModifiers().shift
         if (!growSelection && edit.hasSelection() && ctx.renderer.platformTextLayoutEnabled()) {
             let index = boundaryCache.nativeIndex(visible)
             let start = if (secureEntryEnabled) { secureDisplayOffset(text.value, edit.selectionStart()) }
@@ -382,7 +382,7 @@ public class TextField <: Widget {
         }
         boundaryCache.clearAffinity()
         clearComposition()
-        if (Keyboard.modifiers().shift) {
+        if (ctx.keyModifiers().shift) {
             growSelection()
         } else {
             moveCaret()
@@ -392,7 +392,7 @@ public class TextField <: Widget {
     }
 
     private func shortcut(ctx: UiContext, edit: TextEditState, code: UInt8): Bool {
-        if (!ctx.hasFocus(id) || !Keyboard.modifiers().command) {
+        if (!ctx.hasFocus(id) || !ctx.keyModifiers().command) {
             return false
         }
         clearComposition()
@@ -419,7 +419,7 @@ public class TextField <: Widget {
             if (secureEntryEnabled) {
                 return true
             }
-            if (Keyboard.modifiers().shift) {
+            if (ctx.keyModifiers().shift) {
                 redo()
             } else {
                 undo()

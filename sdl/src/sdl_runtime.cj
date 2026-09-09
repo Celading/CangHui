@@ -16,7 +16,7 @@ public class SdlRuntime <: Resource {
         var raw = SdlEvent()
         if (!unsafe { SDL_PollEvent(inout raw) }) { return None }
         let decoded = decodeEventEnvelope(raw)
-        Some(SdlEventEnvelope(decoded.windowId, enrichSharedGamepad(decoded.event)))
+        Some(SdlEventEnvelope(decoded.windowId, enrichSharedGamepad(decoded.event), modifierMask: decoded.modifierMask))
     }
 
     public func isClosed(): Bool { closed }

@@ -2,7 +2,7 @@ package chui.controls
 
 import std.collection.ArrayList
 import sdl.{Color, Key, Rect, Size, SurfaceStyle, UiEvent, clampF32}
-import sdl.input.Keyboard
+
 import chui.core.{AnimationSpec, Bindable, Overlay, UiContext, Widget, buildChild, controlIdentity, drawSurface, emit,
     focusableCountNow, focusablesSince, localState}
 
@@ -171,7 +171,7 @@ public class Modal <: Widget {
                     case None => dismiss(ctx)
                 }
             case UiEvent.KeyDown(Key.Tab, _) =>
-                cycleDialogFocus(ctx, if (Keyboard.modifiers().shift) {
+                cycleDialogFocus(ctx, if (ctx.keyModifiers().shift) {
                     -1
                 } else {
                     1

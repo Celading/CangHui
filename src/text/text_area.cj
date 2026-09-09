@@ -2,7 +2,7 @@ package chui.text
 
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, TextCompositionEvent,
     TextCompositionPhase, UiEvent}
-import sdl.input.{Clipboard, Keyboard}
+import sdl.input.Clipboard
 import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion,
     ScrollOptions, SemanticActionKind, maxScrollOffset, Observable, State, UiContext, Widget, advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawHorizontalScrollBar,
@@ -465,7 +465,7 @@ public class TextArea <: Widget {
                         contentW, viewport.w, scrollPolicy)
                     return true
                 }
-                if (frame.contains(pointerX, pointerY) && Keyboard.modifiers().shift && wheelY != 0.0 &&
+                if (frame.contains(pointerX, pointerY) && ctx.keyModifiers().shift && wheelY != 0.0 &&
                     maxScrollOffset(contentW, viewport.w) > 0.0) {
                     applyWheelScroll(ctx, horizontalScrollMotion, horizontalScrollStateValue, wheelY,
                         contentW, viewport.w, scrollPolicy)
@@ -736,7 +736,7 @@ public class TextArea <: Widget {
             return false
         }
         clearComposition()
-        if (Keyboard.modifiers().shift) {
+        if (ctx.keyModifiers().shift) {
             growSelection()
         } else {
             moveCaret()
@@ -747,7 +747,7 @@ public class TextArea <: Widget {
     }
 
     private func shortcut(ctx: UiContext, edit: TextEditState, code: UInt8): Bool {
-        if (!ctx.hasFocus(id) || !Keyboard.modifiers().command) {
+        if (!ctx.hasFocus(id) || !ctx.keyModifiers().command) {
             return false
         }
         if (code == AREA_LETTER_A) {
@@ -771,7 +771,7 @@ public class TextArea <: Widget {
             return true
         } else if (code == AREA_LETTER_Z) {
             if (isEditable) {
-                if (Keyboard.modifiers().shift) {
+                if (ctx.keyModifiers().shift) {
                     redo()
                 } else {
                     undo()

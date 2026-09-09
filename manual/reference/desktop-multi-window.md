@@ -130,6 +130,24 @@ every animation frame.
   `DesktopApplication.registerWindowSession` / `unregisterWindowSession` 控制，避免外部绕过
   托管窗口生命周期。自定义 session 仍须保证自己的窗口身份、owner 线程和资源关闭规则。
 
+### 组合键使用事件快照
+
+SDL 键盘事件的 `modifierMask` 随 `SdlEventEnvelope` 保留，单窗口缓冲和多窗口路由
+不会用稍后查询到的键盘状态覆盖它。因此，即使 Shift 已在队列排空前松开，先前的
+Shift+方向键、Shift+Tab 和组合快捷键仍按按下时的状态处理。
+
+在自定义组件的 `handle(ctx, event)` 中，使用 `ctx.keyModifiers()` 判断修饰键。
+`Keyboard.modifiers()` 仍是设备当前状态的轮询接口，不代表正在处理的历史事件。
+`Some(0)` 表示事件明确没有修饰键；`None` 表示未提供快照，兼容原来的当前状态查询。
+当前 SDL 原生快照覆盖 KeyDown/KeyUp，不声称鼠标、触摸或任意旧事件都携带历史状态。
+
+自定义 `DesktopWindowSession` 可同时实现 `DesktopWindowInputSession`，接收
+`dispatchInput(event: UiEvent, modifierMask: ?UInt16): Bool`。派发给自己的组件时，
+用 `ctx.withEventModifiers(modifierMask, {=> widget.handle(ctx, event) })` 包围现有调用。
+作用域仅属于该窗口上下文，嵌套调用和异常退出后恢复原值，不修改 SDL 全局键盘状态。
+未实现伴随接口的旧 session 继续收到原来的 `dispatch(event)`，但无法取得此快照。
+这些是应用内宿主事件数据，不新增外部注入入口；调试模拟事件仍受原有 Debug 限制。
+
 ## 当前边界
 
 托管多窗口路径已经能够绘制普通组件以及当前 SDL CPU RGBA8 的 Scene3D shared frame，并在

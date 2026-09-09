@@ -385,6 +385,7 @@ public import chui.desktop.DesktopAccessibilityScreenBounds
 public import chui.desktop.linuxAccessKitAccessibility
 public import chui.desktop.DesktopCaptureRequest
 public import chui.desktop.DesktopWindowSession
+public import chui.desktop.DesktopWindowInputSession
 public import chui.desktop.DesktopWindowStateReceipt
 public import chui.desktop.DesktopWindowStepReceipt
 public import chui.desktop.FramePacing

@@ -351,10 +351,13 @@ public struct WindowId <: Equatable<WindowId> {
 public struct SdlEventEnvelope {
     public let windowId: ?WindowId
     public let event: UiEvent
+    /** SDL keyboard event's modifier snapshot. None means the event supplied no mask. */
+    public let modifierMask: ?UInt16
 
-    public init(windowId: ?WindowId, event: UiEvent) {
+    public init(windowId: ?WindowId, event: UiEvent, modifierMask!: ?UInt16 = None) {
         this.windowId = windowId
         this.event = event
+        this.modifierMask = modifierMask
     }
 }
 
@@ -473,7 +476,19 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
 }
 
 internal func decodeEventEnvelope(raw: SdlEvent): SdlEventEnvelope {
-    SdlEventEnvelope(rawEventWindowId(raw), decodeEvent(raw))
+    SdlEventEnvelope(rawEventWindowId(raw), decodeEvent(raw), modifierMask: rawEventModifierMask(raw))
+}
+
+private func rawEventModifierMask(raw: SdlEvent): ?UInt16 {
+    let eventPtr = unsafe { LibC.malloc<SdlEvent>() }
+    try (eventResource = eventPtr.asResource()) {
+        unsafe { eventResource.value.write(raw) }
+        let eventType = unsafe { CPointer<SdlCommonEvent>(eventResource.value).read() }.eventType
+        if (eventType == SDL_EVENT_KEY_DOWN || eventType == SDL_EVENT_KEY_UP) {
+            return Some(unsafe { CPointer<SdlKeyboardEvent>(eventResource.value).read() }.mod)
+        }
+    }
+    None
 }
 
 private func rawEventWindowId(raw: SdlEvent): ?WindowId {
@@ -527,7 +542,7 @@ internal func scaleEventCoordinates(event: UiEvent, scale: Float32): UiEvent {
 }
 
 internal func scaleEventEnvelope(envelope: SdlEventEnvelope, scale: Float32): SdlEventEnvelope {
-    SdlEventEnvelope(envelope.windowId, scaleEventCoordinates(envelope.event, scale))
+    SdlEventEnvelope(envelope.windowId, scaleEventCoordinates(envelope.event, scale), modifierMask: envelope.modifierMask)
 }
 
 internal func isDropEvent(eventType: UInt32): Bool {

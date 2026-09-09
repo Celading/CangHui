@@ -333,7 +333,7 @@ public class SdlWindow <: Resource {
                 let scaled = match (envelope.windowId) {
                     case Some(target) =>
                         if (target == id) {
-                            SdlEventEnvelope(envelope.windowId, normalizeWindowEvent(envelope.event))
+                            SdlEventEnvelope(envelope.windowId, normalizeWindowEvent(envelope.event), modifierMask: envelope.modifierMask)
                         } else { envelope }
                     case None => envelope
                 }

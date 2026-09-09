@@ -2,6 +2,7 @@ package chui.core
 
 import std.collection.ArrayList
 import std.sync.AtomicInt64
+import sdl.input.{Keyboard, KeyModifiers}
 import sdl.{Color, DeviceRotation, DeviceRotationEvent, FrameInfo, Insets, PointerEvent, Rect, Renderer, UiEvent}
 
 // A second press within this window and distance of the previous one continues a multi-click.
@@ -64,6 +65,23 @@ private func deviceRotationChanged(first: DeviceRotation, second: DeviceRotation
  * window stops rendering and the animation freezes.
  */
 public class UiContext {
+    private var eventModifierMask: ?UInt16 = None
+
+    /** Event-time keyboard state; legacy events without metadata use the current device state. */
+    public func keyModifiers(): KeyModifiers {
+        match (eventModifierMask) {
+            case Some(mask) => KeyModifiers(mask)
+            case None => Keyboard.modifiers()
+        }
+    }
+
+    /** Owner-thread, nestable event scope. Never changes SDL's global keyboard state. */
+    public func withEventModifiers(mask: ?UInt16, body: () -> Bool): Bool {
+        let previous = eventModifierMask
+        eventModifierMask = mask
+        try { body() } finally { eventModifierMask = previous }
+    }
+
     private let ownershipTokenValue = UI_CONTEXT_OWNERSHIP_COUNTER.fetchAdd(1)
     public let renderer: Renderer
     public var theme: Theme

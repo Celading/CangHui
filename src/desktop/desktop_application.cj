@@ -5,7 +5,7 @@ import chui.system.ApplicationShell
 import sdl.{FrameInfo, GamepadButton, GamepadConnectionState, GamepadDevice, Key, MouseButton, Rect,
     SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowMetrics, WindowSpec, WindowScaleSettings,
     gamepadButtonName, pointerEventToLegacyUiEvent}
-import sdl.input.Keyboard
+
 import chui.core.{SemanticActionHandler, SemanticActionReceipt, SemanticActionRequest,
     SemanticInteractionPolicy, SemanticRuntime, SemanticRuntimeLimits, SemanticTreeDiff,
     SemanticTreeSnapshot, StateStore, Theme, UiContext, Widget, buildRoot, drawTooltip,
@@ -17,6 +17,11 @@ public interface DesktopWindowSession {
     func windowId(): WindowId
     func dispatch(event: UiEvent): Bool
     func requestClose(): Unit
+}
+
+/** Optional event-time metadata port; legacy sessions keep their UiEvent-only contract. */
+public interface DesktopWindowInputSession {
+    func dispatchInput(event: UiEvent, modifierMask: ?UInt16): Bool
 }
 
 public struct WindowDispatchReceipt {
@@ -192,7 +197,7 @@ protected class WindowRegistry {
             case _ => ()
         }
         match (envelope.windowId) {
-            case Some(id) => return dispatchWindowEvent(id, envelope.event)
+            case Some(id) => return dispatchWindowEvent(id, envelope.event, envelope.modifierMask)
             case None => return dispatchGlobalEvent(envelope.event)
         }
     }
@@ -201,18 +206,18 @@ protected class WindowRegistry {
         for (session in sessions.toArray()) { session.requestClose() }
     }
 
-    private func dispatchWindowEvent(id: WindowId, event: UiEvent): WindowDispatchReceipt {
+    private func dispatchWindowEvent(id: WindowId, event: UiEvent, modifierMask: ?UInt16): WindowDispatchReceipt {
         let session = match (findSession(id)) {
             case Some(value) => value
             case None => return WindowDispatchReceipt(false, "window-not-registered", Some(id))
         }
         match (event) {
             case UiEvent.WindowFocusChanged(true) =>
-                let consumed = session.dispatch(event)
+                let consumed = dispatchSessionInput(session, event, modifierMask)
                 let _ = setActiveWindow(id)
                 return WindowDispatchReceipt(true, "window-event-dispatched", Some(id), consumed: consumed)
             case UiEvent.WindowFocusChanged(false) =>
-                let consumed = session.dispatch(event)
+                let consumed = dispatchSessionInput(session, event, modifierMask)
                 match (active) {
                     case Some(current) => if (current == id) {
                         transferWindowGamepads(id, None)
@@ -225,13 +230,20 @@ protected class WindowRegistry {
                 session.requestClose()
                 return WindowDispatchReceipt(true, "window-close-requested", Some(id))
             case UiEvent.WindowDestroyed =>
-                let consumed = session.dispatch(event)
+                let consumed = dispatchSessionInput(session, event, modifierMask)
                 let _ = unregister(id)
                 return WindowDispatchReceipt(true, "window-destroyed", Some(id), consumed: consumed)
             case _ => ()
         }
-        let consumed = session.dispatch(event)
+        let consumed = dispatchSessionInput(session, event, modifierMask)
         WindowDispatchReceipt(true, "window-event-dispatched", Some(id), consumed: consumed)
+    }
+
+    private func dispatchSessionInput(session: DesktopWindowSession, event: UiEvent, mask: ?UInt16): Bool {
+        match (session as DesktopWindowInputSession) {
+            case Some(input) => input.dispatchInput(event, mask)
+            case None => session.dispatch(event)
+        }
     }
 
     private func dispatchGlobalEvent(event: UiEvent): WindowDispatchReceipt {
@@ -503,7 +515,7 @@ protected func executeManagedSharedFrameTerminal(
  * store and current declarative tree. Keeping one UiContext per window is what isolates focus,
  * overlays, pressed/drag capture and Scene3D surface registration.
  */
-private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
+private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindowInputSession & Resource {
     private let window: SdlWindow
     private let ctx: UiContext
     private let inputAnchor = TextInputAnchorState()
@@ -689,6 +701,14 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
 
     /** Routes one already-window-scoped event against this window's current tree. */
     public func dispatch(rawEvent: UiEvent): Bool {
+        dispatchInput(rawEvent, None)
+    }
+
+    public func dispatchInput(rawEvent: UiEvent, modifierMask: ?UInt16): Bool {
+        ctx.withEventModifiers(modifierMask, {=> dispatchScopedInput(rawEvent) })
+    }
+
+    private func dispatchScopedInput(rawEvent: UiEvent): Bool {
         if (closed) { return false }
         let event = window.normalizeWindowEvent(rawEvent)
         match (event) {
@@ -827,7 +847,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                 if (ctx.dispatchOverlay(event)) {
                     true
                 } else {
-                    if (Keyboard.modifiers().shift) { ctx.focusPrevious() } else { ctx.focusNext() }
+                    if (ctx.keyModifiers().shift) { ctx.focusPrevious() } else { ctx.focusNext() }
                     true
                 }
             case _ => if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
