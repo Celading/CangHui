@@ -88,6 +88,7 @@ func sourceSdkHostCheck(fields: HashMap<String, String>): String {
 }
 
 func sourceSdkCommand(args: Array<String>, start: Int64): Int64 {
+    if (start < args.size && args[start] == "updates") { return sourceSdkUpdatesCommand(args, start + 1) }
     var json = false
     let values = ArrayList<String>()
     for (i in start..args.size) {

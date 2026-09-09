@@ -349,6 +349,7 @@ func helpText(): String {
     "  cuic bootstrap [platform]\n" +
     "  cuic sdk verify <framework> [--json]\n" +
     "  cuic sdk compare <current-framework> <candidate-framework> [--json]\n" +
+    "  cuic sdk updates <framework> --index <file> --sha256 <trusted-hash> [--channel stable|preview] [--json]\n" +
     "  cuic font <status|install> [platform]\n" +
     "  cuic symbol list [material|ant|arco] [--json]\n" +
     "  cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]\n" +

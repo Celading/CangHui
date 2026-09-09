@@ -119,8 +119,43 @@ CUIC 版本但目标平台不同，也不会显示为 `pairedWithThisCuic: true`
 
 升级时保留旧 SDK，将候选放在新目录，用候选自带的 CUIC 在应用分支中构建、测试和回放，
 再修改应用依赖。失败时还原该分支的依赖与 lock，继续用旧 SDK；不要覆盖旧包或编辑它的缓存。
-命令不会修改依赖、下载新版或访问发布目录。目前没有官方更新索引可供自动发现“最新版本”，
-因此候选位置仍由使用者明确提供。
+命令不会修改依赖、下载新版或访问发布目录。若已有可信发布方提供的索引，可先发现候选，
+再取得归档并使用上述完整校验与比较流程；不能把索引声明当成已验证的候选载荷。
+
+### 从显式发布索引发现候选
+
+```bash
+cuic sdk updates /path/to/current/framework \
+  --index /path/to/releases.index --sha256 <externally-trusted-index-sha256> \
+  --channel stable --json
+```
+
+该只读命令先核对索引哈希，再验证当前 SDK 的完整账本和包身份；普通 release CUIC 也可使用。
+省略渠道时为 `stable`，`preview` 必须显式选择。只匹配当前 SDK 的精确目标，不因运行宿主不同
+而推荐另一个架构。不同提交不推断时间先后；任一组件版本下降或编译器变化都会要求人工审查。
+即使源码与版本相同，也不会声称两个归档相同。最低系统／glibc 要求随候选报告，须自行核对，
+随后用取得的候选执行 `sdk verify` 和应用回归。
+
+索引是 UTF-8、LF 换行的制表符分隔文件（不是 TOML 或 CSV）。第一行固定为
+`canghui.sdk-release-index/v1`；第二行按下表顺序使用字段名，以实际 TAB 分隔。
+后续每行一个候选，允许最后一个 LF，不允许空白行、引号转义、注释或额外字段。
+
+| 字段顺序 | 含义 |
+|---|---|
+| `channel`, `target` | stable/preview；macos-arm64、linux-arm64 或 linux-x86_64 |
+| `frameworkVersion`, `kitVersion`, `cuicVersion`, `compilerVersion` | 各自的三段数字版本，不能用 Git 顺序替代 |
+| `sourceCommit` | 完整 40 位 Git 提交 |
+| `archiveSha256`, `archiveUrl` | 归档的 64 位小写十六进制摘要和 HTTPS 地址；仅返回、不访问 |
+| `minimumOS`, `minimumLibc` | macOS 只填前者，Linux/glibc 只填后者；另一列保留为空 |
+
+文件上限 256 KiB、64 个候选；同一渠道／目标只能有一条声明。拒绝未知目标、重复项、
+目录、符号链接和特殊文件。URL 不接受用户信息、端口、片段或空白字符。
+与现有 SDK 文件验证一样，读取过程不保证抵御同权限进程并发替换文件；请使用自己控制的本地文件。
+
+`indexDigestVerified: true` 只证明与调用者提供的摘要一致。摘要应从已验证来源独立取得，
+不能仅对未知索引现场算一个摘要便视为信任。`publisherAuthenticated`、`candidatePayloadVerified`
+始终为 false；命令不证明索引新鲜度、发布者签名或全网“最新版本”，也不自动安装。
+目前仍无默认官方更新服务；自建渠道可以使用此协议，公开发布索引和认证分发须独立完成。
 
 ## 维护者导出
 
