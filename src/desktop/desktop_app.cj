@@ -1189,7 +1189,7 @@ public class DesktopApp {
     private func maybeCapture(): Unit {
         match (captureRequest) {
             case Some(request) where frames >= request.settleFrames =>
-                ctx.renderer.captureBmp(request.path)
+                writeDesktopCapture(ctx.renderer, request.path)
                 recordDesktopCaptureSelection(semanticRuntime.windowId)
                 ctx.requestClose()
             case _ => ()

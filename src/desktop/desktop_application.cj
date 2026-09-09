@@ -677,7 +677,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
             if (let Some(request) <- captureRequest) {
                 captureFrames += 1
                 if (captureFrames >= request.settleFrames && !captureDone) {
-                    ctx.renderer.captureBmp(request.path)
+                    writeDesktopCapture(ctx.renderer, request.path)
                     recordDesktopCaptureSelection(semanticRuntime.windowId)
                     captured = true
                 }

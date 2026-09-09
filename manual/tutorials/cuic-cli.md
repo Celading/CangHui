@@ -47,6 +47,11 @@ cuic prnt [platform] [project] --device <alias> --app <bundle> --output out.jpeg
 ```
 
 - 桌面：`prnt` 构建后直接启动产物，使用 `DesktopCaptureRequest`，不依赖 `cjpm run` 参数转发。
+- 配对的新源码使用 SDL 内置编码器直接输出 PNG，无需 ImageMagick 或系统转换工具。
+  BMP 输出继续保留；旧框架源码仍走 BMP 加外部转换工具的兼容方式。
+- 原生 PNG 先写入 `<输出路径>.capture.png`，校验格式后再交付。构建或格式校验失败不会
+  提前删除原有 PNG；文件交付不保证崩溃原子性。CUIC 检查 PNG 文件签名，
+  不会把仅有 `.png` 文件名的 BMP 当作成功；文件签名检查不等于完整像素验收。
 - 托管多窗口：通过 `--window settings` 选择 `openWindow(..., semanticWindowId: "settings")`。
   省略时在第一次应用 `step()` 选择首个存活托管窗口，不跟随系统焦点。初始化预览帧不计入
   `--frames`；目标完成采集后关闭整个应用，让 CUIC 正常返回。缺失、重名或采集中关闭的目标报错，

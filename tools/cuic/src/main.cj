@@ -1133,7 +1133,8 @@ func printDesktopWindow(options: PrntOptions): Int64 {
     let lowerBmp = endsWithText(output, ".bmp") || endsWithText(output, ".BMP")
     let lowerPng = endsWithText(output, ".png") || endsWithText(output, ".PNG")
     if (!lowerBmp && !lowerPng) { throw CuicError("prnt output must end in .bmp or .png") }
-    let snapshot = if (lowerBmp) { output } else { output + ".bmp" }
+    let nativePng = lowerPng && desktopCaptureUsesNativePng(framework)
+    let snapshot = desktopCaptureSnapshotPath(output, nativePng)
     removeIfExists(snapshot)
     let lease = context.acquireLease()
     let selectionReceipt = if (options.windowId.isEmpty()) { "" } else {
@@ -1158,11 +1159,14 @@ func printDesktopWindow(options: PrntOptions): Int64 {
         cleanupCaptureSelection(context, selectionReceipt, lease)
     }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
-    if (lowerPng) {
+    if (nativePng) {
+        publishDesktopPng(snapshot, output)
+    } else if (lowerPng) {
         let converted = convertPng(snapshot, output)
         if (converted != 0) { return converted }
         removeIfExists(snapshot)
     }
+    if (lowerPng) { verifyDesktopPng(output) }
     println("snapshot: ${output}")
     0
 }

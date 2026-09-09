@@ -14,7 +14,7 @@ import chui.core.SemanticRuntime
  * CJPM forwarding application arguments.
  */
 public class DesktopCaptureRequest {
-    /** Destination path written by the renderer. The framework currently writes BMP. */
+    /** Destination path: .png/.PNG selects native PNG; other paths retain BMP output. */
     public let path: String
     /** Number of rendered frames to wait before capturing. */
     public let settleFrames: UInt64

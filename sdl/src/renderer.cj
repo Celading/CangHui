@@ -1456,6 +1456,14 @@ public class Renderer {
         }
     }
 
+    /** Reads the current target as PNG. Headless remains a no-op, like captureBmp. */
+    public func capturePng(path: String): Unit {
+        if (ptr.isNull()) { return }
+        try (surface = captureSurface()) {
+            surface.savePng(path)
+        }
+    }
+
     // Keep the native transition in this managed method, shared by capture and
     // pixel validation. Calling a foreign declaration across the test-package
     // boundary can produce an invalid GC-unwind accessor on Cangjie 1.1.3/macOS.
