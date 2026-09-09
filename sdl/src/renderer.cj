@@ -235,6 +235,22 @@ public class Renderer {
         None
     }
 
+    /**
+     * Resolved character directions from the retained horizontal native line (true = RTL).
+     * Indices are exact UTF16 scalar starts, not editor bytes; the end boundary and
+     * surrogate interiors throw. Order/duplicates are preserved; an empty batch is valid.
+     * None means unsupported backend/style, never an inferred LTR fallback.
+     */
+    public func textRightToLeftUtf16(text: String, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<Bool> {
+        if (let Some(backend) <- textBackend) {
+            return backend.platformDirections(text, indices, pointSize * max(scaleX, scaleY),
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))
+        }
+        None
+    }
+
     /** Native interop only: logical X to raw UTF16 hit (-1 for empty); not an editor byte offset. */
     public func textHitUtf16(text: String, x: Float32,
         pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
@@ -300,6 +316,17 @@ public class Renderer {
                 return Some(Array<(Float32, Float32)>(values.size, {i =>
                     (values[i][0] / scale, values[i][1] / scale) }))
             }
+        }
+        None
+    }
+
+    /** Direction query against the same immutable colored line used for painting. */
+    public func textRightToLeftUtf16(spec: NativeTextLineSpec, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<Bool> {
+        if (let Some(backend) <- textBackend) {
+            return backend.platformDirections(spec.text, indices, pointSize * max(scaleX, scaleY),
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))
         }
         None
     }

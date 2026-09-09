@@ -8,6 +8,7 @@ internal func pangoRequiredSymbols(): Array<(Int64, Array<String>)> {
             "pango_font_description_set_weight", "pango_font_description_free", "pango_layout_new",
             "pango_layout_set_text", "pango_layout_set_font_description", "pango_context_set_round_glyph_positions",
             "pango_layout_get_size", "pango_layout_get_pixel_extents", "pango_layout_get_cursor_pos",
+            "pango_layout_get_direction",
             "pango_layout_xy_to_index", "pango_layout_get_line_readonly", "pango_layout_line_get_x_ranges",
             "pango_layout_get_unknown_glyphs_count", "pango_layout_set_single_paragraph_mode",
             "pango_attr_list_new", "pango_attr_foreground_new", "pango_attr_foreground_alpha_new",

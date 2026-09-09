@@ -161,6 +161,16 @@ can return `-1`; convert to UTF-8 and normalize to grapheme boundaries before
 assigning editing state. The framework uses its internal `NativeTextIndex` for
 this; that internal type is not a public custom-editor API.
 
+`Renderer.textRightToLeftUtf16(text, indices)` reads resolved character directions
+from that same native line (`true` is RTL). The `NativeTextLineSpec` overload
+preserves colored-line layout. Pass exact UTF-16 **character starts**, not UTF-8
+bytes, surrogate interiors or the end boundary. Invalid indices throw; an empty
+batch is valid, and order/duplicates are preserved. Unsupported backends/styles
+return `None`, not guessed LTR values. Direction is per character: an RTL run
+may contain LTR numbers, neutral characters follow context, and caret affinity
+alone cannot determine direction.
+This query does not itself supply screen-reader character bounds.
+
 `TextArea` also uses complete colored display lines for paint, hit testing, caret,
 selection, decorations and preedit. Left/Right move visually; Up/Down hit the next
 logical row at the current visual x coordinate. Home/End remain logical. Durable

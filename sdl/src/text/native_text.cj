@@ -389,6 +389,16 @@ protected class NativeTextRenderer {
         None
     }
 
+    public func platformDirections(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
+        paths: Array<String>, paint!: ?NativeTextLineSpec = None): ?Array<Bool> {
+        if ((flags & 0x0E) == 0) {
+            if (let Some(native) <- platform) {
+                return Some(native.directions(text, indices, size, flags, paths, paint: paint))
+            }
+        }
+        None
+    }
+
     public func close(): Unit {
         if (closed) {
             return

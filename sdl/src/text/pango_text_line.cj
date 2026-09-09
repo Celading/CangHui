@@ -77,6 +77,18 @@ internal class PangoTextLine <: PlatformTextLine {
         offsets.utf16Index(index, trailing)
     }
 
+    public func rightToLeftUtf16(indices: Array<Int64>): Array<Bool> {
+        ensureOpen()
+        Array<Bool>(indices.size, {i =>
+            if (indices[i] >= offsets.utf16Length) { throw NativeTextException("Text direction index has no character") }
+            let byteIndex = offsets.byteIndex(indices[i])
+            let direction = unsafe { CFunc<(PangoRef, Int32) -> Int32>(api.symbol(0,
+                "pango_layout_get_direction"))(pointer, byteIndex) }
+            if (direction != 0 && direction != 1) { throw NativeTextException("Pango returned an unresolved text direction") }
+            direction == 1
+        })
+    }
+
     public func selectionUtf16(start: Int64, end: Int64): Array<(Float32, Float32)> {
         ensureOpen()
         let a = offsets.byteIndex(start); let b = offsets.byteIndex(end)

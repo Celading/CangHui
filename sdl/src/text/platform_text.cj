@@ -11,6 +11,8 @@ internal interface PlatformTextEngine {
         paint!: ?NativeTextLineSpec): (Float32, Float32)
     func carets(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
         paths: Array<String>, paint!: ?NativeTextLineSpec): Array<(Float32, Float32)>
+    func directions(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
+        paths: Array<String>, paint!: ?NativeTextLineSpec): Array<Bool>
     func hit(text: String, x: Float32, size: Float32, flags: Int32, paths: Array<String>,
         paint!: ?NativeTextLineSpec): Int64
     func selection(text: String, start: Int64, end: Int64, size: Float32, flags: Int32,

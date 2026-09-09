@@ -1,6 +1,6 @@
 package sdl.text
 
-import std.collection.HashMap
+import std.collection.{HashMap, HashSet}
 
 @C
 internal struct PlatformTextDestination {
@@ -98,6 +98,25 @@ internal class NativePlatformTextEngine <: PlatformTextEngine {
         paths: Array<String>, paint!: ?NativeTextLineSpec): Array<(Float32, Float32)> {
         let layout = line(text, size, flags, paths, paint: paint)
         Array<(Float32, Float32)>(indices.size, {i => layout.caretUtf16(indices[i])})
+    }
+
+    public func directions(text: String, indices: Array<Int64>, size: Float32, flags: Int32,
+        paths: Array<String>, paint!: ?NativeTextLineSpec): Array<Bool> {
+        // Direction belongs to a character, not a caret (the end boundary has
+        // no character). Validate the whole batch before asking either native API.
+        // Store only queried offsets, rather than another full-document index.
+        let pending = HashSet<Int64>()
+        for (index in indices) { pending.add(index) }
+        var offset: Int64 = 0
+        for (rune in text.runes()) {
+            pending.remove(offset)
+            offset += if (UInt32(rune) > UInt32(0xFFFF)) { 2 } else { 1 }
+        }
+        if (!pending.isEmpty()) {
+            throw NativeTextException("Text direction requires exact UTF16 character starts, excluding the end boundary")
+        }
+        let layout = line(text, size, flags, paths, paint: paint)
+        layout.rightToLeftUtf16(indices)
     }
 
     public func selection(text: String, start: Int64, end: Int64, size: Float32, flags: Int32,

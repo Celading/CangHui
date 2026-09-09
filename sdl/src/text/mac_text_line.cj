@@ -1,7 +1,7 @@
 package sdl.text
 
 import std.math.{ceil, floor}
-import std.collection.ArrayList
+import std.collection.{ArrayList, HashMap, HashSet}
 
 @When[os == "macOS"]
 private func applyMacTextColor(api: MacTextApi, attributed: MacRef, span: NativeTextColorSpan): Unit {
@@ -126,6 +126,29 @@ internal class MacTextLine <: PlatformTextLine {
         point.x = Float64(x)
         unsafe { CFunc<(MacRef, MacTextPoint) -> Int64>(api.symbol(1,
             "CTLineGetStringIndexForPosition"))(pointer, point) }
+    }
+
+    public func rightToLeftUtf16(indices: Array<Int64>): Array<Bool> {
+        ensureOpen()
+        // Scan native runs once, not once per query. Alternating LTR/RTL text
+        // otherwise degenerates into a quadratic run scan. Keep only requested
+        // offsets; native runs remain the sole owner of resolved bidi direction.
+        let pending = HashSet<Int64>()
+        for (index in indices) { pending.add(index) }
+        let resolved = HashMap<Int64, Bool>()
+        let runs = unsafe { CFunc<(MacRef) -> MacRef>(api.symbol(1, "CTLineGetGlyphRuns"))(pointer) }
+        for (i in 0..api.count(runs)) {
+            let run = api.item(runs, i)
+            let range = unsafe { CFunc<(MacRef) -> MacTextRange>(api.symbol(1, "CTRunGetStringRange"))(run) }
+            let status = unsafe { CFunc<(MacRef) -> UInt32>(api.symbol(1, "CTRunGetStatus"))(run) }
+            let rtl = (status & UInt32(1)) != UInt32(0)
+            for (index in range.location..(range.location + range.length)) {
+                if (pending.contains(index)) { resolved[index] = rtl; pending.remove(index) }
+            }
+            if (pending.isEmpty()) { break }
+        }
+        if (!pending.isEmpty()) { throw NativeTextException("CoreText direction index has no character run") }
+        Array<Bool>(indices.size, {i => resolved[indices[i]]})
     }
 
     func glyphCount(): Int64 {
