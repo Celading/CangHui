@@ -12,6 +12,8 @@ import chui.core.{UiContext, Widget}
 import std.env.getVariable
 @When[debug]
 import chui.kmode.decodeKModeText
+@When[debug]
+import chui.core.parseScriptedKeyInput
 
 @When[debug]
 private let DEBUG_UI_SCRIPT_LIMIT: Int64 = 128
@@ -135,9 +137,12 @@ class DebugUiScriptRunner {
         }
         if (operation == "key") {
             requireDebugUiArity(parts, 2, operation)
-            let key = parseDebugUiKey(parts[1])
-            dispatch(UiEvent.KeyDown(key, false))
-            dispatch(UiEvent.KeyUp(key))
+            let (key, mask) = parseScriptedKeyInput(parts[1])
+            let _ = ctx.withEventModifiers(Some(mask), {=>
+                dispatch(UiEvent.KeyDown(key, false))
+                dispatch(UiEvent.KeyUp(key))
+                true
+            })
             emitDebugUiResult(operation, true, "", 0, "")
             return
         }
@@ -246,33 +251,8 @@ func requireDebugUiArity(parts: Array<String>, expected: Int64, operation: Strin
 
 @When[debug]
 func parseDebugUiKey(input: String): Key {
-    // Fold only named ASCII keys. Letter events retain their original code below.
-    let folded = input.toArray()
-    for (i in 0..folded.size) {
-        if (folded[i] >= UInt8(65) && folded[i] <= UInt8(90)) { folded[i] += UInt8(32) }
-    }
-    let value = String.fromUtf8(folded)
-    if (value == "escape") { return Key.Escape }
-    if (value == "backspace") { return Key.Backspace }
-    if (value == "enter") { return Key.Enter }
-    if (value == "tab") { return Key.Tab }
-    if (value == "delete") { return Key.Delete }
-    if (value == "space") { return Key.Space }
-    if (value == "home") { return Key.Home }
-    if (value == "end") { return Key.End }
-    if (value == "left") { return Key.Left }
-    if (value == "right") { return Key.Right }
-    if (value == "up") { return Key.Up }
-    if (value == "down") { return Key.Down }
-    let bytes = input.toArray()
-    if (bytes.size == 1 && ((bytes[0] >= UInt8(65) && bytes[0] <= UInt8(90)) ||
-        (bytes[0] >= UInt8(97) && bytes[0] <= UInt8(122)))) {
-        return Key.Letter(bytes[0])
-    }
-    if (bytes.size == 1 && bytes[0] >= UInt8(48) && bytes[0] <= UInt8(57)) {
-        return Key.Digit(bytes[0])
-    }
-    throw IllegalArgumentException("unsupported key: ${value}")
+    let (key, _) = parseScriptedKeyInput(input)
+    key
 }
 
 @When[debug]

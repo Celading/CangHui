@@ -347,13 +347,18 @@ public class ComponentProbe {
                     session.finishEvent(ctx.cancelPointerInteraction(widget))
                 } else if (command == "key") {
                     requireProbeArity(parts, 2, command)
-                    let key = parseProbeKey(parts[1])
-                    let consumed = if (ctx.dispatchOverlay(UiEvent.KeyDown(key, false))) { true } else { match (key) {
-                        case Key.Tab =>
-                            ctx.focusNext()
-                            true
-                        case _ => widget.handle(ctx, UiEvent.KeyDown(key, false))
-                    } }
+                    let (key, mask) = parseScriptedKeyInput(parts[1])
+                    let eventWidget = widget
+                    let consumed = ctx.withEventModifiers(Some(mask), {=>
+                        if (ctx.dispatchOverlay(UiEvent.KeyDown(key, false))) { true } else {
+                            match (key) {
+                                case Key.Tab =>
+                                    if (ctx.keyModifiers().shift) { ctx.focusPrevious() } else { ctx.focusNext() }
+                                    true
+                                case _ => eventWidget.handle(ctx, UiEvent.KeyDown(key, false))
+                            }
+                        }
+                    })
                     session.finishEvent(consumed)
                 } else if (command == "focus") {
                     requireProbeArity(parts, 2, command)
@@ -1633,33 +1638,6 @@ private func trimProbeText(value: String): String {
 private func requireProbeArity(parts: Array<String>, expected: Int64, command: String): Unit {
     if (parts.size != expected) {
         throw IllegalArgumentException(command + " expects " + (expected - 1).toString() + " argument(s)")
-    }
-}
-
-private func parseProbeKey(value: String): Key {
-    match (value) {
-        case "Escape" => Key.Escape
-        case "Backspace" => Key.Backspace
-        case "Enter" => Key.Enter
-        case "Tab" => Key.Tab
-        case "Delete" => Key.Delete
-        case "Space" => Key.Space
-        case "Home" => Key.Home
-        case "End" => Key.End
-        case "Left" => Key.Left
-        case "Right" => Key.Right
-        case "Up" => Key.Up
-        case "Down" => Key.Down
-        case _ =>
-            let bytes = value.toArray()
-            if (bytes.size == 1 && ((bytes[0] >= UInt8(65) && bytes[0] <= UInt8(90)) ||
-                (bytes[0] >= UInt8(97) && bytes[0] <= UInt8(122)))) {
-                Key.Letter(bytes[0])
-            } else if (bytes.size == 1 && bytes[0] >= UInt8(48) && bytes[0] <= UInt8(57)) {
-                Key.Digit(bytes[0])
-            } else {
-                throw IllegalArgumentException("unknown probe key: " + value)
-            }
     }
 }
 

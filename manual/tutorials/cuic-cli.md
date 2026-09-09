@@ -105,6 +105,12 @@ diff'
 - `snapshot` 返回 viewport、当前焦点、可聚焦节点和交互所有者；`diff` 返回相邻渲染帧
   的新增/移除节点与焦点变化。先用它确认真实运行态，再用 `pview` 查几何、`prnt` 查像素。
 - release cuic 会拒绝 `shell`，release 应用也不会保留脚本 opt-in 与结果协议标记。
+- Debug `key` 支持 `Ctrl+A`、`Shift+Tab`、`CmdOrCtrl+Z` 等组合键，名称不区分
+  ASCII 大小写。修饰键为 Shift、Ctrl/Control、Alt/Option、Cmd/Command/Meta；
+  `CmdOrCtrl` 在 macOS 使用 Command，其他平台使用 Ctrl。重复、未知或空键会报错。
+  每条命令独立携带修饰键，无前缀表示无修饰键，不读宿主键盘当时的状态。
+  `a` 与 `A` 都按 SDL 的物理字母键码派发；输入大小写文字应使用 `text`，不是 `key`。
+  Debug probe 复用同一语法并支持 Shift+Tab 反向遍历；发布构建的离线 probe 不新增组合键执行。
 
 ## UI 健康审计
 
