@@ -68,6 +68,23 @@ CHUI_AK_API bool chui_ak_tree_multiline(struct chui_ak_tree *tree, uint64_t id,
 CHUI_AK_API bool chui_ak_tree_selection(struct chui_ak_tree *tree, uint64_t id,
     size_t anchor, size_t focus);
 
+/* Measured geometry for one existing generated text run (zero-based ordinal;
+ * a single-line projection has run0). Coordinate space is the same as tree_add,
+ * NOT relative to the semantic parent's origin. Positions are relative to the
+ * run's bounding box along direction: 0=LTR,1=RTL,2=top-to-bottom,3=bottom-to-top.
+ * These bridge-local codes are mapped to native enums, never cast to them.
+ * Count must equal that run's character_lengths, including any hard break.
+ * Positions are nonnegative/nondecreasing; advances are nonnegative and fit
+ * the run's axis extent. Zero-width breaks/empty runs are allowed.
+ * All arrays are copied. Invalid input poisons the transaction, not a partial
+ * update. Call once per run after text/multiline, before finish.
+ * Mixed bidi lines require actual directional runs; do not invent a direction
+ * or infer geometry from parent width. This function does not segment text.
+ * Additive ABI1 symbol: resolve before a consumer begins using it. */
+CHUI_AK_API bool chui_ak_tree_run_geometry(struct chui_ak_tree *tree, uint64_t id,
+    size_t run, double x, double y, double width, double height,
+    uint32_t direction, size_t count, const float *positions, const float *widths);
+
 /* Consumes the transaction on success OR failure. NULL means no update may be
  * submitted. The caller owns a successful update until transferred to AccessKit.
  * This is not an update-factory fallback: those callbacks may forbid NULL.

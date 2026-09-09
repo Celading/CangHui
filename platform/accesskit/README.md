@@ -107,6 +107,26 @@ grapheme segmentation algorithm.
 
 ## Optional Linux adapter lifecycle
 
+### Low-level text-run geometry
+
+`chui_ak_tree_run_geometry` can attach measured bounds, direction-relative
+character positions and advances to an existing generated text run. Its ordinal
+is zero for single-line text or the hard-line ordinal for multiline text. The
+function copies the arrays, validates their count against character lengths,
+checks finite nonnegative advances and extent containment, and rejects duplicate
+attachment. Invalid input rejects the whole transaction. Empty runs and zero-width
+hard breaks are allowed; no editing action is added.
+
+This additive ABI1 function is not yet called by the CangHui semantic loader.
+Stock controls therefore still do not expose character bounds through AT-SPI.
+The runtime must provide renderer-derived, revision-matched geometry before
+this can close that gap. Mixed bidi needs actual directional runs with same-line
+relationships; setting one direction on a mixed line is not a valid substitute.
+The bridge does not infer geometry from a control rectangle or font size.
+Existing consumers need no new symbol until they opt into the geometry call.
+
+### Adapter lifecycle
+
 `unix_adapter.h` exposes `new`, `publish`, `needs_refresh`, `refresh`, `focus`, `bounds`, `poll`, `dropped`
 and `close` through opaque integer handles. Serialize all calls for a handle on
 its UI owner; these public calls are not a concurrently callable owner API.

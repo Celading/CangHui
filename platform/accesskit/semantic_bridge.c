@@ -220,6 +220,8 @@ bool chui_ak_tree_selection(struct chui_ak_tree *tree, uint64_t id, size_t ancho
     return true;
 }
 
+#include "semantic_text_geometry.inc"
+
 void chui_ak_tree_free(struct chui_ak_tree *tree) {
     if (!tree) return;
     for (unsigned i = 0; i < tree->count; ++i) {

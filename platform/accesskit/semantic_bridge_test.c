@@ -202,6 +202,7 @@ static void selection_facts_are_directional_bounded_and_noneditable(void) {
 }
 
 #include "semantic_multiline_test.inc"
+#include "semantic_text_geometry_test.inc"
 
 int main(void) {
     tree_order_and_ownership(); roles_states_and_actions(); readonly_disabled_password();
@@ -210,6 +211,9 @@ int main(void) {
     selection_facts_are_directional_bounded_and_noneditable();
     multiline_runs_and_selection(); multiline_rejection_and_limits();
     multiline_generated_collision_and_shared_budget();
-    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 12/12");
+    geometry_is_copied_directional_and_optional(); geometry_multiline_and_empty_runs();
+    geometry_rejects_invalid_input_atomically();
+    geometry_rejects_missing_text_overflow_and_wrong_span_counts();
+    puts("CANGHUI_ACCESSKIT_TREE_TESTS_PASSED 16/16");
     return 0;
 }
