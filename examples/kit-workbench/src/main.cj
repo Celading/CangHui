@@ -67,6 +67,7 @@ main(): Int64 {
             }
         }
     }
+    emitWorkbenchResult(state, appliedTheme[0], appliedTheme[1])
     0
 }
 

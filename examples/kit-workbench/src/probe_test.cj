@@ -2,6 +2,23 @@ package canghui_kit_workbench
 
 import chui.*
 
+@When[debug]
+@Test
+func runtimeReceiptDistinguishesRequestedAndAppliedTheme(): Unit {
+    let state = WorkbenchState()
+    state.profile.value = 2
+    state.selected.value = 1
+    state.starts.value = 3
+    state.holds.value = 1
+    state.expanded.value = true
+    state.dark.value = true
+    state.reduced.value = true
+    @Expect(workbenchResult(state, false, false),
+        "{\"protocol\":\"canghui.kit-workbench-result.v1\",\"profile\":2,\"selected\":1," +
+        "\"starts\":3,\"holds\":1,\"expanded\":true,\"dark\":true,\"reduced\":true," +
+        "\"appliedDark\":false,\"appliedReduced\":false}")
+}
+
 @Test
 func workbenchMotionAndPrimaryActionAreReplayable(): Unit {
     let report = editorialProbe("focus reshape\nkey Enter\nadvance 230\nassert activation reshape 1\nfocus start\nkey Enter\nassert activation start 1")

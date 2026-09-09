@@ -45,3 +45,11 @@ probe ID addresses the selector without relying on its generated focus key.
 The current probe keeps its initial host Theme: toggling a setting in headless
 replay alone does not prove live theme/reduced-motion propagation. Verify that
 transition in the desktop application, whose event handler updates the host Theme.
+
+Debug desktop runs print `KIT_WORKBENCH_RESULT` on normal exit. The JSON records
+final selection, action counters, motion target and requested/applied theme flags.
+Use it with the matching Debug CUIC `shell run` and verify both script receipts
+and final state; successful event dispatch alone does not prove an action fired.
+The applied flags record completed host `setTheme` calls, not pixel or animation
+timing proof. Use `prnt` for pixels and timed probe replay for motion progression.
+Release builds do not emit this receipt or enable script input.
