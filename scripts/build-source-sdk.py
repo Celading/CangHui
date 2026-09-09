@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import pathlib
 import platform
 import re
@@ -184,12 +185,24 @@ def copy_framework_notices(output, framework):
         shutil.copyfile(framework / name, destination / name)
 
 
-def build_cli_pair(output, revision, verify_binary):
+def resolve_bootstrap_cuic(cuic):
+    if cuic is None:
+        return None
+    executable = pathlib.Path(cuic).resolve(strict=True)
+    if not executable.is_file() or not os.access(executable, os.X_OK):
+        raise ValueError("--cuic requires an executable file")
+    return executable
+
+
+def build_cli_pair(output, revision, verify_binary, cuic=None):
     """Build both tools from the same archive; target policy belongs to the caller."""
     cli_version = ""
     with tempfile.TemporaryDirectory(prefix="chui-sdk-build-") as temporary:
         staging = pathlib.Path(temporary)
-        export_revision(revision, ["tools/cuic"], staging)
+        # CUIC enforces integrated-project identity before build. Give it the
+        # same committed framework context, not an ambient checkout or fake dependency.
+        paths = SOURCE_ROOTS + ["tools/cuic"] if cuic is not None else ["tools/cuic"]
+        export_revision(revision, paths, staging)
         cli = staging / "tools/cuic"
         cli_version = version(cli / "cjpm.toml")
         manifest = cli / "cjpm.toml"
@@ -201,10 +214,19 @@ def build_cli_pair(output, revision, verify_binary):
             'func renderCuicVersion(): String { "cuic ${VERSION} (${CUIC_BUILD_CHANNEL}@${CUIC_BUILD_REVISION})" }\n')
         (output / "bin").mkdir()
         for debug in [False, True]:
-            command = ["cjpm", "build"]
-            if debug:
-                command.append("-g")
-            subprocess.run(command, cwd=cli, check=True)
+            flavor = "debug" if debug else "release"
+            if cuic is not None:
+                target = "macos" if platform.system() == "Darwin" else "linux"
+                environment = os.environ.copy()
+                environment["CANGHUI_CLI_ROOT"] = str(cli)
+                environment["CUIC_TARGET_DIR"] = str(cli / "target")
+                command = [str(cuic), "build", target, str(cli), "--mode", flavor]
+                subprocess.run(command, cwd=cli, env=environment, check=True)
+            else:
+                command = ["cjpm", "build"]
+                if debug:
+                    command.append("-g")
+                subprocess.run(command, cwd=cli, check=True)
             name = "cuic-debug" if debug else "cuic"
             shutil.copy2(cli / "target" / ("debug" if debug else "release") / "bin/main", output / "bin" / name)
             verify_binary(output / "bin" / name)
@@ -217,12 +239,13 @@ def verify_macos_cli(binary):
         raise ValueError("CUIC is not standalone from the build toolchain")
 
 
-def build(output, revision):
+def build(output, revision, cuic=None):
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         raise ValueError("this exporter only validates macOS arm64")
     compiler = run("cjc", "--version")
     if compiler.splitlines() != ["Cangjie Compiler: 1.1.3 (cjnative)", "Target: aarch64-apple-darwin"]:
         raise ValueError("Cangjie 1.1.3 is required for this source SDK ABI")
+    cuic = resolve_bootstrap_cuic(cuic)
     revision = run("git", "-C", ROOT, "rev-parse", revision + "^{commit}")
     output = output.resolve()
     output.mkdir(parents=True, exist_ok=False)  # Never overwrite an earlier delivery.
@@ -232,7 +255,7 @@ def build(output, revision):
     copy_framework_notices(output, framework)
     if not (framework / "src/core/probe_observation.cj").exists():
         raise ValueError("selected revision predates observation/v1")
-    cli_version = build_cli_pair(output, revision, verify_macos_cli)
+    cli_version = build_cli_pair(output, revision, verify_macos_cli, cuic=cuic)
     compiler_root = pathlib.Path(shutil.which("cjc")).resolve().parent.parent
     copy_licenses(compiler_root, output / "licenses/cangjie")
     names, origins, minimum = native_closure(output)
@@ -282,5 +305,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--revision", default="HEAD")
+    parser.add_argument("--cuic", type=pathlib.Path, help="explicit bootstrap CUIC executable for both tool builds")
     options = parser.parse_args()
-    build(options.output, options.revision)
+    build(options.output, options.revision, cuic=options.cuic)

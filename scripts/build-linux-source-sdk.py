@@ -118,13 +118,14 @@ def seal(output):
     return archive_path
 
 
-def build(output, revision, manifest_path):
+def build(output, revision, manifest_path, cuic=None):
     architecture = platform.machine()
     if platform.system() != "Linux" or architecture not in TARGETS:
         raise ValueError("requires a native Linux aarch64 or x86_64 build host")
     target, triple, _ = TARGETS[architecture]
     if sdk.run("cjc", "--version").splitlines() != ["Cangjie Compiler: 1.1.3 (cjnative)", "Target: " + triple]:
         raise ValueError("requires the matching native Cangjie 1.1.3 compiler")
+    cuic = sdk.resolve_bootstrap_cuic(cuic)
     profile = assembly.load_profile(manifest_path)
     validate_profile(profile, architecture)
     revision = sdk.run("git", "-C", sdk.ROOT, "rev-parse", revision + "^{commit}")
@@ -148,7 +149,7 @@ def build(output, revision, manifest_path):
     def verify(binary):
         reports[binary.name] = verify_cli(output, binary, profile)
 
-    cli_version = sdk.build_cli_pair(output, revision, verify)
+    cli_version = sdk.build_cli_pair(output, revision, verify, cuic=cuic)
     floors = [report["numericGlibcFloor"] for report in reports.values()]
     if not all(floors):
         raise ValueError("missing ELF-derived glibc floor")
@@ -186,8 +187,9 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--revision", default="HEAD")
     parser.add_argument("--runtime-manifest", type=Path, required=True)
+    parser.add_argument("--cuic", type=Path, help="explicit bootstrap CUIC executable for both tool builds")
     args = parser.parse_args()
     try:
-        build(args.output, args.revision, args.runtime_manifest)
+        build(args.output, args.revision, args.runtime_manifest, cuic=args.cuic)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         parser.exit(1, "Linux source SDK export failed: " + str(error) + "\n")

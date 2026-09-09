@@ -130,6 +130,11 @@ CUIC 版本但目标平台不同，也不会显示为 `pairedWithThisCuic: true`
 python3 scripts/build-source-sdk.py --revision <commit> --output /tmp/chui-sdk-candidate
 ```
 
+已有可用 CUIC 时，可追加 `--cuic /absolute/path/to/cuic`，让 release/debug 工具构建
+都经过 CUIC。导出器为它准备同一提交的临时源码环境，不改安装版工具、全局环境或原仓库。
+指定 CUIC 失败即停止，不会悄悄退回 CJPM；未指定时保留首次引导用的直接 CJPM 构建方式。
+Linux 导出器也支持相同参数。
+
 导出器要求本机已具备编译器、Homebrew 原生依赖及其许可证，过程不下载或安装依赖。
 会同时生成目录与 `.tar.gz`，输出归档校验值。需要实际完成新目录消费、无图/像素回放、
 只读 SDK、禁网/禁 Homebrew 测试和应用搬迁测试后，才能提升交付状态。
