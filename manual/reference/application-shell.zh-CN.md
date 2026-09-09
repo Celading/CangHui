@@ -54,13 +54,48 @@ Shell。其 `pump()` / `run()` 负责挂载和派发；单独调用 `pumpOne()` 
 所有生命周期与派发操作仍由同一 UI owner 串行使用，不是跨线程取消或强制终止协议。
 
 替换菜单会断开旧动作对象并清空待派发队列；卸载时，若菜单仍由本 Provider 持有，
-恢复原有菜单。整个过程不替换 SDL 的 application delegate。原生队列最多容纳
+恢复原有菜单。未显式启用自定义 Dock 菜单时，不替换 SDL 的 application delegate。原生队列最多容纳
 256 个动作，溢出明确失败，不提供远程控制入口。
 
-本 Provider 的 `ApplicationMenu` 和 `Badge` 报告 native；设置仍是内存 fallback。应用图标、
-Dock 动作、状态项、通知以及系统 Deep Link 注册尚未通过此 Provider 接通。系统命令标签暂为
+本 Provider 的 `ApplicationMenu`、`DockMenu` 和 `Badge` 报告 native；设置仍是内存 fallback。应用图标、
+状态项、通知以及系统 Deep Link 注册尚未通过此 Provider 接通。系统命令标签暂为
 英文；其他操作系统下此工厂选择 Headless Provider。图标打包、签名和分发与原生菜单
 是分别验收的能力，见[应用打包](application-packaging.zh-CN.md)。
+
+## Dock 动作菜单
+
+复用 `AppMenu` 和已注册的 Action，不必另写原生回调：
+
+```cangjie
+shell.registerAction(AppAction("window.library", "媒体库"), { => openLibrary() })
+shell.setDockMenu(Some(AppMenu("dock", "快捷操作", actionIds: ["window.library"])))
+// 同样可在 attach 前设置，挂载时才发布到系统。
+shell.setDockMenu(None<AppMenu>) // 清除自定义菜单，恢复原委托
+```
+
+菜单最多包含 256 个不同的 Action ID，ID 必须已在 manifest 声明或通过 Shell 注册。
+只声明、未绑定的动作保持禁用；后续绑定会更新标题和启用状态。菜单参数复制保存，
+修改调用者的数组不会偷偷改变已排队或已显示的菜单。未知 ID、重复项、非法 ID、
+NUL 标题及超限菜单在修改前拒绝。Dock 不重复注册菜单栏快捷键。
+
+原生动作只进入现有 Shell 队列，由桌面应用派发，不在 AppKit 回调中直接执行业务。
+替换或清除 Dock 菜单会断开旧菜单项的 target/action，并清空尚未派发的 Shell 动作；
+这也会撤销同一队列里未派发的菜单栏动作。卸载遵循相同终止规则，不会继续执行余下动作。
+
+只有显式设置自定义 Dock 菜单才包装应用委托。包装器转发原委托的方法、方法签名和
+通知回调，不修改原类或 `isa`。自定义菜单启用期间不拼接原委托的 Dock 项；清除后
+恢复原委托及其菜单。若其他宿主替换了委托，更新会失败而不是夺回所有权；先清除再
+显式设置才能重新启用。卸载也不会覆盖其他宿主的新委托。
+
+外部仍持有旧包装器时，其自定义菜单已被撤销，但原委托转发仍然有效。固定系统库
+和包装器类型的元数据保留到进程结束；没有进程级菜单、应用或业务 handler 列表。
+这些操作必须由原生主线程串行调用，不是远程控制或跨线程取消接口。
+
+`SystemShellDockMenuProvider` 是可选 SPI，旧 Provider 无需新增方法；不支持时返回
+`Unsupported`。Headless 的 `capturedDockMenu()` 只返回复制后的确定性记录，不表示系统
+已显示菜单。`SystemSurface.DockMenu` 不代表完整 `Taskbar`、通知或图标能力。
+当前原生实现已在 macOS arm64 验证菜单动作、晚绑定、替换、关闭和委托转发；物理 Dock
+点击、其他系统版本和安装后行为仍需目标环境验收，不由语义探针代替。
 
 ## 应用徽标
 

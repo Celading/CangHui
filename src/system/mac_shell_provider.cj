@@ -58,10 +58,10 @@ internal func macShellValidateCallback(receiver: ShellRef, _: ShellRef, sender: 
     false
 }
 
-/** Native menu/About/badge provider; notification, Dock actions and persistence are
+/** Native menu/About/badge/Dock provider; notification and persistence are
  * intentionally unsupported until their independent native providers exist. */
 @When[os == "macOS"]
-public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntimeProvider & SystemShellBadgeProvider {
+public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntimeProvider & SystemShellBadgeProvider & SystemShellDockMenuProvider {
     private let actions = ArrayList<AppAction>()
     private let boundActionIds = ArrayList<String>()
     private let fallback = HeadlessSystemShellProvider()
@@ -83,6 +83,9 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
     private let badge = MacShellBadge()
     private var requestedBadge: ?String = None
     private var hasRequestedBadge = false
+    private var requestedDockMenu: ?AppMenu = None
+    private let dock = MacShellDock()
+    private let dockItems = ArrayList<ShellRef>()
 
     public init() {}
 
@@ -90,6 +93,7 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
         match (surface) {
             case SystemSurface.ApplicationMenu => SystemSurfaceState.Native
             case SystemSurface.Badge => SystemSurfaceState.Native
+            case SystemSurface.DockMenu => SystemSurfaceState.Native
             case SystemSurface.Settings => SystemSurfaceState.Fallback
             case _ => SystemSurfaceState.Unsupported
         }
@@ -99,6 +103,7 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
         if (closed) { return failed("application shell is closed") }
         if (let Some(native) <- api) { native.requireMainThread() }
         let _ = macMenuShortcut(action.shortcut)
+        if (action.title.contains("\u{0}")) { throw IllegalArgumentException("native action title contains NUL") }
         for (id in boundActionIds) {
             if (id == action.id) { return failed("duplicate application action: " + action.id) }
         }
@@ -107,7 +112,12 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             let previous = actions[index]
             actions[index] = action
             try {
-                if (let Some(native) <- api) { rebuildMenu(native, currentMenu()) }
+                if (let Some(native) <- api) {
+                    rebuildMenu(native, currentMenu())
+                    for (item in dockItems) {
+                        if (native.getInteger(item, "tag") == index + 100) { native.setText(item, "setTitle:", action.title) }
+                    }
+                }
             } catch (error: Exception) { actions[index] = previous; throw error }
         } else {
             if (actions.size >= 4096) { return failed("native action limit is 4096") }
@@ -157,6 +167,7 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             rebuildMenu(native, menu)
             requestedMenu = Some(menu)
             if (hasRequestedBadge) { badge.apply(native, app, requestedBadge) }
+            if (requestedDockMenu.isSome()) { rebuildDockMenu(native, requestedDockMenu) }
             applied("AppKit application menu attached")
         } catch (error: Exception) {
             detach()
@@ -324,6 +335,54 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
         SystemShellResult(SystemShellResultStatus.Queued, message: "badge awaits application attachment")
     }
 
+    public func setDockMenu(menu: ?AppMenu): SystemShellResult {
+        if (closed) { return failed("application shell is closed") }
+        let snapshot = copyApplicationDockMenu(menu)
+        if (let Some(native) <- api) {
+            native.requireMainThread()
+            // Includes actions declared in the manifest but not yet bound.
+            if (let Some(value) <- snapshot) {
+                for (id in value.actionIds) { if (actionIndex(id) < 0) { return failed("unknown application action: " + id) } }
+            }
+            rebuildDockMenu(native, snapshot)
+            requestedDockMenu = snapshot
+            return applied("AppKit Dock menu updated")
+        }
+        requestedDockMenu = snapshot
+        SystemShellResult(SystemShellResultStatus.Queued, message: "Dock menu awaits application attachment")
+    }
+
+    private func rebuildDockMenu(native: MacShellApi, model: ?AppMenu): Unit {
+        if (let Some(value) <- model) {
+            for (id in value.actionIds) {
+                if (actionIndex(id) < 0) { throw IllegalArgumentException("unknown Dock action: " + id) }
+            }
+            let menu = native.menu(value.title)
+            let pendingItems = ArrayList<ShellRef>()
+            try {
+                for (id in value.actionIds) {
+                    let index = actionIndex(id)
+                    // Dock entries share action tags but not menu-bar key equivalents.
+                    let item = native.item(actions[index].title, native.sel("chuiPerformAction:"), target, "", 0)
+                    try {
+                        native.integer(item, "setTag:", index + 100)
+                        native.set(menu, "addItem:", item)
+                        pendingItems.add(native.retain(item))
+                    } finally { native.release(item) }
+                }
+                dock.apply(native, app, menu)
+                disconnectItems(native, dockItems)
+                for (item in pendingItems) { dockItems.add(item) }
+                pendingItems.clear()
+            } finally { disconnectItems(native, pendingItems); native.release(menu) }
+        } else {
+            dock.detach(native)
+            disconnectItems(native, dockItems)
+        }
+        // A changed system projection invalidates events captured by the old one.
+        if (let Some(queue) <- sink) { queue.clear() }
+    }
+
     public func detach(): Unit {
         if (closed) { return }
         if (let Some(native) <- api) {
@@ -332,8 +391,11 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             macShellOwner = None
             sink = None
             disconnectItems(native, actionItems)
+            disconnectItems(native, dockItems)
+            dock.detach(native)
             badge.restore(native)
-            // Restore the previous application surfaces; never replace SDL's delegate.
+            // Dock restores its delegate only while still owned; other surfaces
+            // restore independently. Hosts without a custom Dock keep SDL's delegate.
             if (savedSurfaces && (ownedMenu.isNull() || native.get(app, "mainMenu").toUIntNative() == ownedMenu.toUIntNative())) {
                 native.set(app, "setMainMenu:", oldMenu)
                 native.set(app, "setWindowsMenu:", oldWindowsMenu)

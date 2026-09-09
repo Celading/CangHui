@@ -209,6 +209,7 @@ public struct SystemNotification {
 
 public enum SystemSurface <: Equatable<SystemSurface> {
     | ApplicationMenu
+    | DockMenu
     | StatusItem
     | Notification
     | Settings
@@ -230,6 +231,7 @@ public enum SystemSurface <: Equatable<SystemSurface> {
 public func systemSurfaceName(surface: SystemSurface): String {
     match (surface) {
         case SystemSurface.ApplicationMenu => "application-menu"
+        case SystemSurface.DockMenu => "dock-menu"
         case SystemSurface.StatusItem => "status-item"
         case SystemSurface.Notification => "notification"
         case SystemSurface.Settings => "settings"
@@ -349,7 +351,7 @@ public interface SystemShellProvider {
 }
 
 /** Deterministic provider used by kMode, headless tests and unsupported hosts. */
-public class HeadlessSystemShellProvider <: SystemShellProvider & SystemShellBadgeProvider {
+public class HeadlessSystemShellProvider <: SystemShellProvider & SystemShellBadgeProvider & SystemShellDockMenuProvider {
     private let registeredActions = ArrayList<AppAction>()
     private let notifications = ArrayList<SystemNotification>()
     private let settingKeys = ArrayList<String>()
@@ -357,6 +359,7 @@ public class HeadlessSystemShellProvider <: SystemShellProvider & SystemShellBad
     private let deepLinks = ArrayList<AppDeepLinkRoute>()
     private var applicationMenu: ?AppMenuBar = None
     private var badgeLabel: ?String = None
+    private var dockMenu: ?AppMenu = None
     private let notificationPermissionState: NotificationPermissionState
 
     public init(notificationPermission!: NotificationPermissionState = NotificationPermissionState.NotRequired) {
@@ -462,6 +465,11 @@ public class HeadlessSystemShellProvider <: SystemShellProvider & SystemShellBad
         SystemShellResult(SystemShellResultStatus.Queued, message: "badge captured by headless provider")
     }
     public func capturedBadge(): ?String { badgeLabel }
+    public func setDockMenu(menu: ?AppMenu): SystemShellResult {
+        dockMenu = copyApplicationDockMenu(menu)
+        SystemShellResult(SystemShellResultStatus.Queued, message: "Dock menu captured by headless provider")
+    }
+    public func capturedDockMenu(): ?AppMenu { copyApplicationDockMenu(dockMenu) }
     public func notificationCount(): Int64 { notifications.size }
     public func deepLinkCount(): Int64 { deepLinks.size }
     public func applicationMenuCount(): Int64 {
@@ -550,6 +558,22 @@ public class ApplicationShell {
                 message: renderApplicationManifestErrors(errors.toArray()))
         }
         provider.setApplicationMenu(menu)
+    }
+
+    /** Optional application-wide Dock menu. None restores the native owner's menu. */
+    public func setDockMenu(menu: ?AppMenu): SystemShellResult {
+        if (isClosed()) { return closedResult() }
+        let snapshot = copyApplicationDockMenu(menu)
+        let errors = ArrayList<String>()
+        if (let Some(value) <- snapshot) {
+            validateRuntimeActionReferences(value.actionIds, "Dock menu", errors)
+        }
+        if (!errors.isEmpty()) {
+            return SystemShellResult(SystemShellResultStatus.Failed,
+                message: renderApplicationManifestErrors(errors.toArray()))
+        }
+        if (let Some(dock) <- (provider as SystemShellDockMenuProvider)) { return dock.setDockMenu(snapshot) }
+        SystemShellResult(SystemShellResultStatus.Unsupported, message: "provider does not support Dock menus")
     }
 
     public func setStatusItem(item: AppStatusItem): SystemShellResult {
