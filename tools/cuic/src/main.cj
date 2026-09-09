@@ -105,8 +105,8 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
         return initProject(args, 2)
     }
     if (command == "build" || command == "test") {
-        let (parsed, mode) = parseCjpmProfile(args, 2)
-        return runCjpm(command, parsed.platform, parsed.project, mode: mode)
+        let (parsed, mode, jobs) = parseCjpmProfile(args, 2)
+        return runCjpm(command, parsed.platform, parsed.project, mode: mode, jobs: jobs)
     }
     if (command == "run") {
         return runDesktopApplication(parseRunOptions(args, 2))
@@ -377,9 +377,9 @@ func helpText(): String {
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
     "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--runtime-manifest <file>] [--json]\n" +
     "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
-    "  cuic build [platform] [project] [--mode release|debug]\n" +
-    "  cuic test [platform] [project] [--mode release|debug]\n" +
-    "  cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]\n" +
+    "  cuic build [platform] [project] [--mode release|debug] [--jobs 1..256]\n" +
+    "  cuic test [platform] [project] [--mode release|debug] [--jobs 1..256]\n" +
+    "  cuic run [platform] [project|example] [--mode release|debug] [--jobs 1..256] [-- <app-args...>]\n" +
     "  cuic debug [platform] [project|example] [--device <alias>] [--app <bundle>] [--mode <debug|release>] [-- <app args...>]\n" +
     "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--window <semantic-id>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
     "  cuic clean [project]\n" +
@@ -621,8 +621,8 @@ func copyNativeLibrary(source: String, destination: String): Unit {
     File.writeTo(destination, File.readFrom(source))
 }
 
-func runCjpm(action: String, platform: String, project: String, mode!: String = "release"): Int64 {
-    let arguments = cjpmProfileArguments(action, mode)
+func runCjpm(action: String, platform: String, project: String, mode!: String = "release", jobs!: Int64 = 0): Int64 {
+    let arguments = cjpmProfileArguments(action, mode, jobs: jobs)
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)

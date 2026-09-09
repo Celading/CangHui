@@ -8,10 +8,12 @@ class RunOptions {
     let project: String
     let mode: String
     let appArgs: Array<String>
+    let jobs: Int64
 
-    init(platform: String, project: String, mode: String, appArgs: Array<String>) {
+    init(platform: String, project: String, mode: String, appArgs: Array<String>, jobs!: Int64 = 0) {
         this.platform = platform; this.project = project
         this.mode = mode; this.appArgs = appArgs
+        this.jobs = jobs
     }
 }
 
@@ -26,6 +28,7 @@ func parseRunOptions(args: Array<String>, start: Int64): RunOptions {
     var hasProject = false
     var mode = "release"
     var hasMode = false
+    var jobs: Int64 = 0
     let appArgs = ArrayList<String>()
     while (index < args.size) {
         let value = args[index]
@@ -43,6 +46,11 @@ func parseRunOptions(args: Array<String>, start: Int64): RunOptions {
                 throw CuicError("run mode must be release or debug")
             }
             hasMode = true; index += 2
+        } else if (value == "--jobs") {
+            if (jobs != 0 || index + 1 >= args.size) {
+                throw CuicError("run requires one --jobs 1..256 value")
+            }
+            jobs = parseCjpmJobs(args[index + 1]); index += 2
         } else {
             if (value.startsWith("-") || hasProject) {
                 throw CuicError("unexpected run argument: ${value}; use -- before application arguments")
@@ -53,7 +61,7 @@ func parseRunOptions(args: Array<String>, start: Int64): RunOptions {
     if (!hasProject) {
         requested = implicitProjectRequest("notepad", exists(joinPath(currentDirectory(), "cjpm.toml")))
     }
-    RunOptions(platform, resolveProject(requested, ""), mode, appArgs.toArray())
+    RunOptions(platform, resolveProject(requested, ""), mode, appArgs.toArray(), jobs: jobs)
 }
 
 func runDesktopApplication(options: RunOptions): Int64 {
@@ -72,7 +80,7 @@ func runDesktopApplication(options: RunOptions): Int64 {
     let lease = context.acquireLease()
     try {
         println("==> building ${basename(project)} (${options.platform}, ${options.mode})")
-        let buildCode = executeCjpm(context, cjpmProfileArguments("build", options.mode))
+        let buildCode = executeCjpm(context, cjpmProfileArguments("build", options.mode, jobs: options.jobs))
         if (buildCode != 0) { return buildCode }
         let executable = desktopCaptureExecutable(context.targetDir, options.mode, {path => exists(path)})
         println("==> running ${basename(project)} (${options.platform}, ${options.mode})")

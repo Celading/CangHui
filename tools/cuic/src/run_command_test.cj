@@ -52,3 +52,13 @@ func runKeepsBuiltinExampleResolution(): Unit {
     let expected = resolveProject("notepad", "")
     @Expect(parseRunOptions(["notepad"], 0).project, expected)
 }
+
+@Test
+func runJobsControlsOnlyBuildAndPreservesAppArguments(): Unit {
+    let options = parseRunOptions([".", "--jobs", "2", "--mode", "debug", "--", "--jobs", "invalid"], 0)
+    @Expect(options.jobs, Int64(2))
+    @Expect(cjpmProfileArguments("build", options.mode, jobs: options.jobs), ["build", "-g", "-j", "2"])
+    @Expect(options.appArgs, ["--jobs", "invalid"])
+    @Expect(parseRunOptions([".", "--", "--jobs", "0"], 0).jobs, Int64(0))
+    @Expect(parseRunOptions(["."], 0).jobs, Int64(0))
+}

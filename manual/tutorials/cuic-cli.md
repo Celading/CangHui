@@ -5,12 +5,16 @@ cuic 是 CangHui 的集成生命周期 CLI。以下命令在 `tools/cuic/bin/cui
 ## 构建 / 测试 / 运行
 
 ```bash
-cuic build [platform] [project]
-cuic test [platform] [project]
-cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]
+cuic build [platform] [project] [--mode release|debug] [--jobs 1..256]
+cuic test [platform] [project] [--mode release|debug] [--jobs 1..256]
+cuic run [platform] [project|example] [--mode release|debug] [--jobs 1..256] [-- <app-args...>]
 ```
 
 - 默认生产（release）语义。
+- 构建资源紧张时可显式使用 `--jobs 1`，例如 `cuic test macos . --mode debug --jobs 1`。
+  该参数只控制 CJPM 构建任务并发，不限制测试线程或应用运行时线程，也不修复 SDK 本身的故障。
+  省略时沿用原策略：普通源码项目由 CJPM 决定，源 SDK 构建默认单任务；显式值覆盖该 SDK 默认值。
+  `--jobs` 仅接受 1–256 的十进制整数，重复、缺值或越界均在项目查找前报错；`run --` 后的同名参数仍原样交给应用。
 - 项目路径支持相对路径和绝对路径。源码仓内的工具、SDL 等子包可以直接交给
   `cuic build/test`；源码仓身份按解析后的真实目录判定，不按字符串前缀判断。
   通过 `..` 或符号链接指向仓外的项目不享受源码子包豁免，声明 Git 依赖的项目仍须
