@@ -1,10 +1,16 @@
 [chui](../../index.md) › [chui.core](index.md) › UiContext
 
+宿主键盘路由：`dispatchKeyboardEvent(root: Widget, event: UiEvent): Bool`
+复用当前事件的修饰键作用域，按浮层、当前焦点捕获、普通路由依次处理物理按键。
+`setKeyboardWindowActive(active: Bool): Unit` 通知窗口失焦／恢复并撤销旧 Tab 归属。
+这些方法不负责构建焦点环，也不创建外部注入通道。
+普通应用使用 [`Widget.captureKeyboard`](Widget.md)，见[键盘与焦点](../../../guide/how-to/keyboard-and-focus.md)。
+
 # UiContext
 
 `chui.core` 包中的 public class
 
-每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态、继承排版环境，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。整个应用只有一个实例，跨帧存续——组件树每帧重建，需要活过重建的交互状态都保存在这里。
+每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态、继承排版环境，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。每个窗口持有自己的实例，跨帧存续——组件树每帧重建，需要活过重建的交互状态都保存在这里。
 
 ## 声明
 

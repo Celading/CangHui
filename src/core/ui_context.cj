@@ -83,6 +83,22 @@ public class UiContext {
     }
 
     private let ownershipTokenValue = UI_CONTEXT_OWNERSHIP_COUNTER.fetchAdd(1)
+    private let focusedKeyboard = FocusedKeyboardRouter()
+
+    /** Shared desktop/Harmony custom-host route. Call once for each KeyDown/KeyUp,
+     * inside withEventModifiers; this includes overlays, capture and normal traversal. */
+    public func dispatchKeyboardEvent(root: Widget, event: UiEvent): Bool {
+        focusedKeyboard.dispatch(this, root, event)
+    }
+
+    /** A host must report focus loss/gain before dispatching further keyboard input. */
+    public func setKeyboardWindowActive(active: Bool): Unit {
+        focusedKeyboard.setActive(active)
+    }
+
+    internal func registerFocusedKeyboardBinding(binding: FocusedKeyboardBinding): Unit {
+        focusedKeyboard.register(binding)
+    }
     public let renderer: Renderer
     public var theme: Theme
     public var focusId: String = ""
@@ -142,6 +158,7 @@ public class UiContext {
 
     /** Clears the previous declarative build's external-surface scheduling registrations. */
     protected func beginFrameSurfaceRegistration(): Unit {
+        focusedKeyboard.beginLayout()
         nativeChildFrameSurfaces.clear()
         finishSharedFrameSurfaces("abandoned")
         sharedFrameSurfaces.clear()
@@ -478,7 +495,9 @@ public class UiContext {
      * currently on screen and in their declared order.
      */
     protected func adoptFocusRing(ids: Array<String>): Unit {
+        focusedKeyboard.beginLayout()
         focusOrder = ids.clone()
+        if (semanticFocusOrder(focusId).isNone()) { focusedKeyboard.invalidateHeld() }
     }
 
     /** Focuses only an ID present in the latest declarative focus ring. */
@@ -533,6 +552,7 @@ public class UiContext {
         } else {
             (((current + step) % count) + count) % count
         }
+        focusedKeyboard.invalidateHeld()
         focusId = focusOrder[next]
         focusRingVisible = true // Tab traversal is keyboard, so the ring shows
     }
@@ -553,6 +573,7 @@ public class UiContext {
     // `viaKeyboard` marks focus the user reached by keyboard (Tab, autofocus) versus a pointer
     // press; it drives whether a ring shows, not focus itself.
     public func focus(id: String, viaKeyboard!: Bool = false): Unit {
+        if (focusId != id) { focusedKeyboard.invalidateHeld() }
         focusId = id
         focusClaimedInPress = true
         focusRingVisible = viaKeyboard
@@ -560,6 +581,7 @@ public class UiContext {
 
     /** Removes keyboard focus from every control. */
     public func clearFocus(): Unit {
+        focusedKeyboard.invalidateHeld()
         focusId = ""
         focusRingVisible = false
     }
@@ -689,6 +711,7 @@ public class UiContext {
      * that entry in place, keeping its z position.
      */
     public func setOverlay(overlay: Overlay): Unit {
+        focusedKeyboard.invalidateHeld()
         overlay.captureTypography(typographyEnvironment())
         if (!overlay.owner.isEmpty()) {
             for (i in 0..overlays.size) {

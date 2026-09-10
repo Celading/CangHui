@@ -835,11 +835,13 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
                 widget.handle(ctx, event)
             case UiEvent.WindowFocusChanged(false) =>
                 inputAnchor.invalidate()
+                ctx.setKeyboardWindowActive(false)
                 let _ = ctx.cancelPointerInteraction(widget)
                 // Modal content belongs to the overlay, not the placeholder in the tree.
                 if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
             case UiEvent.PointerCancelled => ctx.cancelPointerInteraction(widget)
             case UiEvent.WindowFocusChanged(true) =>
+                ctx.setKeyboardWindowActive(true)
                 inputAnchor.invalidate()
                 if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
             case UiEvent.MouseMove(_, _) =>
@@ -857,13 +859,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
                     ctx.settleFocusAfterPress()
                     consumed
                 }
-            case UiEvent.KeyDown(Key.Tab, _) =>
-                if (ctx.dispatchOverlay(event)) {
-                    true
-                } else {
-                    if (ctx.keyModifiers().shift) { ctx.focusPrevious() } else { ctx.focusNext() }
-                    true
-                }
+            case UiEvent.KeyDown(_, _) | UiEvent.KeyUp(_) => ctx.dispatchKeyboardEvent(widget, event)
             case _ => if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
         }
     }

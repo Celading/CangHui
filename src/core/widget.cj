@@ -16,6 +16,13 @@ protected let CUI_GAP: Float32 = 8.0
  * wrap the widget in a `ModifiedWidget` and return the wrapper for chaining.
  */
 public interface Widget {
+    /** Opt-in physical keys for this single focusable control. Ctrl+Tab escapes capture.
+     * Return true to consume, false for ordinary handling (Tab then traverses focus).
+     * The callback never receives committed text or IME composition. */
+    func captureKeyboard(handler: (UiContext, UiEvent) -> Bool): Widget {
+        applyKeyboardCapture(this, handler)
+    }
+
     func measure(ctx: UiContext, available: Size): Size
     func layout(ctx: UiContext, rect: Rect): Unit
     func draw(ctx: UiContext): Unit

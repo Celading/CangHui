@@ -3,7 +3,7 @@ package chui.core
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
 import sdl.{DrawIrAsciiAnnotation, DrawIrAsciiAnnotationKind, DrawIrAsciiOptions, DrawIrCommand, FrameInfo,
-    Key, MouseButton, Rect, Renderer, Size, UiEvent, drawIrAsciiAnnotationKindName, renderDrawIrAscii}
+    MouseButton, Rect, Renderer, Size, UiEvent, drawIrAsciiAnnotationKindName, renderDrawIrAscii}
 import chui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
 
 /** A stable public property emitted by a probe-enabled widget. */
@@ -350,14 +350,7 @@ public class ComponentProbe {
                     let (key, mask) = parseScriptedKeyInput(parts[1])
                     let eventWidget = widget
                     let consumed = ctx.withEventModifiers(Some(mask), {=>
-                        if (ctx.dispatchOverlay(UiEvent.KeyDown(key, false))) { true } else {
-                            match (key) {
-                                case Key.Tab =>
-                                    if (ctx.keyModifiers().shift) { ctx.focusPrevious() } else { ctx.focusNext() }
-                                    true
-                                case _ => eventWidget.handle(ctx, UiEvent.KeyDown(key, false))
-                            }
-                        }
+                        ctx.dispatchKeyboardEvent(eventWidget, UiEvent.KeyDown(key, false))
                     })
                     session.finishEvent(consumed)
                 } else if (command == "focus") {

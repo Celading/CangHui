@@ -646,7 +646,8 @@ public class DesktopApp {
             case UiEvent.WindowPixelSizeChanged(w, h) =>
                 window.updatePixelSize(w, h)
                 inputAnchor.invalidate()
-            case UiEvent.WindowFocusChanged(_) =>
+            case UiEvent.WindowFocusChanged(active) =>
+                ctx.setKeyboardWindowActive(active)
                 inputAnchor.invalidate()
                 match (event) {
                     case UiEvent.WindowFocusChanged(false) => let _ = ctx.cancelPointerInteraction(widget)
@@ -694,18 +695,8 @@ public class DesktopApp {
                 ctx.beginPointerPress()
                 dispatchEvent(widget, event)
                 ctx.settleFocusAfterPress()
-            case UiEvent.KeyDown(Key.Tab, _) =>
-                if (ctx.dispatchOverlay(event)) {
-                    return
-                }
-                // Tab traversal is a shell responsibility: it walks the build-order
-                // focus ring and is not forwarded to the focused control, so a text
-                // field cannot swallow it. Shift reverses direction.
-                if (ctx.keyModifiers().shift) {
-                    ctx.focusPrevious()
-                } else {
-                    ctx.focusNext()
-                }
+            case UiEvent.KeyDown(_, _) | UiEvent.KeyUp(_) =>
+                let _ = ctx.dispatchKeyboardEvent(widget, event)
             case _ =>
                 if (!ctx.dispatchOverlay(event)) {
                     dispatchEvent(widget, event)

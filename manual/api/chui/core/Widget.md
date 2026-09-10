@@ -4,6 +4,10 @@
 `animateProperties(key: String, spec: AnimationSpec): Widget` 配置调用前的尺寸、padding、
 背景和边框修饰器；不修改子组件的自有属性。详见[属性驱动动画](../../../guide/how-to/animate-properties.md)。
 
+焦点键盘捕获：`captureKeyboard(handler: (UiContext, UiEvent) -> Bool): Widget`
+让单个可聚焦控件在默认 Tab 遍历前消费物理按键；默认不启用，保留弹层优先和
+Ctrl+Tab／Ctrl+Shift+Tab 退出。详见[键盘与焦点](../../../guide/how-to/keyboard-and-focus.md#终端或编辑器需要物理-tab-时)。
+
 # Widget
 
 `chui.core` 包中的 public interface
