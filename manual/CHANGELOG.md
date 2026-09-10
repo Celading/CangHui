@@ -4,6 +4,28 @@
 
 ## Unreleased
 
+## 0.18.0 (2026-09-10)
+
+- 配套源码 CLI 升至 `cuic 0.7.0`，汇总下列增量能力。版本更新不代表已安装 SDK
+  自动升级、签名分发或所有平台验收完成。默认远程模板继续固定已公开的 `chui 0.17.0`
+  基线；使用本次能力需显式选择本版本源码或经过核验的对应 SDK。
+  Source CLI advances to `cuic 0.7.0`; installed SDKs and platform/distribution
+  acceptance remain separate. The default remote template retains its published
+  `chui 0.17.0` baseline; opt into this source version to consume new APIs.
+- 新增 `TextField.onSubmit`，仅对聚焦且可编辑控件响应非重复 Enter，不提交输入法
+  预编辑；`LazyColumn.onReachEnd` 在帧事件去重通知，支持 loading/hasMore/revision。
+  六类滚动控件可选择额外内容留白，默认布局不变。主题切换支持反向缩圈并尊重减少动态效果。
+  Add focus-safe submission, retained frame-time incremental loading, opt-in
+  scrollbar spacing and reverse theme reveals with reduced-motion handling.
+- `Widget.captureKeyboard` 提供默认关闭的焦点按键捕获，保留弹层优先、Ctrl+Tab
+  退出和失焦/移除/窗口切换的释放规则；不合成文本或读取剪贴板。
+  Opt-in focused keyboard capture preserves overlay priority and a reserved escape;
+  text/IME and clipboard policy remain separate.
+- Harmony provider 包的 frameworkVersion 必须匹配 `0.18.0`；旧包需由 provider
+  方基于对应源码重新验证生成，不能只修改清单标签。ABI 标识不变。
+  Harmony provider packs must be rebuilt and verified against this framework
+  version; relabeling an older pack is not compatibility proof. ABI IDs are unchanged.
+
 - Linux 源码 SDK 接通配对初始化／构建与自动运行包组装，保留目标、编译器、glibc、
   全文件校验；按应用实际依赖选择已声明库，未声明库拒绝。Linux 模板不再传 macOS
   链接参数；普通源码工程默认仍只生成打包输入树。

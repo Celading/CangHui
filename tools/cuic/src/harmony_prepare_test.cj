@@ -126,7 +126,7 @@ func harmonyProjectionCopiesCompatibleProviderPackWithoutFrameworkFork(): Unit {
     File.writeTo(joinPath(provider, "canghui-harmony-provider.env"),
         ("schema=canghui.harmony-provider/v1\n" +
         "providerVersion=20260902.1\n" +
-        "frameworkVersion=0.17.0\n" +
+        "frameworkVersion=0.18.0\n" +
         "frameworkCommit=0123456789abcdef0123456789abcdef01234567\n" +
         "frameworkAbi=canghui.harmony-native-surface/v1\n" +
         "inputAbi=canghui.harmony-pointer/v2\n" +

@@ -66,7 +66,7 @@ func releaseTestBuildRefusesPrivilegedDebugGate(): Unit {
 
 @Test
 func versionCarriesAnHonestBuildIdentity(): Unit {
-    @Expect(renderCuicVersion(), "cuic 0.6.0 (development@unembedded)")
+    @Expect(renderCuicVersion(), "cuic 0.7.0 (development@unembedded)")
 }
 
 @Test

@@ -4,7 +4,7 @@ import std.collection.{ArrayList, HashSet}
 import std.fs.{FileInfo, Path, exists}
 
 let HARMONY_PROVIDER_SCHEMA = "canghui.harmony-provider/v1"
-let HARMONY_FRAMEWORK_VERSION = "0.17.0"
+let HARMONY_FRAMEWORK_VERSION = "0.18.0"
 let HARMONY_FRAMEWORK_ABI = "canghui.harmony-native-surface/v1"
 let HARMONY_INPUT_ABI = "canghui.harmony-pointer/v2"
 let HARMONY_PROVIDER_MANIFEST = "canghui-harmony-provider.env"

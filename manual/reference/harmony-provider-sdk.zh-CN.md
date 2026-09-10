@@ -11,7 +11,7 @@ provider 根目录必须包含 `canghui-harmony-provider.env`。当前契约要�
 
 ```text
 schema=canghui.harmony-provider/v1
-frameworkVersion=0.17.0
+frameworkVersion=0.18.0
 frameworkCommit=<40 位公开提交>
 frameworkAbi=canghui.harmony-native-surface/v1
 inputAbi=canghui.harmony-pointer/v2

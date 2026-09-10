@@ -6,7 +6,7 @@ import std.env.{getCommandLine, getVariable, getVariables}
 import std.fs.{Directory, File, Path, canonicalize, exists, removeIfExists}
 import std.process.{ProcessRedirect, executeWithOutput, launch}
 
-let VERSION = "0.6.0"
+let VERSION = "0.7.0"
 
 class CuicError <: Exception {
     init(message: String) {

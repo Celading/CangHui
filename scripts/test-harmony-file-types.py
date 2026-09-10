@@ -33,7 +33,7 @@ class HarmonyFileTypeTests(unittest.TestCase):
         (self.project / "assets/data.bin").write_bytes(b"resource")
         (self.provider / "payload.so").write_bytes(b"synthetic, never executed")
         (self.provider / "canghui-harmony-provider.env").write_text(
-            'schema=canghui.harmony-provider/v1\nproviderVersion=test\nframeworkVersion=0.17.0\n'
+            'schema=canghui.harmony-provider/v1\nproviderVersion=test\nframeworkVersion=0.18.0\n'
             'frameworkCommit=' + '1' * 40 + '\nframeworkAbi=canghui.harmony-native-surface/v1\n'
             'inputAbi=canghui.harmony-pointer/v2\nprojectionProtocol=canghui.harmony-projection/v1\n'
             'targetAbi=arm64-v8a\nartifacts=payload.so\n')

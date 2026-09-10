@@ -67,4 +67,4 @@ python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
 
 ## 版本
 
-当前 `chui` 版本线：`0.17.0`（见 [CHANGELOG](CHANGELOG.md)）。
+当前 `chui` 版本线：`0.18.0`，配套源码 CLI 为 `cuic 0.7.0`（见 [CHANGELOG](CHANGELOG.md)）。

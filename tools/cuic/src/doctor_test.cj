@@ -62,7 +62,7 @@ func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     let result = DoctorResult("macos", "arm64", "macos", [group])
     let json = renderDoctorJson(result, false)
     @Expect(json.contains("\"schema\":\"canghui.doctor.v0\""))
-    @Expect(json.contains("\"cliVersion\":\"0.6.0\""))
+    @Expect(json.contains("\"cliVersion\":\"0.7.0\""))
     @Expect(json.contains("\"cliProvenance\":{\"channel\":\"development\",\"revision\":\"unembedded\"}"))
     @Expect(json.contains("\"status\":\"degraded\""))
     @Expect(json.contains("\"kind\":\"manual\""))
