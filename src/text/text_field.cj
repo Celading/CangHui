@@ -41,6 +41,7 @@ public class TextField <: Widget {
     private let autofocusDone: State<Bool>
     private let isEditable: Bool
     private var secureEntryEnabled = false
+    private var submitHandler: ?() -> Unit = None
     private var frame = Rect.zero()
 
     public init(
@@ -113,6 +114,12 @@ public class TextField <: Widget {
      */
     public func secureEntry(): TextField {
         secureEntryEnabled = true
+        this
+    }
+
+    /** Submits on a focused, non-repeated Enter outside IME preedit. Read-only fields do not submit. */
+    public func onSubmit(handler: () -> Unit): TextField {
+        submitHandler = Some(handler)
         this
     }
 
@@ -280,6 +287,16 @@ public class TextField <: Widget {
             case UiEvent.KeyDown(Key.Home, _) => return navigate(ctx, {=> edit.moveToStart()}, {=> edit.extendToStart()})
             case UiEvent.KeyDown(Key.End, _) => return navigate(ctx, {=> edit.moveToEnd()}, {=> edit.extendToEnd()})
             case UiEvent.KeyDown(Key.Letter(code), _) => return shortcut(ctx, edit, code)
+            case UiEvent.KeyDown(Key.Enter, repeated) =>
+                if (!ctx.hasFocus(id) || !isEditable) { return false }
+                // Enter belongs to the IME while a preedit is active, never to form submission.
+                if (compositionStateValue.value.active) { return true }
+                match (submitHandler) {
+                    case Some(handler) =>
+                        if (!repeated) { handler() }
+                        return true
+                    case None => ()
+                }
             case UiEvent.Frame(_) =>
                 // One-time initial focus, applied after the frame's pointer events so a stray
                 // startup click cannot cancel it; later frames leave focus to the user.

@@ -29,6 +29,8 @@ public class TextField <: Widget
 
 ## 示例
 
+`.onSubmit {=> search(query.value)}` 为搜索框等注册回车提交。只有聚焦的可编辑字段响应；长按回车不会重复提交，IME 预编辑期间的回车不会提交表单。没有注册时保留原事件传播。提交回调在 UI 线程执行，耗时工作应异步处理。
+
 ```cangjie verify
 package docexample
 
