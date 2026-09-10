@@ -2,6 +2,11 @@
 
 # DesktopApp
 
+`transitionTheme(..., reverse: true)` 与 `transitionThemeAt(..., reverse: true)` 支持旧主题向原点收缩。
+任一源/目标主题启用 `reduceMotion` 时直接切换并释放旧过渡；默认方向不变。
+`ThemeTransition(..., reverse: true)` 的 `revealRadius()` 返回实际合成圆半径，随时间缩小至零。
+两种方向共享快照释放与尺寸失效行为，不保证中途改目标时与旧快照像素连续。
+
 `chui.desktop` 包中的 public class
 
 桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 [`run`](#run) 的界面构建函数重建组件树、布局、分发输入、绘制。闲置帧被跳过：只有输入、[`State`](../core/State.md) 写入、待处理的 [`UiOwnerQueue`](../core/UiOwnerQueue.md) 任务、窗口缩放或组件的 `ctx.requestFrame()` 才触发渲染，时间驱动的动画必须请求帧否则冻结。实际渲染帧由 [`FramePacing`](FramePacing.md) 决定跟随设备 VSync、固定目标帧率或不封顶。

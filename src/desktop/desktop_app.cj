@@ -361,10 +361,10 @@ public class DesktopApp {
     }
 
     /** Starts an InkWell-like theme reveal from the current pointer position. */
-    public func transitionTheme(theme: Theme, durationMs!: UInt64 = UInt64(560)): Unit {
+    public func transitionTheme(theme: Theme, durationMs!: UInt64 = UInt64(560), reverse!: Bool = false): Unit {
         let x = if (ctx.mouseX > 0.0) { ctx.mouseX } else { Float32(window.width) - 42.0 }
         let y = if (ctx.mouseY > 0.0) { ctx.mouseY } else { Float32(42.0) }
-        transitionThemeAt(theme, x, y, durationMs: durationMs)
+        transitionThemeAt(theme, x, y, durationMs: durationMs, reverse: reverse)
     }
 
     /** Starts a theme reveal from an explicit logical-pixel origin. */
@@ -372,8 +372,16 @@ public class DesktopApp {
         theme: Theme,
         originX: Float32,
         originY: Float32,
-        durationMs!: UInt64 = UInt64(560)
+        durationMs!: UInt64 = UInt64(560),
+        reverse!: Bool = false
     ): Unit {
+        if (durationMs == UInt64(0)) {
+            throw IllegalArgumentException("theme transition duration must be positive")
+        }
+        if (ctx.theme.reduceMotion || theme.reduceMotion) {
+            setTheme(theme)
+            return
+        }
         let source = match (themeTransition) {
             case Some(active) =>
                 let current = active.currentTheme()
@@ -382,7 +390,8 @@ public class DesktopApp {
             case None => ctx.theme
         }
         ctx.theme = source
-        themeTransition = Some(ThemeTransition(source, theme, originX, originY, durationMs: durationMs))
+        themeTransition = Some(ThemeTransition(source, theme, originX, originY,
+            durationMs: durationMs, reverse: reverse))
         ctx.requestFrame()
     }
 

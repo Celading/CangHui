@@ -10,6 +10,7 @@ public class ThemeTransition {
     private let originX: Float32
     private let originY: Float32
     private let durationMs: UInt64
+    private let reverse: Bool
     private var elapsedMs: UInt64 = UInt64(0)
     private var oldFrame: ?Texture = None
     private var newFrame: ?Texture = None
@@ -17,7 +18,7 @@ public class ThemeTransition {
     private var snapshotHeight: Float32 = 0.0
 
     public init(fromTheme: Theme, toTheme: Theme, originX: Float32, originY: Float32,
-        durationMs!: UInt64 = UInt64(560)) {
+        durationMs!: UInt64 = UInt64(560), reverse!: Bool = false) {
         if (durationMs == UInt64(0)) {
             throw IllegalArgumentException("theme transition duration must be positive")
         }
@@ -26,6 +27,7 @@ public class ThemeTransition {
         this.originX = originX
         this.originY = originY
         this.durationMs = durationMs
+        this.reverse = reverse
     }
 
     public func progress(): Float32 {
@@ -100,15 +102,20 @@ public class ThemeTransition {
         snapshotsReady()
     }
 
-    /** Draws the frozen old frame, then reveals the new frame through a growing circle. */
+    /** Reveals the new frame by growing its circle, or shrinking the old frame's circle in reverse. */
     public func draw(renderer: Renderer, width: Float32, height: Float32): Unit {
         match ((oldFrame, newFrame)) {
             case (Some(oldTexture), Some(newTexture)) =>
                 let frame = Rect(0.0, 0.0, width, height)
-                renderer.texture(oldTexture, frame)
-                let opacity = progress()
-                renderer.texturedCircle(newTexture, originX, originY, revealRadius(width, height), width, height,
-                    feather: 1.4, opacity: opacity)
+                if (reverse) {
+                    renderer.texture(newTexture, frame)
+                    renderer.texturedCircle(oldTexture, originX, originY, revealRadius(width, height), width, height,
+                        feather: 1.4, opacity: 1.0)
+                } else {
+                    renderer.texture(oldTexture, frame)
+                    renderer.texturedCircle(newTexture, originX, originY, revealRadius(width, height), width, height,
+                        feather: 1.4, opacity: progress())
+                }
             case (Some(oldTexture), None) =>
                 renderer.texture(oldTexture, Rect(0.0, 0.0, width, height))
             case _ => ()
@@ -116,7 +123,8 @@ public class ThemeTransition {
     }
 
     public func revealRadius(width: Float32, height: Float32): Float32 {
-        farthestCornerRadius(width, height) * easedProgress()
+        let fraction = if (reverse) { 1.0 - easedProgress() } else { easedProgress() }
+        farthestCornerRadius(width, height) * fraction
     }
 
     public func close(): Unit {
