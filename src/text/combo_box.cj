@@ -320,7 +320,7 @@ public class ComboBox <: Widget {
             return
         }
         let gutter: Float32 = if (contentH > listH) {
-            scrollBarGutter()
+            scrollBarGutter(inset: scrollPolicy.contentInset)
         } else {
             0.0
         }

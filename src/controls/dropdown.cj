@@ -419,7 +419,7 @@ public class Dropdown <: Widget {
     private func itemRectAt(popup: Rect, index: Int64): Rect {
         let listH = listHeight(popup)
         let gutter: Float32 = if (contentHeight() > listH) {
-            scrollBarGutter()
+            scrollBarGutter(inset: scrollPolicy.contentInset)
         } else {
             0.0
         }

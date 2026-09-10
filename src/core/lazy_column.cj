@@ -36,6 +36,12 @@ public class LazyColumn <: Widget {
     private let scrollBar: ScrollBar
     private let scrollMotion: ScrollMotion
     private var scrollPolicy = ScrollOptions.web()
+    private let reachEndGate: LazyReachEndGate
+    private var reachEndAction: ?() -> Unit = None
+    private var reachEndThreshold: Float32 = 300.0
+    private var reachEndLoading = false
+    private var reachEndHasMore = true
+    private var reachEndRevision: Int64 = 0
     // Rows materialized this frame, each paired with its absolute index for positioning and events.
     private let visibleItems: Array<(Int64, Widget)>
     // The scroll offset snapshotted for the whole frame so build, layout and draw agree.
@@ -59,6 +65,7 @@ public class LazyColumn <: Widget {
         item!: (Int64) -> Unit
     ) {
         let ident = resolveControlKey(id, "LazyColumn")
+        reachEndGate = localState<LazyReachEndGate>("LazyColumn:${ident}:reach-end") {LazyReachEndGate()}.value
         this.count = max(0, count)
         this.itemHeight = max(1.0, itemHeight)
         this.spacing = max(0.0, spacing)
@@ -85,6 +92,20 @@ public class LazyColumn <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): LazyColumn {
         scrollPolicy = value
+        this
+    }
+
+    /** Coalesced end notification on Frame, never inside layout. Keep a stable id across rebuilds. */
+    public func onReachEnd(threshold!: Float32 = 300.0, loading!: Bool = false,
+        hasMore!: Bool = true, revision!: Int64 = 0, action!: () -> Unit): LazyColumn {
+        if (!(threshold >= 0.0 && threshold <= Float32.Max)) {
+            throw IllegalArgumentException("reach-end threshold must be finite and non-negative")
+        }
+        reachEndThreshold = threshold
+        reachEndLoading = loading
+        reachEndHasMore = hasMore
+        reachEndRevision = revision
+        reachEndAction = Some(action)
         this
     }
 
@@ -132,9 +153,15 @@ public class LazyColumn <: Widget {
         if (clamped != scrollStateValue.value) {
             scrollStateValue.value = clamped
         }
+        let nearEnd = rect.w > 0.0 && rect.h > 0.0 &&
+            (content <= rect.h || clamped + rect.h >= content - reachEndThreshold)
+        if (reachEndGate.schedule(count, reachEndRevision, nearEnd,
+            reachEndLoading, reachEndHasMore && reachEndAction.isSome())) {
+            ctx.requestFrame()
+        }
         let stride = itemHeight + spacing
         let contentWidth = if (content > rect.h) {
-            max(0.0, rect.w - scrollBarGutter())
+            max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset))
         } else {
             rect.w
         }
@@ -168,6 +195,17 @@ public class LazyColumn <: Widget {
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         let content = lazyContentHeight(count, itemHeight, spacing)
         let viewportH = frame.h
+        match (event) {
+            case UiEvent.Frame(_) =>
+                if (reachEndGate.take(count, reachEndRevision, reachEndLoading,
+                    reachEndHasMore && reachEndAction.isSome())) {
+                    match (reachEndAction) {
+                        case Some(action) => action()
+                        case None => ()
+                    }
+                }
+            case _ => ()
+        }
         match (event) {
             case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 for (pair in visibleItems) {

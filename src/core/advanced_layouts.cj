@@ -392,7 +392,7 @@ public class ScrollView <: Widget {
         var contentWidth = rect.w
         var measured = child.measure(ctx, Size(contentWidth, LAYOUT_UNBOUNDED))
         if (measured.h > rect.h) {
-            contentWidth = max(0.0, rect.w - scrollBarGutter())
+            contentWidth = max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset))
             measured = child.measure(ctx, Size(contentWidth, LAYOUT_UNBOUNDED))
         }
         rawContentHeight = measured.h

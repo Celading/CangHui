@@ -115,7 +115,7 @@ public class LazyList <: Widget {
             scrollStateValue.value = clamped
         }
         let contentWidth = if (content > rect.h) {
-            max(0.0, rect.w - scrollBarGutter())
+            max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset))
         } else {
             rect.w
         }
