@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define CANGHUI_HARMONY_XCOMPONENT_HOST_ABI_VERSION 1
+#define CANGHUI_HARMONY_POINTER_ABI_VERSION 2
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,6 +27,26 @@ int64_t canghui_harmony_surface_frame(
     int64_t timestamp_nanos,
     int64_t target_timestamp_nanos,
     int64_t generation);
+int64_t canghui_harmony_pointer_v2(
+    int64_t phase,
+    int64_t kind,
+    int64_t pointer_id,
+    int64_t source_device_id,
+    int64_t x_milli,
+    int64_t y_milli,
+    int64_t coordinate_space,
+    int64_t buttons,
+    int64_t pressure_milli,
+    int64_t contact_width_milli,
+    int64_t contact_height_milli,
+    int64_t tilt_x_milli,
+    int64_t tilt_y_milli,
+    int64_t timestamp_nanos,
+    int64_t captured_scale_milli,
+    int64_t transform_revision,
+    int64_t orientation_revision,
+    int64_t generation);
+int64_t canghui_harmony_orientation_revision(int64_t revision, int64_t generation);
 
 #ifdef __cplusplus
 }

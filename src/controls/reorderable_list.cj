@@ -1,9 +1,10 @@
 package chui.controls
 
-import std.collection.ArrayList
-import sdl.{MouseButton, Rect, Size, SurfaceStyle, UiEvent, clampF32}
+import std.collection.{ArrayList, HashSet}
+import sdl.{GamepadButton, GamepadConnectionState, Key, MouseButton, Rect, Size, SurfaceStyle, UiEvent, clampF32}
 import chui.core.{CUI_SHADOW_CLEARANCE, CursorShape, State, UiContext, Widget, resolveControlKey, buildLazyChildren,
-    drawSurface, emit, lazyKeyOrIndex, localState}
+    ControlSemantics, SemanticActionKind, drawFocusRing, drawSurface, emit, lazyKeyOrIndex, localState,
+    recordControlSemantics, registerFocusable}
 
 // Width of the drag handle at the left of each row.
 private let REORDER_HANDLE_W: Float32 = 30.0
@@ -29,6 +30,13 @@ public class ReorderableList <: Widget {
     private let grabOffset: State<Float32>
     private let pointerY: State<Float32>
     private let dragId: String
+    private let rowKeys: Array<String>
+    private let gripIds: Array<String>
+    private let transactionKeys: State<Array<String>>
+    private let keyboardDrag: State<Bool>
+    private let keyboardTarget: State<Int64>
+    private let gamepadOwner: State<Int64>
+    private var rowLabel: (Int64) -> String = {i => "Reorder item ${i + 1}"}
     private var frame = Rect.zero()
 
     public init(
@@ -49,7 +57,26 @@ public class ReorderableList <: Widget {
         this.dragIndex = localState<Int64>("ReorderableList:${ident}:dragIndex") {-1}
         this.grabOffset = localState<Float32>("ReorderableList:${ident}:grab") {0.0}
         this.pointerY = localState<Float32>("ReorderableList:${ident}:pointerY") {0.0}
-        let pairs = buildLazyChildren("ReorderableList:${ident}", 0, this.count - 1, lazyKeyOrIndex(key), item)
+        this.transactionKeys = localState<Array<String>>("ReorderableList:${ident}:keys") {[]}
+        this.keyboardDrag = localState<Bool>("ReorderableList:${ident}:keyboard") {false}
+        this.keyboardTarget = localState<Int64>("ReorderableList:${ident}:target") {-1}
+        this.gamepadOwner = localState<Int64>("ReorderableList:${ident}:gamepad") {-1}
+        let keyAt = lazyKeyOrIndex(key)
+        let keys = Array<String>(this.count, {i => keyAt(i)})
+        let seen = HashSet<String>()
+        for (value in keys) {
+            if (value.isEmpty() || seen.contains(value)) {
+                throw IllegalArgumentException("ReorderableList keys must be nonempty and unique")
+            }
+            seen.add(value)
+        }
+        this.rowKeys = keys
+        let grips = Array<String>(this.count, {i => "ReorderableList:${ident}:item:${keys[i]}:grip"})
+        this.gripIds = grips
+        let pairs = buildLazyChildren("ReorderableList:${ident}", 0, this.count - 1, {i => keys[i]}) {i =>
+            registerFocusable(grips[i])
+            item(i)
+        }
         let built = ArrayList<Widget>()
         for (pair in pairs) {
             let (_, widget) = pair
@@ -57,6 +84,12 @@ public class ReorderableList <: Widget {
         }
         this.rows = built.toArray()
         emit(this)
+    }
+
+    /** Names each grip using the current data index, without changing its stable key. */
+    public func accessibilityLabels(label: (Int64) -> String): ReorderableList {
+        rowLabel = label
+        this
     }
 
     /**
@@ -93,6 +126,7 @@ public class ReorderableList <: Widget {
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
+        reconcileInteraction(ctx)
         let contentX = rect.x + REORDER_HANDLE_W
         let contentW = max(0.0, rect.w - REORDER_HANDLE_W)
         let target = dropTarget()
@@ -103,6 +137,7 @@ public class ReorderableList <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
+        if (!ctx.interactionsEnabled()) { cancelDrag(ctx) }
         let target = dropTarget()
         let dragging = dragIndex.value
         // Non-dragged rows at their (possibly shifted) slots.
@@ -118,21 +153,48 @@ public class ReorderableList <: Widget {
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        reconcileInteraction(ctx)
+        if (!ctx.interactionsEnabled()) { cancelDrag(ctx); return false }
         let dragging = dragIndex.value >= 0
         match (event) {
+            case UiEvent.PointerCancelled | UiEvent.WindowFocusChanged(false) =>
+                cancelDrag(ctx)
+                for (row in rows) { let _ = row.handle(ctx, event) }
+                return dragging
+            case UiEvent.GamepadConnectionChanged(device, GamepadConnectionState.Disconnected) =>
+                if (gamepadOwner.value == Int64(device.id)) { cancelDrag(ctx); return dragging }
+            case UiEvent.GamepadButtonDown(device, button) =>
+                if (gamepadOwner.value >= 0 && gamepadOwner.value != Int64(device)) { return false }
+                let mapped: ?Key = match (button) {
+                    case GamepadButton.South => Some(Key.Enter)
+                    case GamepadButton.East => Some(Key.Escape)
+                    case GamepadButton.DPadUp => Some(Key.Up)
+                    case GamepadButton.DPadDown => Some(Key.Down)
+                    case _ => None
+                }
+                match (mapped) {
+                    case Some(value) =>
+                        if (handleKey(ctx, value, false)) {
+                            if (keyboardDrag.value) { gamepadOwner.value = Int64(device) }
+                            return true
+                        }
+                    case None => ()
+                }
+            case UiEvent.KeyDown(key, repeat) =>
+                if (handleKey(ctx, key, repeat)) { return true }
             case UiEvent.Frame(_) =>
                 for (row in rows) {
                     let _ = row.handle(ctx, event)
                 }
                 return false
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
-                if (!dragging) {
+                if (keyboardDrag.value) { cancelDrag(ctx) }
+                if (dragIndex.value < 0) {
                     let row = handleRowAt(x, y)
                     if (row >= 0) {
-                        dragIndex.value = row
+                        beginDrag(ctx, row, false)
                         grabOffset.value = y - slotTop(row)
                         pointerY.value = y
-                        ctx.beginDrag(dragId)
                         return true
                     }
                 }
@@ -142,19 +204,19 @@ public class ReorderableList <: Widget {
                 if (dragging || handleRowAt(x, y) >= 0) {
                     ctx.claimHover(dragId, CursorShape.Interactive)
                 }
-                if (dragging && ctx.isDragging(dragId) && ctx.leftMouseDown) {
+                if (dragging && !keyboardDrag.value && ctx.isDragging(dragId) && ctx.leftMouseDown) {
                     pointerY.value = y
                     return true
                 }
             case UiEvent.MouseUp(MouseButton.Left, _, _) =>
-                if (dragging) {
-                    commitDrag()
+                if (dragging && !keyboardDrag.value && ctx.isDragging(dragId)) {
+                    commitDrag(ctx)
                     return true
                 }
             case _ => ()
         }
         // Not a drag gesture: route to the row content so its own controls work.
-        if (!dragging) {
+        if (dragIndex.value < 0) {
             var i = rows.size - 1
             while (i >= 0) {
                 if (rows[i].handle(ctx, event)) {
@@ -168,8 +230,9 @@ public class ReorderableList <: Widget {
 
     public func focusableIds(): Array<String> {
         let ids = ArrayList<String>()
-        for (row in rows) {
-            for (fid in row.focusableIds()) {
+        for (i in 0..rows.size) {
+            ids.add(gripIds[i])
+            for (fid in rows[i].focusableIds()) {
                 ids.add(fid)
             }
         }
@@ -201,6 +264,7 @@ public class ReorderableList <: Widget {
             return slotTop(i)
         }
         if (i == dragging) {
+            if (keyboardDrag.value) { return slotTop(target) }
             let lifted = pointerY.value - grabOffset.value
             return clampF32(lifted, frame.y, frame.y + Float32(max(0, count - 1)) * stride())
         }
@@ -226,6 +290,7 @@ public class ReorderableList <: Widget {
         if (dragIndex.value < 0 || count <= 0) {
             return dragIndex.value
         }
+        if (keyboardDrag.value) { return keyboardTarget.value }
         let lifted = pointerY.value - grabOffset.value
         let center = lifted + rowHeight / 2.0
         let raw = Int64((center - frame.y) / stride())
@@ -238,18 +303,83 @@ public class ReorderableList <: Widget {
         }
     }
 
-    private func commitDrag(): Unit {
+    private func commitDrag(ctx: UiContext): Unit {
         let from = dragIndex.value
         let to = dropTarget()
-        dragIndex.value = -1
+        cancelDrag(ctx)
         if (from >= 0 && from < count && to >= 0 && to < count && from != to) {
             onMove(from, to)
         }
     }
 
+    private func beginDrag(ctx: UiContext, row: Int64, keyboard: Bool): Unit {
+        dragIndex.value = row
+        transactionKeys.value = rowKeys.clone()
+        keyboardDrag.value = keyboard
+        keyboardTarget.value = row
+        gamepadOwner.value = -1
+        grabOffset.value = 0.0
+        pointerY.value = slotTop(row)
+        ctx.focus(gripIds[row], viaKeyboard: keyboard)
+        ctx.beginDrag(dragId)
+    }
+
+    private func cancelDrag(ctx: UiContext): Unit {
+        if (dragIndex.value >= 0) {
+            dragIndex.value = -1
+            grabOffset.value = 0.0
+            transactionKeys.value = []
+            keyboardDrag.value = false
+            keyboardTarget.value = -1
+            gamepadOwner.value = -1
+        }
+        if (ctx.isDragging(dragId)) { ctx.clearDrag() }
+    }
+
+    private func reconcileInteraction(ctx: UiContext): Unit {
+        if (dragIndex.value < 0) { return }
+        if (dragIndex.value >= count || transactionKeys.value.size != rowKeys.size ||
+            !ctx.isDragging(dragId)) { cancelDrag(ctx); return }
+        for (i in 0..rowKeys.size) {
+            if (transactionKeys.value[i] != rowKeys[i]) { cancelDrag(ctx); return }
+        }
+        if (keyboardDrag.value && !ctx.hasFocus(gripIds[dragIndex.value])) { cancelDrag(ctx) }
+    }
+
+    private func handleKey(ctx: UiContext, key: Key, repeat: Bool): Bool {
+        var focused: Int64 = -1
+        for (i in 0..gripIds.size) {
+            if (ctx.hasFocus(gripIds[i])) { focused = i; break }
+        }
+        if (focused < 0) { return false }
+        match (key) {
+            case Key.Escape =>
+                if (dragIndex.value >= 0) { cancelDrag(ctx); return true }
+            case Key.Space | Key.Enter =>
+                if (repeat) { return true }
+                if (dragIndex.value < 0) { beginDrag(ctx, focused, true) }
+                else if (keyboardDrag.value) { commitDrag(ctx) }
+                return true
+            case Key.Up | Key.Left | Key.Down | Key.Right | Key.Home | Key.End =>
+                if (dragIndex.value >= 0 && !keyboardDrag.value) { return false }
+                let current = if (keyboardDrag.value) { dropTarget() } else { focused }
+                let next = match (key) {
+                    case Key.Up | Key.Left => max(0, current - 1)
+                    case Key.Down | Key.Right => min(count - 1, current + 1)
+                    case Key.Home => 0
+                    case _ => count - 1
+                }
+                if (keyboardDrag.value) { keyboardTarget.value = next }
+                else { ctx.focus(gripIds[next], viaKeyboard: true) }
+                return true
+            case _ => ()
+        }
+        false
+    }
+
     // The row whose handle contains (x, y), or -1. The handle is the left strip of each row's slot.
     private func handleRowAt(x: Float32, y: Float32): Int64 {
-        if (x < frame.x || x > frame.x + REORDER_HANDLE_W) {
+        if (x < frame.x || x > min(frame.right(), frame.x + REORDER_HANDLE_W)) {
             return -1
         }
         if (y < frame.y || count <= 0) {
@@ -267,13 +397,37 @@ public class ReorderableList <: Widget {
     }
 
     private func drawRow(ctx: UiContext, i: Int64, top: Float32, lifted: Bool): Unit {
+        let target = dropTarget()
         let rowRect = Rect(frame.x, top, frame.w, rowHeight)
         if (lifted) {
             // A raised surface with a shadow so the dragged row reads as picked up.
             drawSurface(ctx, rowRect, SurfaceStyle(ctx.theme.panelRaised, border: ctx.theme.accent,
                 radius: ctx.theme.controlRadius, borderWidth: 1.0, shadow: ctx.theme.shadow, shadowOffsetY: 5.0))
         }
-        drawHandle(ctx, Rect(frame.x, top, REORDER_HANDLE_W, rowHeight), lifted)
+        let grip = Rect(frame.x, top, max(0.0, min(frame.w, REORDER_HANDLE_W)), rowHeight)
+        let active = lifted && keyboardDrag.value
+        let canActivate = dragIndex.value < 0 || active
+        let shownPosition = if (lifted) {target} else if (dragIndex.value >= 0) {
+            previewPosition(i, dragIndex.value, target)
+        } else {i}
+        let actions = ArrayList<SemanticActionKind>()
+        actions.add(SemanticActionKind.Focus)
+        if (canActivate) { actions.add(SemanticActionKind.Activate) }
+        if (active) {
+            if (target > 0) { actions.add(SemanticActionKind.Decrement) }
+            if (target < count - 1) { actions.add(SemanticActionKind.Increment) }
+            actions.add(SemanticActionKind.Dismiss)
+        }
+        recordControlSemantics(ctx, grip, "ReorderHandle", ControlSemantics(
+            "button", label: rowLabel(i), value: "${shownPosition + 1}/${count}",
+            selected: Some(lifted), focused: Some(ctx.hasFocus(gripIds[i])),
+            action: if (canActivate) {"ReorderableList.grabOrCommit()"} else {""},
+            shortcut: if (canActivate) {"Enter|Space; Up|Down; Escape"} else {""},
+            actionOwner: gripIds[i], typedActions: actions.toArray()))
+        drawHandle(ctx, grip, lifted)
+        if (ctx.interactionsEnabled() && ctx.showFocusRing(gripIds[i])) {
+            drawFocusRing(ctx, grip, ctx.theme.smallRadius)
+        }
         // The slot clip is widened by the shadow clearance so a card row's soft halo wraps its
         // rounded corners instead of being sliced off at the slot boundary; row content itself is
         // slot-sized, so only the halo occupies the margin.

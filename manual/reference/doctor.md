@@ -75,6 +75,12 @@ Signing and connected-device commands run only when `ios` or `harmonyos` is
 explicitly requested. This keeps the default desktop diagnosis bounded and
 predictable.
 
+On Linux, both `doctor` and the build bootstrap require `sdl3 >= 3.4.0`
+through `pkg-config`. Older SDL releases lack symbols used by the bindings;
+having an SDL package installed is not enough. If installed outside the system
+prefix, expose its `.pc` file through `PKG_CONFIG_PATH` and make the matching
+shared libraries available to the application loader.
+
 The iOS group reports the static-package bootstrap and native-surface adapter
 separately. The current adapter includes the integer-only C ABI, UIKit
 `CAMetalLayer`, lifecycle and safe-area ingress, touch forwarding,

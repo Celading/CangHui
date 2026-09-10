@@ -77,8 +77,9 @@ assert draw text 1
 |---|---|
 | `move-in x y`、`move-out x y`、`move x y`、`hover x y` | 在逻辑坐标发送指针移动。 |
 | `press x y`、`release x y` | 发送主指针按钮。 |
-| `key name` | 发送支持的按键，例如 `Enter`、`Space`、`Tab` 或方向键。 |
-| `focus id` | 把确定性键盘焦点移动到稳定 id。 |
+| `cancel` | 放弃当前指针交互，清理临时按压／拖动而不点击或提交。 |
+| `key name` | 发送支持的按键，例如 `Enter`、`Space`、`Tab` 或方向键；Debug 构建还支持 `Ctrl+A`、`Shift+Tab` 等组合键。 |
+| `focus id` | 聚焦当前控件 key 或单控件的 probe ID；只按实际焦点归属映射，禁用／失效／同名歧义或浮层存在时拒绝。 |
 | `text value` | 发送文本输入。 |
 | `advance ms` | 推进逻辑动画时间并发送帧事件。 |
 | `draw` | 不改变逻辑时间，再捕获一帧。 |
@@ -154,7 +155,19 @@ probeSemanticRegions { => [
 
 ```bash
 cuic design snapshot component-gallery gallery.primary-button
+cuic design snapshot component-gallery gallery.primary-button --version 2
+cuic design snapshot component-gallery gallery.primary-button --version 2 --computed
 cuic design snapshot component-gallery gallery.primary-button --script events.txt
 ```
 
 它在同一调试门内运行显式注册的组件 Probe，把最终帧转换为 `canghui.design-snapshot/v1`：稳定节点、region、布局、状态与 scoped Draw IR 被放进一个有上限、自动脱敏且带确定性 digest 的规范 JSON。与 `probe run` 不同，它不输出事件过程；与 `prnt` 不同，它不把像素或截图推断冒充结构事实。详见 [`DesignSnapshot`](../api/chui/core/DesignSnapshot.md)。
+
+`--version 2` 会完整嵌入上述 v1，再携带 Probe 显式提供的 typed 组件/源码定位、交互边与
+Multiplatform 场景；省略时仍是原有 v1。详见
+[`DesignSnapshotV2`](../api/chui/core/DesignSnapshotV2.md)。
+
+`--computed` 只适用于 v2。它从同一运行时布局和 scoped Draw IR 生成 node 级计算事实，
+包括最终 frame、解析后的 modifier/container 属性、Label 排版、ImageView 逻辑资源身份及
+实际绘制命令。默认 v2 不带该字段，旧 digest 保持稳定。它用于设计往返和结构差异定位；
+像素结果仍由 `cuic prnt` 证明。为了覆盖完整 modifier 链，应把 `.probe("stable.id")`
+放在链尾。

@@ -16,6 +16,11 @@ CangHui 随包提供未经修改的 HarmonyOS Sans SC，并将其作为默认跨
 
 前三层字体必须通过 `Fonts.register` 注册。无法识别或无法读取的文件会被跳过。使用真实 SDL_ttf 渲染器时，CangHui 会检查整段文本的字形覆盖；当前字体覆盖不完整时继续尝试下一层。
 
+没有单一字体能覆盖整段时，原生后端按上述顺序组合同字号、同字重的可用字体。
+例如，支持阿拉伯文的应用字体与随包中文字体可以共同绘制一条混合语言标签。
+回退链持有独立的原生字体副本并缓存复用；另一个标签切换字体不会修改已经塑形
+文本的回退配置。如果链中没有字体覆盖某个字符，该字符仍会显示缺字标记。
+
 对于 `.bold()`，CangHui 会先选择可变字体文件内部真实的 `Bold` 命名实例（随包 HarmonyOS Sans SC 已包含该实例），再尝试独立的粗体伴随文件；只有两者都不存在时，才在已选基础字体上合成粗体。改变字重不会改变字族回退顺序。
 
 ```cangjie
@@ -40,9 +45,14 @@ assets/fonts/HARMONYOS_SANS_SOURCE.txt
 
 资源布局不同的应用宿主可以在创建窗口前调用 `Fonts.registerBundledFallback(path)`，也可以在进程启动前设置 `CANGHUI_HARMONYOS_SANS`。
 
+当系统没有安装受支持的字体时，SDL 文本引擎也可以用上述随包字体或已选定的应用
+字体完成初始化。请在创建首个窗口前配置；已有系统默认字体选择和逐段解析顺序
+保持不变。如果所有候选文件都缺失或不可用，启动仍会明确报错。携带字体不代表
+覆盖所有语言的字形。
+
 ## 诊断
 
-`Renderer.fontResolution()` 报告逻辑上的首选层级。使用真实渲染器时，`Renderer.fontResolutionForText(text)` 还会应用字形覆盖检查，并报告该字符串实际选择的层级。记录型渲染器会在文本 Draw IR 中写入 `resolvedFamily` 与 `fontSource`。
+`Renderer.fontResolution()` 报告逻辑上的首选层级。使用真实渲染器时，`Renderer.fontResolutionForText(text)` 还会应用字形覆盖检查，并报告该字符串实际选择的层级。组合回退链返回其主字体，而不是完整的逐字形字体映射。记录型渲染器会在文本 Draw IR 中写入 `resolvedFamily` 与 `fontSource`。
 
 ```bash
 ./tools/cuic/bin/cuic font status macos
@@ -50,3 +60,132 @@ assets/fonts/HARMONYOS_SANS_SOURCE.txt
 ```
 
 稳定的机器可读契约是 [`canghui.font-resolution.v0`](../../contracts/canghui-font-resolution-v0.json)。
+
+## 可选原生排版预览
+
+`DesktopApp` 可以在首次 `run` 之前显式启用 macOS CoreText 或 Linux Pango：
+
+```cangjie
+let app = DesktopApp(WindowSpec("Native text", 720, 480))
+let enabled = app.usePlatformTextLayout(true)
+// 检查 enabled，再调用 app.run { ... }。
+```
+
+应用启动后调用此设置返回 `false`，保持原有排版模式；默认仍是 SDL_ttf。
+自定义渲染宿主也可在测量和绘制之前设置：
+
+```cangjie
+let enabled = renderer.usePlatformTextLayout(true)
+// 检查 enabled；false 表示当前渲染器不能提供这条原生路径。
+```
+
+`platformTextLayoutEnabled()` 返回当前状态。传入 `false` 恢复 SDL_ttf。
+切换会清空测量缓存，因此不能在测量与绘制之间切换，也不要逐个标签反复切换。
+默认仍使用 SDL_ttf；无设备渲染器、未支持的平台，以及缺少所需原生库的 Linux
+宿主请求启用时返回 `false`。
+
+普通和粗体文本由同一个保留的原生行提供宽高、像素与光标几何。
+macOS 注册的字体文件仍是主字体；按序回退描述符及 CoreText 系统回退可提供缺字和
+彩色 emoji。随包 HarmonyOS Sans 的 Regular、Bold 命名实例分别选择。
+回退字形可能随 macOS 版本变化。斜体、下划线和删除线的测量与绘制仍一起使用
+SDL_ttf；预览不保证所有字体的样式一致性。
+
+Linux 需要 Pango1.48+（含 PangoCairo／PangoFT2）、Cairo、Fontconfig、GObject
+和 GLib 系统库，无需新增 CJPM 依赖，CUIC 也不会自动安装这些系统包。
+启用前会检查所需函数。Linux 只使用已解析的应用／随包／默认字体文件链，
+通过私有字体别名保留文件顺序，避免同 family 名的文件互换；不会全局注册字体，
+也不会自动搜索未声明的系统回退链。HarmonyOS Sans 变量粗体选择 weight700；
+只有 Regular 的字体文件不会凭空获得新的 Bold 字体。缺字需要提供合适字体解决，
+单色 emoji 可显示不代表全部 ZWJ 组合或彩色 emoji 都可用。
+
+Pango 的字节索引和命中字符数会在内部转换到既有 UTF-16 API。分数字形几何避免
+缩放时整数宽度取整造成偏移，像素仍按请求字号重新栅格化，不是拉伸低分辨率图片。
+不同原生后端不保证跨平台像素相同。Linux 对内嵌 NUL 或超过1MiB 的单行明确报错，
+不会截断字符串。禁用／关闭会释放行、字体映射和纹理引用；注册了 GType 回调的
+原生库保持进程驻留，防止回调指向已卸载代码。
+
+Linux 原生测试需显式设置 `CANGHUI_TEST_PANGO=1`，并提供上述系统库、DejaVu Sans、
+随包 HarmonyOS 字体及独立显示会话。未启用时，普通单元测试总数不代表原生排版已验收。
+
+原生排版和纹理缓存归渲染器持有，禁用或关闭时释放。单张栅格不超过
+16384 × 4096 像素及 16 MiB RGBA；超限会明确报错，不会悄悄截断。
+长内容应换行或虚拟化。纹理遵循渲染目标的双轴缩放及已有裁剪。
+
+启用后，`TextField` 的点击、光标、水平跟随、选区和左右键使用整行原生几何。
+混合方向文本的同一逻辑边界可能有两个视觉位置，点击会保留所选位置；一段逻辑
+选区可能绘制成多段高亮。左右键按视觉位置移动，Home/End 仍是逻辑首尾，
+选词仍沿用现有规则。编辑状态保持 UTF-8 字节偏移，并落在扩展字素边界上；
+密码字段只把掩码交给这套原生排版查询。
+
+自定义编辑器可用 `Renderer.textCaretPositionsUtf16`（单个或批量索引）、
+`textHitUtf16`、`textSelectionSpansUtf16`。索引单位是 UTF-16，坐标是逻辑像素；
+返回 `None` 表示当前后端或样式不支持。空文本的原生命中可以返回 `-1`，
+调用者须转换为 UTF-8 并归一到字素边界，不能直接写入编辑状态。框架内部使用
+`NativeTextIndex` 完成此转换；该内部类型不是供自定义编辑器引用的公开 API。
+
+`Renderer.textRightToLeftUtf16(text, indices)` 从同一原生行读取字符的实际方向，
+`true` 表示 RTL；`NativeTextLineSpec` 重载保留着色行的排版身份。索引必须是
+UTF-16 **字符起点**，不能传 UTF-8 字节、代理对内部或文本末尾边界，否则会抛错。
+允许空批次，结果保留输入顺序和重复项。不支持的后端／样式返回 `None`，不会猜成
+LTR。方向按字符判断：RTL 文本里的数字仍可能向右排列，中性字符随上下文解析，
+不能只从光标位置推测。
+这个查询本身不代表读屏字符坐标已经接通。
+
+`TextArea` 也使用完整的着色显示行处理绘制、点击、光标、选区、装饰与预编辑。
+左右键按视觉位置移动，上下键在相邻逻辑行按当前视觉横坐标命中；Home/End
+仍是逻辑首尾。正式文本和撤销保持 UTF-8 字素边界，着色及预编辑范围保留精确码点。
+空行与 CRLF 保留其行位置。原生行请求按显示文本、装饰快照和主题色缓存；
+最大宽度按实际字体环境缓存，不会每帧重新排版整篇长文。
+
+高级宿主可用 `Renderer.textLayoutEnvironmentKey()` 比较字体链、注册版本、后端和
+栅格比例是否改变。它只用于当前进程中的相等比较，不应解析、持久化或对外传输；
+调用者还需将文本、字号和样式加入自己的缓存键。
+
+这仍不是完整原生编辑器认证：SDL 组合输入事件已接到控件，桌面宿主也会向 SDL
+传递光标区域；真实系统输入法／候选窗实测与读屏仍需完成。软换行、完整排版属性
+继承及长文编辑增量性能尚未闭环；多窗口宿主尚无该启动选项。
+无设备 probe 的矩形不证明原生字形正确，像素仍需用 `cuic prnt` 验证。
+
+在 Cangjie 1.1.3 / macOS arm64 上，原生像素测试曾触发与自动生成的跨包 FFI
+桥接帧有关的 GC 回栈崩溃。截图与像素验证现在共用正常仓颉读回方法及 Surface
+所有权，避开了已观察到的失效调用路径。这不等于修复编译器／运行时或验证了
+所有原生调用；此预览仍不代表生产编辑器的稳定性认证。
+
+### 自定义宿主的着色行
+
+直接依赖 `sdl` 的高级宿主可使用 `sdl.text.NativeTextLineSpec`，把单行原始文本、
+默认 RGBA 和局部着色范围固定成一份不可变请求：
+
+```cangjie
+import sdl.text.{NativeTextLineSpec, NativeTextColorSpan}
+
+let line = NativeTextLineSpec("abc אבג def", red: 30, green: 30, blue: 30,
+    colors: [NativeTextColorSpan(1, 5, 230, 70, 40, 255)])
+let size = renderer.textSize(line, pointSize: 24.0)
+let caret = renderer.textCaretPositionsUtf16(line, Int64(3), pointSize: 24.0)
+let drawn = renderer.text(line, 12.0, 20.0, pointSize: 24.0)
+```
+
+范围使用 UTF-16 码点边界，不能切断代理对；非法范围抛出 `IllegalArgumentException`。
+数组被复制，重叠时后项覆盖前项。默认色也属于请求，绘制时不能临时换色。
+更换颜色可能改变连字、emoji 组合及光标位置，因此测量、绘制、单个／批量光标、
+`textHitUtf16` 和 `textSelectionSpansUtf16` 必须使用相同请求、字号、样式和字体。
+编辑器仍需把原生索引转换为自己的 UTF-8 字素位置，不应直接保存 UTF-16 值。
+
+着色范围不能沿用光标的字素取整规则：合法范围可以从 `e` 与组合重音之间开始，
+也可以位于 emoji 的 ZWJ 序列内部。应把每个 UTF-8 码点边界精确转换到 UTF-16；
+字节内部、代理对内部及越界位置应拒绝，不能悄悄扩大或缩小范围。例如 `A😀é`
+中重音的 UTF-8 范围 `[6,8)` 对应 UTF-16 `[4,5)`，但前一个合法编辑光标在
+UTF-8 字节 `5`。按源文本行保留编码索引，不要为每段装饰重新扫描整行。
+
+请求不持有原生指针；原生行及纹理仍由原渲染器缓存和释放。请在文本或颜色改变时
+重建请求，不要在逐个光标查询中重建。不支持的样式／后端返回 `None` 或绘制 `false`，
+不会绘制替代内容。调用者须同时选择绘制与几何的回退方式。`TextArea` 已接入
+前景色、背景色及下划线装饰，但不因此支持自动换行或任意跨字号／样式编辑。
+
+## 原生文本仍有的限制
+
+混合字体回退不等于完整 Unicode 塑形或双向排版。需要整体切到回退字体的复杂
+字形簇、默认 SDL 路径中的位图 emoji 字级缩放、跨样式字形塑形仍需独立实现和目标平台验收。
+尽量把复杂字素保留在同一 span，并选择能覆盖整个字素的字体。
+编辑与换行保证另见[文本边界](text-boundaries.md)。

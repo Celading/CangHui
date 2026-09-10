@@ -1,0 +1,10 @@
+--- a/src/node.rs
++++ b/src/node.rs
+@@ -376,5 +376,6 @@
+         if state.is_read_only_supported() && state.is_read_only_or_disabled() {
+             atspi_state.insert(State::ReadOnly);
+-        } else {
++        }
++        if !state.is_disabled() {
+             atspi_state.insert(State::Enabled | State::Sensitive);
+         }

@@ -64,7 +64,7 @@ public class ZStack <: Widget {
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         match (event) {
-            case UiEvent.Frame(_) =>
+            case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 for (child in children) {
                     let _ = child.handle(ctx, event)
                 }
@@ -392,7 +392,7 @@ public class ScrollView <: Widget {
         var contentWidth = rect.w
         var measured = child.measure(ctx, Size(contentWidth, LAYOUT_UNBOUNDED))
         if (measured.h > rect.h) {
-            contentWidth = max(0.0, rect.w - scrollBarGutter())
+            contentWidth = max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset))
             measured = child.measure(ctx, Size(contentWidth, LAYOUT_UNBOUNDED))
         }
         rawContentHeight = measured.h
@@ -526,7 +526,7 @@ private func alignedRect(bounds: Rect, width: Float32, height: Float32, alignmen
 
 internal func dispatchChildren(children: Array<Widget>, ctx: UiContext, event: UiEvent): Bool {
     match (event) {
-        case UiEvent.Frame(_) =>
+        case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
             for (child in children) {
                 let _ = child.handle(ctx, event)
             }

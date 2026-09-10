@@ -172,6 +172,8 @@ func packagingPlanIsDeterministicAndKeepsNativeGatesVisible(): Unit {
     @Expect(first.contains("native-provider-pending"))
     @Expect(first.contains("status-item-icon-not-declared"))
     @Expect(first.contains("notification-icon-not-declared"))
+    let linux = renderApplicationPackagingPlanJson(applicationPackagingPlanForManifest("/work/demo", "linux", manifest))
+    @Expect(linux.contains("dist/Demo/share/icons/hicolor"))
 }
 
 @Test
@@ -216,7 +218,8 @@ func packagingArtifactGeneratesWindowsAndLinuxInputTreesWithoutFakeExecutable():
     let fixture = joinPath(currentDirectory(), "target/application-packaging-platform-fixture")
     _ = removeIfExists(fixture, recursive: true)
     if (!exists(joinPath(fixture, "assets"))) { Directory.create(joinPath(fixture, "assets"), recursive: true) }
-    File.writeTo(joinPath(fixture, "assets/app.png"), [UInt8(4), UInt8(5), UInt8(6)])
+    // Metadata-only fixture: PNG signature/IHDR dimensions, not a decodable image.
+    File.writeTo(joinPath(fixture, "assets/app.png"), linuxTestPngHeader(128, 128))
     File.writeTo(joinPath(fixture, "assets/data.txt"), "data".toArray())
     let manifest = parseApplicationManifest(
         "[application]\nname = \"Demo\"\nidentifier = \"dev.example.demo\"\nversion = \"1.2.3\"\n" +
@@ -240,7 +243,7 @@ func packagingArtifactGeneratesWindowsAndLinuxInputTreesWithoutFakeExecutable():
     @Expect(exists(joinPath(linux, "Demo.desktop")))
     @Expect(exists(joinPath(linux, "share/applications/dev.example.demo.desktop")))
     @Expect(exists(joinPath(linux, "share/icons/hicolor/128x128/apps/dev.example.demo.png")))
-    @Expect(String.fromUtf8(File.readFrom(joinPath(linux, "Demo.desktop"))).contains("Exec=\"Demo\""))
+    @Expect(String.fromUtf8(File.readFrom(joinPath(linux, "Demo.desktop"))).contains("Exec=dev.example.demo\n"))
 }
 
 @Test
@@ -284,6 +287,37 @@ func packagingOutputRejectsTraversalAndNonEmptyOverwrite(): Unit {
         overlapRejected = true
     }
     @Expect(overlapRejected)
+}
+
+@Test
+func linuxRuntimeIdentityKeepsLegacyAndOtherPlatformsUnchanged(): Unit {
+    let project = joinPath(currentDirectory(), "target/linux-runtime-identity-fixture")
+    _ = removeIfExists(project, recursive: true)
+    Directory.create(project, recursive: true)
+    let path = joinPath(project, "canghui.toml")
+    @Expect(linuxApplicationIdentity(project, "linux"), "")
+    File.writeTo(path, "[scripts]\nstart = \"run\"\n".toArray())
+    @Expect(linuxApplicationIdentity(project, "linux"), "")
+    File.writeTo(path, "[application]\nidentifier = \"dev.example.demo\"\n[assets]\napplication-icon = \"not-yet-built.png\"\n".toArray())
+    @Expect(linuxApplicationIdentity(project, "linux"), "dev.example.demo")
+    @Expect(linuxApplicationIdentity(project, "macos"), "")
+    @Expect(linuxApplicationIdentity(project, "windows"), "")
+    if (hostPlatform() == "linux") {
+        let environment = applicationEnvironment(project, "", UInt64(0), project: project)
+        @Expect(environment.get("SDL_APP_ID") ?? "", "dev.example.demo")
+    }
+    File.writeTo(path, "[application]\nidentifier = \"bad;identity\"\n".toArray())
+    var rejected = false
+    try { let _ = linuxApplicationIdentity(project, "linux") }
+    catch (_: CuicError) { rejected = true }
+    @Expect(rejected)
+    _ = removeIfExists(path)
+    Directory.create(path)
+    rejected = false
+    try { let _ = linuxApplicationIdentity(project, "linux") }
+    catch (_: CuicError) { rejected = true }
+    @Expect(rejected)
+    _ = removeIfExists(project, recursive: true)
 }
 
 @Test

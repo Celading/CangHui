@@ -7,6 +7,27 @@ private func reorderTestContext(): UiContext {
     UiContext(Renderer.headless(), Theme.light())
 }
 
+@Test
+func pointerCancellationDiscardsReorderPreviewAndAllowsFreshDrag(): Unit {
+    let ctx = reorderTestContext()
+    let moved = State<String>("")
+    let list = ReorderableList(4, 40.0, {a, b => moved.value = "${a}->${b}"}, spacing: 0.0, id: "cancel-list") {
+        _ => emit(Spacer())
+    }
+    list.layout(ctx, Rect(0.0, 0.0, 300.0, 200.0))
+    ctx.leftMouseDown = true
+    list.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 15.0, 15.0))
+    list.handle(ctx, UiEvent.MouseMove(15.0, 130.0))
+    let _ = ctx.cancelPointerInteraction(list)
+    list.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 15.0, 130.0))
+    @Expect(moved.value, "")
+    ctx.leftMouseDown = true
+    list.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 15.0, 15.0))
+    list.handle(ctx, UiEvent.MouseMove(15.0, 130.0))
+    list.handle(ctx, UiEvent.MouseUp(MouseButton.Left, 15.0, 130.0))
+    @Expect(moved.value, "0->3")
+}
+
 // A reference-type counter so a build closure can tally invocations (captured vars are read-only).
 private class LazyBuildCounter {
     var count: Int64 = 0

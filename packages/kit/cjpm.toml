@@ -1,0 +1,10 @@
+[package]
+cjc-version = "1.0.5"
+name = "canghui_kit"
+version = "0.1.0"
+output-type = "static"
+description = "Composable interaction and responsive design recipes for CangHui."
+license = "Apache-2.0"
+
+[dependencies]
+chui = { path = "../.." }

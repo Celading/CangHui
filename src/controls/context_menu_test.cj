@@ -88,6 +88,7 @@ func contextMenuDismissesAndKeyboardRunsHighlight(): Unit {
 @Test
 func contextMenuInsideModalStacksAboveDialog(): Unit {
     let ctx = menuTestContext(400.0, 300.0)
+    ctx.theme = ctx.theme.withReduceMotion(true)
     let presented = State<Bool>(true)
     let ran = State<Bool>(false)
     let modal = Modal(presented) {

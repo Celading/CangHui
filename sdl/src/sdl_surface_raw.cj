@@ -13,6 +13,8 @@ foreign {
 
     func SDL_SaveBMP(surface: CPointer<Unit>, file: CString): Bool
 
+    func SDL_SavePNG(surface: CPointer<Unit>, file: CString): Bool
+
     func SDL_WriteSurfacePixel(
         surface: CPointer<Unit>,
         x: Int32,

@@ -3,6 +3,16 @@ package chui.text
 import chui.core.{ComponentProbe, ProbeProperty, State, VStack}
 
 @Test
+func asciiFocusHintUsesControlKeyRatherThanObservationId(): Unit {
+    let value = State<String>("")
+    let report = ComponentProbe("focus.target", width: 360.0, height: 120.0).run("@cui-ascii 60 20") {
+        TextField(value, key: "actual-key").probe("observer", "TextField", [])
+    }
+    @Expect(report.contains("probe=\"focus actual-key\""))
+    @Expect(!report.contains("probe=\"focus observer\""))
+}
+
+@Test
 func textFieldEmitsPlaceholderAndTextInputSemantics(): Unit {
     let name = State<String>("")
     let report = ComponentProbe("test.textfield-placeholder-semantics", width: 360.0, height: 120.0).run("") {

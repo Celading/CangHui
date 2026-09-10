@@ -161,6 +161,12 @@ public class Icon <: Widget {
  * identities; `key` pins an identity that survives tree reshapes.
  */
 public class IconButton <: Widget {
+    /** Adds gesture callbacks without wrapping the icon button in another action owner. */
+    public func gestures(value: GestureHandlers): IconButton {
+        interactionSurface.gestures(value)
+        this
+    }
+
     private let symbolName: SymbolName
     private var labelText: ?String
     private var semanticLabel: String

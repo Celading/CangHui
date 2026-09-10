@@ -6,7 +6,7 @@ import std.env.{getCommandLine, getVariable, getVariables}
 import std.fs.{Directory, File, Path, canonicalize, exists, removeIfExists}
 import std.process.{ProcessRedirect, executeWithOutput, launch}
 
-let VERSION = "0.6.0"
+let VERSION = "0.7.0"
 
 class CuicError <: Exception {
     init(message: String) {
@@ -75,6 +75,7 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "pview") {
         return pviewCommand(args, 2)
     }
+    if (command == "prntx") { return prntxCommand(args, 2) }
     if (command == "shell") {
         return shellCommand(args, 2)
     }
@@ -90,6 +91,7 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
     if (command == "dependency") {
         return dependencyCommand(args, 2)
     }
+    if (command == "sdk") { return sourceSdkCommand(args, 2) }
     if (command == "package") {
         return applicationPackagingCommand(args, 2)
     }
@@ -103,12 +105,11 @@ func runCuicInternal(args: Array<String>, allowProjectScripts: Bool): Int64 {
         return initProject(args, 2)
     }
     if (command == "build" || command == "test") {
-        let parsed = parsePlatformAndProject(args, 2, "")
-        return runCjpm(command, parsed.platform, parsed.project)
+        let (parsed, mode, jobs) = parseCjpmProfile(args, 2)
+        return runCjpm(command, parsed.platform, parsed.project, mode: mode, jobs: jobs)
     }
     if (command == "run") {
-        let parsed = parsePlatformAndProject(args, 2, "notepad")
-        return runCjpm("run", parsed.platform, parsed.project)
+        return runDesktopApplication(parseRunOptions(args, 2))
     }
     if (command == "prnt" || command == "print" || command == "snapshot") {
         return printWindow(args, 2)
@@ -149,6 +150,8 @@ class PrntOptions {
     let app: String
     let mode: String
     let appArgs: ArrayList<String>
+    let windowId: String
+    let artifact: String
 
     init(
         platform: String,
@@ -158,7 +161,9 @@ class PrntOptions {
         device: String,
         app: String,
         mode: String,
-        appArgs: ArrayList<String>
+        appArgs: ArrayList<String>,
+        windowId!: String = "",
+        artifact!: String = ""
     ) {
         this.platform = platform
         this.requested = requested
@@ -168,6 +173,8 @@ class PrntOptions {
         this.app = app
         this.mode = mode
         this.appArgs = appArgs
+        this.windowId = windowId
+        this.artifact = artifact
     }
 }
 
@@ -209,12 +216,28 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
     var device = ""
     var app = ""
     var mode = "release"
+    var windowId = ""
+    var artifact = ""
+    var modeSet = false
     let appArgs = ArrayList<String>()
     var projectSet = false
     var i = start
     if (i < args.size && isPlatform(args[i])) { platform = normalizePlatform(args[i]); i += 1 }
     while (i < args.size) {
         let current = args[i]
+        if (current == "--artifact") {
+            if (!artifact.isEmpty() || i + 1 >= args.size || args[i + 1].isEmpty() || startsWithText(args[i + 1], "-")) {
+                throw CuicError("--artifact requires one local .app path")
+            }
+            artifact = args[i + 1]; i += 2; continue
+        }
+        if (current == "--window") {
+            if (!windowId.isEmpty() || i + 1 >= args.size || args[i + 1].isEmpty() ||
+                args[i + 1].startsWith("-")) {
+                throw CuicError("--window requires one semantic window id")
+            }
+            windowId = args[i + 1]; i += 2; continue
+        }
         if (current == "--output" || current == "-o") {
             if (i + 1 >= args.size) { throw CuicError("--output requires a path") }
             output = args[i + 1]
@@ -242,6 +265,7 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
         if (current == "--mode") {
             if (i + 1 >= args.size) { throw CuicError("--mode requires release or debug") }
             mode = normalizeBuildMode(args[i + 1])
+            modeSet = true
             i += 2
             continue
         }
@@ -256,7 +280,14 @@ func parsePrntOptions(args: Array<String>, start: Int64): PrntOptions {
         projectSet = true
         i += 1
     }
-    PrntOptions(platform, requested, output, frames, device, app, mode, appArgs)
+    if (!windowId.isEmpty() && (!device.isEmpty() || !app.isEmpty())) {
+        throw CuicError("--window selects a desktop renderer, not a device system screenshot")
+    }
+    if (!artifact.isEmpty() && (projectSet || modeSet || !device.isEmpty() || !app.isEmpty())) {
+        throw CuicError("--artifact cannot be combined with a source project, --mode, --device or --app")
+    }
+    PrntOptions(platform, requested, output, frames, device, app, mode, appArgs,
+        windowId: windowId, artifact: artifact)
 }
 
 func parseDebugOptions(args: Array<String>, start: Int64): DebugOptions {
@@ -332,6 +363,9 @@ func helpText(): String {
     "      [--canghui-path <path> | --canghui-git <url> --canghui-commit <commit>]\n" +
     "  cuic doctor [target] [--project <directory>] [--json] [--verbose]\n" +
     "  cuic bootstrap [platform]\n" +
+    "  cuic sdk verify <framework> [--json]\n" +
+    "  cuic sdk compare <current-framework> <candidate-framework> [--json]\n" +
+    "  cuic sdk updates <framework> --index <file> --sha256 <trusted-hash> [--channel stable|preview] [--json]\n" +
     "  cuic font <status|install> [platform]\n" +
     "  cuic symbol list [material|ant|arco] [--json]\n" +
     "  cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]\n" +
@@ -343,12 +377,13 @@ func helpText(): String {
     "  cuic probe list [project] [--json]\n" +
     "  cuic probe describe [project] <probe> [--json]\n" +
     "  cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]\n" +
-    "  cuic design snapshot [project] <probe> [--script <file>|--events <script>]\n" +
+    "  cuic design snapshot [project] <probe> [--version <1|2>] [--computed] [--script <file>|--events <script>]\n" +
     "  cuic ui audit [project] <probe> [--script <file>|--events <script>] [--fail-on <info|warning|error>]\n" +
+    "  cuic prntx [project] <probe> [--format summary|tree|json|diff|ascii] [--limit 1..128] [--node <id>] [--events <script>]\n" +
     "  cuic pview [project] <probe> [--script <file>|--events <script>] [--columns <20..240>] [--rows <8..100>]\n" +
     "  cuic shell click|touch [project] <x> <y>\n" +
     "  cuic shell focus [project] <component-id>\n" +
-    "  cuic shell snapshot [project]\n" +
+    "  cuic shell snapshot|cancel [project]\n" +
     "  cuic shell run [project] (--events <script>|--script <file>)\n" +
     "  cuic frame trace <project> --scenario <name>\n" +
     "  cuic frame replay <trace.json> --executor null\n" +
@@ -357,13 +392,15 @@ func helpText(): String {
     "  cuic scripts run <name> [project]\n" +
     "  cuic dependency update [project]\n" +
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
-    "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]\n" +
-    "  cuic prepare harmony [project] [--json]\n" +
-    "  cuic build [platform] [project]\n" +
-    "  cuic test [platform] [project]\n" +
-    "  cuic run [platform] [project|example]\n" +
+    "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--runtime-manifest <file>] [--harden] [--export-symbol <_name>] [--json]\n" +
+    "  cuic package run [macos] <trusted.app> [-- <app args...>] (no build or SDK environment)\n" +
+    "  cuic prnt macos --artifact <trusted.app> [--output <file.png>] [--frames <count>] [--window <semantic-id>] [-- <app args...>]\n" +
+    "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
+    "  cuic build [platform] [project] [--mode release|debug] [--jobs 1..256]\n" +
+    "  cuic test [platform] [project] [--mode release|debug] [--jobs 1..256]\n" +
+    "  cuic run [platform] [project|example] [--mode release|debug] [--jobs 1..256] [-- <app-args...>]\n" +
     "  cuic debug [platform] [project|example] [--device <alias>] [--app <bundle>] [--mode <debug|release>] [-- <app args...>]\n" +
-    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
+    "  cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--window <semantic-id>] [--device <alias>] [--app <bundle>] [--mode <release|debug>] [-- <app args...>]\n" +
     "  cuic clean [project]\n" +
     "  cuic examples\n" +
     "  cuic version\n\n" +
@@ -486,13 +523,26 @@ func resolveFrameworkRoot(project: String): String {
 }
 
 func integratedFrameworkRoot(): String {
-    let candidate = parentPath(parentPath(cliRoot()))
-    if (frameworkRootCandidate(candidate) && exists(joinPath(candidate, "tools/cuic/cjpm.toml"))) {
-        return trimTrailingSlash(candidate)
+    integratedFrameworkRootAt(cliRoot(), currentDirectory())
+}
+
+func integratedFrameworkRootAt(cliDirectory: String, workingDirectory: String): String {
+    // Resolve the CLI directory before walking parents. A relative tools/cuic
+    // previously became an empty root and hid the valid working-directory fallback.
+    if (!cliDirectory.isEmpty()) {
+        let directory = if (startsWithText(cliDirectory, "/") || isWindowsAbsolute(cliDirectory)) {
+            cliDirectory
+        } else { joinPath(workingDirectory, cliDirectory) }
+        if (exists(directory)) {
+            let candidate = parentPath(parentPath(canonicalPackagingPath(directory, "CUIC source")))
+            if (frameworkRootCandidate(candidate) && exists(joinPath(candidate, "tools/cuic/cjpm.toml"))) {
+                return canonicalPackagingPath(candidate, "CangHui framework")
+            }
+        }
     }
-    let cwd = currentDirectory()
+    let cwd = workingDirectory
     if (frameworkRootCandidate(cwd) && exists(joinPath(cwd, "tools/cuic/cjpm.toml"))) {
-        return trimTrailingSlash(cwd)
+        return canonicalPackagingPath(cwd, "CangHui framework")
     }
     ""
 }
@@ -506,19 +556,21 @@ func validateFramework(path: String): String {
     if (!frameworkRootCandidate(normalized)) {
         throw CuicError("CangHui not found at ${path}; set CANGHUI_FRAMEWORK_ROOT")
     }
-    normalized
+    canonicalPackagingPath(normalized, "CangHui framework")
 }
 
 func resolveProject(requested: String, frameworkHint: String): String {
     let direct = if (requested.size == 0) { currentDirectory() } else { requested }
-    if (exists(joinPath(direct, "cjpm.toml"))) { return trimTrailingSlash(direct) }
+    // Build and execution use the project as cwd. Resolve once before either changes cwd,
+    // otherwise nested relative targets are accidentally resolved a second time at launch.
+    if (exists(joinPath(direct, "cjpm.toml"))) { return canonicalize(direct).toString() }
     let framework = if (frameworkHint.size > 0) { frameworkHint } else { resolveFrameworkRoot("") }
     let example = joinPath(joinPath(framework, "examples"), requested)
-    if (exists(joinPath(example, "cjpm.toml"))) { return example }
+    if (exists(joinPath(example, "cjpm.toml"))) { return canonicalize(example).toString() }
     throw CuicError("no cjpm.toml found in ${direct}")
 }
 
-func bootstrap(platform: String, framework: String, stagingRoot!: String = ""): Int64 {
+func bootstrap(platform: String, framework: String, stagingRoot!: String = "", quiet!: Bool = false): Int64 {
     if (platform == "android") {
         throw CuicError("Android backend is not implemented: no cjpm target, SDL activity bridge, NDK packaging, or APK runner")
     }
@@ -527,10 +579,16 @@ func bootstrap(platform: String, framework: String, stagingRoot!: String = ""): 
         throw CuicError("target '${platform}' requires a ${platform} host; current host is '${host}'")
     }
     let effectiveStaging = if (stagingRoot.size > 0) { stagingRoot } else { framework }
+    if (bootstrapSourceSdk(framework, effectiveStaging)) {
+        if (!quiet) { println("verified source SDK native libraries are ready") }
+        return 0
+    }
     if (platform == "windows") {
         requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3.dll"), "SDL3.dll is missing")
         requireFile(joinPath(effectiveStaging, "sdl/.sdl3/SDL3_ttf.dll"), "SDL3_ttf.dll is missing")
-        println("Windows SDL libraries are ready in ${joinPath(effectiveStaging, "sdl/.sdl3")}")
+        if (!quiet) {
+            println("Windows SDL libraries are ready in ${joinPath(effectiveStaging, "sdl/.sdl3")}")
+        }
         return 0
     }
     let sdlDirectory = joinPath(effectiveStaging, "sdl/.sdl3")
@@ -546,7 +604,7 @@ func bootstrap(platform: String, framework: String, stagingRoot!: String = ""): 
         copyNativeLibrary(sdl3, joinPath(sdlDirectory, "libSDL3.so"))
         copyNativeLibrary(sdl3Ttf, joinPath(sdlDirectory, "libSDL3_ttf.so"))
     }
-    println("${platform} SDL libraries are ready in ${sdlDirectory}")
+    if (!quiet) { println("${platform} SDL libraries are ready in ${sdlDirectory}") }
     0
 }
 
@@ -560,9 +618,16 @@ func homebrewLibrary(formula: String, library: String): String {
     path
 }
 
+// The bindings include PNG, page-size and window progress APIs added in SDL 3.4.
+// Keep doctor and bootstrap on the same requirement; existence alone is not ABI readiness.
+func pkgConfigRequirement(packageName: String): String {
+    if (packageName == "sdl3") { "sdl3 >= 3.4.0" } else { packageName }
+}
+
 func pkgConfigLibrary(packageName: String, library: String): String {
-    let (existsCode, _, _) = executeWithOutput("pkg-config", ["--exists", packageName])
-    if (existsCode != 0) { throw CuicError("pkg-config package '${packageName}' is not installed") }
+    let requirement = pkgConfigRequirement(packageName)
+    let (existsCode, _, _) = executeWithOutput("pkg-config", ["--exists", requirement])
+    if (existsCode != 0) { throw CuicError("pkg-config requirement '${requirement}' is missing or incompatible") }
     let (prefixCode, stdoutBytes, _) = executeWithOutput("pkg-config", ["--variable=libdir", packageName])
     if (prefixCode != 0) { throw CuicError("cannot resolve library directory for '${packageName}'") }
     let path = joinPath(trimAscii(String.fromUtf8(stdoutBytes)), library)
@@ -575,7 +640,8 @@ func copyNativeLibrary(source: String, destination: String): Unit {
     File.writeTo(destination, File.readFrom(source))
 }
 
-func runCjpm(action: String, platform: String, project: String): Int64 {
+func runCjpm(action: String, platform: String, project: String, mode!: String = "release", jobs!: Int64 = 0): Int64 {
+    let arguments = cjpmProfileArguments(action, mode, jobs: jobs)
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
     let diffCode = runKModeDiff(project, quiet: true)
@@ -586,8 +652,8 @@ func runCjpm(action: String, platform: String, project: String): Int64 {
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
     try {
-        println("==> cjpm ${action} (${platform}) in ${project}")
-        executeCjpm(context, [action])
+        println("==> cjpm ${action} (${platform}, ${mode}) in ${project}")
+        executeCjpm(context, arguments)
     } finally {
         context.releaseLease(lease)
     }
@@ -604,19 +670,23 @@ func cjpmArgsWithTarget(args: Array<String>, targetDir: String): Array<String> {
     out.toArray()
 }
 
-func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
+func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>,
+    packagingCompileOptions!: String = "", packagingLinkOptions!: String = ""): Int64 {
     let sdl = context.sdlDirectory()
     let font = runtimeHarmonyFont(context.framework)
-    let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
+    let buildArgs = if (exists(joinPath(context.framework, SOURCE_SDK_MANIFEST))) { sourceSdkBuildArguments(cjpmArgs) } else { cjpmArgs }
+    let targetArgs = cjpmArgsWithTarget(buildArgs, context.targetDir)
     if (hostPlatform() == "windows") {
         return executeCommandWithEnvironment(
             "cjpm",
             targetArgs,
             context.project,
-            windowsCjpmEnvironment(sdl, font)
+            packagingBuildEnvironment(windowsCjpmEnvironment(sdl, font), packagingCompileOptions, packagingLinkOptions)
         )
     }
     let args = ArrayList<String>()
+    args.add("${PACKAGE_COMPILE_ENV}=${packagingCompileOptions}")
+    args.add("${PACKAGE_LINK_ENV}=${packagingLinkOptions}")
     args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
@@ -624,25 +694,33 @@ func executeCjpm(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
         args.add("LD_LIBRARY_PATH=${sdl}:${readEnv("LD_LIBRARY_PATH")}")
     }
     args.add("CANGHUI_HARMONYOS_SANS=${font}")
+    if (!cjpmArgs.isEmpty() && cjpmArgs[0] == "run") {
+        let identity = linuxApplicationIdentity(context.project, hostPlatform())
+        if (!identity.isEmpty()) { args.add("SDL_APP_ID=${identity}") }
+    }
     args.add("cjpm")
     for (arg in targetArgs) { args.add(arg) }
     executeCommand("/usr/bin/env", args.toArray(), context.project)
 }
 
-func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64 {
+func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>,
+    packagingCompileOptions!: String = "", packagingLinkOptions!: String = ""): Int64 {
     let sdl = context.sdlDirectory()
     let font = runtimeHarmonyFont(context.framework)
-    let targetArgs = cjpmArgsWithTarget(cjpmArgs, context.targetDir)
+    let buildArgs = if (exists(joinPath(context.framework, SOURCE_SDK_MANIFEST))) { sourceSdkBuildArguments(cjpmArgs) } else { cjpmArgs }
+    let targetArgs = cjpmArgsWithTarget(buildArgs, context.targetDir)
     if (hostPlatform() == "windows") {
         return executeCommandWithEnvironment(
             "cjpm",
             targetArgs,
             context.project,
-            windowsCjpmEnvironment(sdl, font),
+            packagingBuildEnvironment(windowsCjpmEnvironment(sdl, font), packagingCompileOptions, packagingLinkOptions),
             quiet: true
         )
     }
     let args = ArrayList<String>()
+    args.add("${PACKAGE_COMPILE_ENV}=${packagingCompileOptions}")
+    args.add("${PACKAGE_LINK_ENV}=${packagingLinkOptions}")
     args.add(nativeLinkSearchAssignment(sdl, readEnv("LIBRARY_PATH")))
     if (hostPlatform() == "macos") {
         args.add("DYLD_LIBRARY_PATH=${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
@@ -650,6 +728,10 @@ func executeCjpmQuiet(context: ExecutionContext, cjpmArgs: Array<String>): Int64
         args.add("LD_LIBRARY_PATH=${sdl}:${readEnv("LD_LIBRARY_PATH")}")
     }
     args.add("CANGHUI_HARMONYOS_SANS=${font}")
+    if (!cjpmArgs.isEmpty() && cjpmArgs[0] == "run") {
+        let identity = linuxApplicationIdentity(context.project, hostPlatform())
+        if (!identity.isEmpty()) { args.add("SDL_APP_ID=${identity}") }
+    }
     args.add("cjpm")
     for (arg in targetArgs) { args.add(arg) }
     executeCommandQuiet("/usr/bin/env", args.toArray(), context.project)
@@ -663,9 +745,25 @@ func nativeLinkSearchAssignment(sdl: String, current: String): String {
     }
 }
 
+func workingDirectoryEnvironment(workingDirectory: String, inherited: HashMap<String, String>): HashMap<String, String> {
+    let environment = HashMap<String, String>()
+    for ((key, value) in inherited) { environment.add(key, value) }
+    // chdir does not update inherited PWD. Build macros and non-shell children
+    // must observe the same project through both filesystem and environment.
+    environment.add("PWD", canonicalize(workingDirectory).toString())
+    return environment
+}
+
+func workingDirectoryEnvironment(workingDirectory: String): HashMap<String, String> {
+    let inherited = HashMap<String, String>()
+    for ((key, value) in getVariables()) { inherited.add(key, value) }
+    workingDirectoryEnvironment(workingDirectory, inherited)
+}
+
 func executeCommand(program: String, args: Array<String>, workingDirectory: String): Int64 {
     try {
-        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args, workingDirectory: Path(workingDirectory))
+        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args,
+            workingDirectory: Path(workingDirectory), environment: workingDirectoryEnvironment(workingDirectory))
         let stdout = String.fromUtf8(stdoutBytes)
         let stderr = String.fromUtf8(stderrBytes)
         if (stdout.size > 0) { print(stdout, flush: true) }
@@ -679,7 +777,8 @@ func executeCommand(program: String, args: Array<String>, workingDirectory: Stri
 
 func executeCommandQuiet(program: String, args: Array<String>, workingDirectory: String): Int64 {
     try {
-        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args, workingDirectory: Path(workingDirectory))
+        let (code, stdoutBytes, stderrBytes) = executeWithOutput(program, args,
+            workingDirectory: Path(workingDirectory), environment: workingDirectoryEnvironment(workingDirectory))
         if (code != 0) {
             let stdout = String.fromUtf8(stdoutBytes)
             let stderr = String.fromUtf8(stderrBytes)
@@ -706,7 +805,7 @@ func executeCommandWithEnvironment(
             program,
             args,
             workingDirectory: Path(workingDirectory),
-            environment: environment,
+            environment: workingDirectoryEnvironment(workingDirectory, environment),
             stdIn: ProcessRedirect.Inherit,
             stdOut: output,
             stdErr: output
@@ -870,6 +969,8 @@ func initProject(args: Array<String>, start: Int64): Int64 {
     if (frameworkPath.isEmpty() && (frameworkGit.isEmpty() || frameworkCommit.isEmpty())) {
         throw CuicError("Git initialization requires both a CangHui URL and commit")
     }
+    let sdkMode = !frameworkPath.isEmpty() && exists(joinPath(frameworkPath, SOURCE_SDK_MANIFEST))
+    if (sdkMode) { protectSourceSdkDestination(frameworkPath, directory) }
     if (exists(directory)) {
         for (_ in Directory.readFrom(directory)) { throw CuicError("destination is not empty: ${directory}") }
     } else {
@@ -888,14 +989,16 @@ func initProject(args: Array<String>, start: Int64): Int64 {
         "name = \"${packageName}\"\n" +
         "version = \"0.1.0\"\n" +
         "output-type = \"executable\"\n" +
-        "compile-option = \"--set-runtime-rpath\"\n" +
+        "compile-option = \"${if (sdkMode) { "--static --static-std" } else { "--set-runtime-rpath" }}\"\n" +
+        sourceSdkInitLinkOption(sdkMode, platform) +
         "description = \"CangHui desktop application.\"\n\n" +
         "[dependencies]\n" +
         renderFrameworkDependency(dependency) + "\n"
     File.writeTo(joinPath(directory, "cjpm.toml"), manifest.toArray())
     File.writeTo(joinPath(directory, PROJECT_MANIFEST), defaultProjectManifest(packageName: packageName).toArray())
     File.writeTo(joinPath(directory, ".gitignore"), "target/\ndist/\n".toArray())
-    File.writeTo(joinPath(directory, "src/main.cj"), generatedMain(packageName).toArray())
+    File.writeTo(joinPath(directory, "src/main.cj"),
+        (if (sdkMode) { generatedSdkMain(packageName) } else { generatedMain(packageName) }).toArray())
     println("created CangHui project: ${directory}")
     println("package: ${packageName}")
     println("platform: ${platform}")
@@ -910,19 +1013,7 @@ func initProject(args: Array<String>, start: Int64): Int64 {
 }
 
 func generatedMain(packageName: String): String {
-    "package ${packageName}\n\n" +
-    "import chui.{Button, ButtonRole, DesktopApp, Label, LengthUnits, State, VStack, WindowSpec, runKModeStdioIfRequested}\n\n" +
-    "main(): Unit {\n" +
-    "    if (runKModeStdioIfRequested()) { return }\n" +
-    "    let message = State<String>(\"你好，CangHui\")\n" +
-    "    let app = DesktopApp(WindowSpec(\"${packageName}\", 720, 480, scale: 1.5))\n" +
-    "    app.run {\n" +
-    "        VStack {\n" +
-    "            Label(message.value)\n" +
-    "            Button(\"更新状态\", {=> message.value = \"CangHui 已准备好\"}).role(ButtonRole.Primary)\n" +
-    "        }.spacing(12.vp).padding(24.vp)\n" +
-    "    }\n" +
-    "}\n"
+    generatedWelcomeMain(packageName, false)
 }
 
 func deviceCommand(args: Array<String>, start: Int64): Int64 {
@@ -988,6 +1079,7 @@ func debugCommand(_args: Array<String>, _start: Int64): Int64 {
 
 func printWindow(args: Array<String>, start: Int64): Int64 {
     let options = parsePrntOptions(args, start)
+    if (!options.artifact.isEmpty()) { return printPackagedApplication(options) }
     if (options.device.size > 0 || options.app.size > 0) {
         return printDeviceWindow(options)
     }
@@ -1067,27 +1159,40 @@ func printDesktopWindow(options: PrntOptions): Int64 {
     let lowerBmp = endsWithText(output, ".bmp") || endsWithText(output, ".BMP")
     let lowerPng = endsWithText(output, ".png") || endsWithText(output, ".PNG")
     if (!lowerBmp && !lowerPng) { throw CuicError("prnt output must end in .bmp or .png") }
-    let snapshot = if (lowerBmp) { output } else { output + ".bmp" }
+    let nativePng = lowerPng && desktopCaptureUsesNativePng(framework)
+    let snapshot = desktopCaptureSnapshotPath(output, nativePng)
     removeIfExists(snapshot)
     let lease = context.acquireLease()
+    let selectionReceipt = if (options.windowId.isEmpty()) { "" } else {
+        joinPath(context.targetDir, "cuic-window-selection.txt")
+    }
     try {
+        if (!selectionReceipt.isEmpty()) { removeIfExists(selectionReceipt) }
         println("==> building ${basename(project)} (${options.platform})")
-        let buildCode = executeCjpm(context, ["build"])
+        let buildCode = executeCjpm(context, desktopCaptureBuildArguments(options.mode))
         if (buildCode != 0) { return buildCode }
-        let executable = builtExecutable(context.targetDir)
+        let executable = desktopCaptureExecutable(context.targetDir, options.mode, {path => exists(path)})
         println("==> capturing ${basename(project)} (${options.platform}) via CangHui capture interface")
         let code = executeApplication(project, executable, options.appArgs.toArray(), framework, snapshot,
-            options.frames)
+            options.frames, nativeDirectory: context.sdlDirectory(), captureWindow: options.windowId,
+            captureWindowReceipt: selectionReceipt)
         if (code != 0) { return code }
+        let actualSelection = if (!selectionReceipt.isEmpty() && exists(selectionReceipt)) {
+            Some(String.fromUtf8(File.readFrom(selectionReceipt)))
+        } else { None<String> }
+        verifyCaptureWindowSelection(options.windowId, actualSelection)
     } finally {
-        context.releaseLease(lease)
+        cleanupCaptureSelection(context, selectionReceipt, lease)
     }
     if (!exists(snapshot)) { throw CuicError("application exited without producing a snapshot") }
-    if (lowerPng) {
+    if (nativePng) {
+        publishDesktopPng(snapshot, output)
+    } else if (lowerPng) {
         let converted = convertPng(snapshot, output)
         if (converted != 0) { return converted }
         removeIfExists(snapshot)
     }
+    if (lowerPng) { verifyDesktopPng(output) }
     println("snapshot: ${output}")
     0
 }
@@ -1098,6 +1203,35 @@ func parseCaptureFrames(value: String): UInt64 {
         if (frames > UInt64(0)) { return frames }
     } catch (_: Exception) {}
     throw CuicError("--frames requires a positive integer")
+}
+
+func verifyCaptureWindowSelection(expected: String, actual: ?String): Unit {
+    if (expected.isEmpty()) { return }
+    match (actual) {
+        case Some(value) where value == expected => ()
+        case Some(value) => throw CuicError("capture window acknowledgment '${value}' does not match '${expected}'")
+        case None => throw CuicError("application did not acknowledge capture window; runtime may not support --window")
+    }
+}
+
+func cleanupCaptureSelection(context: ExecutionContext, receipt: String, lease: String): Unit {
+    try {
+        if (!receipt.isEmpty()) { removeIfExists(receipt) }
+    } finally {
+        context.releaseLease(lease)
+    }
+}
+
+func desktopCaptureBuildArguments(mode: String): Array<String> {
+    if (normalizeBuildMode(mode) == "debug") { ["build", "-g"] } else { ["build"] }
+}
+
+func desktopCaptureExecutable(targetDir: String, mode: String, present: (String) -> Bool): String {
+    let profile = normalizeBuildMode(mode)
+    for (path in builtExecutableCandidates(targetDir, profile)) {
+        if (present(path)) { return path }
+    }
+    throw CuicError("${profile} capture build completed but its executable was not found")
 }
 
 func builtExecutable(targetDir: String): String {
@@ -1124,15 +1258,20 @@ func executeApplication(
     appArgs: Array<String>,
     framework: String,
     capturePath: String,
-    captureFrames: UInt64
+    captureFrames: UInt64,
+    nativeDirectory!: String = "",
+    captureWindow!: String = "",
+    captureWindowReceipt!: String = ""
 ): Int64 {
-    let environment = applicationEnvironment(framework, capturePath, captureFrames)
+    let environment = applicationEnvironment(framework, capturePath, captureFrames,
+        nativeDirectory: nativeDirectory, project: project, captureWindow: captureWindow,
+        captureWindowReceipt: captureWindowReceipt)
     try {
         let process = launch(
             executable,
             appArgs,
             workingDirectory: Path(project),
-            environment: environment,
+            environment: workingDirectoryEnvironment(project, environment),
             stdIn: ProcessRedirect.Inherit,
             stdOut: ProcessRedirect.Inherit,
             stdErr: ProcessRedirect.Inherit
@@ -1147,11 +1286,17 @@ func executeApplication(
 func applicationEnvironment(
     framework: String,
     capturePath: String,
-    captureFrames: UInt64
+    captureFrames: UInt64,
+    nativeDirectory!: String = "",
+    project!: String = "",
+    captureWindow!: String = "",
+    captureWindowReceipt!: String = ""
 ): HashMap<String, String> {
     let environment = HashMap<String, String>()
     for ((key, value) in getVariables()) { environment.add(key, value) }
-    let sdl = joinPath(framework, "sdl/.sdl3")
+    let identity = linuxApplicationIdentity(project, hostPlatform())
+    if (!identity.isEmpty()) { environment.add("SDL_APP_ID", identity) }
+    let sdl = if (nativeDirectory.isEmpty()) { joinPath(framework, "sdl/.sdl3") } else { nativeDirectory }
     let runtime = cangjieRuntimeLibraryDirectory()
     if (hostPlatform() == "macos") {
         environment.add("DYLD_LIBRARY_PATH", "${runtime}:${sdl}:${readEnv("DYLD_LIBRARY_PATH")}")
@@ -1163,10 +1308,12 @@ func applicationEnvironment(
     environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
     environment.add("CANGHUI_CAPTURE_PATH", capturePath)
     environment.add("CANGHUI_CAPTURE_FRAMES", captureFrames.toString())
+    environment.add("CANGHUI_CAPTURE_WINDOW", if (capturePath.isEmpty()) { "" } else { captureWindow })
+    environment.add("CANGHUI_CAPTURE_WINDOW_RECEIPT", if (capturePath.isEmpty()) { "" } else { captureWindowReceipt })
     // Cangjie cjthreads use an M:N scheduler. A single processor keeps macOS SDL/AppKit
     // capture on one native thread even when the application launches a child process
     // during startup. Respect an explicit caller value for diagnostic overrides.
-    if (shouldPinMacCaptureProcessor(hostPlatform(), readEnv("cjProcessorNum"))) {
+    if (!capturePath.isEmpty() && shouldPinMacCaptureProcessor(hostPlatform(), readEnv("cjProcessorNum"))) {
         environment.add("cjProcessorNum", "1")
     }
     environment

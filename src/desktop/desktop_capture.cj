@@ -2,6 +2,8 @@ package chui.desktop
 
 import std.convert.*
 import std.env.getVariable
+import std.fs.File
+import chui.core.SemanticRuntime
 
 /**
  * A framework-owned request for one settled renderer capture.
@@ -12,17 +14,21 @@ import std.env.getVariable
  * CJPM forwarding application arguments.
  */
 public class DesktopCaptureRequest {
-    /** Destination path written by the renderer. The framework currently writes BMP. */
+    /** Destination path: .png/.PNG selects native PNG; other paths retain BMP output. */
     public let path: String
     /** Number of rendered frames to wait before capturing. */
     public let settleFrames: UInt64
+    /** Optional semanticWindowId; empty selects the first live managed window, never OS focus. */
+    public let windowId: String
 
-    public init(path: String, settleFrames!: UInt64 = UInt64(48)) {
+    public init(path: String, settleFrames!: UInt64 = UInt64(48), windowId!: String = "") {
         if (path.isEmpty()) {
             throw IllegalArgumentException("desktop capture path must not be empty")
         }
+        if (!windowId.isEmpty()) { let _ = SemanticRuntime(windowId) }
         this.path = path
         this.settleFrames = if (settleFrames == UInt64(0)) { UInt64(1) } else { settleFrames }
+        this.windowId = windowId
     }
 
     /** Reads the host capture request installed by `cuic prnt`, if present. */
@@ -30,8 +36,15 @@ public class DesktopCaptureRequest {
         let path = environmentValue("CANGHUI_CAPTURE_PATH")
         if (path.isEmpty()) { return None }
         let frames = captureFrameValue(environmentValue("CANGHUI_CAPTURE_FRAMES"))
-        Some(DesktopCaptureRequest(path, settleFrames: frames))
+        Some(DesktopCaptureRequest(path, settleFrames: frames,
+            windowId: environmentValue("CANGHUI_CAPTURE_WINDOW")))
     }
+}
+
+/** Additive CUIC selector acknowledgment; never enable a transport or input channel. */
+internal func recordDesktopCaptureSelection(windowId: String): Unit {
+    let path = environmentValue("CANGHUI_CAPTURE_WINDOW_RECEIPT")
+    if (!path.isEmpty()) { File.writeTo(path, windowId.toArray()) }
 }
 
 private func environmentValue(name: String): String {

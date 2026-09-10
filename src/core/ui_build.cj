@@ -363,6 +363,11 @@ public func handlePointerClick(
 ): Bool {
     claimHoverIfInside(ctx, event, frame, id, CursorShape.Interactive)
     match (event) {
+        case UiEvent.PointerCancelled =>
+            let owned = ctx.isPressed(id)
+            ctx.cancelPress(id)
+            if (owned) { ctx.cancelInkRipple(id) }
+            return owned
         case UiEvent.MouseMove(x, y) =>
             if (ctx.isPressed(id) && !frame.contains(x, y)) {
                 ctx.cancelPress(id)

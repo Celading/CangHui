@@ -1,5 +1,14 @@
 package cuic
 
+import std.fs.{Directory, File, removeIfExists}
+
+@Test
+func nativePkgConfigRequirementMatchesRequiredSdlSymbols(): Unit {
+    @Expect(pkgConfigRequirement("sdl3"), "sdl3 >= 3.4.0")
+    @Expect(pkgConfigRequirement("sdl3-ttf"), "sdl3-ttf")
+    @Expect(pkgConfigRequirement("other"), "other")
+}
+
 @Test
 func doctorOptionsKeepCompatibilityAndMachineModes(): Unit {
     let options = parseDoctorOptions([
@@ -29,10 +38,20 @@ func doctorStatusOnlyCountsRequestedTargetBlockers(): Unit {
 
 @Test
 func doctorMacosRuntimeProviderAcceptsAnExistingStagingLibrary(): Unit {
-    let framework = tryResolveFrameworkRoot(currentDirectory())
-    let check = doctorMacosRuntimeProvider("macos", "macos.sdl3", "SDL3 provider",
-        joinPath(framework, "sdl/.sdl3/libSDL3.dylib"), "sdl3")
-    @Expect(doctorStatusName(check.status), "ready")
+    let root = joinPath(currentDirectory(), "target/doctor-staging-presence-fixture")
+    Directory.create(root, recursive: true)
+    let staged = joinPath(root, "presence.fixture")
+    // This branch checks staged-file presence, not Mach-O validity or execution.
+    // Own the input instead of assuming a developer's macOS native cache exists.
+    File.writeTo(staged, "presence-only fixture".toArray())
+    try {
+        let check = doctorMacosRuntimeProvider("macos", "macos.sdl3", "SDL3 provider", staged, "sdl3")
+        @Expect(doctorStatusName(check.status), "ready")
+        @Expect(check.evidence, staged)
+        let _ = removeIfExists(staged)
+        let missing = doctorMacosRuntimeProvider("linux", "macos.sdl3", "SDL3 provider", staged, "sdl3")
+        @Expect(doctorStatusName(missing.status), "unsupported")
+    } finally { let _ = removeIfExists(root, recursive: true) }
 }
 
 @Test
@@ -43,7 +62,7 @@ func doctorJsonKeepsStableSchemaAndActionShape(): Unit {
     let result = DoctorResult("macos", "arm64", "macos", [group])
     let json = renderDoctorJson(result, false)
     @Expect(json.contains("\"schema\":\"canghui.doctor.v0\""))
-    @Expect(json.contains("\"cliVersion\":\"0.6.0\""))
+    @Expect(json.contains("\"cliVersion\":\"0.7.0\""))
     @Expect(json.contains("\"cliProvenance\":{\"channel\":\"development\",\"revision\":\"unembedded\"}"))
     @Expect(json.contains("\"status\":\"degraded\""))
     @Expect(json.contains("\"kind\":\"manual\""))

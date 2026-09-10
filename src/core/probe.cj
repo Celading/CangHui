@@ -3,7 +3,7 @@ package chui.core
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
 import sdl.{DrawIrAsciiAnnotation, DrawIrAsciiAnnotationKind, DrawIrAsciiOptions, DrawIrCommand, FrameInfo,
-    Key, MouseButton, Rect, Renderer, Size, UiEvent, drawIrAsciiAnnotationKindName, renderDrawIrAscii}
+    MouseButton, Rect, Renderer, Size, UiEvent, drawIrAsciiAnnotationKindName, renderDrawIrAscii}
 import chui.probe.{CUI_PROBE_PROTOCOL, probeJsonQuote}
 
 /** A stable public property emitted by a probe-enabled widget. */
@@ -56,6 +56,7 @@ public class ProbeNode <: Widget {
     private let semantics: ?ProbeSemanticProvider
     private let child: Widget
     private var frame = Rect.zero()
+    private var measured = Size.zero()
 
     public init(
         id: String,
@@ -79,21 +80,24 @@ public class ProbeNode <: Widget {
         emit(this)
     }
 
-    public func measure(ctx: UiContext, available: Size): Size { child.measure(ctx, available) }
+    public func measure(ctx: UiContext, available: Size): Size {
+        measured = child.measure(ctx, available)
+        measured
+    }
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
         child.layout(ctx, rect)
-        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
-            properties, semantics, ctx)
+        updateActiveProbeNode(id, widgetType, frame, measured, child.focusableId(), child.interactionsEnabled(),
+            probeComputedFacts(child, ctx, measured), properties, semantics, ctx)
     }
 
     public func draw(ctx: UiContext): Unit {
         enterActiveProbeNode(id)
         ctx.renderer.pushDrawIrScope(id)
         try {
-            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
-                properties, semantics, ctx)
+            updateActiveProbeNode(id, widgetType, frame, measured, child.focusableId(), child.interactionsEnabled(),
+                probeComputedFacts(child, ctx, measured), properties, semantics, ctx)
             child.draw(ctx)
         } finally {
             ctx.renderer.popDrawIrScope()
@@ -125,6 +129,7 @@ class ProbedWidget <: Widget {
     private let properties: Array<ProbeProperty>
     private let semantics: ?ProbeSemanticProvider
     private var frame = Rect.zero()
+    private var measured = Size.zero()
 
     init(
         child: Widget,
@@ -142,21 +147,24 @@ class ProbedWidget <: Widget {
         declareActiveProbeNode(id, this.widgetType)
     }
 
-    public func measure(ctx: UiContext, available: Size): Size { child.measure(ctx, available) }
+    public func measure(ctx: UiContext, available: Size): Size {
+        measured = child.measure(ctx, available)
+        measured
+    }
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
         child.layout(ctx, rect)
-        updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
-            properties, semantics, ctx)
+        updateActiveProbeNode(id, widgetType, frame, measured, child.focusableId(), child.interactionsEnabled(),
+            probeComputedFacts(child, ctx, measured), properties, semantics, ctx)
     }
 
     public func draw(ctx: UiContext): Unit {
         enterActiveProbeNode(id)
         ctx.renderer.pushDrawIrScope(id)
         try {
-            updateActiveProbeNode(id, widgetType, frame, child.focusableId(), child.interactionsEnabled(),
-                properties, semantics, ctx)
+            updateActiveProbeNode(id, widgetType, frame, measured, child.focusableId(), child.interactionsEnabled(),
+                probeComputedFacts(child, ctx, measured), properties, semantics, ctx)
             child.draw(ctx)
         } finally {
             ctx.renderer.popDrawIrScope()
@@ -226,11 +234,15 @@ public func probeSemanticRegions(provider: ProbeSemanticRegionProvider): Unit {
     }
 }
 
-/** Lets stock-control semantics yield to an explicit probe for the same action owner. */
-protected func shouldRecordAutomaticControlSemantics(actionOwner: String): Bool {
+/** Avoid constructing diagnostic properties outside a running component probe. */
+protected func isComponentProbeActive(): Bool { activeComponentProbeSession.isSome() }
+
+/** Actual controls supply replay facts separately from user-authored descriptive properties. */
+protected func recordActiveProbeControlSemantics(frame: Rect, widgetType: String,
+    semantics: ControlSemantics, properties: Array<ProbeProperty>, enabled: Bool, registered: Bool): Unit {
     match (activeComponentProbeSession) {
-        case Some(session) => !session.currentDrawNodeOwns(actionOwner)
-        case None => false
+        case Some(session) => session.recordControlSemantics(frame, widgetType, semantics, properties, enabled, registered)
+        case None => ()
     }
 }
 
@@ -244,12 +256,18 @@ public class ComponentProbe {
     public let width: Float32
     public let height: Float32
     public let theme: Theme
+    public let designBindings: Array<DesignComponentBinding>
+    public let designInteractions: Array<DesignInteractionBinding>
+    public let designScenes: Array<DesignAdaptiveScene>
 
     public init(
         name: String,
         width!: Float32 = 640.0,
         height!: Float32 = 360.0,
-        theme!: Theme = Theme.light()
+        theme!: Theme = Theme.light(),
+        designBindings!: Array<DesignComponentBinding> = [],
+        designInteractions!: Array<DesignInteractionBinding> = [],
+        designScenes!: Array<DesignAdaptiveScene> = []
     ) {
         if (name.isEmpty()) { throw IllegalArgumentException("component probe name must not be empty") }
         if (width <= 0.0 || height <= 0.0) {
@@ -259,6 +277,9 @@ public class ComponentProbe {
         this.width = width
         this.height = height
         this.theme = theme
+        this.designBindings = designBindings.clone()
+        this.designInteractions = designInteractions.clone()
+        this.designScenes = designScenes.clone()
     }
 
     public func run(script: String, body: () -> Unit): String {
@@ -268,12 +289,14 @@ public class ComponentProbe {
         ctx.viewportWidth = width
         ctx.viewportHeight = height
         let store = StateStore()
-        let session = ComponentProbeSession(name, width, height)
+        let session = ComponentProbeSession(name, width, height,
+            designBindings, designInteractions, designScenes)
         let previous = activeComponentProbeSession
         activeComponentProbeSession = Some(session)
         try {
             var elapsed: UInt64 = 0
             var widget = renderProbeFrame(session, renderer, ctx, store, elapsed, UInt64(0), body)
+            if (!output.observation.isEmpty()) { session.captureObservationBaseline() }
             for (rawLine in output.script.split("\n")) {
                 let line = trimProbeText(rawLine)
                 if (line.isEmpty() || line.startsWith("#")) { continue }
@@ -293,7 +316,7 @@ public class ComponentProbe {
                     ctx.mouseX = x
                     ctx.mouseY = y
                     ctx.beginHoverTest()
-                    let consumed = widget.handle(ctx, UiEvent.MouseMove(x, y))
+                    let consumed = routeProbeInput(ctx, widget, UiEvent.MouseMove(x, y))
                     ctx.settleHover()
                     session.finishEvent(consumed)
                 } else if (command == "press") {
@@ -305,7 +328,7 @@ public class ComponentProbe {
                     ctx.leftMouseDown = true
                     ctx.recordPress(x, y)
                     ctx.beginPointerPress()
-                    let consumed = widget.handle(ctx, UiEvent.MouseDown(MouseButton.Left, x, y))
+                    let consumed = routeProbeInput(ctx, widget, UiEvent.MouseDown(MouseButton.Left, x, y))
                     ctx.settleFocusAfterPress()
                     session.finishEvent(consumed)
                 } else if (command == "release") {
@@ -314,42 +337,48 @@ public class ComponentProbe {
                     let y = Float32.parse(parts[2])
                     ctx.mouseX = x
                     ctx.mouseY = y
-                    let consumed = widget.handle(ctx, UiEvent.MouseUp(MouseButton.Left, x, y))
+                    let consumed = routeProbeInput(ctx, widget, UiEvent.MouseUp(MouseButton.Left, x, y))
                     ctx.leftMouseDown = false
                     ctx.clearDrag()
                     ctx.clearPress()
                     session.finishEvent(consumed)
+                } else if (command == "cancel") {
+                    requireProbeArity(parts, 1, command)
+                    session.finishEvent(ctx.cancelPointerInteraction(widget))
                 } else if (command == "key") {
                     requireProbeArity(parts, 2, command)
-                    let key = parseProbeKey(parts[1])
-                    let consumed = match (key) {
-                        case Key.Tab =>
-                            ctx.focusNext()
-                            true
-                        case _ => widget.handle(ctx, UiEvent.KeyDown(key, false))
-                    }
+                    let (key, mask) = parseScriptedKeyInput(parts[1])
+                    let eventWidget = widget
+                    let consumed = ctx.withEventModifiers(Some(mask), {=>
+                        ctx.dispatchKeyboardEvent(eventWidget, UiEvent.KeyDown(key, false))
+                    })
                     session.finishEvent(consumed)
                 } else if (command == "focus") {
                     requireProbeArity(parts, 2, command)
-                    ctx.focus(parts[1], viaKeyboard: true)
+                    if (ctx.hasOverlay()) {
+                        throw IllegalArgumentException("focus by id cannot verify overlay ownership; use key Tab")
+                    }
+                    ctx.focus(session.resolveFocusTarget(parts[1], store.focusRing()), viaKeyboard: true)
                     session.finishEvent(true)
                 } else if (command == "text") {
                     if (parts.size < 2) { throw IllegalArgumentException("text requires a value") }
                     let value = substringAfterProbeWord(line)
-                    session.finishEvent(widget.handle(ctx, UiEvent.TextInput(value)))
+                    session.finishEvent(routeProbeInput(ctx, widget, UiEvent.TextInput(value)))
                 } else if (command == "advance") {
                     requireProbeArity(parts, 2, command)
                     delta = UInt64.parse(parts[1])
                     elapsed += delta
                     ctx.frame = FrameInfo(elapsed, delta)
-                    session.finishEvent(widget.handle(ctx, UiEvent.Frame(ctx.frame)))
+                    // Keep the event record open; renderProbeFrame dispatches exactly once to
+                    // the rebuilt tree and records its consumption/callbacks before drawing.
                 } else if (command == "draw") {
                     session.finishEvent(false)
                 } else {
                     session.finishEvent(false)
                     throw IllegalArgumentException("unknown component probe command: " + command)
                 }
-                widget = renderProbeFrame(session, renderer, ctx, store, elapsed, delta, body)
+                widget = renderProbeFrame(session, renderer, ctx, store, elapsed, delta, body,
+                    finishFrameEvent: command == "advance")
             }
             session.report(output)
         } catch (error: Exception) {
@@ -367,11 +396,17 @@ private class ProbeNodeSnapshot {
     let parent: String
     let order: Int64
     var frame = Rect.zero()
+    var measured = Size.zero()
     var focusId: String = ""
+    var focusTarget: String = ""
     var focused = false
     var hovered = false
     var pressed = false
     var properties = Array<ProbeProperty>()
+    var computedFacts = Array<DesignComputedFact>()
+    var replayActions: ?Array<String> = None
+    var replayTarget = ""
+    var replayEnabled = true
 
     init(id: String, widgetType: String, parent: String, order: Int64) {
         this.id = id
@@ -434,7 +469,7 @@ private class ProbeNodeSnapshot {
         out.toString()
     }
 
-    func toAsciiAnnotation(): ?DrawIrAsciiAnnotation {
+    func toAsciiAnnotation(target: String): ?DrawIrAsciiAnnotation {
         match (probeNodeAnnotationKind(widgetType, properties)) {
             case Some(kind) => Some(DrawIrAsciiAnnotation(
                 id,
@@ -447,7 +482,10 @@ private class ProbeNodeSnapshot {
                 action: probePropertyValue(properties, "action"),
                 shortcut: probePropertyValue(properties, "shortcut"),
                 value: probePropertyValue(properties, "value"),
-                state: probeStateText(properties, focused, hovered, pressed)
+                state: probeStateText(properties, focused, hovered, pressed),
+                focusTarget: target,
+                replayActions: replayActions,
+                enabled: replayEnabled && !state("disabled") && probePropertyValue(properties, "enabled") != "false"
             ))
             case None => None
         }
@@ -462,6 +500,9 @@ private class ProbeSemanticRegionSnapshot {
     let rect: Rect
     let widgetType: String
     let properties: Array<ProbeProperty>
+    var replayActions: ?Array<String> = None
+    var replayTarget = ""
+    var replayEnabled = true
 
     init(region: ProbeSemanticRegion, parent: String, order: Int64) {
         this.id = region.id
@@ -506,7 +547,7 @@ private class ProbeSemanticRegionSnapshot {
         out.toString()
     }
 
-    func toAsciiAnnotation(): DrawIrAsciiAnnotation {
+    func toAsciiAnnotation(target: String): DrawIrAsciiAnnotation {
         DrawIrAsciiAnnotation(
             id,
             kind,
@@ -518,7 +559,11 @@ private class ProbeSemanticRegionSnapshot {
             action: probePropertyValue(properties, "action"),
             shortcut: probePropertyValue(properties, "shortcut"),
             value: probePropertyValue(properties, "value"),
-            state: probeStateText(properties, false, false, false)
+            state: probeStateText(properties, false, false, false),
+            focusTarget: target,
+            replayActions: replayActions,
+            enabled: replayEnabled && probePropertyValue(properties, "disabled") != "true" &&
+                probePropertyValue(properties, "enabled") != "false"
         )
     }
 }
@@ -638,15 +683,28 @@ private class ComponentProbeSession {
     private let assertions = ArrayList<ProbeAssertionResult>()
     private let failures = ArrayList<String>()
     private var latestDrawIr = Array<DrawIrCommand>()
+    private var overlayActive = false
+    private var observationBaseline: ?DesignSnapshot = None
     private let frames = ArrayList<String>()
     private var currentEvent: ?ProbeEventRecord = None
     private var logicalTimeMs: UInt64 = 0
     private var frameIndex: Int64 = 0
+    private var displayScale: Float32 = 1.0
+    private var inputTransformRevision: UInt64 = UInt64(1)
+    private let designBindings: Array<DesignComponentBinding>
+    private let designInteractions: Array<DesignInteractionBinding>
+    private let designScenes: Array<DesignAdaptiveScene>
 
-    init(name: String, width: Float32, height: Float32) {
+    init(name: String, width: Float32, height: Float32,
+        designBindings: Array<DesignComponentBinding>,
+        designInteractions: Array<DesignInteractionBinding>,
+        designScenes: Array<DesignAdaptiveScene>) {
         this.name = name
         this.width = width
         this.height = height
+        this.designBindings = designBindings.clone()
+        this.designInteractions = designInteractions.clone()
+        this.designScenes = designScenes.clone()
     }
 
     func beginBuild(): Unit {
@@ -668,9 +726,9 @@ private class ComponentProbeSession {
     func pushParent(id: String): Unit { parentStack.add(id) }
     func popParent(): Unit { if (!parentStack.isEmpty()) { parentStack.remove(at: parentStack.size - 1) } }
 
-    func updateNode(id: String, widgetType: String, frame: Rect, focusId: ?String,
-        subtreeInteractionsEnabled: Bool, base: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider,
-        ctx: UiContext): Unit {
+    func updateNode(id: String, widgetType: String, frame: Rect, measured: Size, focusId: ?String,
+        subtreeInteractionsEnabled: Bool, computedFacts: Array<DesignComputedFact>,
+        base: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider, ctx: UiContext): Unit {
         let node = match (findNode(id)) {
             case Some(value) => value
             case None =>
@@ -678,10 +736,15 @@ private class ComponentProbeSession {
                 findNode(id).getOrThrow()
         }
         node.frame = frame
+        node.measured = measured
+        node.computedFacts = computedFacts.clone()
         node.focusId = match (focusId) { case Some(value) => value case None => id }
+        node.focusTarget = match (focusId) { case Some(value) => value case None => "" }
         node.focused = ctx.hasFocus(node.focusId)
         node.hovered = ctx.isHovered(node.focusId) || ctx.isHovered(id)
         node.pressed = ctx.isPressed(node.focusId) || ctx.isPressed(id)
+        displayScale = ctx.displayScale
+        inputTransformRevision = ctx.inputTransformRevision
         let merged = ArrayList<ProbeProperty>()
         for (property in base) { putProbeProperty(merged, property) }
         match (semantics) {
@@ -700,6 +763,24 @@ private class ComponentProbeSession {
     func enterNode(id: String): Unit { drawNodeStack.add(id) }
     func leaveNode(): Unit { if (!drawNodeStack.isEmpty()) { drawNodeStack.remove(at: drawNodeStack.size - 1) } }
 
+    // Resolve only the single focus owner reported by the actual widget. Descriptive probe
+    // properties are untrusted annotations, not routing authority; containers cannot pick a child.
+    func resolveFocusTarget(id: String, ring: Array<String>): String {
+        var target = id
+        match (findNode(id)) {
+            case Some(node) =>
+                target = node.focusTarget
+                if (ring.contains(id) && target != id) {
+                    throw IllegalArgumentException("ambiguous focus target: probe id conflicts with a control key")
+                }
+            case None => ()
+        }
+        if (target.isEmpty() || !ring.contains(target)) {
+            throw IllegalArgumentException("focus target is not in the current focus ring")
+        }
+        target
+    }
+
     func currentDrawNodeOwns(actionOwner: String): Bool {
         if (drawNodeStack.isEmpty()) { return false }
         let id = drawNodeStack[drawNodeStack.size - 1]
@@ -709,12 +790,72 @@ private class ComponentProbeSession {
         }
     }
 
+    func mergeControlSemantics(actionOwner: String, properties: Array<ProbeProperty>): Bool {
+        if (!currentDrawNodeOwns(actionOwner)) { return false }
+        let node = requireNode(drawNodeStack[drawNodeStack.size - 1])
+        let merged = ArrayList<ProbeProperty>()
+        for (property in node.properties) { putProbeProperty(merged, property) }
+        for (property in properties) {
+            // Descriptions may specialize stock semantics. Actual owner/state facts may not.
+            if (node.property(property.name).isNone() || ["actionOwner", "focusOrder", "selected",
+                "expanded", "enabled", "disabled", "readonly", "editable", "focused",
+                "selectionStart", "selectionEnd", "selectionFocus", "value"].contains(property.name)) {
+                putProbeProperty(merged, property)
+            }
+        }
+        if (probePropertyValue(properties, "role") == "password") {
+            putProbeProperty(merged, ProbeProperty("role", "password"))
+            removeProbeProperty(merged, "value")
+            removeProbeProperty(merged, "selectionStart")
+            removeProbeProperty(merged, "selectionEnd")
+            removeProbeProperty(merged, "selectionFocus")
+        }
+        if (node.state("disabled") || probePropertyValue(properties, "disabled") == "true") {
+            removeProbeProperty(merged, "action")
+            removeProbeProperty(merged, "shortcut")
+            putProbeProperty(merged, ProbeProperty("disabled", "true"))
+            putProbeProperty(merged, ProbeProperty("enabled", "false"))
+        }
+        node.properties = sortedProbeProperties(merged.toArray())
+        true
+    }
+
+    func recordControlSemantics(frame: Rect, widgetType: String, semantics: ControlSemantics,
+        properties: Array<ProbeProperty>, enabled: Bool, registered: Bool): Unit {
+        let names = ArrayList<String>()
+        for (action in semantics.typedActions) { names.add(semanticActionName(action)) }
+        let actions: ?Array<String> = if (names.isEmpty()) { None } else { Some(names.toArray()) }
+        let target = if (registered) { semantics.actionOwner } else { "" }
+        if (mergeControlSemantics(semantics.actionOwner, properties)) {
+            let node = requireNode(drawNodeStack[drawNodeStack.size - 1])
+            node.replayActions = actions
+            node.replayTarget = target
+            node.replayEnabled = enabled && !node.state("disabled")
+        } else {
+            let id = "control-semantic:" + semantics.actionOwner
+            recordRegions([ProbeSemanticRegion(id, DrawIrAsciiAnnotationKind.Interactive, frame,
+                widgetType: widgetType, properties: properties)])
+            match (findRegion(id)) {
+                case Some(region) =>
+                    region.replayActions = actions
+                    region.replayTarget = target
+                    region.replayEnabled = enabled
+                case None => ()
+            }
+        }
+    }
+
     func beginDraw(timeMs: UInt64): Unit {
         logicalTimeMs = timeMs
         animations.clear()
         animationCounts.clear()
         drawNodeStack.clear()
         regions.clear()
+        for (node in nodes) {
+            node.replayActions = None
+            node.replayTarget = ""
+            node.replayEnabled = true
+        }
     }
 
     func recordRegions(values: Array<ProbeSemanticRegion>): Unit {
@@ -738,8 +879,9 @@ private class ComponentProbeSession {
             logicalTimeMs, progress, target))
     }
 
-    func captureFrame(commands: Array<DrawIrCommand>): Unit {
+    func captureFrame(commands: Array<DrawIrCommand>, hasOverlay: Bool): Unit {
         latestDrawIr = commands
+        overlayActive = hasOverlay
         let out = StringBuilder()
         out.append("{\"index\":")
         out.append(frameIndex)
@@ -906,6 +1048,10 @@ private class ComponentProbeSession {
         out.append(width)
         out.append(",\"height\":")
         out.append(height)
+        out.append("},\"inputTransform\":{\"displayScale\":")
+        out.append(displayScale)
+        out.append(",\"revision\":")
+        out.append(inputTransformRevision)
         out.append("},\"frames\":[")
         var first = true
         for (frame in frames) {
@@ -939,6 +1085,21 @@ private class ComponentProbeSession {
     }
 
     func report(output: ProbeOutputRequest): String {
+        if (!output.observation.isEmpty()) {
+            let snapshot = makeDesignSnapshot(output.script)
+            return renderProbeObservation(snapshot, observationBaseline ?? snapshot,
+                output.observation, output.limit, output.node, overlayActive,
+                failures.isEmpty() && assertionsAllPass(), inputTransformRevision)
+        }
+        if (output.designSnapshotV2) {
+            let base = makeDesignSnapshot(output.script)
+            return DesignSnapshotV2(base,
+                componentBindings: designBindings,
+                interactions: designInteractions,
+                scenes: designScenes,
+                computedNodes: if (output.computedTruth) { makeComputedDesignNodes(base) }
+                    else { [] }).toJson()
+        }
         if (output.designSnapshot) { return makeDesignSnapshot(output.script).toJson() }
         if (output.uiAudit) {
             let severity = if (output.auditThreshold == "error") {UiHealthSeverity.Error}
@@ -952,7 +1113,7 @@ private class ComponentProbeSession {
             return "CUI_PROBE_ASCII_ERROR: component probe failed; rerun with --json for details\n" + reportJson()
         }
         renderDrawIrAscii(latestDrawIr, width, height,
-            options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows),
+            options: DrawIrAsciiOptions(columns: output.columns, rows: output.rows, overlayActive: overlayActive),
             annotations: asciiAnnotations())
     }
 
@@ -980,7 +1141,10 @@ private class ComponentProbeSession {
                 role: probePropertyValue(region.properties, "role"),
                 label: firstProbeProperty(region.properties, ["label", "title"]),
                 value: probePropertyValue(region.properties, "value"),
-                states: probeDesignSnapshotProperties(region.properties, false, false, false)))
+                states: probeDesignSnapshotProperties(region.properties,
+                    probePropertyValue(region.properties, "focused") == "true",
+                    probePropertyValue(region.properties, "hovered") == "true",
+                    probePropertyValue(region.properties, "pressed") == "true")))
         }
         let globalStates = [
             DesignSnapshotProperty("probe.ok", (failures.isEmpty() && assertionsAllPass()).toString()),
@@ -995,16 +1159,66 @@ private class ComponentProbeSession {
             inputDigest: probeScriptDigest(script), generator: "CangHui/ComponentProbe")
     }
 
+    func captureObservationBaseline(): Unit { observationBaseline = Some(makeDesignSnapshot("")) }
+
+    private func makeComputedDesignNodes(base: DesignSnapshot): Array<DesignComputedNode> {
+        let screenId = "screen:" + name
+        let commands = HashMap<String, ArrayList<DrawIrCommand>>()
+        for (node in base.nodes) { let _ = commands.add(node.id, ArrayList<DrawIrCommand>()) }
+        for (command in base.drawIr) {
+            let owner = if (command.scope.isEmpty()) { screenId } else { command.scope }
+            match (commands.get(owner)) {
+                case Some(values) => values.add(command)
+                case None => throw IllegalStateException("orphan DesignSnapshot Draw IR scope: " + command.scope)
+            }
+        }
+        let result = ArrayList<DesignComputedNode>()
+        for (node in base.nodes) {
+            let facts = ArrayList<DesignComputedFact>()
+            facts.add(computedDesignLengthFact("frame.x", node.frame.x, "runtime",
+                provenance: DesignComputedProvenance.RuntimeLayout))
+            facts.add(computedDesignLengthFact("frame.y", node.frame.y, "runtime",
+                provenance: DesignComputedProvenance.RuntimeLayout))
+            facts.add(computedDesignLengthFact("frame.width", node.frame.w, "runtime",
+                provenance: DesignComputedProvenance.RuntimeLayout))
+            facts.add(computedDesignLengthFact("frame.height", node.frame.h, "runtime",
+                provenance: DesignComputedProvenance.RuntimeLayout))
+            match (findNode(node.id)) {
+                case Some(snapshot) => for (fact in snapshot.computedFacts) { facts.add(fact) }
+                case None => ()
+            }
+            let scoped = match (commands.get(node.id)) {
+                case Some(values) => values.toArray()
+                case None => Array<DrawIrCommand>()
+            }
+            result.add(DesignComputedNode(node.id, facts: facts.toArray(), drawIr: scoped))
+        }
+        result.toArray()
+    }
+
     private func asciiAnnotations(): Array<DrawIrAsciiAnnotation> {
         let result = ArrayList<DrawIrAsciiAnnotation>()
-        for (region in regions) { result.add(region.toAsciiAnnotation()) }
+        for (region in regions) {
+            result.add(region.toAsciiAnnotation(unambiguousReplayTarget(region.replayTarget)))
+        }
         for (node in nodes) {
-            match (node.toAsciiAnnotation()) {
+            let target = if (node.replayActions.isSome()) { node.replayTarget } else { node.focusTarget }
+            match (node.toAsciiAnnotation(unambiguousReplayTarget(target))) {
                 case Some(annotation) => result.add(annotation)
                 case None => ()
             }
         }
         result.toArray()
+    }
+
+    private func unambiguousReplayTarget(target: String): String {
+        // The focus parser gives observation IDs precedence over raw keys. Do not advertise
+        // a raw owner key if a different observed control shadows it, even when it is registered.
+        match (findNode(target)) {
+            case Some(node) => if (node.focusTarget != target) { return "" }
+            case None => ()
+        }
+        target
     }
 
     private func findNode(id: String): ?ProbeNodeSnapshot {
@@ -1063,18 +1277,29 @@ private class ComponentProbeSession {
 }
 
 private class ProbeOutputRequest {
+    let observation: String
+    let limit: Int64
+    let node: String
     let ascii: Bool
     let designSnapshot: Bool
+    let designSnapshotV2: Bool
+    let computedTruth: Bool
     let uiAudit: Bool
     let auditThreshold: String
     let columns: Int64
     let rows: Int64
     let script: String
 
-    init(ascii: Bool, designSnapshot: Bool, uiAudit: Bool, auditThreshold: String,
-        columns: Int64, rows: Int64, script: String) {
+    init(ascii: Bool, designSnapshot: Bool, designSnapshotV2: Bool, computedTruth: Bool,
+        uiAudit: Bool, auditThreshold: String, columns: Int64, rows: Int64, script: String,
+        observation!: String = "", limit!: Int64 = 32, node!: String = "") {
+        this.observation = observation
+        this.limit = limit
+        this.node = node
         this.ascii = ascii
         this.designSnapshot = designSnapshot
+        this.designSnapshotV2 = designSnapshotV2
+        this.computedTruth = computedTruth
         this.uiAudit = uiAudit
         this.auditThreshold = auditThreshold
         this.columns = columns
@@ -1085,10 +1310,29 @@ private class ProbeOutputRequest {
 
 private func parseProbeOutput(script: String): ProbeOutputRequest {
     let lines = script.split("\n")
-    if (lines.isEmpty()) { return ProbeOutputRequest(false, false, false, "warning", 96, 32, script) }
+    if (lines.isEmpty()) { return ProbeOutputRequest(false, false, false, false, false, "warning", 96, 32, script) }
     let first = trimProbeText(lines[0])
+    if (first.startsWith("@cui-prntx ")) {
+        let parts = splitProbeWords(first)
+        requireProbeArity(parts, 4, "@cui-prntx")
+        let mode = parts[1]
+        let limit = Int64.parse(parts[2])
+        if ((mode != "summary" && mode != "tree" && mode != "json" && mode != "diff") || limit < 1 || limit > 128) {
+            throw IllegalArgumentException("prntx requires summary/tree/json/diff and limit 1..128")
+        }
+        return ProbeOutputRequest(false, false, false, false, false, "warning", 96, 32,
+            remainingProbeScript(lines), observation: mode, limit: limit,
+            node: if (parts[3] == "-") { "" } else { parts[3] })
+    }
     if (first == "@cui-design-snapshot") {
-        return ProbeOutputRequest(false, true, false, "warning", 96, 32, remainingProbeScript(lines))
+        return ProbeOutputRequest(false, true, false, false, false, "warning", 96, 32, remainingProbeScript(lines))
+    }
+    if (first == "@cui-design-snapshot-v2") {
+        return ProbeOutputRequest(false, false, true, false, false, "warning", 96, 32, remainingProbeScript(lines))
+    }
+    if (first == "@cui-design-snapshot-v2-computed") {
+        return ProbeOutputRequest(false, false, true, true, false, "warning", 96, 32,
+            remainingProbeScript(lines))
     }
     if (first.startsWith("@cui-ui-audit ")) {
         let parts = splitProbeWords(first)
@@ -1096,16 +1340,16 @@ private func parseProbeOutput(script: String): ProbeOutputRequest {
         if (parts[1] != "info" && parts[1] != "warning" && parts[1] != "error") {
             throw IllegalArgumentException("UI audit threshold must be info, warning, or error")
         }
-        return ProbeOutputRequest(false, false, true, parts[1], 96, 32, remainingProbeScript(lines))
+        return ProbeOutputRequest(false, false, false, false, true, parts[1], 96, 32, remainingProbeScript(lines))
     }
     if (!first.startsWith("@cui-ascii ")) {
-        return ProbeOutputRequest(false, false, false, "warning", 96, 32, script)
+        return ProbeOutputRequest(false, false, false, false, false, "warning", 96, 32, script)
     }
     let parts = splitProbeWords(first)
     requireProbeArity(parts, 3, "@cui-ascii")
     let columns = Int64.parse(parts[1])
     let rows = Int64.parse(parts[2])
-    ProbeOutputRequest(true, false, false, "warning", columns, rows, remainingProbeScript(lines))
+    ProbeOutputRequest(true, false, false, false, false, "warning", columns, rows, remainingProbeScript(lines))
 }
 
 private func remainingProbeScript(lines: Array<String>): String {
@@ -1127,11 +1371,34 @@ private func probeDesignSnapshotProperties(properties: Array<ProbeProperty>, foc
     values.add(DesignSnapshotProperty("pressed", pressed.toString()))
     for (property in properties) {
         if (property.name != "role" && property.name != "label" && property.name != "title" &&
-            property.name != "value") {
+            property.name != "value" && property.name != "focused" &&
+            property.name != "hovered" && property.name != "pressed") {
             values.add(DesignSnapshotProperty(property.name, property.value))
         }
     }
     values.toArray()
+}
+
+private func probeComputedFacts(widget: Widget, ctx: UiContext, measured: Size): Array<DesignComputedFact> {
+    let runtime = [
+        computedDesignLengthFact("intrinsic.width", measured.w, "runtime",
+            provenance: DesignComputedProvenance.RuntimeLayout),
+        computedDesignLengthFact("intrinsic.height", measured.h, "runtime",
+            provenance: DesignComputedProvenance.RuntimeLayout),
+        computedDesignBoolFact(DesignComputedCategory.Layout, "participates-in-layout",
+            widget.participatesInLayout(), DesignComputedProvenance.RuntimeLayout),
+        computedDesignBoolFact(DesignComputedCategory.Layout, "flexible", widget.isFlexible(),
+            DesignComputedProvenance.RuntimeLayout),
+        computedDesignNumberFact(DesignComputedCategory.Layout, "flex.weight.resolved", widget.flexWeight(),
+            DesignComputedProvenance.RuntimeLayout),
+        computedDesignBoolFact(DesignComputedCategory.Layout, "stretch.horizontal",
+            widget.acceptsStretch(Axis.Horizontal), DesignComputedProvenance.RuntimeLayout),
+        computedDesignBoolFact(DesignComputedCategory.Layout, "stretch.vertical",
+            widget.acceptsStretch(Axis.Vertical), DesignComputedProvenance.RuntimeLayout),
+        computedDesignIntegerFact(DesignComputedCategory.Layout, "stacking.z-index.resolved",
+            widget.stackingIndex(), DesignComputedProvenance.RuntimeLayout)
+    ]
+    mergeDesignComputedFacts(widget.designComputedFacts(ctx), runtime)
 }
 
 private func probeScriptDigest(value: String): String {
@@ -1140,23 +1407,30 @@ private func probeScriptDigest(value: String): String {
     "probe-script:" + value.toArray().size.toString() + ":" + max(Int64(1), code).toString()
 }
 
+private func routeProbeInput(ctx: UiContext, widget: Widget, event: UiEvent): Bool {
+    if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
+}
+
 private func renderProbeFrame(session: ComponentProbeSession, renderer: Renderer, ctx: UiContext,
-    store: StateStore, elapsed: UInt64, delta: UInt64, body: () -> Unit): Widget {
+    store: StateStore, elapsed: UInt64, delta: UInt64, body: () -> Unit,
+    finishFrameEvent!: Bool = false): Widget {
     ctx.frame = FrameInfo(elapsed, delta)
     session.beginBuild()
     let widget = buildRoot(body, store)
     ctx.adoptFocusRing(store.focusRing())
     widget.layout(ctx, Rect(0.0, 0.0, session.width, session.height))
-    let _ = widget.handle(ctx, UiEvent.Frame(ctx.frame))
+    let consumed = widget.handle(ctx, UiEvent.Frame(ctx.frame))
+    if (finishFrameEvent) { session.finishEvent(consumed) }
     renderer.clearDrawIr()
     session.beginDraw(elapsed)
     ctx.syncThemeResources()
     renderer.beginScene(session.width, session.height, ctx.theme.bg)
+    ctx.clearActiveOverlay()
     widget.draw(ctx)
     ctx.drawInkRipples()
     ctx.drawActiveOverlay()
     renderer.endScene()
-    session.captureFrame(renderer.drawIr())
+    session.captureFrame(renderer.drawIr(), ctx.hasOverlay())
     widget
 }
 
@@ -1181,12 +1455,12 @@ private func popActiveProbeParent(): Unit {
     match (activeComponentProbeSession) { case Some(session) => session.popParent() case None => () }
 }
 
-private func updateActiveProbeNode(id: String, widgetType: String, frame: Rect, focusId: ?String,
-    subtreeInteractionsEnabled: Bool, properties: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider,
-    ctx: UiContext): Unit {
+private func updateActiveProbeNode(id: String, widgetType: String, frame: Rect, measured: Size,
+    focusId: ?String, subtreeInteractionsEnabled: Bool, computedFacts: Array<DesignComputedFact>,
+    properties: Array<ProbeProperty>, semantics: ?ProbeSemanticProvider, ctx: UiContext): Unit {
     match (activeComponentProbeSession) {
-        case Some(session) => session.updateNode(id, widgetType, frame, focusId, subtreeInteractionsEnabled,
-            properties, semantics, ctx)
+        case Some(session) => session.updateNode(id, widgetType, frame, measured, focusId,
+            subtreeInteractionsEnabled, computedFacts, properties, semantics, ctx)
         case None => ()
     }
 }
@@ -1357,33 +1631,6 @@ private func trimProbeText(value: String): String {
 private func requireProbeArity(parts: Array<String>, expected: Int64, command: String): Unit {
     if (parts.size != expected) {
         throw IllegalArgumentException(command + " expects " + (expected - 1).toString() + " argument(s)")
-    }
-}
-
-private func parseProbeKey(value: String): Key {
-    match (value) {
-        case "Escape" => Key.Escape
-        case "Backspace" => Key.Backspace
-        case "Enter" => Key.Enter
-        case "Tab" => Key.Tab
-        case "Delete" => Key.Delete
-        case "Space" => Key.Space
-        case "Home" => Key.Home
-        case "End" => Key.End
-        case "Left" => Key.Left
-        case "Right" => Key.Right
-        case "Up" => Key.Up
-        case "Down" => Key.Down
-        case _ =>
-            let bytes = value.toArray()
-            if (bytes.size == 1 && ((bytes[0] >= UInt8(65) && bytes[0] <= UInt8(90)) ||
-                (bytes[0] >= UInt8(97) && bytes[0] <= UInt8(122)))) {
-                Key.Letter(bytes[0])
-            } else if (bytes.size == 1 && bytes[0] >= UInt8(48) && bytes[0] <= UInt8(57)) {
-                Key.Digit(bytes[0])
-            } else {
-                throw IllegalArgumentException("unknown probe key: " + value)
-            }
     }
 }
 

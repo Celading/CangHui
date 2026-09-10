@@ -253,6 +253,14 @@ public class Dropdown <: Widget {
     // clicks that land on the popup and dismiss on clicks that land elsewhere.
     private func handleOverlay(ctx: UiContext, event: UiEvent, popup: Rect): Bool {
         match (event) {
+            case UiEvent.PointerCancelled =>
+                let pressed = popupPressedRow.value
+                popupPressedRow.value = DROPDOWN_NO_PRESSED_ROW
+                if (pressed >= 0) {
+                    ctx.cancelPress(popupRowPressId(pressed))
+                    ctx.cancelInkRipple(popupRowPressId(pressed))
+                }
+                false
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 resetPopupPress(ctx)
                 if (popup.contains(x, y)) {
@@ -411,7 +419,7 @@ public class Dropdown <: Widget {
     private func itemRectAt(popup: Rect, index: Int64): Rect {
         let listH = listHeight(popup)
         let gutter: Float32 = if (contentHeight() > listH) {
-            scrollBarGutter()
+            scrollBarGutter(inset: scrollPolicy.contentInset)
         } else {
             0.0
         }

@@ -97,3 +97,20 @@ func labelLineSpacingRejectsInvalidValues(): Unit {
     @Expect(nanRejected)
     @Expect(infRejected)
 }
+
+@Test
+func labelComputedTruthUsesResolvedTypographyAndOverflow(): Unit {
+    let ctx = testContext()
+    let facts = Label("仓绘").fontSize(17.0).bold().maxLines(2).lineSpacing(5.0)
+        .designComputedFacts(ctx)
+    var json = ""
+    for (fact in facts) { json += fact.toJson() }
+    @Expect(json.contains("font.resolved-family"))
+    @Expect(json.contains("font.bold"))
+    @Expect(json.contains("\"value\":\"true\""))
+    @Expect(json.contains("line.height"))
+    @Expect(json.contains("text.line-limit"))
+    @Expect(json.contains("\"value\":\"2\""))
+    @Expect(json.contains("text.overflow"))
+    @Expect(json.contains("ellipsis"))
+}

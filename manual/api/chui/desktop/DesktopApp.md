@@ -2,6 +2,11 @@
 
 # DesktopApp
 
+`transitionTheme(..., reverse: true)` 与 `transitionThemeAt(..., reverse: true)` 支持旧主题向原点收缩。
+任一源/目标主题启用 `reduceMotion` 时直接切换并释放旧过渡；默认方向不变。
+`ThemeTransition(..., reverse: true)` 的 `revealRadius()` 返回实际合成圆半径，随时间缩小至零。
+两种方向共享快照释放与尺寸失效行为，不保证中途改目标时与旧快照像素连续。
+
 `chui.desktop` 包中的 public class
 
 桌面应用对象：拥有 SDL 窗口并运行帧循环——每帧从 [`run`](#run) 的界面构建函数重建组件树、布局、分发输入、绘制。闲置帧被跳过：只有输入、[`State`](../core/State.md) 写入、待处理的 [`UiOwnerQueue`](../core/UiOwnerQueue.md) 任务、窗口缩放或组件的 `ctx.requestFrame()` 才触发渲染，时间驱动的动画必须请求帧否则冻结。实际渲染帧由 [`FramePacing`](FramePacing.md) 决定跟随设备 VSync、固定目标帧率或不封顶。
@@ -13,6 +18,14 @@ public class DesktopApp
 ```
 
 ## 说明
+
+`usePlatformTextLayout(enabled: Bool): Bool` 只允许在首次 `run` 前由 UI owner 调用；
+启用可用的 macOS CoreText 或 Linux Pango 预览时返回 `true`，不支持、缺少原生库
+或已经启动时返回 `false`。
+`platformTextLayoutEnabled(): Bool` 查询当前模式。默认仍是 SDL_ttf；
+TextField 的原生几何、样式回退及 TextArea/IME 限制见[字体说明](../../../reference/fonts.zh-CN.md)。
+
+`setWindowIcon(icon: SdlSurface)` 可在窗口所属 UI 线程设置运行中窗口的图标，平台不支持或资源已关闭时抛出错误。它不替代应用打包身份：macOS 的 About／Dock 图标仍应通过 `.app` 的应用资源配置，Windows 分发程序的文件图标仍需 PE 图标资源。不要把一次接口调用成功当成所有系统界面都已显示图标。
 
 帧循环统一处理焦点、悬停、连续点击和指针事件。每个需要渲染的帧先 drain 当前 owner-task 快照，再构建声明式组件树；worker 可经 [`postToUi`](#posttoui) 投递不可变结果，但不能直接修改 UI `State`。事件先交给已打开的浮层，再进入普通组件树，因此弹出菜单和对话框不会把点击漏给下层控件；提示和浮层也绘制在普通内容之上。Tab 按组件构建顺序移动焦点，Shift+Tab 反向移动，且不会把 Tab 交给文本框。经 [`manage`](#manage) 注册的资源会在退出时按注册的相反顺序关闭，然后关闭窗口；即使组件抛出异常离开帧循环，也会关闭 owner queue、完成待处理 ticket 并执行这套清理。若清理同时报告 SDL owner-thread 错误，`run` 会继续抛出更早的帧循环异常。`cuic prnt` 会构建后直接启动应用可执行文件，并通过 [`DesktopCaptureRequest`](DesktopCaptureRequest.md) 的宿主请求采集稳定画面，不依赖 `cjpm run` 转发参数。旧应用仍兼容 `--snapshot <path.bmp>` 与 `--snapshot-frame`；`--profile` 输出各阶段的帧耗时。IME 候选窗会跟随聚焦文本控件报告的光标矩形。
 
@@ -57,6 +70,7 @@ main(): Unit {
 | [`useBaseCursor(...)`](#usebasecursor) | 设置窗口的基础光标——没有控件申请其它形状时显示的形状（如绘图画布上的十字线）。 |
 | [`clearRememberedState()`](#clearrememberedstate) | 在下一次重建前丢弃全部 `rememberState` 局部值。 |
 | [`postToUi(...)`](#posttoui) | 从任意线程投递任务，在下一次声明式构建前由 UI owner 串行执行。 |
+| [`rememberTaskScope(...)`](#remembertaskscope) | 在该应用的构建中保留视图任务，卸载后取消未应用结果，不暴露内部队列。 |
 | [`uiOwnerEpoch()`](#uiownerepoch) | 读取 owner epoch，供 worker 准备乐观提交条件。 |
 | [`deviceRotation()`](#devicerotation) | 返回供布局使用的有效方向；尚无宿主报告时按视口宽高回退。 |
 | [`reportedDeviceRotation()`](#reporteddevicerotation) | 返回宿主最后报告的方向，未报告时保持 `Unknown`。 |
@@ -153,6 +167,18 @@ public func useBaseCursor(kind: SystemCursor): Unit
 
 ```cangjie
 public func clearRememberedState(): Unit
+```
+
+### rememberTaskScope
+
+在该应用的声明式构建内调用，沿用 `Keyed` 身份，自动绑定内部 UI 队列。
+视图成功卸载时取消任务，重挂后创建新作用域。队列不随视图关闭。
+构建之外或另一个应用的构建中调用会报错。详细生命周期与取消边界见
+[`UiTaskScope`](../core/UiTaskScope.md#随视图卸载取消)。
+
+```cangjie
+public func rememberTaskScope(key: String,
+    policy!: UiTaskPolicy = UiTaskPolicy.LatestOnly): UiTaskScope
 ```
 
 ### postToUi

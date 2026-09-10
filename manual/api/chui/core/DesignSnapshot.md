@@ -63,3 +63,6 @@ cuic design snapshot component-gallery gallery.primary-button \
 命令向标准输出写入规范 JSON，适合重定向为设计输入或 CI 证据。它复用显式 Probe 注册与调试门，不新增 PID attach、坐标隧道或发布态控制入口。
 
 公开 JSON 约束见 [canghui-design-snapshot-v1.schema.json](../../../../contracts/canghui-design-snapshot-v1.schema.json)。Schema 约束协议包络、节点、环境、属性及硬上限；Draw IR 的具体命令仍由 renderer 协议定义。
+
+需要组件/源码跳转、交互图谱和跨端场景时使用兼容扩展
+[`DesignSnapshotV2`](DesignSnapshotV2.md)。v2 嵌入 v1，不改变本页协议的 canonical bytes。

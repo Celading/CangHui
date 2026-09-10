@@ -168,12 +168,12 @@ func runFrameTrace(selection: FrameTraceSelection): Int64 {
         let buildCode = executeCjpm(context, ["build", "-g"])
         if (buildCode != 0) { return buildCode }
         let executable = debugUiExecutable(context.targetDir)
-        let environment = frameTraceEnvironment(framework, output, selection.scenario)
+        let environment = frameTraceEnvironment(framework, output, selection.scenario, project: project)
         let process = launch(
             executable,
             [],
             workingDirectory: Path(project),
-            environment: environment,
+            environment: workingDirectoryEnvironment(project, environment),
             stdIn: ProcessRedirect.Discard,
             stdOut: ProcessRedirect.Inherit,
             stdErr: ProcessRedirect.Inherit
@@ -218,9 +218,9 @@ func ensureFrameTraceDirectory(path: String): Unit {
 }
 
 @When[debug]
-func frameTraceEnvironment(framework: String, output: String, scenario: String): HashMap<String, String> {
+func frameTraceEnvironment(framework: String, output: String, scenario: String, project!: String = ""): HashMap<String, String> {
     validateFrameScenario(scenario)
-    let environment = applicationEnvironment(framework, "", UInt64(0))
+    let environment = applicationEnvironment(framework, "", UInt64(0), project: project)
     environment.add("CANGHUI_FRAME_TRACE_PATH", output)
     environment.add("CANGHUI_FRAME_TRACE_SCENARIO", scenario)
     environment.add("CANGHUI_FRAME_TRACE_MAX_FRAMES", FRAME_TRACE_MAX_FRAMES.toString())

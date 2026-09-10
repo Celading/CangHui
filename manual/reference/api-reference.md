@@ -286,7 +286,7 @@ Rect) -> Unit = None)`，行为 `Array<Array<String>>`（按列索引的单元�
 
 | 类型 | 构造函数 | 链式 API/行为 |
 |---|---|---|
-| `TextField` | `TextField(id, text, cursor!: ?State<Int64> = None, anchor!: ?State<Int64> = None, editable!: Bool = true)` | `autofocus`；单行 UTF-8 编辑；Shift 扩选、拖选、Ctrl+A/C/X/V；`undo`/`redo`（Ctrl+Z/Y）；只读（`editable: false`）忽略编辑、不参与 Tab 遍历，仍可选择/复制 |
+| `TextField` | `TextField(id, text, cursor!: ?State<Int64> = None, anchor!: ?State<Int64> = None, editable!: Bool = true)` | `autofocus`；单行 UTF-8 编辑；继承 Widget 字号/字族/样式且让绘制、命中、选区与光标共用度量；Shift 扩选、拖选、Ctrl+A/C/X/V；`undo`/`redo`（Ctrl+Z/Y）；只读（`editable: false`）忽略编辑、不参与 Tab 遍历，仍可选择/复制 |
 | `TextArea` | `TextArea(text, key!, scroll!, horizontalScroll!, cursor!, anchor!, editable!, chrome!, wrapMode!, decorations!)` | 显式 `TextAreaWrapMode.NoWrap`；双轴外部偏移、水平滚轮/Shift+滚轮与可拖动底部滑块；绘制/选区/光标/IME/命中共享横向坐标；`autofocus`、多行选择、undo/redo；只读区不参与 Tab 遍历 |
 | `ComboBox` | `ComboBox(id, text: Bindable<String>, options)` | 可编辑下拉：内嵌 `TextField`（完整编辑）+ 建议列表浮层；键入过滤（无匹配显示“—”占位）、点击/回车填入，自由文本亦保留。长建议列表在弹层内部滚动：滚轮、可拖动滑块、方向键揭示高亮 |
 

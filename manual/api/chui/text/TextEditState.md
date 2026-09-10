@@ -14,7 +14,7 @@ public class TextEditState
 
 ## 说明
 
-选择区是 `anchor` 与 `cursor` 之间的跨度；两者重合即无选择，编辑严格按普通光标行为走。全部偏移是 UTF-8 字节偏移，操作前都会规范到字符边界（[`normalizeCursor`](#normalizecursor) 每帧运行、只在需要时写回）。`move*` 系列折叠选择（有选择时落到行进方向的近端），`extend*` 系列保留锚点——按住 Shift 的语义。垂直移动保列（按字节列近似）。
+选择区是 `anchor` 与 `cursor` 之间的跨度；两者重合即无选择。全部偏移仍是 UTF-8 字节偏移，编辑前会向前规范到 Unicode 15.1 扩展字素边界（[`normalizeCursor`](#normalizecursor) 每帧运行、只在需要时写回）。左右移动、扩展选择和前后删除不会拆开组合重音或 emoji 序列。`move*` 折叠选择，`extend*` 保留锚点。垂直移动仍按字节列近似；双击选词仍用现有字符分类。详见[文本边界与编辑](../../../reference/text-boundaries.md)。
 
 ## 示例
 

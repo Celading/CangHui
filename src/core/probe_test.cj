@@ -102,6 +102,60 @@ func componentProbeExportsDeterministicDesignSnapshot(): Unit {
     @Expect(first.contains("\"protocol\":\"canghui.design-snapshot/v1\""))
     @Expect(first.contains("\"id\":\"save\""))
     @Expect(first.contains("\"scope\":\"save\""))
+    @Expect(!first.contains("componentBindings"))
+}
+
+@Test
+func componentProbeExportsOptionalComputedRuntimeTruthWithoutChangingDefaultV2(): Unit {
+    let render = { computed: Bool =>
+        ComponentProbe("test.computed", width: 240.0, height: 120.0).run(
+            if (computed) { "@cui-design-snapshot-v2-computed" } else { "@cui-design-snapshot-v2" }) {
+            VStack(spacing: 12.vp, padding: LengthInsets(8.vp), flexible: false) {
+                Button("Save", { => }).key("computed-save")
+                    .width(180.vp)
+                    .background(Color.rgb(20, 40, 60), 10.vp)
+                    .probe("computed.save", "Button", [
+                        ProbeProperty("role", "button"),
+                        ProbeProperty("label", "Save")
+                    ])
+            }.mainAxisAlignment(MainAxisAlignment.SpaceBetween)
+                .crossAxisAlignment(CrossAxisAlignment.Center)
+                .probe("computed.root", "VStack")
+        }
+    }
+    let first = render(true)
+    let second = render(true)
+    let plain = render(false)
+    @Expect(first, second)
+    @Expect(first.contains("\"computedNodes\":"))
+    @Expect(first.contains("\"name\":\"container.gap\""))
+    @Expect(first.contains("\"name\":\"constraint.width\""))
+    @Expect(first.contains("\"sourceValue\":\"180.000000vp\""))
+    @Expect(first.contains("\"category\":\"typography\""))
+    @Expect(first.contains("\"scope\":\"computed.save\""))
+    @Expect(!plain.contains("\"computedNodes\":"))
+}
+
+@Test
+func componentProbeExportsBoundDesignSnapshotV2(): Unit {
+    let source = DesignSourceBinding("gallery", "PrimaryButton", "src/gallery.cj")
+    let report = ComponentProbe("test.design-v2", width: 120.0, height: 60.0,
+        designBindings: [DesignComponentBinding("save", "Button", source,
+            publicProperties: ["label", "variant"], variants: ["primary"])],
+        designInteractions: [DesignInteractionBinding("save.click", "save",
+            DesignInteractionTrigger.Click, DesignInteractionTargetKind.Action, "gallery.save",
+            handlerPackage: "gallery", handlerSymbol: "save", handlerRelativePath: "src/gallery.cj")],
+        designScenes: cangHuiRecommendedDesignScenes()).run("@cui-design-snapshot-v2") {
+        Button("Save", { => }).key("save").probe("save", "Button", [
+            ProbeProperty("role", "button"),
+            ProbeProperty("label", "Save"),
+            ProbeProperty("action", "save()")
+        ])
+    }
+    @Expect(report.contains("\"protocol\":\"canghui.design-snapshot/v2\""))
+    @Expect(report.contains("\"protocol\":\"canghui.design-snapshot/v1\""))
+    @Expect(report.contains("\"handlerSymbol\":\"save\""))
+    @Expect(report.contains("\"id\":\"phone-compact-3x\""))
 }
 
 @Test
@@ -243,4 +297,34 @@ func disabledContainerPropagatesToDescendantControlSemantics(): Unit {
     @Expect(report.contains("control-semantic:disabled-second"))
     @Expect(!report.contains("Button.activate()"))
     @Expect(!report.contains("Enter|Space"))
+}
+
+@Test
+func explicitProbePreservesStockSemanticsWithoutDuplicatingItsOwner(): Unit {
+    let report = ComponentProbe("test.semantic-merge").run(
+        "assert property toolbar.save label Save\nassert property toolbar.save role button\n" +
+        "assert property toolbar.save action save.document()\n" +
+        "assert property toolbar.save actionOwner actual-save\nassert property toolbar.save focusOrder 0") {
+        Button("Save", {=> ()}).key("actual-save").probe("toolbar.save", "Button", [
+            ProbeProperty("action", "save.document()"), ProbeProperty("actionOwner", "fake-owner")
+        ])
+    }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(!report.contains("control-semantic:actual-save"))
+    @Expect(!report.contains("\"ok\":false"))
+}
+
+@Test
+func explicitProbePreservesCustomRoleButCannotOverrideDisabledStockTruth(): Unit {
+    let report = ComponentProbe("test.semantic-disabled").run(
+        "assert property save.alias label Save\nassert property save.alias role menuitem\n" +
+        "assert property save.alias enabled false") {
+        Button("Save", {=> ()}).key("actual-save").enabled(false).probe("save.alias", "Button", [
+            ProbeProperty("role", "menuitem"), ProbeProperty("enabled", "true"),
+            ProbeProperty("action", "must-not-activate()")
+        ])
+    }
+    @Expect(report.contains("\"ok\":true"))
+    @Expect(!report.contains("must-not-activate()"))
+    @Expect(!report.contains("\"ok\":false"))
 }

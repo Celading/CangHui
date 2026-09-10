@@ -15,10 +15,23 @@ cuic version
 cuic init HelloCangHui --name hello_canghui --platform macos
 cd HelloCangHui
 cuic dependency update
-cuic doctor macos .
+cuic doctor macos --project .
 cuic build macos .
 cuic run macos .
 ```
+
+新版 CUIC 生成的欢迎页同时提供 `welcome.main` probe。使用配对的 debug 工具验证交互：
+
+```bash
+cuic-debug probe run . welcome.main --events "focus welcome.ready
+key Enter
+draw" --json
+cuic-debug pview . welcome.main
+```
+
+最后一帧的欢迎文字应变为“CangHui 已准备好”。事件每行一条，不用分号连接。
+Probe 启动本次构建的 debug 二进制，沿用指定的 `CUIC_TARGET_DIR` 和原生库缓存；
+release 工具仍拒绝执行 probe。公开锁定版本可使用 `pview`，新的 `prntx` 还需要对应框架支持。
 
 生成的依赖形态是：
 
@@ -38,13 +51,26 @@ import chui.*
 `cuic build` 会以 manifest/lock 指向的框架根准备隔离的 SDL3 原生缓存，并同时提供编译期和
 运行期库搜索路径；不需要、也不应手工修改 CJPM 中的 CangHui 源码缓存。
 
+当前默认模板固定公开 `chui 0.17.0` 提交
+`8a22a7f501499b005816242b62d1067cac78256f`，不是框架开发分支的自动追踪入口。
+如旧版 CUIC 生成了 `a15593d…`，该提交仍是历史 `cui` 包，不能与 `import chui` 混用；
+升级 CUIC 后重新创建空项目，或明确更新应用的依赖提交并重新解析 lock。
+框架维护者可运行 `python3 scripts/check-sdk-default.py`，验证默认提交的公开包身份。
+
 ## 什么时候才需要本地源码路径
+
+有离线需求时可使用[不可变源码 SDK 候选包](../reference/source-sdk.zh-CN.md)：框架、Kit、
+CUIC 和原生依赖按同一提交成套交付。当前只覆盖经过验证的 macOS arm64 工具链组合，
+不是自动承诺所有平台的二进制 SDK。
 
 仅在修改 CangHui 本身，或使用已经准备好的离线源码目录时使用：
 
 ```bash
 cuic init HelloCangHuiDev --canghui-path ../CangHui
 ```
+
+相对框架路径以执行 `init` 的目录为准，生成时解析为绝对路径。
+应用目录必须放在不可变源码 SDK 之外，避免污染 SDK 校验内容。
 
 不要为了调整应用界面而进入依赖缓存修改框架；能在应用层完成的主题、组件组合与业务状态都留在应用。
 需要框架能力时，以最小复现向 CangHui 提交需求，再升级锁定提交。

@@ -24,7 +24,7 @@ func textAreaScrollbarThumbDragScrollsAndTakesPriorityOverTextDrag(): Unit {
 }
 
 @Test
-func editableTextAreaRequestsTextCursorButReadOnlyDoesNot(): Unit {
+func editableAndReadOnlyTextAreasRequestSelectionCursor(): Unit {
     let editableCtx = textTestContext()
     let editable = TextArea(State<String>("hi"), key: "editable")
     editable.layout(editableCtx, Rect(0.0, 0.0, 200.0, 120.0))
@@ -39,18 +39,18 @@ func editableTextAreaRequestsTextCursorButReadOnlyDoesNot(): Unit {
     readOnlyCtx.beginHoverTest()
     let _ = readOnly.handle(readOnlyCtx, UiEvent.MouseMove(20.0, 20.0))
     readOnlyCtx.settleHover()
-    @Expect(readOnlyCtx.desiredCursor() == CursorShape.Default)
+    @Expect(readOnlyCtx.desiredCursor() == CursorShape.Text)
 }
 
 @Test
-func editableTextAreaJoinsFocusRingButReadOnlyDoesNot(): Unit {
+func editableAndReadOnlyTextAreasJoinFocusRing(): Unit {
     let editableStore = StateStore()
     let _ = buildRoot({=> TextArea(State<String>("hi"), key: "editable")}, editableStore)
     @Expect(editableStore.focusRing().size, 1)
 
     let readOnlyStore = StateStore()
     let _ = buildRoot({=> TextArea(State<String>("hi"), key: "readonly", editable: false)}, readOnlyStore)
-    @Expect(readOnlyStore.focusRing().size, 0)
+    @Expect(readOnlyStore.focusRing().size, 1)
 }
 
 @Test

@@ -4,7 +4,9 @@ import std.env.getVariable
 import std.fs.{File, exists}
 
 let DEFAULT_CANGHUI_GIT = "https://github.com/Celading/CangHui.git"
-let DEFAULT_CANGHUI_COMMIT = "a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02"
+// Published chui 0.17.0 baseline; validate package identity with scripts/check-sdk-default.py.
+// Do not substitute an unpublished local HEAD or the historical cui package.
+let DEFAULT_CANGHUI_COMMIT = "8a22a7f501499b005816242b62d1067cac78256f"
 
 class FrameworkDependencySpec {
     let path: String
@@ -116,15 +118,21 @@ func requireFrozenFrameworkDependency(project: String): Unit {
     if (frameworkRootCandidate(project)) { return }
     let spec = frameworkDependencySpec(project)
     let integrated = integratedFrameworkRoot()
-    let normalizedProject = trimTrailingSlash(project)
-    if (!spec.isGit() && !integrated.isEmpty() &&
-        (normalizedProject == integrated || startsWithText(normalizedProject, integrated + "/"))) {
+    if (!spec.isGit() && integratedFrameworkContainsProject(project, integrated)) {
         return
     }
     let problem = frameworkDependencyLockProblem(spec, lockedFrameworkCommit(project))
     if (!problem.isEmpty()) {
         throw CuicError("${problem} Run 'cuic dependency update ${project}' explicitly before build-like commands.")
     }
+}
+
+func integratedFrameworkContainsProject(project: String, integrated: String): Bool {
+    if (project.isEmpty() || integrated.isEmpty()) { return false }
+    let normalizedProject = canonicalPackagingPath(project, "project")
+    let normalizedRoot = canonicalPackagingPath(integrated, "CangHui framework")
+    normalizedProject == normalizedRoot || startsWithText(normalizedProject, normalizedRoot + "/") ||
+        (hostPlatform() == "windows" && startsWithText(normalizedProject, normalizedRoot + "\\"))
 }
 
 func cjpmCacheRoot(project: String): String {

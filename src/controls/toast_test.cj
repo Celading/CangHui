@@ -1,7 +1,7 @@
 package chui.controls
 
-import sdl.{FrameInfo, Renderer, Size, UiEvent}
-import chui.core.{Theme, UiContext}
+import sdl.{FontSizes, FrameInfo, Renderer, Size, UiEvent}
+import chui.core.{Theme, TypographyEnvironment, UiContext}
 
 private func toastTestContext(): UiContext {
     let ctx = UiContext(Renderer.headless(), Theme.light())
@@ -71,4 +71,35 @@ func toastLayerTakesNoLayoutSpace(): Unit {
     let layer = ToastLayer(Toaster())
     @Expect(!layer.participatesInLayout())
     @Expect(layer.measure(ctx, Size(300.0, 200.0)).h, Float32(0.0))
+}
+
+@Test
+func toastMultilineFitsEllipsisAndPreservesExplicitBreaks(): Unit {
+    let ctx = toastTestContext()
+    @Expect(wrapToastText(ctx, "甲\r\n乙\r丙\n丁\n戊", 200.0), ["甲", "乙", "丙", "丁…"])
+    let lines = wrapToastText(ctx, "一二三四五六七八九十一二三四五六七八九十ABCDEFGHIJKLMNOPQRSTUVWXYZ", 40.0)
+    @Expect(lines.size, 4)
+    @Expect(lines[3].endsWith("…"))
+    for (line in lines) {
+        @Expect(ctx.renderer.textWidth(line, pointSize: FontSizes.CONTROL) <= 40.0)
+    }
+    for (line in wrapToastText(ctx, "太窄🙂", 1.0)) { @Expect(line, "") }
+    @Expect(wrapToastText(ctx, "", 0.0), [""])
+}
+
+@Test
+func toastCacheTracksFontScaleFamilyAndStyleAtSameWidth(): Unit {
+    let ctx = toastTestContext()
+    let toast = ActiveToast(1, "A long toast message for measuring typography changes", ToastKind.Info, 1000)
+    let initial = toastFittedLines(ctx, toast, 200.0)
+    let initialKey = toast.fittedTypography
+    @Expect(toastFittedLines(ctx, toast, 200.0), initial)
+    ctx.fontScale = 2.0
+    let _ = toastFittedLines(ctx, toast, 200.0)
+    @Expect(toast.fittedTypography != initialKey)
+    let scaledKey = toast.fittedTypography
+    ctx.withTypographyEnvironment(TypographyEnvironment(fontFamily: "Test face", bold: true), {=>
+        let _ = toastFittedLines(ctx, toast, 200.0)
+        @Expect(toast.fittedTypography != scaledKey)
+    })
 }

@@ -277,6 +277,7 @@ private func designSnapshotSemanticStates(node: SemanticNode): Array<DesignSnaps
     appendOptionalDesignSnapshotBool(values, "editable", node.editable)
     appendOptionalDesignSnapshotInt(values, "selectionStart", node.selectionStart)
     appendOptionalDesignSnapshotInt(values, "selectionEnd", node.selectionEnd)
+    appendOptionalDesignSnapshotInt(values, "selectionFocus", node.selectionFocus)
     if (!node.placeholder.isEmpty()) { values.add(DesignSnapshotProperty("placeholder", node.placeholder)) }
     let actions = StringBuilder()
     var first = true

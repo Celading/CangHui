@@ -4,6 +4,182 @@
 
 ## Unreleased
 
+## 0.18.0 (2026-09-10)
+
+- 配套源码 CLI 升至 `cuic 0.7.0`，汇总下列增量能力。版本更新不代表已安装 SDK
+  自动升级、签名分发或所有平台验收完成。默认远程模板继续固定已公开的 `chui 0.17.0`
+  基线；使用本次能力需显式选择本版本源码或经过核验的对应 SDK。
+  Source CLI advances to `cuic 0.7.0`; installed SDKs and platform/distribution
+  acceptance remain separate. The default remote template retains its published
+  `chui 0.17.0` baseline; opt into this source version to consume new APIs.
+- 新增 `TextField.onSubmit`，仅对聚焦且可编辑控件响应非重复 Enter，不提交输入法
+  预编辑；`LazyColumn.onReachEnd` 在帧事件去重通知，支持 loading/hasMore/revision。
+  六类滚动控件可选择额外内容留白，默认布局不变。主题切换支持反向缩圈并尊重减少动态效果。
+  Add focus-safe submission, retained frame-time incremental loading, opt-in
+  scrollbar spacing and reverse theme reveals with reduced-motion handling.
+- `Widget.captureKeyboard` 提供默认关闭的焦点按键捕获，保留弹层优先、Ctrl+Tab
+  退出和失焦/移除/窗口切换的释放规则；不合成文本或读取剪贴板。
+  Opt-in focused keyboard capture preserves overlay priority and a reserved escape;
+  text/IME and clipboard policy remain separate.
+- Harmony provider 包的 frameworkVersion 必须匹配 `0.18.0`；旧包需由 provider
+  方基于对应源码重新验证生成，不能只修改清单标签。ABI 标识不变。
+  Harmony provider packs must be rebuilt and verified against this framework
+  version; relabeling an older pack is not compatibility proof. ABI IDs are unchanged.
+
+- Linux 源码 SDK 接通配对初始化／构建与自动运行包组装，保留目标、编译器、glibc、
+  全文件校验；按应用实际依赖选择已声明库，未声明库拒绝。Linux 模板不再传 macOS
+  链接参数；普通源码工程默认仍只生成打包输入树。
+  Enable paired Linux SDK consumption and declared dependency selection without changing source-project packaging defaults.
+
+- 增加 Linux 精确提交 SDK 候选导出：复用配对 CUIC 构建，显式哈希原生输入、
+  完整库集合 ELF 审计、普通文件 SDL 链接副本、可搬迁资产清单与许可原文。
+  候选导出不等于应用消费流程通过或桌面安装验收。
+  Export exact-revision Linux SDK candidates with audited explicit native inputs; export is not consumer acceptance.
+
+- SDK 预检区分 macOS 系统版本与 Linux glibc 要求，跨平台同提交不再误报 CUIC 配对；
+  兼容既有 macOS v1 清单。Linux v2 支持预检、候选导出及配对工具消费。
+  Add target-aware SDK inspection and comparison without implying Linux SDK execution support.
+
+- Linux `cuic package build` 增加可选 `--runtime-manifest`，按哈希固定的显式清单
+  携带原生库、启动字体和许可原文，并将复制后的 ELF 重定位到包内路径。
+  默认仍只生成输入树，组装成功不代表已运行、可合法再分发或完成桌面安装。
+  Add opt-in same-host Linux runtime assembly with pinned inputs and relocatable launchers.
+
+- 增加 Linux 运行包 ELF 元数据审计脚本和 CI 回归，检查显式依赖、架构、
+  glibc 要求与包内搜索路径；不执行载荷，也不将检查通过等同于运行／分发认证。
+  Add a non-executing Linux runtime dependency audit, separate from packaging and launch proof.
+
+- SDL 文本引擎在无系统字体的环境中可用现有应用／随包字体链初始化，
+  不再要求先安装系统字体；逐段字体优先级不变，无可用字体时仍明确失败。
+  Bootstrap SDL text from existing application/bundled faces on fontless hosts.
+
+- Linux 桌面入口使用稳定 `application.identifier` 作为启动名，保留显示名，
+  避免名称中的 `%f` 被展开。安装脚本应以 identifier 命名可执行文件或启动器。
+  Linux desktop launchers now use the validated identifier, independently of display names.
+
+- `ApplicationShell.setBadge` 通过可选 Provider 接到 macOS Dock，支持挂载前排队、
+  清除与卸载恢复；保留不同的外部新值，不修改图标或 SDL delegate。Headless 仅记录，
+  旧 Provider 无需新增必选方法。Add optional native Dock badges with lifecycle-safe restoration.
+
+- `DesktopApplication.rememberTaskScope` 为每个托管窗口绑定独立任务队列；视图卸载、
+  构建回滚和窗口关闭取消旧结果，提交回调关闭窗口后不再绘制已释放的窗口。
+  Managed windows now reuse view-owned task scopes with isolated queues and safe callback-driven closure.
+
+- `DesktopApplication.syncWindow(id)` 显式等待单个窗口的原生状态并刷新实测尺寸，
+  修复多窗口验收将 Linux 异步调整尺寸当成即时完成的假设；普通尺寸请求不增加阻塞。
+  Add an explicit managed-window synchronization barrier without blocking normal resize requests.
+
+- Linux 的 CUIC `doctor` 和构建前置检查统一要求 SDL 3.4.0 或更高版本，
+  在编译前拒绝缺少当前绑定函数的旧库。
+  Linux doctor and bootstrap now reject SDL versions below 3.4.0 before compilation.
+
+- `cuic prepare harmony` 在读取 provider 清单、载荷、源文件、资源和生成缓存前
+  拒绝 FIFO 等特殊文件，避免等待外部写入者；普通文件和无变化重放保持不变。
+  Reject special files before Harmony projection reads, including cached output,
+  so named pipes cannot leave preparation waiting for a writer.
+
+- 新增 `rememberUiTaskScope`，沿用 Keyed/StateStore 保留视图任务，成功卸载、回滚
+  新条目和清空时自动取消；不关闭共享 UI 队列，也不改变普通 remembered state 的所有权。
+  DesktopApp 通过 `rememberTaskScope` 安全绑定内部队列，修正文档中不存在的队列 getter。
+
+- 应用打包指南区分源码 SDK 携带依赖与普通源码工程，并补充 macOS bundle 图标、
+  现有 `setWindowIcon` 用法及恢复时保留独立图像数据的说明；未新增图标 API。
+
+- macOS CI 与 full-build 指引只使用准备好的 SDL 动态库目录，避免宽泛 Homebrew
+  搜索路径覆盖系统图像库、导致 CoreText 彩色 emoji 绘制崩溃；不修改全局环境。
+
+- 新增显式 `desktopApplicationShell`：macOS 原生菜单、About 名称/版本及窗口命令。
+  单／多窗口应用管理挂载、队列派发和卸载恢复，未绑定动作禁用，旧菜单动作失效。
+  默认 Headless 不变；图标、Dock、通知与其他平台原生 Shell 不包含在本次实现内。
+
+- CUIC debug shell 使用当前执行上下文的已验证原生缓存，修复离线 SDK 应用启动时
+  仍查找旧源码树动态库目录的问题；release 控制通道仍关闭。
+
+- 源码 SDK 补齐框架及上游版权说明，并通过已有许可证目录随 macOS 应用打包携带。
+
+- 源码 SDK 校验在读取哈希前拒绝非普通载荷，修复命名管道可导致校验持续等待的问题。
+
+- ASCII 按控件当前声明的语义动作给出聚焦、激活、增减、取消提示，滑块和排序握点
+  不再套用中心点击。禁用控件不提供回放提示，歧义或不能安全解析的焦点 ID 不生成命令。
+
+- CUIC `build`／`test` 支持并实际传递 `--mode release|debug`（默认 release），
+  拒绝多余或错误参数。此前尾随模式选项被忽略，旧 `test --mode debug` 成功记录
+  不能证明 debug 测试已经执行；需要用匹配的新工具重跑。
+
+- ReorderableList 握点加入稳定焦点与语义信息，支持键盘／手柄抓取、预览、提交和取消。
+  提供逐行无障碍名称；键列表变化或交互失效时取消旧事务，避免旧下标提交到另一项。
+  应用继续持有并更新数据；实际手柄与系统读屏需分别验收。
+
+- 指针取消不再转换为成功松手：按钮不误激活、拖动不误提交，重排预览可取消。
+  单／多窗口失焦或输入变换更新先通知当前交互，再清理按压与捕获；CUIC debug
+  shell/probe 支持 `cancel` 回放。系统触摸取消仍需各平台实测。
+
+- 修复桌面 `cuic prnt --mode debug` 忽略构建模式的问题：现在构建并启动指定
+  profile；默认仍为 release，缺失目标时不会改用另一种构建。
+
+- 桌面 IME 锚点只在平台接受后缓存；暂时失败会在后续绘制时重试，失去文本锚点、
+  窗口焦点切换或缩放更新后重新提交。单／多窗口各自管理，不再把失败记成成功。
+
+- macOS 原生排版预览接入 `TextArea`：整行着色绘制、命中、光标、选区、装饰、
+  预编辑与视觉方向键共用排版请求；最大宽度按真实字体／栅格环境缓存。修复同
+  修订号的不同装饰快照被误复用。默认 SDL 不变，系统 IME／读屏仍待验证。
+- `TextArea` 聚焦且视口宽高改变时重新显示光标，修复缩小编辑区后不动的光标被裁切；
+  预编辑同样生效，普通重绘与仅移动控件不会覆盖手动滚动。
+- 修正入门指南与 Agent UI skill 的 `doctor` 示例：项目目录使用 `--project .`，
+  不能作为第二个位置参数。CLI 参数与默认当前目录行为不变。
+- `TextArea` 预编辑改为临时显示替换，不再叠画被替换的原文；跨行合并、滚动跟随、
+  装饰偏移和点击回映射一起更新。正式文本、语义值、提交与撤销的字节偏移保持不变。
+- 澄清原生着色范围与编辑光标的转换区别：着色保留精确码点边界，不能用字素
+  取整改变范围；字体说明不再将内部编码类型写成可供外部编辑器引用的 API。
+  SDL 组合输入已有接线，系统输入法实测仍待完成。
+- 原生像素验证与 BMP 截图共用仓颉读回方法和已有 Surface 所有权，避免已观察到的
+  macOS 测试 FFI 回栈崩溃；保存抛出异常时也释放表面，headless 截图仍为空操作。
+  这不是仓颉编译器／运行时修复，也不代表全部原生调用已通过稳定性认证。
+- macOS 原生排版预览新增不可变着色行请求：默认颜色及 UTF-16 范围与绘制、
+  测量、命中和光标／选区几何共享原有缓存；TextArea 已使用此接口。
+  不支持的后端和样式明确返回不可用，不以另一套度量偷偷绘制。
+- `TextArea` 预编辑中的 CRLF 压成空格时，同步转换输入法选区的显示偏移，修复
+  候选框锚点向后错位。原始预编辑、提交文本与撤销记录不变。
+- Debug UI 脚本失败不再发出成功完成回执：停止后续命令并从应用运行循环传播异常，
+  保留资源清理。命名键接受 ASCII 大小写，错误回执完整转义 JSON 控制字符；发布版仍无此通道。
+- 自定义渲染宿主可显式启用 macOS CoreText 排版预览：普通／粗体的度量、像素及
+  内部光标几何来自同一原生 line，支持系统字体回退和彩色 emoji；默认 SDL_ttf
+  不变。`DesktopApp` 可在首次 `run` 前启用；`TextField` 的点击、光标、分离选区和视觉
+  左右键复用整行几何，仍保持 UTF-8 字素边界。样式限制、栅格上限及尚未连接的
+  原生组合输入／无障碍见[字体说明](reference/fonts.zh-CN.md)。
+- 显式 `.probe()` 现在补齐同一标准控件的缺失语义，不再丢失标签、动作说明和焦点序号，
+  也不生成重复动作节点。真实状态／动作归属与密码保护不接受描述字段覆盖。
+- Debug probe 的 `focus id` 支持单控件 probe ID 与真实焦点 key 不同的情况；只使用控件
+  自身的焦点归属，拒绝禁用、失效、同名冲突及描述字段伪造的目标，保持浮层焦点边界。
+- `prntx` 修复 TextArea 焦点语义重复字段，保留真实焦点状态；诊断输出增加严重程度和
+  证据来源。UI-health 只将标准紧凑控件应用于过高判断，焦点冲突使用显式 `focusOrder`，
+  不把文件卡片高度或结构序号当成布局错误。
+- CUIC 构建与运行子进程同步工作目录和 `PWD`，修复从项目外启动时编译期宏读取错误
+  清单的问题；probe/kMode 复用应用启动器的仓颉运行时路径，支持未内嵌 runtime rpath 的消费者。
+- 新增只读 `cuic sdk verify/compare`：升级前检查完整性、框架/Kit 包身份和候选差异，
+  不自动改依赖，也不把版本大小或校验和通过当成运行兼容证明。SDK 构建与导出改为
+  精确核对编译器版本及目标，拒绝非法版本字段和不一致的包声明。
+- CUIC 默认欢迎页补齐共享状态和 `welcome.main` probe，移除模板写死的 1.5 倍缩放。
+  本地依赖路径在生成时解析，禁止在不可变源码 SDK 内创建应用。
+- Probe/kMode 直接运行已构建的 debug target，复用已准备的原生库目录，并在会话结束前
+  保持 target 锁；不再二次调用 `cjpm run` 构建另一份程序。
+- `Widget.animateProperties(key[, spec])` 可为调用前的尺寸/约束、padding、背景和边框
+  修饰器添加属性驱动动画；首次放置立即生效，中途改向保持连续，布局和命中区域同步。
+- `Button` / `IconButton` 可直接配置 `GestureHandlers`；长按等待持续续帧，拖拽不误触
+  长按，稳定键重建保留手势状态，禁用或失焦时取消捕获。
+- 可选 `canghui_kit` 提供选择卡、设置开关行、步骤、显式控件密度与三种响应式入口结构；
+  `examples/kit-workbench` 可独立构建并通过 probe / prnt 验证。
+- `TextField` 现在一致消费继承的字号、字族与字体样式；水平跟随、点击定位、
+  选区、光标、placeholder 与值绘制共享同一组字体度量，默认 15 fp、固定标准控件高和
+  secure-entry UTF-8 字节偏移语义保持不变。
+- 新增统一 rich pointer 坐标合同和动态 DPI 事务：窗口/Surface 物理像素只在输入桥转换，
+  捕获 scale、transform/orientation revision 与 Surface generation 可区分重投影和拒绝；
+  SDL 窗口跨显示器时同步更新 renderer、backing metrics、运行时状态与 probe 回执。
+- `cuic prepare harmony --provider <pack-dir>` 可把经过 framework version/commit、native/input
+  ABI、投影协议与 arm64-v8a 校验的 provider SDK 包（原生库、linkage、头文件、许可证），
+  与应用投影、host 模板和资源一起材料化为防漂移生成树。产品身份、权限、签名、HAP
+  组装与真机证明仍由消费者拥有。
+
 ## 0.17.0 (2026-08-30)
 
 ### 运行时与公开 API

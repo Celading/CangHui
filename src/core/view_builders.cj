@@ -43,6 +43,10 @@ public class VStack <: Widget {
         stack.interactionOwnerIds()
     }
 
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        stack.designComputedFacts(ctx)
+    }
+
     /** Sets the gap between adjacent children, e.g. `.spacing(12.vp)`. */
     public func spacing(value: Length): VStack {
         stack.setSpacing(value)
@@ -122,6 +126,10 @@ public class HStack <: Widget {
 
     public func interactionOwnerIds(): Array<String> {
         stack.interactionOwnerIds()
+    }
+
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        stack.designComputedFacts(ctx)
     }
 
     /** Sets the gap between adjacent children, e.g. `.spacing(12.vp)`. */
@@ -213,6 +221,10 @@ public class Row <: Widget {
 
     public func interactionOwnerIds(): Array<String> {
         stack.interactionOwnerIds()
+    }
+
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        stack.designComputedFacts(ctx)
     }
 
     /** Sets the fixed gap between adjacent children. */

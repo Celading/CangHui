@@ -19,7 +19,7 @@
 
 ```bash
 cuic version
-cuic doctor <platform> .
+cuic doctor <platform> --project .
 cuic build <platform> .
 cuic test <platform> .
 ```
@@ -33,6 +33,7 @@ cuic test <platform> .
 
 ```bash
 cuic shell snapshot .
+cuic prntx . <probe-id>
 cuic pview . <probe-id> --columns 96 --rows 32
 # 等价入口：cuic probe ascii . <probe-id> --columns 96 --rows 32
 ```
@@ -46,7 +47,18 @@ cuic prnt <platform> . --output artifacts/ui.png
 ```
 
 若应用还没有 probe，先为关键视图提供稳定 probe/semantic id，不要直接跳过可重复验收。
-`shell`、`pview`/probe 执行需要 debug cuic；发布版拒绝特权通道是安全门，不是失败。
+`shell`、`prntx`、`pview`/probe 执行需要 debug cuic；发布版拒绝特权通道是安全门，不是失败。
+新源码配对可优先使用 [`prntx`](../reference/prntx.zh-CN.md) 的有界摘要、节点查看和脚本前后差分；
+旧 SDK 先核对协议支持，不要把未知／离屏／浮层遮挡当作可操作性通过。
+
+`shell run` 的脚本每行一条命令，例如 `focus search-field`、`key Home`、`text hello`。
+命名键不区分 ASCII 大小写，单字母键和 `text` 的内容不做大小写转换。
+命令失败会停止后续脚本，输出 `command-error` 和 `complete` 两条失败回执，
+并从 `DesktopApp.run` 传播异常；常规未捕获异常入口会以非零退出。
+自定义入口如果捕获该异常，也必须把失败反映到退出码。
+`cancel` 是无参数的调试事件，可用于 `down → move → cancel → up` 回放；
+它放弃当前指针交互而不点击或提交拖放，不能替代真实系统触摸取消验收。
+验收同时检查退出码、每条回执的 `ok` 和最终业务状态；成功派发事件不等于动作已经生效。
 
 ## 4. 使用框架的默认安全形状
 

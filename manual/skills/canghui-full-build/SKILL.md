@@ -30,10 +30,17 @@ On macOS, prepare missing SDL dependencies with the checked-in bootstrap:
 
 ```bash
 bash scripts/bootstrap-macos.sh
-export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-/opt/homebrew/lib}"
+export DYLD_LIBRARY_PATH="$PWD/sdl/.sdl3"
 ```
 
-Do not copy an unverified dynamic library from an arbitrary build tree.
+Keep this setting in the current verification shell, not a login profile. Do not
+use a broad Homebrew library directory or append an inherited broad directory:
+it can shadow system ImageIO codecs and crash CoreText emoji rasterization.
+CUIC already prepares a project-scoped native directory; prefer CUIC for app
+build/test/capture. Direct SDL package tests still need the scoped source path.
+Do not copy an unverified dynamic library from an arbitrary build tree. A native
+crash is not automatically a Cangjie/GC bug: preserve the original failure and
+compare the same binary with scoped loader paths before changing FFI code.
 
 ## Required Gate
 
@@ -48,6 +55,9 @@ bash scripts/test-chui-matrix.sh all
 bash tools/cuic/scripts/test-cli.sh
 bash tools/cuic/scripts/test-install.sh
 bash scripts/audit-network-control-surface.sh
+python3 scripts/test-ci-loader-env.py
+python3 scripts/test-linux-runtime-audit.py
+python3 scripts/test-linux-runtime-assembly.py
 bash scripts/verify-privileged-release-exclusion.sh
 python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
 git diff --check
@@ -76,11 +86,25 @@ The CLI and install smokes create disposable applications using a local
 create an equivalent disposable consumer outside the repository, build it, and
 remove or retain it only according to the caller's cleanup policy.
 
-When a shared `cuic` command is being delivered on the current host, install it
+When a source-built shared `cuic` command is being delivered on the current host, install it
 through `scripts/install-cuic.sh` and replay the install smoke with
 `CANGHUI_SHARED_CUIC=/absolute/path/to/cuic`. This additionally proves that the
 shared binary recognizes and builds the disposable external `chui` consumer;
 matching a version string alone is insufficient.
+
+For the immutable [source SDK](../../reference/source-sdk.zh-CN.md), preserve its
+prebuilt `cuic` / `cuic-debug` pair instead of replacing either binary with a
+new source-installer build. Verify the trusted archive digest and complete SDK
+ledger, retain a recoverable backup of an existing installation, and verify that
+the installed binaries are byte-identical to the SDK pair. Keep release and debug
+commands distinct. From the installed commands and permanent SDK location, create
+a fresh external application and replay build, `prntx`, `prnt`, and packaging;
+also run a relocated app without developer library/font paths. Test optional Kit
+through an explicit same-SDK dependency. Run with SDK writes and network denied
+where the host permits it. Record actual host/minimum OS, checksums and all failed
+publisher gates. The ordinary source-installer smoke remains a separate regression.
+Never count a manually repaired generated application as proof that its original
+template worked, or change dependency-cache source to pass these checks.
 
 ## Conditional Scene3D Native Gate
 

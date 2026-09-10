@@ -18,13 +18,18 @@ public class TextField <: Widget
 
 ## 说明
 
+- **可选原生排版**：macOS／Linux `DesktopApp.usePlatformTextLayout(true)` 在 `run` 前成功启用后，普通／粗体字段的点击、光标、选区和左右键共享整行原生几何；保留 bidi 双光标位置，支持分离选区高亮，左右键按视觉位置移动。UTF-8 编辑状态、字素边界及逻辑 Home/End 保持不变。默认与装饰样式仍走 SDL_ttf；Linux 需要可用的 Pango 等系统库，详见[字体说明](../../../reference/fonts.zh-CN.md)。启用成功不等于完整原生输入法或读屏认证。
 - **字节偏移语义**：光标与锚点是 UTF-8 字节偏移（始终落在字符边界上），不是字符计数。通过 `cursor`/`anchor` 参数从外部接管这两个状态时，必须让它们保持在字符边界并成对移动——只挪光标会留下陈旧锚点，凭空张开一段用户从未做过的选区，下一次按键就会把它整段替换掉。完整的编辑操作见 [`TextEditState`](TextEditState.md)。
 - **编辑快捷键**：Ctrl+A 全选、Ctrl+C 复制、Ctrl+X 剪切、Ctrl+V 粘贴、Ctrl+Z 撤销、Ctrl+Y 与 Ctrl+Shift+Z 重做；Home/End 移到两端，按住 Shift 的方向键扩展选区。粘贴的多行文本被折叠为一行（换行变空格、回车符丢弃）。剪贴板访问按尽力而为处理：没有桌面会话时复制粘贴静默失败，不会让控件崩溃。
 - **分组撤销**：500 毫秒内的连续编辑合并为一步撤销，停顿即开新组；光标跳转（点击、方向键导航）也会切分撤销组；撤销栈上限 300 步。空操作编辑（如在开头按退格）不产生撤销步。
 - **水平跟随**：值比控件宽时文本窗口左移，且仅在光标越出可视窗口时移动（桌面编辑器的常见手感）；偏移有限制，文本尾部不会脱离右缘。
-- **焦点与 IME**：聚焦时每帧把光标矩形上报为 IME 候选窗锚点，输入法窗口跟随光标；`editable: false` 渲染为只读且不进入 Tab 焦点遍历，但仍可点选、全选与复制。
+- **继承排版**：通用 Widget `.fontSize(...)`、`.fontFamily(...)`、`.bold()`、`.italic()` 等修饰器会作用于字段文字与 placeholder；相同的有效字号、字族和样式也用于水平跟随、点击定位、选区与光标，避免视觉位置和编辑位置漂移。外框高度仍遵循标准控件高，可继续用布局修饰器显式指定产品所需高度。
+- **焦点与 IME**：聚焦时每帧把光标矩形上报为 IME 候选窗锚点，输入法窗口跟随光标；`editable: false` 渲染为只读，保留 Tab 与无障碍聚焦、点选、全选与普通文本复制，但拒绝编辑。
+- **组合输入**：Begin/Update 只生成临时显示文本，提交才替换文档中的选区并进入撤销记录；Esc、失焦、文档外部变更和普通编辑会清理临时状态。预编辑光标、选区、下划线、水平跟随与点击使用同一显示投影，不把显示偏移写回文档。`composition` 可接管与 TextArea 相同的 `TextCompositionSnapshot`；它不是第二份可编辑文档。`.secureEntry()` 对预编辑也遮罩，语义仍不暴露密码值，撤销历史仍禁用。原生候选窗口、不同平台输入法和读屏须独立验收。
 
 ## 示例
+
+`.onSubmit {=> search(query.value)}` 为搜索框等注册回车提交。只有聚焦的可编辑字段响应；长按回车不会重复提交，IME 预编辑期间的回车不会提交表单。没有注册时保留原事件传播。提交回调在 UI 线程执行，耗时工作应异步处理。
 
 ```cangjie verify
 package docexample
@@ -78,6 +83,7 @@ public init(
     key!: ?String = None,
     cursor!: ?State<Int64> = None,
     anchor!: ?State<Int64> = None,
+    composition!: ?State<TextCompositionSnapshot> = None,
     editable!: Bool = true,
     placeholder!: String = ""
 )
@@ -89,7 +95,8 @@ public init(
 - `key!`: `?String` — 显式控件标识；默认 `None`，按声明顺序自动派生。需要编辑状态跨结构变化保留时传入稳定键。
 - `cursor!`: `?State<Int64>` — 外部接管的光标字节偏移；默认 `None`，控件在自身标识下保留光标，初值在文本末尾。
 - `anchor!`: `?State<Int64>` — 外部接管的选区锚点字节偏移；默认 `None`，初值与光标重合（无选区）。接管时必须与 `cursor` 成对移动。
-- `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读，拒绝编辑事件且不进入 Tab 焦点遍历。
+- `composition!`: `?State<TextCompositionSnapshot>` — 可选的临时组合输入快照；默认按控件标识保留。预编辑选区按 Unicode scalar 计数，文档替换范围仍是精确 UTF-8 字节范围。密码模式的外部状态仍由应用保管，不是可清零的安全容器。
+- `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读，拒绝编辑事件，保留焦点遍历以便阅读与选择。
 - `placeholder!`: `String` — 字段为空时以暗色文本显示的提示；默认 `""`（无提示）。不影响值或编辑。
 
 **异常**
@@ -110,7 +117,7 @@ public func autofocus(): TextField
 
 ### undo
 
-回退最近一组编辑；同时绑定在 Ctrl+Z。分组规则见页首说明；没有可回退的编辑时调用无效果。
+回退最近一组编辑；同时绑定在 Ctrl+Z。分组规则见页首说明；没有可回退的编辑时调用无效果。只读模式下调用不会修改文本或消耗撤销历史。
 
 ```cangjie
 public func undo(): Unit
@@ -118,7 +125,7 @@ public func undo(): Unit
 
 ### redo
 
-重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。任何新编辑都会清空重做栈；没有可重做的编辑时调用无效果。
+重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。任何新编辑都会清空重做栈；没有可重做的编辑时调用无效果。只读模式下调用不会修改文本或消耗重做历史。
 
 ```cangjie
 public func redo(): Unit

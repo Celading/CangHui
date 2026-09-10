@@ -1,7 +1,8 @@
 package sdl
 
 import std.collection.{ArrayList, HashMap}
-import sdl.text.{NativeTextColor, NativeTextException, NativeTextMetrics, NativeTextRenderer}
+import sdl.text.{NativeTextColor, NativeTextException, NativeTextMetrics, NativeTextRenderer,
+    NativeTextLineSpec, fontPathChainKey}
 
 /**
  * Standard text sizes shared by the renderer, widgets, and applications.
@@ -82,6 +83,8 @@ private class TextMetricsCache {
         this.capacityPerSize = capacityPerSize
     }
 
+    func clear(): Unit { bySize.clear() }
+
     func get(sizeKey: Int64, text: String): ?NativeTextMetrics {
         match (bySize.get(sizeKey)) {
             case Some(generation) => generation.get(text)
@@ -103,7 +106,8 @@ private class TextMetricsCache {
 
 public class Renderer {
     internal let ptr: CPointer<Unit>
-    private let contentScale: Float32
+    // Persistent scene scale; temporary render-target scales must not replace it.
+    private var contentScale: Float32
     private var ssTarget: CPointer<Unit> = CPointer<Unit>()
     private var ssWidth: Int32 = 0
     private var ssHeight: Int32 = 0
@@ -112,8 +116,8 @@ public class Renderer {
     private var ssEnabled: Bool
     // The live drawing scale (render coordinates -> target pixels), mirrored from every
     // SDL_SetRenderScale call. Geometry draws through the GPU scale; TEXT rasterizes at
-    // this scale and draws 1:1 on the pixel grid instead (see `text`), because stretching
-    // small glyph bitmaps through the render scale is what blurs it.
+    // the larger axis and only downsamples the smaller one (see `text`), avoiding
+    // magnification of small glyph bitmaps. Equal axes draw 1:1 on the pixel grid.
     private var scaleX: Float32 = 1.0
     private var scaleY: Float32 = 1.0
     private let geometry = GeometryBatch()
@@ -176,6 +180,233 @@ public class Renderer {
     /** A device-free renderer that records stable clip/transform/paint/text/symbol commands. */
     public static func recordingHeadless(): Renderer {
         Renderer(CPointer<Unit>(), recordDrawIr: true)
+    }
+
+    /**
+     * Opts into platform text layout where available. Currently macOS CoreText supports
+     * regular/bold runs; decorated styles retain SDL_ttf. Returns false when unavailable.
+     * Call on the renderer owner thread before measuring a frame. SDL remains the default.
+     */
+    public func usePlatformTextLayout(enabled: Bool): Bool {
+        match (textBackend) {
+            case Some(backend) =>
+                if (backend.platformLayoutEnabled() == enabled) { return true }
+                if (!backend.usePlatformLayout(ptr, enabled)) { return false }
+                metricsCache.clear()
+                namedMetricsCaches.clear()
+                true
+            case None => !enabled
+        }
+    }
+
+    public func platformTextLayoutEnabled(): Bool {
+        match (textBackend) {
+            case Some(backend) => backend.platformLayoutEnabled()
+            case None => false
+        }
+    }
+
+    /** Native interop only: UTF16 index, logical primary/secondary X; None on a non-native style/backend. */
+    public func textCaretPositionsUtf16(text: String, index: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?(Float32, Float32) {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some((primary, secondary)) <- backend.platformCaret(text, index, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some((primary / scale, secondary / scale))
+            }
+        }
+        None
+    }
+
+    /** Batched native caret query: resolves the retained line once for every supplied UTF16 boundary. */
+    public func textCaretPositionsUtf16(text: String, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(values) <- backend.platformCarets(text, indices, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some(Array<(Float32, Float32)>(values.size, {i =>
+                    (values[i][0] / scale, values[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
+    /**
+     * Resolved character directions from the retained horizontal native line (true = RTL).
+     * Indices are exact UTF16 scalar starts, not editor bytes; the end boundary and
+     * surrogate interiors throw. Order/duplicates are preserved; an empty batch is valid.
+     * None means unsupported backend/style, never an inferred LTR fallback.
+     */
+    public func textRightToLeftUtf16(text: String, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<Bool> {
+        if (let Some(backend) <- textBackend) {
+            return backend.platformDirections(text, indices, pointSize * max(scaleX, scaleY),
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))
+        }
+        None
+    }
+
+    /** Native interop only: logical X to raw UTF16 hit (-1 for empty); not an editor byte offset. */
+    public func textHitUtf16(text: String, x: Float32,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Int64 {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            return backend.platformHit(text, x * scale, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))
+        }
+        None
+    }
+
+    /** Native UTF16 range to visual [left,right] logical intervals; a bidi selection can be disjoint. */
+    public func textSelectionSpansUtf16(text: String, start: Int64, end: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(spans) <- backend.platformSelection(text, start, end, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some(Array<(Float32, Float32)>(spans.size, {i =>
+                    (spans[i][0] / scale, spans[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
+    /** Size of the actual colored native line; None when the selected backend/style is unsupported. */
+    public func textSize(spec: NativeTextLineSpec, pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular, font!: ?String = None<String>): ?Size {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(metrics) <- backend.platformMeasure(spec, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)))) {
+                return Some(Size(metrics.width / scale, metrics.height / scale))
+            }
+        }
+        None
+    }
+
+    /** Colored-line counterpart of the plain native UTF16 caret query. */
+    public func textCaretPositionsUtf16(spec: NativeTextLineSpec, index: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?(Float32, Float32) {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some((primary, secondary)) <- backend.platformCaret(spec.text, index,
+                pointSize * scale, style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))) {
+                return Some((primary / scale, secondary / scale))
+            }
+        }
+        None
+    }
+
+    /** Batched query against the same immutable colored line used for painting. */
+    public func textCaretPositionsUtf16(spec: NativeTextLineSpec, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(values) <- backend.platformCarets(spec.text, indices, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))) {
+                return Some(Array<(Float32, Float32)>(values.size, {i =>
+                    (values[i][0] / scale, values[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
+    /** Direction query against the same immutable colored line used for painting. */
+    public func textRightToLeftUtf16(spec: NativeTextLineSpec, indices: Array<Int64>,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<Bool> {
+        if (let Some(backend) <- textBackend) {
+            return backend.platformDirections(spec.text, indices, pointSize * max(scaleX, scaleY),
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))
+        }
+        None
+    }
+
+    public func textHitUtf16(spec: NativeTextLineSpec, x: Float32,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Int64 {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            return backend.platformHit(spec.text, x * scale, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))
+        }
+        None
+    }
+
+    public func textSelectionSpansUtf16(spec: NativeTextLineSpec, start: Int64, end: Int64,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): ?Array<(Float32, Float32)> {
+        if (let Some(backend) <- textBackend) {
+            let scale = max(scaleX, scaleY)
+            if (let Some(spans) <- backend.platformSelection(spec.text, start, end, pointSize * scale,
+                style.ttfFlags(), fontPaths(resolveFontChain(font)), paint: Some(spec))) {
+                return Some(Array<(Float32, Float32)>(spans.size, {i =>
+                    (spans[i][0] / scale, spans[i][1] / scale) }))
+            }
+        }
+        None
+    }
+
+    /**
+     * Draws a complete native colored line. False means nothing was drawn: caller
+     * must choose one consistent fallback for BOTH painting and geometry.
+     */
+    public func text(spec: NativeTextLineSpec, x: Float32, y: Float32,
+        pointSize!: Float32 = FontSizes.BODY, style!: FontStyle = FontStyle.regular,
+        font!: ?String = None<String>): Bool {
+        if ((style.ttfFlags() & 0x0E) != 0) { return false }
+        if (let Some(backend) <- textBackend) {
+            if (!backend.platformLayoutEnabled()) { return false }
+            let resolutions = resolveFontChain(font)
+            let paths = fontPaths(resolutions)
+            let flags = style.ttfFlags()
+            let color = Color.rgba(Int64(spec.red), Int64(spec.green), Int64(spec.blue), Int64(spec.alpha))
+            let native = NativeTextColor(color.r, color.g, color.b, color.a)
+            drawTextCount += 1
+            if (recordsDrawIr) {
+                let spans = StringBuilder()
+                var first = true
+                for (span in spec.colors()) {
+                    if (!first) { spans.append(",") }; first = false
+                    spans.append("{\"start\":${span.start},\"end\":${span.end},\"r\":${span.red}," +
+                        "\"g\":${span.green},\"b\":${span.blue},\"a\":${span.alpha}}")
+                }
+                recordDrawIr("text", "\"text\":" + drawIrQuote(spec.text) + ",\"x\":${x},\"y\":${y}," +
+                    "\"pointSize\":${pointSize},\"nativeColorsUtf16\":[" + spans.toString() + "]," +
+                    "\"font\":" + drawIrQuote(match (font) { case Some(value) => value case None => "" }) +
+                    ",\"bold\":" + style.bold.toString() + ",\"italic\":false,\"resolvedFamily\":" +
+                    drawIrQuote(resolutions[0].family) + ",\"fontSource\":" +
+                    drawIrQuote(resolutions[0].sourceName()) + "," + drawIrColor(color))
+            }
+            if (scaleX == 1.0 && scaleY == 1.0) {
+                return backend.platformDraw(spec, snapPixel(x, 1.0), snapPixel(y, 1.0),
+                    pointSize, flags, paths, native)
+            }
+            let step = if (ssEnabled) { Float32(ssFactor) } else { Float32(1.0) }
+            let rasterScale = max(scaleX, scaleY)
+            let glyphScaleX = scaleX / rasterScale
+            let glyphScaleY = scaleY / rasterScale
+            try {
+                ensureSdl(unsafe { SDL_SetRenderScale(ptr, glyphScaleX, glyphScaleY) },
+                    "SDL_SetRenderScale attributed text")
+                applyClipForTextPass(rasterScale)
+                return backend.platformDraw(spec, snapPixel(x * scaleX, step) / glyphScaleX,
+                    snapPixel(y * scaleY, step) / glyphScaleY, pointSize * rasterScale, flags, paths, native)
+            } finally {
+                let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
+                applyClip()
+            }
+        }
+        false
     }
 
     public func drawIrEnabled(): Bool {
@@ -244,7 +475,15 @@ public class Renderer {
         resolveFontChain(font)[0]
     }
 
-    /** Reports the concrete fallback tier selected for one string on a live renderer. */
+    /** Equality-only cache key for logical text metrics in this renderer's current
+     * font chain, registry generation, layout backend and raster scale. Callers
+     * must also key their text, point size and style; do not parse or persist it. */
+    public func textLayoutEnvironmentKey(font!: ?String = None<String>): String {
+        "${max(scaleX, scaleY)}|${Fonts.generation()}|${platformTextLayoutEnabled()}|" +
+            fontPathChainKey(fontPaths(resolveFontChain(font)))
+    }
+
+    /** Reports the selected whole-run tier, or a mixed fallback chain's primary tier; not a glyph map. */
     public func fontResolutionForText(
         text: String,
         pointSize!: Float32 = FontSizes.BODY,
@@ -271,6 +510,15 @@ public class Renderer {
         if (!recordsDrawIr) { return }
         let scope = if (drawIrScopes.isEmpty()) { "" } else { drawIrScopes[drawIrScopes.size - 1] }
         drawIrLog.add(DrawIrCommand(kind, scope, data: data))
+    }
+
+    /** Records a path-private logical image reference for headless design evidence. */
+    public func recordImageResource(name: String, role: String, provenance: String,
+        destination: Rect, fit: String): Unit {
+        recordDrawIr("resource.image", drawIrRect(destination) +
+            ",\"name\":" + drawIrQuote(name) + ",\"role\":" + drawIrQuote(role) +
+            ",\"provenance\":" + drawIrQuote(provenance) +
+            ",\"fit\":" + drawIrQuote(fit))
     }
 
     /**
@@ -307,6 +555,7 @@ public class Renderer {
         recordDrawIr("scene.begin", "\"width\":" + logicalWidth.toString() +
             ",\"height\":" + logicalHeight.toString() + "," + drawIrColor(clearColor))
         if (ptr.isNull()) {
+            restoreContentScale()
             this.beginEffectFrame(logicalWidth, logicalHeight)
             return
         }
@@ -334,8 +583,10 @@ public class Renderer {
             return
         }
         ensureSdl(unsafe { SDL_SetRenderTarget(ptr, ssTarget) }, "SDL_SetRenderTarget")
-        let sx = Float32(targetWidth) / max(1.0, logicalWidth)
-        let sy = Float32(targetHeight) / max(1.0, logicalHeight)
+        // Integer viewport rounding must not introduce a second, nonuniform input transform.
+        // Keep the same logical-to-pixel scale as direct rendering; clear covers residual edge pixels.
+        let sx = contentScale * Float32(ssFactor)
+        let sy = sx
         ensureSdl(unsafe { SDL_SetRenderScale(ptr, sx, sy) }, "SDL_SetRenderScale")
         scaleX = sx
         scaleY = sy
@@ -368,10 +619,16 @@ public class Renderer {
         let _ = unsafe { SDL_RenderTexture(ptr, ssTarget, CPointer<SdlFRect>(), inout dst) }
     }
 
-    private func drawDirect(clearColor: Color): Unit {
-        let _ = unsafe { SDL_SetRenderScale(ptr, contentScale, contentScale) }
+    private func restoreContentScale(): Unit {
+        if (!ptr.isNull()) {
+            ensureSdl(unsafe { SDL_SetRenderScale(ptr, contentScale, contentScale) }, "SDL_SetRenderScale")
+        }
         scaleX = contentScale
         scaleY = contentScale
+    }
+
+    private func drawDirect(clearColor: Color): Unit {
+        restoreContentScale()
         clear(clearColor)
     }
 
@@ -526,6 +783,7 @@ public class Renderer {
         if (!ptr.isNull()) {
             ensureSdl(unsafe { SDL_SetRenderScale(ptr, scale, scale) }, "SDL_SetRenderScale")
         }
+        contentScale = scale
         scaleX = scale
         scaleY = scale
         recordDrawIr("transform.scale", "\"x\":" + scale.toString() + ",\"y\":" + scale.toString())
@@ -957,8 +1215,9 @@ public class Renderer {
      * Draws UTF-8 text with the platform UI font through SDL3_ttf.
      *
      * Text takes a dedicated path through the render scale: glyphs are rasterized by
-     * FreeType at the EFFECTIVE pixel size (`pointSize` x the live scale) and drawn with
-     * the GPU scale reset to 1:1 at snapped target-pixel positions. Rasterizing at the
+     * FreeType at `pointSize` times the larger live scale. With equal axes the GPU
+     * scale is 1:1; unequal axes downsample only the smaller axis. Origins are snapped
+     * in target pixels. Rasterizing at the
      * logical size and letting the render scale stretch the small bitmaps — as geometry
      * does — resamples every glyph twice and is what made text visibly softer and fainter
      * than the vector primitives around it. Under supersampling, positions snap to
@@ -999,11 +1258,21 @@ public class Renderer {
                     }
                     let px = snapPixel(x * scaleX, step)
                     let py = snapPixel(y * scaleY, step)
-                    let _ = unsafe { SDL_SetRenderScale(ptr, 1.0, 1.0) }
-                    applyClipForTextPass()
-                    value.draw(text, px, py, pointSize * scaleY, flags, facePaths, native)
-                    let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
-                    applyClip()
+                    // Both geometry and text must obey the same two-axis transform. Rasterize
+                    // at the larger axis so non-uniform targets never upscale a small bitmap.
+                    let rasterScale = max(scaleX, scaleY)
+                    let glyphScaleX = scaleX / rasterScale
+                    let glyphScaleY = scaleY / rasterScale
+                    try {
+                        ensureSdl(unsafe { SDL_SetRenderScale(ptr, glyphScaleX, glyphScaleY) },
+                            "SDL_SetRenderScale text")
+                        applyClipForTextPass(rasterScale)
+                        value.draw(text, px / glyphScaleX, py / glyphScaleY,
+                            pointSize * rasterScale, flags, facePaths, native)
+                    } finally {
+                        let _ = unsafe { SDL_SetRenderScale(ptr, scaleX, scaleY) }
+                        applyClip()
+                    }
                 }
             case None => ()
         }
@@ -1022,8 +1291,15 @@ public class Renderer {
     }
 
     /**
-     * Returns the standard line height for the requested point size.
+     * Returns the actual text value's measured logical size using the selected paint backend.
      */
+    public func textSize(text: String, pointSize!: Float32 = FontSizes.BODY,
+        style!: FontStyle = FontStyle.regular, font!: ?String = None<String>): Size {
+        let metrics = textMetrics(text, pointSize, style, resolveFontChain(font))
+        Size(metrics.width, metrics.height)
+    }
+
+    /** Returns the standard line height, not the height of a particular text value. */
     public func textHeight(
         pointSize!: Float32 = FontSizes.BODY,
         style!: FontStyle = FontStyle.regular,
@@ -1113,14 +1389,9 @@ public class Renderer {
     }
 
     private func fontChainKey(resolutions: Array<FontResolution>): String {
-        let out = StringBuilder()
-        var first = true
-        for (resolution in resolutions) {
-            if (!first) { out.append("\n") }
-            first = false
-            out.append(resolution.path)
-        }
-        out.toString()
+        let paths = fontPaths(resolutions)
+        // Retain the dedicated system-only cache, otherwise use the same encoding as native text.
+        if (paths.size == 1 && paths[0].isEmpty()) { "" } else { fontPathChainKey(paths) }
     }
 
     private func metricsCacheFor(chainKey: String): TextMetricsCache {
@@ -1168,8 +1439,9 @@ public class Renderer {
                 // Measure the same scaled rasterization the text pass draws, mapped back to
                 // logical units — carets, selection bands and ellipsis decisions computed
                 // from these metrics then line up with the pixels actually painted.
-                let scaled = value.measure(text, pointSize * scaleY, flags, facePaths)
-                NativeTextMetrics(scaled.width / scaleX, scaled.height / scaleY)
+                let rasterScale = max(scaleX, scaleY)
+                let scaled = value.measure(text, pointSize * rasterScale, flags, facePaths)
+                NativeTextMetrics(scaled.width / rasterScale, scaled.height / rasterScale)
             case None => headlessMetrics(text, pointSize, style)
         }
     }
@@ -1192,11 +1464,12 @@ public class Renderer {
         NativeTextMetrics(Float32(text.size) * pointSize * 0.55 * boldFactor, pointSize * 1.3)
     }
 
-    // While the text pass draws with the GPU scale reset to 1:1, the active clip must be
-    // re-expressed in target pixels: SDL clip rectangles live in the current scaled space.
-    private func applyClipForTextPass(): Unit {
+    // SDL clips are in the current drawing space. A text pass uses glyph pixels whose
+    // final scale is (scaleX/rasterScale, scaleY/rasterScale), not always (1,1).
+    private func applyClipForTextPass(rasterScale: Float32): Unit {
         match (currentClip()) {
-            case Some(rect) => setClip(Rect(rect.x * scaleX, rect.y * scaleY, rect.w * scaleX, rect.h * scaleY))
+            case Some(rect) => setClip(Rect(rect.x * rasterScale, rect.y * rasterScale,
+                rect.w * rasterScale, rect.h * rasterScale))
             case None => ()
         }
     }
@@ -1212,17 +1485,35 @@ public class Renderer {
         if (ptr.isNull()) {
             return
         }
+        try (surface = captureSurface()) {
+            surface.saveBmp(path)
+        }
+    }
+
+    /** Reads the current target as PNG. Headless remains a no-op, like captureBmp. */
+    public func capturePng(path: String): Unit {
+        if (ptr.isNull()) { return }
+        try (surface = captureSurface()) {
+            surface.savePng(path)
+        }
+    }
+
+    // Keep the native transition in this managed method, shared by capture and
+    // pixel validation. Calling a foreign declaration across the test-package
+    // boundary can produce an invalid GC-unwind accessor on Cangjie 1.1.3/macOS.
+    internal func captureSurface(): Surface {
+        if (ptr.isNull()) {
+            throw CuiException("Headless renderer has no pixel surface.")
+        }
         let surface = unsafe { SDL_RenderReadPixels(ptr, CPointer<SdlRect>()) }
         if (surface.isNull()) {
             throw CuiException("SDL_RenderReadPixels failed: ${lastSdlError()}")
         }
-        let cPath = unsafe { LibC.mallocCString(path) }
-        try (pathResource = cPath.asResource()) {
-            let saved = unsafe { SDL_SaveBMP(surface, pathResource.value) }
+        try {
+            Surface(surface)
+        } catch (error: Exception) {
             unsafe { SDL_DestroySurface(surface) }
-            if (!saved) {
-                throw CuiException("SDL_SaveBMP failed: ${lastSdlError()}")
-            }
+            throw error
         }
     }
 }
@@ -1263,7 +1554,11 @@ private func createTextBackend(renderer: CPointer<Unit>): ?NativeTextRenderer {
         return None
     }
     try {
-        Some(NativeTextRenderer(renderer))
+        let fallbackPaths = ArrayList<String>()
+        for (face in Fonts.resolutionChain()) {
+            if (!face.path.isEmpty()) { fallbackPaths.add(face.path) }
+        }
+        Some(NativeTextRenderer(renderer, fallbackPaths.toArray()))
     } catch (error: NativeTextException) {
         throw CuiException("System UI font initialization failed: ${error.message}")
     }

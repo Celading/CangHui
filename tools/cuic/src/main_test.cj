@@ -1,12 +1,52 @@
 package cuic
 
 import std.fs.{Directory, File, removeIfExists}
+import std.env.getVariables
+import std.collection.HashMap
+
+@Test
+func childWorkingDirectoryAgreesWithPwdWithoutMutatingCaller(): Unit {
+    let inherited = HashMap<String, String>()
+    inherited.add("PWD", "/caller/not-the-project")
+    inherited.add("CUIC_TEST_VALUE", "literal & unchanged")
+    let child = workingDirectoryEnvironment("./src/..", inherited)
+    @Expect(child.get("PWD") ?? "", currentDirectory())
+    @Expect(child.get("CUIC_TEST_VALUE") ?? "", "literal & unchanged")
+    @Expect(inherited.get("PWD") ?? "", "/caller/not-the-project")
+}
+
+@Test
+func projectCommandsSetPwdForNonShellChildren(): Unit {
+    if (hostPlatform() == "windows") { return }
+    let project = joinPath(currentDirectory(), "src")
+    let args = ["BEGIN { exit (ENVIRON[\"PWD\"] == ARGV[1] ? 0 : 1) }", project]
+    @Expect(executeCommand("/usr/bin/awk", args, project), 0)
+    @Expect(executeCommandQuiet("/usr/bin/awk", args, project), 0)
+    let inherited = HashMap<String, String>()
+    for ((key, value) in getVariables()) { inherited.add(key, value) }
+    @Expect(executeCommandWithEnvironment("/usr/bin/awk", args, project, inherited), 0)
+}
 
 @When[debug]
 @Test
 func debugTestBuildCarriesPrivilegedDebugGate(): Unit {
     @Expect(debugChannelBuildEnabled())
     @Expect(debugChannelBuildMarker(), "CANGHUI_PRIVILEGED_DEBUG_BUILD=1")
+}
+
+@Test
+func debugRecoveryUsesPairedSdkToolWithoutRawCompilerFallback(): Unit {
+    let sdk = debugChannelRecoveryHint("source-sdk")
+    @Expect(sdk.contains("bin/cuic-debug shipped in the same source SDK"))
+    @Expect(sdk.contains("do not rebuild or modify"))
+    @Expect(!sdk.contains("cjpm"))
+    @Expect(!sdk.contains("cuic build"))
+    for (channel in ["development", "installed", "", "source-sdk-extra"]) {
+        let hint = debugChannelRecoveryHint(channel)
+        @Expect(hint.contains("cuic build <platform> <framework>/tools/cuic --mode debug"))
+        @Expect(!hint.contains("cjpm"))
+        @Expect(!hint.contains("shipped in the same source SDK"))
+    }
 }
 
 @When[!debug]
@@ -19,13 +59,14 @@ func releaseTestBuildRefusesPrivilegedDebugGate(): Unit {
         requireDebugChannelBuild("test operation")
     } catch (error: CuicError) {
         refused = containsText(error.message, "unavailable in release cuic")
+        @Expect(error.message.contains(debugChannelRecoveryHint(CUIC_BUILD_CHANNEL)))
     }
     @Expect(refused)
 }
 
 @Test
 func versionCarriesAnHonestBuildIdentity(): Unit {
-    @Expect(renderCuicVersion(), "cuic 0.6.0 (development@unembedded)")
+    @Expect(renderCuicVersion(), "cuic 0.7.0 (development@unembedded)")
 }
 
 @Test
@@ -47,6 +88,15 @@ func pathHelpersKeepRootAndBasenameStable(): Unit {
     @Expect(joinPath("/tmp/root/", "/child"), "/tmp/root/child")
     @Expect(parentPath("/tmp/root/child"), "/tmp/root")
     @Expect(basename("/tmp/root/child/"), "child")
+}
+
+@Test
+func projectResolutionAnchorsRelativeInputBeforeChangingWorkingDirectory(): Unit {
+    // The executable is launched with project as cwd. Retaining './target/...' relative to
+    // the caller breaks nested projects even though the preceding build succeeds.
+    @Expect(resolveProject(".", ""), currentDirectory())
+    @Expect(resolveProject("./src/..", ""), currentDirectory())
+    @Expect(resolveProject(currentDirectory(), ""), currentDirectory())
 }
 
 @Test
@@ -96,9 +146,73 @@ func prntMacCapturePinsOneCangjieProcessorByDefault(): Unit {
 }
 
 @Test
+func prntUsesVerifiedNativeStagingWithoutRetargetingFrameworkResources(): Unit {
+    let framework = "/tmp/canghui"
+    let native = "/tmp/verified-sdk-native"
+    let environment = applicationEnvironment(framework, "/tmp/capture.bmp", UInt64(2), nativeDirectory: native)
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect((environment.get(key) ?? "").contains(native))
+    @Expect(environment.get("CANGHUI_HARMONYOS_SANS") ?? "", runtimeHarmonyFont(framework))
+    @Expect(environment.get("CANGHUI_CAPTURE_PATH") ?? "", "/tmp/capture.bmp")
+}
+
+@When[debug]
+@Test
+func probeRuntimeUsesVerifiedStagingAndOriginalFontRoot(): Unit {
+    let framework = "/tmp/framework"
+    let native = "/tmp/verified-native"
+    let environment = kModeChildEnvironment(framework, nativeDirectory: native)
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect((environment.get(key) ?? "").contains(native))
+    @Expect(startsWithText(environment.get(key) ?? "", cangjieRuntimeLibraryDirectory()))
+    @Expect(environment.get("CANGHUI_HARMONYOS_SANS") ?? "", runtimeHarmonyFont(framework))
+    @Expect(environment.get("CANGHUI_KMODE_TRANSPORT") ?? "", "stdio")
+}
+
+@Test
 func packageNamesAreCompilerFriendly(): Unit {
     @Expect(sanitizePackageName("Hello-CangUI"), "hello_cangui")
     @Expect(sanitizePackageName("2026 Demo"), "app_2026_demo")
+}
+
+@When[debug]
+@Test
+func uiShellUsesVerifiedContextStagingAndPreservesDebugScript(): Unit {
+    let context = ExecutionContext("/tmp/sdk-consumer", "/tmp/immutable-framework",
+        stagingRoot: "/tmp/verified-shell-staging")
+    let script = "focus welcome.ready\nkey Enter"
+    let environment = uiShellEnvironment(context, script)
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect((environment.get(key) ?? "").contains(context.sdlDirectory()))
+    @Expect(environment.get("CANGHUI_HARMONYOS_SANS") ?? "", runtimeHarmonyFont(context.framework))
+    @Expect(environment.get("CANGHUI_DEBUG_UI_SCRIPT_HEX") ?? "", encodeCuicKModeText(script))
+    @Expect(environment.get("CANGHUI_CAPTURE_PATH") ?? "", "")
+}
+
+@When[debug]
+@Test
+func uiShellDefaultContextAlsoUsesKeyedStaging(): Unit {
+    let context = ExecutionContext("/tmp/shell-consumer", "/tmp/source-framework")
+    let environment = uiShellEnvironment(context, "snapshot")
+    let key = if (hostPlatform() == "macos") { "DYLD_LIBRARY_PATH" }
+        else if (hostPlatform() == "windows") { "PATH" } else { "LD_LIBRARY_PATH" }
+    @Expect((environment.get(key) ?? "").contains(context.sdlDirectory()))
+    @Expect(context.sdlDirectory() != joinPath(context.framework, "sdl/.sdl3"))
+}
+
+@When[!debug]
+@Test
+func uiShellReleaseDoesNotConstructPrivilegedEnvironment(): Unit {
+    let context = ExecutionContext("/tmp/shell-consumer", "/tmp/source-framework",
+        stagingRoot: "/tmp/verified-shell-staging")
+    var rejected = false
+    try {
+        let _ = uiShellEnvironment(context, "snapshot")
+    } catch (_: CuicError) { rejected = true }
+    @Expect(rejected)
 }
 
 @Test
@@ -196,6 +310,8 @@ func kModeLauncherNoiseAllowsKnownCjpmPreambleOnly(): Unit {
 
 @Test
 func uiShellParsesBoundedOneShotActions(): Unit {
+    let cancel = parseUiShellSelection(["cuic", "shell", "cancel"], 2)
+    @Expect(cancel.script, "cancel")
     let click = parseUiShellSelection(["cuic", "shell", "click", "12.5", "30"], 2)
     let focus = parseUiShellSelection(["cuic", "shell", "focus", "search-field"], 2)
 
@@ -238,7 +354,7 @@ func consumerDependencyRootWinsOverIntegratedCheckout(): Unit {
         File.writeTo(joinPath(framework, "src/chui.cj"), "package chui\n".toArray())
         File.writeTo(joinPath(project, "cjpm.toml"),
             ("[dependencies]\nchui = { path = \"${framework}\" }\n").toArray())
-        @Expect(resolveFrameworkRoot(project), framework)
+        @Expect(resolveFrameworkRoot(project), canonicalPackagingPath(framework, "fixture"))
     } finally {
         _ = removeIfExists(fixture, recursive: true)
     }
@@ -277,7 +393,8 @@ func probeTargetParserAcceptsBoundedAsciiDimensions(): Unit {
 func remoteDependencyRenderingPinsPublicCommitWithoutLocalPath(): Unit {
     let rendered = renderFrameworkDependency(defaultFrameworkDependencySpec())
     @Expect(rendered.contains("git = \"https://github.com/Celading/CangHui.git\""))
-    @Expect(rendered.contains("commitId = \"a15593ddc03ff3b7ec913c2ac2b3abe22ce74f02\""))
+    @Expect(rendered.contains("commitId = \"8a22a7f501499b005816242b62d1067cac78256f\""))
+    @Expect(generatedMain("sdk_identity").contains("import chui.{"))
     @Expect(rendered.contains("/Users/"), false)
 }
 
@@ -434,6 +551,36 @@ func prntOptionsDefaultToRelease(): Unit {
 }
 
 @Test
+func desktopCaptureBuildAndExecutableUseTheRequestedMode(): Unit {
+    let debugArgs = desktopCaptureBuildArguments("debug")
+    @Expect(debugArgs.size, 2)
+    @Expect(debugArgs[0], "build")
+    @Expect(debugArgs[1], "-g")
+    let releaseArgs = desktopCaptureBuildArguments("release")
+    @Expect(releaseArgs.size, 1)
+    @Expect(releaseArgs[0], "build")
+    @Expect(desktopCaptureExecutable("/tmp/capture", "debug", {_ => true}),
+        "/tmp/capture/debug/bin/main")
+    @Expect(desktopCaptureExecutable("/tmp/capture", "release", {_ => true}),
+        "/tmp/capture/release/bin/main")
+    @Expect(desktopCaptureExecutable("C:\\capture", "debug", {path => endsWithText(path, ".exe")}),
+        "C:\\capture/debug/bin/main.exe")
+}
+
+@Test
+func desktopCaptureCannotFallBackToTheOppositeProfile(): Unit {
+    for (mode in ["debug", "release"]) {
+        let other = if (mode == "debug") { "release" } else { "debug" }
+        var rejected = false
+        try {
+            let _ = desktopCaptureExecutable("/tmp/capture", mode,
+                {path => containsText(path, "/${other}/")})
+        } catch (_: CuicError) { rejected = true }
+        @Expect(rejected)
+    }
+}
+
+@Test
 func prntOptionsRejectMissingDeviceValue(): Unit {
     var rejected = false
     try {
@@ -521,6 +668,24 @@ func pviewUsesSameAsciiTargetParser(): Unit {
 @Test
 func helpPublishesDesignSnapshotExport(): Unit {
     @Expect(helpText().contains("cuic design snapshot"))
+    @Expect(helpText().contains("--version <1|2>"))
+    @Expect(helpText().contains("--computed"))
+    let parsed = parseProbeTarget(
+        ["cuic", "design", "snapshot", "component-gallery", "gallery.primary-button",
+            "--version", "2"], 3, true, allowDesignVersion: true)
+    @Expect(parsed.name, "gallery.primary-button")
+    @Expect(parsed.designVersion, Int64(2))
+    let computed = parseProbeTarget(
+        ["cuic", "design", "snapshot", "component-gallery", "gallery.primary-button",
+            "--version", "2", "--computed"], 3, true, allowDesignVersion: true)
+    @Expect(computed.computedTruth)
+    var v1ComputedRejected = false
+    try {
+        let _ = parseProbeTarget(
+            ["cuic", "design", "snapshot", "component-gallery", "gallery.primary-button",
+                "--version", "1", "--computed"], 3, true, allowDesignVersion: true)
+    } catch (_: CuicError) { v1ComputedRejected = true }
+    @Expect(v1ComputedRejected)
 }
 
 @Test

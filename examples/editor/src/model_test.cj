@@ -1,5 +1,7 @@
 package chui_editor
 
+import chui.{ComponentProbe, Theme}
+
 @Test
 func seedDocumentHasTextAndStats(): Unit {
     let model = EditorModel()
@@ -60,4 +62,25 @@ func statsTrackEditsLive(): Unit {
 func lineNumberGutterTracksLogicalRowsWithoutVisualWrapping(): Unit {
     @Expect(lineNumberText(""), "1")
     @Expect(lineNumberText("a\n中文\n\tcode"), "1\n2\n3")
+}
+
+@Test
+func editorGraphemeFlowKeepsModelGutterAndDecorationsInSync(): Unit {
+    for (width in [Float32(320.0), Float32(760.0), Float32(1280.0)]) {
+        for (dark in [false, true]) {
+            let model = EditorModel()
+            model.text.value = "header\nxe\u{301}🇨🇳👩‍👩‍👧‍👦"
+            let report = ComponentProbe("editor.grapheme-flow", width: width, height: 560.0,
+                theme: if (dark) { Theme.dark() } else { Theme.light() }).run(
+                "focus editor.body\nkey End\nkey Backspace\nkey Left\nkey Backspace\n" +
+                "text z\u{301}\nkey Right\nkey Backspace\ndraw") {
+                editorView(model)
+            }
+            @Expect(report.contains("\"ok\":true"))
+            @Expect(!report.contains("\"ok\":false"))
+            @Expect(model.text.value, "header\nxz\u{301}")
+            @Expect(model.lines.value, Int64(2))
+            @Expect(lineNumberText(model.text.value), "1\n2")
+        }
+    }
 }

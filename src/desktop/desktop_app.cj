@@ -4,8 +4,8 @@ import std.collection.ArrayList
 import std.convert.*
 import std.env.{getCommandLine, getVariable}
 import sdl.{DeviceRotation, DeviceRotationEvent, DeviceRotationSource, FrameInfo, Key, MouseButton, Rect,
-    SdlWindow, UiEvent, WindowFlags, WindowPosition, WindowSpec}
-import sdl.input.{Cursor, Keyboard, SystemCursor}
+    SdlWindow, Surface, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, WindowScaleSettings, pointerEventToLegacyUiEvent}
+import sdl.input.{Cursor, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
 import sdl.dialogs.FileDialogs
@@ -19,7 +19,7 @@ import chui.core.{AnimationSpec, CursorShape, DeviceRotationTransition, Retained
     SemanticInteractionPolicy, SemanticRuntime, SemanticRuntimeLimits, SemanticTreeDiff,
     SemanticTreeSnapshot, StateStore, Theme, ThemeTransition, UiContext, Widget, buildRetainedRoot,
     buildRoot, UiOwnerQueue, UiOwnerTaskHandler, UiOwnerTicket, currentStateGeneration, drawTooltip,
-    withActiveSemanticRuntime}
+    withActiveSemanticRuntime, UiTaskScope, UiTaskPolicy, rememberUiTaskScope, currentStateStore}
 import chui.graphics.{DamageRegion, FrameDamageRect, FrameExecutionReceipt, FrameExternalMode, FrameGraph,
     FrameGraphRuntime, FramePassDescriptor, FramePassExecutionResult, FramePassId, FramePassKind,
     GraphicsAlphaMode,
@@ -27,6 +27,7 @@ import chui.graphics.{DamageRegion, FrameDamageRect, FrameExecutionReceipt, Fram
     SdlFrameGraphExecutor, bridgeScene3DExternalSurface, bridgeScene3DSharedFrameImport,
     sdlFramePhysicalPixelCount}
 import chui.kmode.kModeEnabled
+import chui.system.ApplicationShell
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
@@ -50,6 +51,7 @@ public class DesktopApp {
     private let stateStore = StateStore()
     private let semanticActionRouter: DesktopSemanticActionRouter
     private let semanticRuntime: SemanticRuntime
+    private var semanticAccessibility: ?DesktopSemanticAccessibility = None
     private let uiOwnerQueue = UiOwnerQueue()
     private let captureRequest: ?DesktopCaptureRequest
     // Per-phase frame timing, enabled with `--profile`; None (and zero cost) in a normal run.
@@ -72,11 +74,14 @@ public class DesktopApp {
     private var resizeVCursor: ?Cursor = None
     private var appliedShape: ?CursorShape = None
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
-    private var appliedInputAnchor: ?Rect = None
+    private let inputAnchor = TextInputAnchorState()
+    private var loopEntered = false
+    private var currentWidget: ?Widget = None
     private var themeTransition: ?ThemeTransition = None
     private var deviceRotationTransition: ?DeviceRotationTransition = None
     private let deviceRotationAnimation: AnimationSpec
     private let debugUiScript = DebugUiScriptRunner()
+    private let applicationShell: ?ApplicationShell
 
     public init(
         spec: WindowSpec,
@@ -91,9 +96,22 @@ public class DesktopApp {
         semanticWindowId!: String = "main",
         semanticPolicy!: SemanticInteractionPolicy = SemanticInteractionPolicy(),
         semanticLimits!: SemanticRuntimeLimits = SemanticRuntimeLimits(),
-        onSemanticAction!: SemanticActionHandler = {_ => false}
+        onSemanticAction!: SemanticActionHandler = {_ => false},
+        applicationShell!: ?ApplicationShell = None,
+        accessibility!: ?DesktopAccessibilityFactory = None
     ) {
+        let resolvedCapture = match (capture) {
+            case Some(request) => Some(request)
+            case None => resolveDesktopCaptureRequest(None, DesktopCaptureRequest.fromEnvironment(), legacySnapshotRequest())
+        }
+        if (let Some(request) <- resolvedCapture) {
+            if (!request.windowId.isEmpty() && request.windowId != semanticWindowId) {
+                throw IllegalArgumentException("capture window '${request.windowId}' does not match '${semanticWindowId}'")
+            }
+        }
+        debugUiScript.requireWindow(semanticWindowId)
         this.window = configuredWindow(spec, metadata, hints)
+        this.applicationShell = applicationShell
         this.ctx = UiContext(window.renderer, theme)
         let actionRouter = DesktopSemanticActionRouter(this.ctx, fallback: onSemanticAction)
         this.semanticActionRouter = actionRouter
@@ -116,21 +134,35 @@ public class DesktopApp {
         if (wantsVsync != spec.vsync) {
             window.renderer.setVSync(if (wantsVsync) { Int32(1) } else { Int32(0) })
         }
-        this.captureRequest = resolveDesktopCaptureRequest(
-            capture,
-            DesktopCaptureRequest.fromEnvironment(),
-            legacySnapshotRequest()
-        )
+        this.captureRequest = resolvedCapture
         this.profiler = if (profileEnabled()) {
             Some(FrameProfiler(60))
         } else {
             None
+        }
+        try {
+            if (let Some(factory) <- accessibility) {
+                semanticAccessibility = Some(DesktopSemanticAccessibility(semanticWindowId,
+                    factory(semanticWindowId, spec.title), uiOwnerQueue,
+                    {request => semanticRuntime.dispatch(request)}))
+            }
+        } catch (error: Exception) {
+            try { closeManagedResources() } finally { window.close() }
+            throw error
         }
     }
 
     public func manage(resource: Resource): Unit {
         resources.add(resource)
     }
+
+    /** Startup-only native text preview. Returns false when unavailable or after run starts. */
+    public func usePlatformTextLayout(enabled: Bool): Bool {
+        if (loopEntered) { return false }
+        ctx.renderer.usePlatformTextLayout(enabled)
+    }
+
+    public func platformTextLayoutEnabled(): Bool { ctx.renderer.platformTextLayoutEnabled() }
 
     /** Latest committed in-process semantic tree for accessibility and trusted host features. */
     public func semanticSnapshot(): SemanticTreeSnapshot { semanticRuntime.snapshot() }
@@ -159,6 +191,11 @@ public class DesktopApp {
      */
     public func setMinimumSize(width: Int32, height: Int32): Unit {
         window.setMinimumSize(width, height)
+    }
+
+    /** Sets a live window icon where supported; bundle/Dock identity is configured separately. */
+    public func setWindowIcon(icon: Surface): Unit {
+        window.setIcon(icon)
     }
 
     /** Requests application shutdown through the normal frame-loop path. */
@@ -233,9 +270,22 @@ public class DesktopApp {
         uiOwnerQueue.currentEpoch()
     }
 
+    /** View-owned preparation bound to this application's private owner queue. */
+    public func rememberTaskScope(key: String, policy!: UiTaskPolicy = UiTaskPolicy.LatestOnly): UiTaskScope {
+        if (!refEq((currentStateStore() as Object).getOrThrow(), (stateStore as Object).getOrThrow())) {
+            throw IllegalStateException("Task scope must be remembered in its owning application's build")
+        }
+        rememberUiTaskScope(key, uiOwnerQueue, policy: policy)
+    }
+
     /** Effective layout posture, using viewport aspect ratio until a provider reports. */
     public func deviceRotation(): DeviceRotation {
         ctx.deviceRotation()
+    }
+
+    /** UI-owner content zoom; does not resize the native window or simulate input. */
+    public func setScaling(settings: WindowScaleSettings): Unit {
+        applyWindowMetrics(window.setScaling(settings))
     }
 
     /** Last posture reported by a provider, or `Unknown` before the first report. */
@@ -311,10 +361,10 @@ public class DesktopApp {
     }
 
     /** Starts an InkWell-like theme reveal from the current pointer position. */
-    public func transitionTheme(theme: Theme, durationMs!: UInt64 = UInt64(560)): Unit {
+    public func transitionTheme(theme: Theme, durationMs!: UInt64 = UInt64(560), reverse!: Bool = false): Unit {
         let x = if (ctx.mouseX > 0.0) { ctx.mouseX } else { Float32(window.width) - 42.0 }
         let y = if (ctx.mouseY > 0.0) { ctx.mouseY } else { Float32(42.0) }
-        transitionThemeAt(theme, x, y, durationMs: durationMs)
+        transitionThemeAt(theme, x, y, durationMs: durationMs, reverse: reverse)
     }
 
     /** Starts a theme reveal from an explicit logical-pixel origin. */
@@ -322,8 +372,16 @@ public class DesktopApp {
         theme: Theme,
         originX: Float32,
         originY: Float32,
-        durationMs!: UInt64 = UInt64(560)
+        durationMs!: UInt64 = UInt64(560),
+        reverse!: Bool = false
     ): Unit {
+        if (durationMs == UInt64(0)) {
+            throw IllegalArgumentException("theme transition duration must be positive")
+        }
+        if (ctx.theme.reduceMotion || theme.reduceMotion) {
+            setTheme(theme)
+            return
+        }
         let source = match (themeTransition) {
             case Some(active) =>
                 let current = active.currentTheme()
@@ -332,7 +390,8 @@ public class DesktopApp {
             case None => ctx.theme
         }
         ctx.theme = source
-        themeTransition = Some(ThemeTransition(source, theme, originX, originY, durationMs: durationMs))
+        themeTransition = Some(ThemeTransition(source, theme, originX, originY,
+            durationMs: durationMs, reverse: reverse))
         ctx.requestFrame()
     }
 
@@ -349,10 +408,15 @@ public class DesktopApp {
     }
 
     public func run(body: () -> Unit): Unit {
+        loopEntered = true
         // Capture the frame-loop failure before shutdown. Cleanup is still deterministic, but a
         // cleanup/affinity failure must never replace the originating application exception.
         var runFailure: ?Exception = None
         try {
+            if (let Some(shell) <- applicationShell) {
+                let result = shell.attach()
+                if (!result.ok()) { throw IllegalStateException(result.message) }
+            }
             match (profiler) {
                 case Some(_) =>
                     println("[profile] 渲染后端 ${ctx.renderer.driverName()}｜超采样 ${ctx.renderer.supersampleFactor()}x｜视口 ${window.width}x${window.height} @ ${window.scale}x｜帧节奏 ${resolvedFramePacingName(resolvedPacing)}")
@@ -378,12 +442,17 @@ public class DesktopApp {
                 ctx.frame = frame
                 advanceThemeTransition(frame.deltaMs)
                 advanceDeviceRotationTransition(frame.deltaMs)
-                let viewportW = window.width
-                let viewportH = window.height
+                var viewportW = window.width
+                var viewportH = window.height
                 ctx.viewportWidth = Float32(viewportW)
                 ctx.viewportHeight = Float32(viewportH)
 
                 let events = collectPendingEvents()
+                if (let Some(shell) <- applicationShell) { let _ = shell.dispatchPendingActions() }
+                if (let Some(native) <- semanticAccessibility) {
+                    native.updateGeometry(window)
+                    native.service(window.windowFlags().inputFocus)
+                }
                 let observedStateGen = currentStateGeneration()
                 let ownerWorkPending = uiOwnerQueue.hasPending()
                 let nonStateInvalidation = continuousRequested || ownerWorkPending || !events.isEmpty() ||
@@ -401,6 +470,15 @@ public class DesktopApp {
                     // Drain a bounded snapshot before build. Reentrant posts remain pending for the
                     // next frame, and State writes made here are included in this frame's generation.
                     let _ = uiOwnerQueue.drain()
+                    // Polling and owner callbacks may both replace the window transform.
+                    // Build and layout must sample AFTER those operations, not before them.
+                    if (ctx.inputTransformRevision != window.currentMetrics().transformRevision) {
+                        applyWindowMetrics(window.currentMetrics())
+                    }
+                    viewportW = window.width
+                    viewportH = window.height
+                    ctx.viewportWidth = Float32(viewportW)
+                    ctx.viewportHeight = Float32(viewportH)
                     let frameStateGen = currentStateGeneration()
                     let tBuild = FrameProfiler.now()
                     let widget = if (frameGraphEnabled) {
@@ -414,15 +492,26 @@ public class DesktopApp {
                         buildRoot(body, stateStore)
                     }
                     let tLayout = FrameProfiler.now()
+                    currentWidget = Some(widget)
                     ctx.adoptFocusRing(stateStore.focusRing())
                     semanticActionRouter.bind(widget)
                     ctx.beginFrameSurfaceRegistration()
+                    let layoutRevision = window.currentMetrics().transformRevision
                     widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
                     let tEvents = FrameProfiler.now()
                     dispatchCollectedEvents(widget, events)
-                    debugUiScript.observe(widget, ctx, viewportW, viewportH)
+                    debugUiScript.observe(widget, ctx, viewportW, viewportH, windowId: semanticRuntime.windowId)
                     debugUiScript.executeNext(ctx, { event => dispatchSyntheticEvent(widget, event) })
                     dispatchEvent(widget, UiEvent.Frame(frame))
+                    // Input/frame callbacks can also change zoom. Never draw/publish an
+                    // old-size layout with the newly committed renderer/native geometry.
+                    if (layoutRevision != window.currentMetrics().transformRevision) {
+                        applyWindowMetrics(window.currentMetrics())
+                        viewportW = window.width
+                        viewportH = window.height
+                        ctx.beginFrameSurfaceRegistration()
+                        widget.layout(ctx, Rect(0.0, 0.0, Float32(viewportW), Float32(viewportH)))
+                    }
                     let tDraw = FrameProfiler.now()
                     frames += 1
                     let stateChangedDuringFrame = currentStateGeneration() != frameStateGen
@@ -468,8 +557,19 @@ public class DesktopApp {
             runFailure = Some(error)
         }
         try {
+            if (let Some(shell) <- applicationShell) { shell.detach() }
+        } catch (cleanupError: Exception) {
+            runFailure = Some(preferredDesktopRunFailure(runFailure, cleanupError))
+        }
+        try {
+            if (let Some(native) <- semanticAccessibility) { native.close() }
+        } catch (cleanupError: Exception) {
+            runFailure = Some(preferredDesktopRunFailure(runFailure, cleanupError))
+        }
+        try {
             let _ = uiOwnerQueue.close(reason: "desktop application closed")
             semanticActionRouter.clear()
+            currentWidget = None
             closeThemeTransition()
             closeDeviceRotationTransition()
             stateStore.clear()
@@ -496,15 +596,16 @@ public class DesktopApp {
 
     // Polls every event SDL has queued into a buffer, so the render decision can tell whether any input
     // arrived before deciding whether to build a frame at all. Dispatch is deferred (see below).
-    private func collectPendingEvents(): ArrayList<UiEvent> {
-        let events = ArrayList<UiEvent>()
+    private func collectPendingEvents(): ArrayList<DesktopCollectedEvent> {
+        let events = ArrayList<DesktopCollectedEvent>()
         while (!queuedEvents.isEmpty()) {
-            events.add(queuedEvents.remove(at: 0))
+            events.add(DesktopCollectedEvent(queuedEvents.remove(at: 0), window.currentMetrics().transformRevision))
         }
-        var current = window.pollEvent()
-        while (let Some(event) <- current) {
-            events.add(event)
-            current = window.pollEvent()
+        var current = window.pollEventEnvelope()
+        while (let Some(envelope) <- current) {
+            events.add(DesktopCollectedEvent(envelope.event, window.currentMetrics().transformRevision,
+                modifierMask: envelope.modifierMask))
+            current = window.pollEventEnvelope()
         }
         events
     }
@@ -512,11 +613,19 @@ public class DesktopApp {
     // Dispatches the collected events in arrival order against the freshly built tree, bracketing each
     // with the same pointer bookkeeping the loop used to do inline — the per-event sequence
     // (prepare, route, complete) is unchanged, only deferred past the render decision.
-    private func dispatchCollectedEvents(widget: Widget, events: ArrayList<UiEvent>): Unit {
-        for (event in events) {
-            preparePointer(event)
-            routeEvent(widget, event)
-            completePointer(event)
+    private func dispatchCollectedEvents(widget: Widget, events: ArrayList<DesktopCollectedEvent>): Unit {
+        for (collected in events) {
+            if (!collected.validAt(ctx.inputTransformRevision)) {
+                let _ = ctx.cancelPointerInteraction(widget)
+                continue
+            }
+            let event = collected.event
+            let _ = ctx.withEventModifiers(collected.modifierMask, {=>
+                preparePointer(event)
+                routeEvent(widget, event)
+                completePointer(event)
+                false
+            })
         }
     }
 
@@ -542,8 +651,33 @@ public class DesktopApp {
             case UiEvent.Quit => ctx.requestClose()
             case UiEvent.WindowResized(w, h) =>
                 window.updateLogicalSize(w, h)
+                inputAnchor.invalidate()
             case UiEvent.WindowPixelSizeChanged(w, h) =>
                 window.updatePixelSize(w, h)
+                inputAnchor.invalidate()
+            case UiEvent.WindowFocusChanged(active) =>
+                ctx.setKeyboardWindowActive(active)
+                inputAnchor.invalidate()
+                match (event) {
+                    case UiEvent.WindowFocusChanged(false) => let _ = ctx.cancelPointerInteraction(widget)
+                    case _ => ()
+                }
+                if (!ctx.dispatchOverlay(event)) { dispatchEvent(widget, event) }
+            case UiEvent.PointerCancelled => let _ = ctx.cancelPointerInteraction(widget)
+            case UiEvent.WindowDisplayScaleChanged =>
+                applyWindowMetrics(window.refreshDisplayScale())
+                dispatchEvent(widget, UiEvent.WindowMetricsChanged(window.currentMetrics()))
+            case UiEvent.WindowMetricsChanged(_) =>
+                // A queued snapshot must not roll back a newer owner-requested scale.
+                let current = window.currentMetrics()
+                applyWindowMetrics(current)
+                dispatchEvent(widget, UiEvent.WindowMetricsChanged(current))
+            case UiEvent.Pointer(pointer) =>
+                ctx.lastPointerEvent = Some(pointer)
+                let legacy = pointerEventToLegacyUiEvent(pointer)
+                preparePointer(legacy)
+                routeEvent(widget, legacy)
+                completePointer(legacy)
             case UiEvent.DeviceRotationChanged(rotation) =>
                 let previous = ctx.deviceRotation()
                 ctx.updateDeviceRotation(rotation)
@@ -570,23 +704,29 @@ public class DesktopApp {
                 ctx.beginPointerPress()
                 dispatchEvent(widget, event)
                 ctx.settleFocusAfterPress()
-            case UiEvent.KeyDown(Key.Tab, _) =>
-                if (ctx.dispatchOverlay(event)) {
-                    return
-                }
-                // Tab traversal is a shell responsibility: it walks the build-order
-                // focus ring and is not forwarded to the focused control, so a text
-                // field cannot swallow it. Shift reverses direction.
-                if (Keyboard.modifiers().shift) {
-                    ctx.focusPrevious()
-                } else {
-                    ctx.focusNext()
-                }
+            case UiEvent.KeyDown(_, _) | UiEvent.KeyUp(_) =>
+                let _ = ctx.dispatchKeyboardEvent(widget, event)
             case _ =>
                 if (!ctx.dispatchOverlay(event)) {
                     dispatchEvent(widget, event)
                 }
         }
+    }
+
+    private func applyWindowMetrics(metrics: WindowMetrics): Unit {
+        frameGraphExecutor.setPhysicalPixelScale(metrics.displayScale * Float32(ctx.renderer.supersampleFactor()))
+        if (ctx.inputTransformRevision != metrics.transformRevision) {
+            if (let Some(widget) <- currentWidget) { let _ = ctx.cancelPointerInteraction(widget) }
+            ctx.leftMouseDown = false
+            ctx.clearDrag()
+            ctx.clearPress()
+        }
+        inputAnchor.invalidate()
+        ctx.displayScale = metrics.displayScale
+        ctx.inputTransformRevision = metrics.transformRevision
+        ctx.viewportWidth = Float32(metrics.logicalWidth)
+        ctx.viewportHeight = Float32(metrics.logicalHeight)
+        ctx.requestFrame()
     }
 
     /**
@@ -863,6 +1003,10 @@ public class DesktopApp {
         try {
             withActiveSemanticRuntime(semanticRuntime, body)
             let _ = semanticRuntime.commitFrame()
+            if (let Some(native) <- semanticAccessibility) {
+                native.updateGeometry(window)
+                native.publish(semanticRuntime.snapshot())
+            }
         } catch (error: Exception) {
             semanticRuntime.cancelFrame()
             throw error
@@ -1032,22 +1176,12 @@ public class DesktopApp {
     /*
      * Forwards the focused caret rectangle to the OS whenever it moves, so the IME
      * composition UI (candidate window) follows typing instead of sitting in a screen
-     * corner. Unchanged rectangles are skipped to avoid a per-frame system call, and a
-     * platform refusal is ignored — IME anchoring is polish, not frame-critical.
+     * corner. Unchanged rectangles are skipped to avoid a per-frame system call;
+     * a platform refusal is retried on a later draw, never cached as success.
      */
     private func applyTextInputAnchor(): Unit {
-        match (ctx.textInputAnchorRect()) {
-            case Some(anchor) =>
-                if (!sameAnchorRect(appliedInputAnchor, anchor)) {
-                    appliedInputAnchor = Some(anchor)
-                    try {
-                        window.setTextInputArea(anchor)
-                    } catch (_: Exception) {
-                        ()
-                    }
-                }
-            case None => ()
-        }
+        window.setTextInputEnabled(ctx.hasTextInputRequest())
+        inputAnchor.update(ctx.textInputAnchorRect(), {anchor => window.setTextInputArea(anchor)})
     }
 
     // Capture is a renderer-owned request. The CLI starts the built executable
@@ -1056,7 +1190,8 @@ public class DesktopApp {
     private func maybeCapture(): Unit {
         match (captureRequest) {
             case Some(request) where frames >= request.settleFrames =>
-                ctx.renderer.captureBmp(request.path)
+                writeDesktopCapture(ctx.renderer, request.path)
+                recordDesktopCaptureSelection(semanticRuntime.windowId)
                 ctx.requestClose()
             case _ => ()
         }
@@ -1242,13 +1377,6 @@ private func legacySnapshotFrameArgument(): UInt64 {
     SNAPSHOT_SETTLE_FRAMES
 }
 
-private func sameAnchorRect(applied: ?Rect, next: Rect): Bool {
-    match (applied) {
-        case Some(rect) => rect.x == next.x && rect.y == next.y && rect.w == next.w && rect.h == next.h
-        case None => false
-    }
-}
-
 internal func tickDelta(previousTick: UInt64, currentTick: UInt64): UInt64 {
     if (currentTick >= previousTick) {
         currentTick - previousTick
@@ -1397,10 +1525,11 @@ private func configuredWindow(spec: WindowSpec, metadata: ?AppMetadata, hints: A
         case Some(value) => ApplicationMetadata.apply(value)
         case None => ()
     }
+    applyDesktopImeDefault()
     SdlHints.apply(defaultDesktopHints())
     // Application hints are applied last so a host can explicitly restore the platform default.
     SdlHints.apply(hints)
-    SdlWindow(spec)
+    SdlWindow(spec, textInput: false)
 }
 
 internal func defaultDesktopHints(): Array<SdlHintSetting> {

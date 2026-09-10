@@ -14,13 +14,15 @@ extend SdlWindow {
 
     public func setMinimumSize(width: Int32, height: Int32): Unit {
         ensureSdl(unsafe {
-            SDL_SetWindowMinimumSize(windowPtr, scaledDimension(width, scale), scaledDimension(height, scale))
+            SDL_SetWindowMinimumSize(windowPtr, scaledDimension(width, coordinateTransform().windowScale),
+                scaledDimension(height, coordinateTransform().windowScale))
         }, "SDL_SetWindowMinimumSize")
     }
 
     public func setMaximumSize(width: Int32, height: Int32): Unit {
         ensureSdl(unsafe {
-            SDL_SetWindowMaximumSize(windowPtr, scaledDimension(width, scale), scaledDimension(height, scale))
+            SDL_SetWindowMaximumSize(windowPtr, scaledDimension(width, coordinateTransform().windowScale),
+                scaledDimension(height, coordinateTransform().windowScale))
         }, "SDL_SetWindowMaximumSize")
     }
 
@@ -67,10 +69,6 @@ extend SdlWindow {
 
     public func setFullscreen(fullscreen: Bool): Unit {
         ensureSdl(unsafe { SDL_SetWindowFullscreen(windowPtr, fullscreen) }, "SDL_SetWindowFullscreen")
-    }
-
-    public func sync(): Unit {
-        ensureSdl(unsafe { SDL_SyncWindow(windowPtr) }, "SDL_SyncWindow")
     }
 
     public func flash(operation!: WindowFlash = WindowFlash.Briefly): Unit {

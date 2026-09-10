@@ -125,7 +125,7 @@ public class LazyRow <: Widget {
         let stride = itemWidth + spacing
         // Reserve the bottom bar lane once the columns overflow, so the bar never covers item content.
         let contentHeight = if (content > rect.w) {
-            max(0.0, rect.h - scrollBarGutter())
+            max(0.0, rect.h - scrollBarGutter(inset: scrollPolicy.contentInset))
         } else {
             rect.h
         }
@@ -160,7 +160,7 @@ public class LazyRow <: Widget {
         let content = lazyContentHeight(count, itemWidth, spacing)
         let viewportW = frame.w
         match (event) {
-            case UiEvent.Frame(_) =>
+            case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 for (pair in visibleItems) {
                     let (_, widget) = pair
                     let _ = widget.handle(ctx, event)

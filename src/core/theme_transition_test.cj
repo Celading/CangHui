@@ -1,6 +1,24 @@
 package chui.core
 
 @Test
+func reverseThemeRadiusShrinksContinuouslyToZero(): Unit {
+    let transition = ThemeTransition(Theme.dark(), Theme.light(), 10.0, 20.0,
+        durationMs: UInt64(100), reverse: true)
+    let full = transition.revealRadius(100.0, 80.0)
+    @Expect(full > Float32(110.0))
+    let _ = transition.advance(UInt64(50))
+    @Expect(transition.revealRadius(100.0, 80.0) < full)
+    @Expect(transition.revealRadius(100.0, 80.0) > Float32(0.0))
+    let _ = transition.advance(UInt64(45))
+    @Expect(transition.revealRadius(100.0, 80.0) > Float32(0.0))
+    let _ = transition.advance(UInt64(5))
+    @Expect(transition.revealRadius(100.0, 80.0), Float32(0.0))
+    @Expect(transition.currentTheme().bg.r, Theme.light().bg.r)
+    transition.close()
+    transition.close()
+}
+
+@Test
 func themeInterpolationKeepsExactEndpoints(): Unit {
     let light = Theme.light()
     let dark = Theme.dark()

@@ -1,6 +1,7 @@
 package chui.core
 
-import sdl.{MouseButton, UiEvent}
+import sdl.{InputCoordinateSpace, InputTransform, MouseButton, PointerDeviceKind, PointerEvent,
+    PointerPhase, UiEvent}
 
 @Test
 func boundedMailboxFifoOrderAndTake(): Unit {
@@ -102,5 +103,28 @@ func pointerInputBridgeClickExpandsToDownUp(): Unit {
             @Expect(x, 5.0)
             @Expect(y, 6.0)
         case _ => @Expect(false)
+    }
+}
+
+@Test
+func pointerInputBridgeRetainsRichMetadataAfterNormalization(): Unit {
+    let bridge = PointerInputBridge(capacity: 8)
+    let receipt = bridge.push(
+        PointerEvent(PointerPhase.Down, PointerDeviceKind.Touch, UInt64(12), 250.0, 125.0,
+            coordinateSpace: InputCoordinateSpace.SurfacePixel,
+            pressure: 0.5,
+            capturedDisplayScale: 1.25,
+            transformRevision: UInt64(4)),
+        InputTransform(1.5, UInt64(5)))
+    @Expect(receipt.accepted())
+    let events = bridge.drain()
+    @Expect(events.size, 1)
+    match (events[0]) {
+        case UiEvent.Pointer(event) =>
+            @Expect(event.x, 200.0)
+            @Expect(event.y, 100.0)
+            @Expect(event.pressure, 0.5)
+            @Expect(event.transformRevision, UInt64(5))
+        case _ => @Fail("rich pointer metadata should survive the bridge")
     }
 }

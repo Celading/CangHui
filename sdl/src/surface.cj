@@ -61,6 +61,15 @@ public class Surface <: Resource {
         }
     }
 
+    /** Saves lossless PNG with SDL 3.4's built-in encoder; no external converter. */
+    public func savePng(path: String): Unit {
+        ensureOpen()
+        let cPath = unsafe { LibC.mallocCString(path) }
+        try (pathResource = cPath.asResource()) {
+            ensureSdl(unsafe { SDL_SavePNG(ptr, pathResource.value) }, "SDL_SavePNG")
+        }
+    }
+
     public func isClosed(): Bool {
         closed
     }

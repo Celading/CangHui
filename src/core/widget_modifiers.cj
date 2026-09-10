@@ -1,6 +1,7 @@
 package chui.core
 
-import sdl.{Color, Pen, Rect, Size, SurfaceStyle, UiEvent}
+import std.collection.ArrayList
+import sdl.{Color, Insets, Pen, Rect, Size, SurfaceStyle, UiEvent}
 
 /**
  * Internal modifier vocabulary. Each chained call wraps the previous node, so modifier
@@ -37,10 +38,34 @@ class ModifiedWidget <: Widget {
     private let child: Widget
     private let modifier: WidgetModifier
     private var frame = Rect.zero()
+    private var propertyMotion: ?ModifierPropertyMotion = None
+    private var propertySpec = AnimationSpec.automatic(duration: Motion.normal)
 
     init(child: Widget, modifier: WidgetModifier) {
         this.child = child
         this.modifier = modifier
+    }
+
+    func configurePropertyAnimation(key: String, spec: AnimationSpec, index: Int64): Unit {
+        // Modifier kind is part of identity: changing a width into padding must not reuse its channel.
+        let kind = match (modifier) {
+            case WidgetModifier.Width(_) => "width"
+            case WidgetModifier.Height(_) => "height"
+            case WidgetModifier.MinWidth(_) => "min-width"
+            case WidgetModifier.MaxWidth(_) => "max-width"
+            case WidgetModifier.MinHeight(_) => "min-height"
+            case WidgetModifier.MaxHeight(_) => "max-height"
+            case WidgetModifier.Padding(_) => "padding"
+            case WidgetModifier.Background(_, _) => "background"
+            case WidgetModifier.Border(_, _, _) => "border"
+            case _ => ""
+        }
+        if (!kind.isEmpty()) {
+            propertySpec = spec
+            propertyMotion = Some(localState<ModifierPropertyMotion>(
+                "PropertyMotion:${key}:${index}:${kind}") { ModifierPropertyMotion() }.value)
+        }
+        applyPropertyAnimation(child, key, spec, index: index + 1)
     }
 
     public func measure(ctx: UiContext, available: Size): Size {
@@ -97,7 +122,7 @@ class ModifiedWidget <: Widget {
                 child.layout(ctx, Rect(rect.x, rect.y, min(exact(ctx, length), rect.w), rect.h))
             case WidgetModifier.MaxHeight(length) =>
                 child.layout(ctx, Rect(rect.x, rect.y, rect.w, min(exact(ctx, length), rect.h)))
-            case WidgetModifier.Padding(edges) => child.layout(ctx, rect.inset(ctx.resolve(edges)))
+            case WidgetModifier.Padding(edges) => child.layout(ctx, rect.inset(animatedInsets(ctx, edges)))
             case WidgetModifier.Visible(isVisible) =>
                 if (isVisible) {
                     child.layout(ctx, rect)
@@ -114,7 +139,8 @@ class ModifiedWidget <: Widget {
                 drawSurface(ctx, frame, style)
                 child.draw(ctx)
             case WidgetModifier.Background(color, radius) =>
-                drawSurface(ctx, frame, SurfaceStyle(color, radius: max(0.0, ctx.resolve(radius))))
+                drawSurface(ctx, frame, SurfaceStyle(animatedColor(ctx, color),
+                    radius: scalar(ctx, 4, max(0.0, ctx.resolve(radius)))))
                 child.draw(ctx)
             // A background whose four corners take independent radii (vp), resolved to pixels here so
             // they scale like every other radius. Painted before the child, mirroring Background.
@@ -149,12 +175,14 @@ class ModifiedWidget <: Widget {
             // stroke is centred on the edge (inset by half its width) and rounded to the radius.
             case WidgetModifier.Border(color, width, radius) =>
                 child.draw(ctx)
-                if (width > 0.0 && Int64(color.a) > 0) {
-                    let r = max(0.0, ctx.resolve(radius))
+                let strokeColor = animatedColor(ctx, color)
+                let strokeWidth = scalar(ctx, 5, max(0.0, width))
+                let r = scalar(ctx, 4, max(0.0, ctx.resolve(radius)))
+                if (strokeWidth > 0.0 && Int64(strokeColor.a) > 0) {
                     ctx
                         .renderer
-                        .strokeRoundedRect(frame.inset(width / 2.0), max(0.0, r - width / 2.0),
-                            Pen(width: width, color: color))
+                        .strokeRoundedRect(frame.inset(strokeWidth / 2.0), max(0.0, r - strokeWidth / 2.0),
+                            Pen(width: strokeWidth, color: strokeColor))
                 }
             case WidgetModifier.DashedBorder(color, width, radius, dash, gap) =>
                 child.draw(ctx)
@@ -187,7 +215,10 @@ class ModifiedWidget <: Widget {
                 // Disabled suppresses input, not time: the per-frame tick still flows, so a
                 // wrapped Frame hook (e.g. dialog polling) keeps running while greyed out.
                 match (event) {
-                    case UiEvent.Frame(_) => child.handle(ctx, event)
+                    case UiEvent.Frame(_) =>
+                        let handled = [false]
+                        ctx.withInteractionsEnabled(isEnabled) {=> handled[0] = child.handle(ctx, event)}
+                        handled[0]
                     case _ => isEnabled && child.handle(ctx, event)
                 }
             case WidgetModifier.Typography(environment) =>
@@ -277,13 +308,116 @@ class ModifiedWidget <: Widget {
         }
     }
 
+    public func designComputedFacts(ctx: UiContext): Array<DesignComputedFact> {
+        let additions = ArrayList<DesignComputedFact>()
+        match (modifier) {
+            case WidgetModifier.Width(value) =>
+                additions.add(computedDesignLengthFact("constraint.width", exact(ctx, value), value.toString()))
+            case WidgetModifier.Height(value) =>
+                additions.add(computedDesignLengthFact("constraint.height", exact(ctx, value), value.toString()))
+            case WidgetModifier.MinWidth(value) =>
+                additions.add(computedDesignLengthFact("constraint.min-width", exact(ctx, value), value.toString()))
+            case WidgetModifier.MaxWidth(value) =>
+                additions.add(computedDesignLengthFact("constraint.max-width", exact(ctx, value), value.toString()))
+            case WidgetModifier.MinHeight(value) =>
+                additions.add(computedDesignLengthFact("constraint.min-height", exact(ctx, value), value.toString()))
+            case WidgetModifier.MaxHeight(value) =>
+                additions.add(computedDesignLengthFact("constraint.max-height", exact(ctx, value), value.toString()))
+            case WidgetModifier.FillWidth => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.Layout, "constraint.fill-width", true,
+                DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.FillHeight => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.Layout, "constraint.fill-height", true,
+                DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Padding(value) =>
+                let edges = animatedInsets(ctx, value)
+                additions.add(computedDesignLengthFact("padding.top", edges.top, value.top.toString()))
+                additions.add(computedDesignLengthFact("padding.right", edges.right, value.right.toString()))
+                additions.add(computedDesignLengthFact("padding.bottom", edges.bottom, value.bottom.toString()))
+                additions.add(computedDesignLengthFact("padding.left", edges.left, value.left.toString()))
+            case WidgetModifier.Surface(value) => appendComputedSurface(additions, value)
+            case WidgetModifier.Background(color, radius) =>
+                additions.add(computedDesignColorFact("background.color", animatedColor(ctx, color)))
+                additions.add(computedDesignLengthFact(
+                    "background.corner-radius", scalar(ctx, 4, max(0.0, ctx.resolve(radius))), radius.toString()))
+            case WidgetModifier.PerCornerBackground(corners, color) =>
+                additions.add(computedDesignColorFact("background.color", color))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.top-left", corners.topLeft, DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.top-right", corners.topRight, DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.bottom-right", corners.bottomRight, DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style,
+                    "background.corner.bottom-left", corners.bottomLeft, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.GradientBackground(gradient, radius) =>
+                additions.add(computedDesignColorFact("gradient.start", gradient.start))
+                additions.add(computedDesignColorFact("gradient.end", gradient.end))
+                additions.add(computedDesignTokenFact(DesignComputedCategory.Style, "gradient.axis",
+                    if (gradient.vertical) { "vertical" } else { "horizontal" },
+                    DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignLengthFact(
+                    "gradient.corner-radius", exact(ctx, radius), radius.toString()))
+            case WidgetModifier.DropShadow(shadow, radius) =>
+                appendComputedShadow(additions, shadow, 0)
+                additions.add(computedDesignLengthFact(
+                    "shadow.corner-radius", exact(ctx, radius), radius.toString()))
+            case WidgetModifier.MultiShadow(layers, radius) =>
+                for (i in 0..layers.size) { appendComputedShadow(additions, layers[i], i) }
+                additions.add(computedDesignLengthFact(
+                    "shadow.corner-radius", exact(ctx, radius), radius.toString()))
+            case WidgetModifier.Border(color, width, radius) =>
+                additions.add(computedDesignColorFact("border.color", animatedColor(ctx, color)))
+                additions.add(computedDesignNumberFact(DesignComputedCategory.Style, "border.width",
+                    scalar(ctx, 5, max(0.0, width)), DesignComputedProvenance.WidgetModifier))
+                additions.add(computedDesignLengthFact("border.corner-radius",
+                    scalar(ctx, 4, max(0.0, ctx.resolve(radius))), radius.toString()))
+                additions.add(computedDesignBoolFact(DesignComputedCategory.Style, "border.dashed", false,
+                    DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.DashedBorder(color, width, radius, dash, gap) =>
+                appendComputedBorder(additions, ctx, color, width, radius, true, dash, gap)
+            case WidgetModifier.Flex(weight) => additions.add(computedDesignNumberFact(
+                DesignComputedCategory.Layout, "flex.weight", weight, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.ZIndex(value) => additions.add(computedDesignIntegerFact(
+                DesignComputedCategory.Layout, "stacking.z-index", value,
+                DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Visible(value) => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.State, "visible", value, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Enabled(value) => additions.add(computedDesignBoolFact(
+                DesignComputedCategory.State, "enabled", value, DesignComputedProvenance.WidgetModifier))
+            case WidgetModifier.Typography(value) => appendComputedTypography(additions, ctx, value)
+        }
+        mergeDesignComputedFacts(child.designComputedFacts(ctx), additions.toArray())
+    }
+
     /** Resolves an exact-size length, clamped to non-negative logical pixels. */
     private func exact(ctx: UiContext, length: Length): Float32 {
-        max(0.0, ctx.resolve(length))
+        max(0.0, scalar(ctx, 0, max(0.0, ctx.resolve(length))))
+    }
+
+    private func scalar(ctx: UiContext, slot: Int64, target: Float32): Float32 {
+        match (propertyMotion) {
+            case Some(motion) => motion.scalar(ctx, slot, target, propertySpec)
+            case None => target
+        }
+    }
+
+    private func animatedColor(ctx: UiContext, value: Color): Color {
+        match (propertyMotion) {
+            case Some(motion) => motion.color(ctx, value, propertySpec)
+            case None => value
+        }
+    }
+
+    private func animatedInsets(ctx: UiContext, edges: LengthInsets): Insets {
+        match (propertyMotion) {
+            case Some(motion) => motion.insets(ctx, ctx.resolve(edges), propertySpec)
+            case None => ctx.resolve(edges)
+        }
     }
 
     private func measurePadding(ctx: UiContext, available: Size, edges: LengthInsets): Size {
-        let resolved = ctx.resolve(edges)
+        let resolved = animatedInsets(ctx, edges)
         let inner = Size(
             max(0.0, available.w - resolved.horizontal()),
             max(0.0, available.h - resolved.vertical())
@@ -293,6 +427,76 @@ class ModifiedWidget <: Widget {
             min(available.w, childSize.w + resolved.horizontal()),
             min(available.h, childSize.h + resolved.vertical())
         )
+    }
+}
+
+private func appendComputedSurface(target: ArrayList<DesignComputedFact>, value: SurfaceStyle): Unit {
+    target.add(computedDesignColorFact("surface.fill", value.fill))
+    target.add(computedDesignColorFact("surface.border", value.border))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "surface.corner-radius", value.radius,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "surface.border-width", value.borderWidth,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignColorFact("surface.shadow", value.shadow))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "surface.shadow-offset-y",
+        value.shadowOffsetY, DesignComputedProvenance.WidgetModifier))
+}
+
+private func appendComputedShadow(target: ArrayList<DesignComputedFact>, value: Shadow, index: Int64): Unit {
+    let prefix = "shadow.layer." + index.toString()
+    target.add(computedDesignColorFact(prefix + ".color", value.color))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".offset-x", value.offsetX,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".offset-y", value.offsetY,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".blur", value.blur,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, prefix + ".spread", value.spread,
+        DesignComputedProvenance.WidgetModifier))
+}
+
+private func appendComputedBorder(target: ArrayList<DesignComputedFact>, ctx: UiContext, color: Color,
+    width: Float32, radius: Length, dashed: Bool, dash: Float32, gap: Float32): Unit {
+    target.add(computedDesignColorFact("border.color", color))
+    target.add(computedDesignNumberFact(DesignComputedCategory.Style, "border.width", width,
+        DesignComputedProvenance.WidgetModifier))
+    target.add(computedDesignLengthFact("border.corner-radius", ctx.resolve(radius), radius.toString()))
+    target.add(computedDesignBoolFact(DesignComputedCategory.Style, "border.dashed", dashed,
+        DesignComputedProvenance.WidgetModifier))
+    if (dashed) {
+        target.add(computedDesignNumberFact(DesignComputedCategory.Style, "border.dash", dash,
+            DesignComputedProvenance.WidgetModifier))
+        target.add(computedDesignNumberFact(DesignComputedCategory.Style, "border.gap", gap,
+            DesignComputedProvenance.WidgetModifier))
+    }
+}
+
+private func appendComputedTypography(target: ArrayList<DesignComputedFact>, ctx: UiContext,
+    value: TypographyEnvironment): Unit {
+    match (value.fontFamily) {
+        case Some(family) => target.add(computedDesignTokenFact(DesignComputedCategory.Typography,
+            "font.family", family, DesignComputedProvenance.WidgetModifier))
+        case None => ()
+    }
+    match (value.fontSize) {
+        case Some(size) => target.add(DesignComputedFact(DesignComputedCategory.Typography,
+            "font.size", DesignComputedValueKind.Length, ctx.resolve(size).toString(),
+            unit: "logical-pixel", sourceValue: size.toString(),
+            provenance: DesignComputedProvenance.WidgetModifier))
+        case None => ()
+    }
+    appendOptionalComputedTypographyBool(target, "font.bold", value.bold)
+    appendOptionalComputedTypographyBool(target, "font.italic", value.italic)
+    appendOptionalComputedTypographyBool(target, "font.underline", value.underline)
+    appendOptionalComputedTypographyBool(target, "font.strikethrough", value.strikethrough)
+}
+
+private func appendOptionalComputedTypographyBool(target: ArrayList<DesignComputedFact>, name: String,
+    value: ?Bool): Unit {
+    match (value) {
+        case Some(actual) => target.add(computedDesignBoolFact(DesignComputedCategory.Typography,
+            name, actual, DesignComputedProvenance.WidgetModifier))
+        case None => ()
     }
 }
 

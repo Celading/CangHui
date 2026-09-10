@@ -25,7 +25,7 @@ Run from the consumer root and record the real results:
 
 ```bash
 cuic version
-cuic doctor <platform> .
+cuic doctor <platform> --project .
 cuic build <platform> .
 cuic test <platform> .
 ```
@@ -66,6 +66,8 @@ Prefer deterministic framework evidence before OS capture:
 
 ```bash
 cuic shell snapshot .
+cuic prntx . <probe-id>
+cuic prntx . <probe-id> --format tree --limit 32
 cuic pview . <probe-id> --columns 96 --rows 32
 cuic prnt <platform> . --output artifacts/ui.png
 ```
@@ -75,7 +77,14 @@ replayed. This launches a bounded one-shot debug child, prints semantic state, a
 arbitrary running process or opens a listener. Use `cuic shell run . --events '<commands>'` for a short sequence,
 then `snapshot`/`diff`; commands are a fixed UI-event whitelist, not shell text.
 
-`cuic probe ascii` is the pview alias. Shell/probe/pview execution requires a debug cuic; release refusal is expected.
+`prntx` is the bounded, low-noise probe entry: use `--node <id>` to drill down, `--format json` for machine
+output, `--format diff --events '<commands>'` for initial-to-final frame changes, or `--format ascii` for the
+terminal canvas. Read [prntx](../../reference/prntx.zh-CN.md) for coverage and output limits. A missing node is
+a failed query, not an empty success. Treat offscreen/overlay-unverified targets as unavailable or unproven;
+observation IDs are not necessarily focus IDs, and ASCII hints are not proof of hit-test coverage.
+
+`cuic probe ascii` is the pview alias. Shell/probe/pview/prntx execution requires a debug cuic; release refusal is expected.
+`prntx` also needs its matching framework protocol; an old SDK does not gain it by replacing the CLI alone.
 If no probe exists, add stable semantics for the changed view before claiming layout acceptance.
 
 Use an OS or device screenshot only for platform chrome, IME, native menus, system composition, or device-host

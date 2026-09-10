@@ -1,10 +1,16 @@
 [chui](../../index.md) › [chui.core](index.md) › UiContext
 
+宿主键盘路由：`dispatchKeyboardEvent(root: Widget, event: UiEvent): Bool`
+复用当前事件的修饰键作用域，按浮层、当前焦点捕获、普通路由依次处理物理按键。
+`setKeyboardWindowActive(active: Bool): Unit` 通知窗口失焦／恢复并撤销旧 Tab 归属。
+这些方法不负责构建焦点环，也不创建外部注入通道。
+普通应用使用 [`Widget.captureKeyboard`](Widget.md)，见[键盘与焦点](../../../guide/how-to/keyboard-and-focus.md)。
+
 # UiContext
 
 `chui.core` 包中的 public class
 
-每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态、继承排版环境，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。整个应用只有一个实例，跨帧存续——组件树每帧重建，需要活过重建的交互状态都保存在这里。
+每帧传给全部组件回调的服务枢纽：渲染器与主题、指针与帧状态、继承排版环境，以及焦点、悬停、按下、拖拽、提示与浮层等共享交互协议。每个窗口持有自己的实例，跨帧存续——组件树每帧重建，需要活过重建的交互状态都保存在这里。
 
 ## 声明
 
@@ -96,7 +102,9 @@ main(): Unit {
 | [`isHovered(id: String)`](#ishovered) | 返回 `id` 是否是指针当前悬停的控件。 |
 | [`showTooltip(text: String, rect: Rect)`](#showtooltip) | 登记一条提示，本帧绘制在树上方并锚定于 `rect`。 |
 | [`clearTooltip()`](#cleartooltip) | 清除待绘制的提示；宿主在每帧绘制前调用。 |
-| [`setTextInputAnchor(rect: Rect)`](#settextinputanchor) | 报告聚焦文本控件本帧的插入符矩形，用于锚定 IME 候选窗。 |
+| [`setTextInputAnchor(rect: Rect)`](#settextinputanchor) | 报告正在编辑的控件本帧的插入符矩形，同时请求文字输入。 |
+| [`requestTextInput()`](#requesttextinput--hastextinputrequest) | 请求本帧文字输入会话，不要求光标可见。 |
+| [`hasTextInputRequest()`](#requesttextinput--hastextinputrequest) | 宿主查询本帧是否有文字输入请求。 |
 | [`clearTextInputAnchor()`](#cleartextinputanchor) | 清除已报告的插入符锚点；宿主在每帧绘制前调用。 |
 | [`textInputAnchorRect()`](#textinputanchorrect) | 返回本帧 `draw` 期间报告的插入符矩形；无聚焦文本控件时为 `None`。 |
 | [`setOverlay(overlay: Overlay)`](#setoverlay) | 登记一个交互浮层到已开浮层之上；同 `owner` 重复登记时原位替换。 |
@@ -370,7 +378,7 @@ public func clearTooltip(): Unit
 
 ### setTextInputAnchor
 
-报告聚焦文本控件本帧的插入符矩形，用于锚定 IME 候选窗。宿主把变化转发给窗口，输入法候选窗因此跟随插入符移动，而不是停在屏幕角落。
+报告正在编辑的控件本帧的插入符矩形，并请求原生文字输入会话。宿主把变化转发给窗口，输入法候选窗因此跟随插入符移动。只读选择不应调用此方法。
 
 ```cangjie
 public func setTextInputAnchor(rect: Rect): Unit
@@ -382,15 +390,28 @@ public func setTextInputAnchor(rect: Rect): Unit
 
 ### clearTextInputAnchor
 
-清除已报告的插入符锚点；宿主在每帧绘制前调用。
+清除已报告的插入符锚点和文字输入请求；宿主在每帧绘制前调用。
 
 ```cangjie
 public func clearTextInputAnchor(): Unit
 ```
 
+### requestTextInput / hasTextInputRequest
+
+自定义编辑器取得焦点且允许编辑时，每帧绘制调用 `requestTextInput()`。
+它不要求当前有可见插入符，因此滚动到光标所在行之外不会中断输入会话。
+`setTextInputAnchor()` 同时发出请求，原有自定义控件用法仍有效。
+只读控件可绘制光标、选择和复制，但不请求文字输入。宿主读取请求状态，
+按窗口启停原生文字输入；此接口不注入键盘或文字事件。
+
+```cangjie
+public func requestTextInput(): Unit
+public func hasTextInputRequest(): Bool
+```
+
 ### textInputAnchorRect
 
-返回本帧 `draw` 期间报告的插入符矩形；无聚焦文本控件时为 `None`。
+返回本帧 `draw` 期间报告的编辑插入符矩形；无编辑焦点、只读选择或光标不在文本区域视口内时可为 `None`。不要用它代替会话请求状态。
 
 ```cangjie
 public func textInputAnchorRect(): ?Rect

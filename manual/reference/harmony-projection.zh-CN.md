@@ -19,13 +19,23 @@ transforms = ["replace:package app.desktop=>package app.harmony"]
 cuic prepare harmony . --json
 ```
 
+若要同时材料化经过版本校验的原生 provider 包：
+
+```bash
+cuic prepare harmony . --provider /path/to/CangHUI --json
+```
+
+provider manifest、原生库及框架/provider ABI 契约会进入同一 input digest 与生成回执；
+详细规则见 [Harmony provider SDK 接入](harmony-provider-sdk.zh-CN.md)。
+
 只接受显式 exact replace 规则，不执行正则、脚本或任意命令。源码、资源、框架模板和 native header 都进入 inputDigest；生成树（不含自身 receipt）进入 outputDigest。相同输入的第二次运行无写入返回原回执；任一侧漂移或无 CangHui receipt 的既有目录都会拒绝覆盖。
 
 生成模板包含：
 
 - Ability lifecycle、安全区、系统主题与生命周期 epoch；
 - XComponent/OHNativeWindow surface generation 和帧入口，复用现有 HarmonyNativeSurfaceBridge；
-- 有界 pointer/key mailbox，触摸、鼠标和笔统一成 pointer packet；
+- 有界 pointer/key mailbox，触摸、鼠标和笔统一成带坐标空间、捕获 scale、transform revision、
+  orientation revision、Surface generation、压力与接触面信息的 pointer packet；
 - focus id、caret rectangle、UTF-8 composition range、selection、commit/delete/submit 输入契约；
 - resources/rawfile staging，运行时由 ApplicationResources.mobileRawfile 解析。
 

@@ -7,8 +7,11 @@ import std.convert.*
 public struct DrawIrAsciiOptions {
     public let columns: Int64
     public let rows: Int64
+    public let overlayActive: Bool
+    public let annotationLimit: Int64
 
-    public init(columns!: Int64 = 96, rows!: Int64 = 32) {
+    public init(columns!: Int64 = 96, rows!: Int64 = 32, overlayActive!: Bool = false,
+        annotationLimit!: Int64 = 128) {
         if (columns < 20 || columns > 240) {
             throw IllegalArgumentException("Draw IR ASCII columns must be between 20 and 240")
         }
@@ -17,6 +20,11 @@ public struct DrawIrAsciiOptions {
         }
         this.columns = columns
         this.rows = rows
+        this.overlayActive = overlayActive
+        if (annotationLimit < 1 || annotationLimit > 512) {
+            throw IllegalArgumentException("Draw IR ASCII annotation limit must be between 1 and 512")
+        }
+        this.annotationLimit = annotationLimit
     }
 }
 
@@ -48,6 +56,10 @@ public class DrawIrAsciiAnnotation {
     public let shortcut: String
     public let value: String
     public let state: String
+    public let focusTarget: String
+    /** Fixed semantic names only; None preserves legacy coordinate candidates. Never executed here. */
+    public let replayActions: ?Array<String>
+    public let enabled: Bool
 
     public init(
         id: String,
@@ -60,7 +72,10 @@ public class DrawIrAsciiAnnotation {
         action!: String = "",
         shortcut!: String = "",
         value!: String = "",
-        state!: String = ""
+        state!: String = "",
+        focusTarget!: String = "",
+        replayActions!: ?Array<String> = None,
+        enabled!: Bool = true
     ) {
         if (id.isEmpty()) { throw IllegalArgumentException("Draw IR ASCII annotation id must not be empty") }
         this.id = id
@@ -74,6 +89,12 @@ public class DrawIrAsciiAnnotation {
         this.shortcut = shortcut
         this.value = value
         this.state = state
+        this.focusTarget = focusTarget
+        this.replayActions = match (replayActions) {
+            case Some(values) => Some(values.clone())
+            case None => None
+        }
+        this.enabled = enabled
     }
 }
 
@@ -131,6 +152,7 @@ private class DrawIrAsciiCanvas {
     let cells = ArrayList<Array<Rune>>()
     let clips = ArrayList<DrawIrAsciiRect>()
     let markerCells = ArrayList<Array<Bool>>()
+    var omittedAnnotations: Int64 = 0
 
     init(logicalWidth: Float32, logicalHeight: Float32, options: DrawIrAsciiOptions) {
         this.logicalWidth = logicalWidth
@@ -190,7 +212,9 @@ private class DrawIrAsciiCanvas {
         var interactive: Int64 = 0
         var focus: Int64 = 0
         var visual: Int64 = 0
-        for (annotation in annotations) {
+        omittedAnnotations = max(0, annotations.size - options.annotationLimit)
+        for (index in 0..min(annotations.size, options.annotationLimit)) {
+            let annotation = annotations[index]
             var ordinal: Int64 = 0
             let token = match (annotation.kind) {
                 case DrawIrAsciiAnnotationKind.Interactive =>
@@ -207,11 +231,15 @@ private class DrawIrAsciiCanvas {
                     "$v${visual}"
             }
             let marker = annotationMarker(annotation.kind, token)
-            let rect = annotationRect(annotation.rect)
-            var placed = placeMarker(rect, marker)
-            if (!placed) { placed = placeMarker(rect, compactAnnotationMarker(annotation.kind, ordinal)) }
-            if (!placed) { placed = placeMarker(rect, token) }
-            entries.add(DrawIrAsciiLegendEntry(annotation, token, placed))
+            let visibility = drawIrAnnotationVisibility(annotation.rect, logicalWidth, logicalHeight)
+            var placed = false
+            if (visibility == "visible" || visibility == "partial") {
+                let rect = annotationRect(annotation.rect)
+                placed = placeMarker(rect, marker)
+                if (!placed) { placed = placeMarker(rect, compactAnnotationMarker(annotation.kind, ordinal)) }
+                if (!placed) { placed = placeMarker(rect, token) }
+            }
+            entries.add(DrawIrAsciiLegendEntry(annotation, token, placed, visibility, options.overlayActive))
         }
         entries.toArray()
     }
@@ -242,6 +270,7 @@ private class DrawIrAsciiCanvas {
         if (!legend.isEmpty()) {
             out.append("\nSemantic map: [$iN] action  <$fN> focus/input  ($vN) visual")
             out.append("\nCompact markers: [$N] action  <$N> focus/input  ($N) visual\n")
+            out.append("Probe hints are candidates, not hit-test proof; clip/occlusion/native-surface coverage may be unknown.\n")
             var first = true
             for (entry in legend) {
                 if (!first) { out.append("\n") }
@@ -249,6 +278,7 @@ private class DrawIrAsciiCanvas {
                 appendSemanticLegend(out, entry)
             }
         }
+        if (omittedAnnotations > 0) { out.append("\nannotations omitted=${omittedAnnotations}; inspect selected nodes separately") }
         out.toString()
     }
 
@@ -301,13 +331,14 @@ private class DrawIrAsciiCanvas {
         if (clips.isEmpty()) { None } else { Some(clips[clips.size - 1]) }
     }
 
-    private func put(x: Int64, y: Int64, value: Rune): Unit {
+    private func put(x: Int64, y: Int64, value: Rune, text!: Bool = false): Unit {
         if (x < 0 || x >= options.columns || y < 0 || y >= options.rows) { return }
         match (activeClip()) {
             case Some(clip) => if (!clip.contains(x, y)) { return }
             case None => ()
         }
         cells[y][x] = value
+        markerCells[y][x] = text // later opaque drawing also releases a covered text cell
     }
 
     private func fillRect(rect: DrawIrAsciiRect, value: Rune): Unit {
@@ -370,12 +401,15 @@ private class DrawIrAsciiCanvas {
 
     private func drawText(data: String): Unit {
         let value = stringField(data, "text")
-        var x = column(number(data, "x", 0.0))
-        let y = row(number(data, "y", 0.0))
+        let rawX = number(data, "x", 0.0)
+        let rawY = number(data, "y", 0.0)
+        if (!(rawX >= 0.0 && rawX < logicalWidth && rawY >= 0.0 && rawY < logicalHeight)) { return }
+        var x = column(rawX)
+        let y = row(rawY)
         for (r in value.toRuneArray()) {
             if (x >= options.columns) { break }
             let safe = if (UInt32(r) >= UInt32(32) && UInt32(r) <= UInt32(126)) {r} else {r'?'}
-            put(x, y, safe)
+            put(x, y, safe, text: true)
             x += 1
         }
     }
@@ -386,14 +420,14 @@ private class DrawIrAsciiCanvas {
         let label = if (name.isEmpty()) {"symbol"} else {name}
         var x = rect.left
         let y = (rect.top + rect.bottom) / 2
-        put(x, y, r'[')
+        put(x, y, r'[', text: true)
         x += 1
         for (r in label.toRuneArray()) {
             if (x >= rect.right) { break }
-            put(x, y, if (UInt32(r) <= UInt32(126)) {r} else {r'?'})
+            put(x, y, if (UInt32(r) <= UInt32(126)) {r} else {r'?'}, text: true)
             x += 1
         }
-        put(min(x, rect.right), y, r']')
+        put(min(x, rect.right), y, r']', text: true)
     }
 
     private func commandRect(data: String): DrawIrAsciiRect {
@@ -425,11 +459,15 @@ private class DrawIrAsciiLegendEntry {
     let annotation: DrawIrAsciiAnnotation
     let token: String
     let placed: Bool
+    let visibility: String
+    let overlayActive: Bool
 
-    init(annotation: DrawIrAsciiAnnotation, token: String, placed: Bool) {
+    init(annotation: DrawIrAsciiAnnotation, token: String, placed: Bool, visibility: String, overlayActive: Bool) {
         this.annotation = annotation
         this.token = token
         this.placed = placed
+        this.visibility = visibility
+        this.overlayActive = overlayActive
     }
 }
 
@@ -473,14 +511,88 @@ private func appendSemanticLegend(out: StringBuilder, entry: DrawIrAsciiLegendEn
     out.append(compactNumber(annotation.rect.h))
     out.append(")")
     if (!entry.placed) { out.append(" | marker=legend-only") }
+    appendLegendField(out, "visibility", entry.visibility)
+    if (entry.visibility != "visible") {
+        appendLegendField(out, "actionability", "unavailable-viewport")
+        return
+    }
+    if (entry.overlayActive) {
+        appendLegendField(out, "actionability", "overlay-unverified")
+        return
+    }
+    if (!annotation.enabled) {
+        appendLegendField(out, "actionability", "disabled")
+        return
+    }
+    appendLegendField(out, "actionability", "candidate-unverified")
+    match (annotation.replayActions) {
+        case Some(actions) =>
+            // Keep the existing plain focus hint for input-marker consumers.
+            if (drawIrAsciiAnnotationKindName(annotation.kind) == "focus" && actions.contains("focus") &&
+                asciiReplayTargetSafe(annotation.focusTarget)) {
+                appendLegendField(out, "probe", "focus " + annotation.focusTarget)
+            }
+            appendControlReplayLegend(out, annotation.focusTarget, actions)
+            return
+        case None => ()
+    }
     match (annotation.kind) {
         case DrawIrAsciiAnnotationKind.Interactive =>
             let x = Int64(annotation.rect.centerX())
             let y = Int64(annotation.rect.centerY())
             appendLegendField(out, "probe", "press ${x} ${y}; release ${x} ${y}")
-        case DrawIrAsciiAnnotationKind.Focus => appendLegendField(out, "probe", "focus " + annotation.id)
+        case DrawIrAsciiAnnotationKind.Focus =>
+            if (asciiReplayTargetSafe(annotation.focusTarget)) {
+                appendLegendField(out, "probe", "focus " + annotation.focusTarget)
+            } else { appendLegendField(out, "focus", "target-unverified") }
         case DrawIrAsciiAnnotationKind.Visual => ()
     }
+}
+
+// A recipe is bounded command data, not a shortcut description or arbitrary script property.
+// JSON-escaped newlines decode to the existing one-command-per-line probe input grammar.
+private func appendControlReplayLegend(out: StringBuilder, target: String, actions: Array<String>): Unit {
+    if (actions.isEmpty()) { return }
+    if (!asciiReplayTargetSafe(target)) {
+        appendLegendField(out, "focus", "target-unverified")
+        return
+    }
+    for (name in ["focus", "activate", "increment", "decrement", "dismiss"]) {
+        if (!actions.contains(name)) { continue }
+        let key = match (name) {
+            case "activate" => "Enter"
+            case "increment" => "Right"
+            case "decrement" => "Left"
+            case "dismiss" => "Escape"
+            case _ => ""
+        }
+        let script = "focus " + target + if (key.isEmpty()) { "" } else { "\nkey " + key }
+        appendLegendField(out, "probe." + name, script)
+    }
+}
+
+private func asciiReplayTargetSafe(target: String): Bool {
+    let runes = target.toRuneArray()
+    // Keep the complete longest recipe below legendQuote's 256-code-point bound.
+    if (runes.isEmpty() || runes.size > 224) { return false }
+    for (r in runes) {
+        if (UInt32(r) <= 32 || UInt32(r) == 127 || r == r';' || r == r'"' || r == r'\\') {
+            return false
+        }
+    }
+    true
+}
+
+// Test real logical bounds before clamping to terminal cells: clamping an offscreen rectangle
+// first invents a target at the nearest viewport edge. Partial rectangles have no click hint.
+public func drawIrAnnotationVisibility(rect: Rect, width: Float32, height: Float32): String {
+    if (rect.x != rect.x || rect.y != rect.y || rect.right() != rect.right() || rect.bottom() != rect.bottom()) {
+        return "invalid"
+    }
+    if (!(rect.w > 0.0 && rect.h > 0.0)) { return "empty" }
+    if (rect.x >= width || rect.y >= height || rect.right() <= 0.0 || rect.bottom() <= 0.0) { return "offscreen" }
+    if (rect.x < 0.0 || rect.y < 0.0 || rect.right() > width || rect.bottom() > height) { return "partial" }
+    "visible"
 }
 
 private func appendLegendField(out: StringBuilder, name: String, value: String): Unit {
@@ -494,7 +606,9 @@ private func appendLegendField(out: StringBuilder, name: String, value: String):
 private func legendQuote(value: String): String {
     let out = StringBuilder()
     out.append("\"")
-    for (r in value.toRuneArray()) {
+    let runes = value.toRuneArray()
+    for (index in 0..min(Int64(256), runes.size)) {
+        let r = runes[index]
         if (r == r'\"') { out.append("\\\"") }
         else if (r == r'\\') { out.append("\\\\") }
         else if (r == r'\n') { out.append("\\n") }
@@ -503,6 +617,7 @@ private func legendQuote(value: String): String {
         else if (UInt32(r) < UInt32(32)) { out.append("?") }
         else { out.append(r.toString()) }
     }
+    if (runes.size > 256) { out.append("…[truncated]") }
     out.append("\"")
     out.toString()
 }

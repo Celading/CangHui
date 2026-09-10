@@ -180,10 +180,24 @@ fidelity, or platform integration are under test.
 
 ## DesignSnapshot export
 
-Use `cuic design snapshot [project] <probe> [--script <file>|--events <script>]`
+Use `cuic design snapshot [project] <probe> [--version <1|2>] [--computed]
+[--script <file>|--events <script>]`
 when a design tool or CI job needs stable input instead of an event log. The
 debug-gated command maps the final explicit component-probe frame to
 `canghui.design-snapshot/v1`: bounded stable nodes, regions, geometry, state,
 and scoped Draw IR with deterministic bytes/digest and sensitive-property
 redaction. It neither infers structure from pixels nor adds a release control
 surface. See [`DesignSnapshot`](../api/chui/core/DesignSnapshot.md).
+
+Version 2 embeds that complete v1 snapshot and adds typed component/source
+bindings, declarative interaction edges, and explicit Multiplatform design
+scenes supplied by the probe. Omit `--version` for the unchanged v1 behavior.
+See [`DesignSnapshotV2`](../api/chui/core/DesignSnapshotV2.md).
+
+`--computed` is an explicit v2-only extension. It derives node-scoped runtime facts from the
+same layout pass and exact scoped Draw IR: final frames, resolved modifiers and containers,
+Label typography/overflow, ImageView logical resource identity, and ordered paint/clip/transform/
+texture commands. The default v2 payload omits this member, preserving existing canonical bytes
+and digests. Put `.probe("stable.id")` last in a modifier chain to observe the complete widget.
+Computed truth supports design round trips and structural diagnosis; use `cuic prnt` to prove
+platform pixels.

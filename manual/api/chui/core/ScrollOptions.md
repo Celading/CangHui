@@ -2,6 +2,12 @@
 
 # ScrollOptions
 
+`ScrollOptions(contentInset: 12.0)`（也可传给 `web` / `immediate`）为溢出内容与滚动条增加可选留白。
+默认 `0.0`，不会改变现有布局；值必须有限且非负。通过控件的 `.scrollOptions(...)` 使用。
+ScrollView、LazyColumn、LazyList、Dropdown、ComboBox 在右侧预留，LazyRow 在底部预留；内容未溢出时不增加留白。
+该留白选项目前仅作用于上述六种控件；ListView、Table、TreeView、TextArea 仍使用各自的内部内容布局，
+共享滚轮策略并不表示它们也使用这一留白选项。
+
 `chui.core` 包中的 public struct
 
 可滚动组件共享的滚轮策略。默认 `web()` 采用平滑行为、72 逻辑像素步长、220ms 基准时长与
@@ -15,6 +21,7 @@ public struct ScrollOptions {
     public let behavior: ScrollBehavior
     public let wheelStep: Float32
     public let animation: AnimationSpec
+    public let contentInset: Float32
 }
 ```
 
@@ -24,6 +31,7 @@ public struct ScrollOptions {
 public init(
     behavior!: ScrollBehavior = ScrollBehavior.Smooth,
     wheelStep!: Float32 = 72.0,
+    contentInset!: Float32 = 0.0,
     animation!: AnimationSpec = AnimationSpec.automatic(...)
 )
 ```
@@ -38,6 +46,7 @@ public init(
 ```cangjie
 public static func web(
     wheelStep!: Float32 = 72.0,
+    contentInset!: Float32 = 0.0,
     duration!: UInt64 = Motion.normal,
     easing!: Easing = Easing.CubicBezier(0.22, 1.0, 0.36, 1.0)
 ): ScrollOptions
@@ -48,7 +57,7 @@ public static func web(
 ### immediate
 
 ```cangjie
-public static func immediate(wheelStep!: Float32 = 72.0): ScrollOptions
+public static func immediate(wheelStep!: Float32 = 72.0, contentInset!: Float32 = 0.0): ScrollOptions
 ```
 
 创建无保留动画的即时策略，适合兼容旧交互或确定性测试。

@@ -2,7 +2,8 @@ package chui.core
 
 import std.collection.ArrayList
 import std.sync.AtomicInt64
-import sdl.{Color, DeviceRotation, DeviceRotationEvent, FrameInfo, Insets, Rect, Renderer, UiEvent}
+import sdl.input.{Keyboard, KeyModifiers}
+import sdl.{Color, DeviceRotation, DeviceRotationEvent, FrameInfo, Insets, PointerEvent, Rect, Renderer, UiEvent}
 
 // A second press within this window and distance of the previous one continues a multi-click.
 private let MULTI_CLICK_MS: UInt64 = 400
@@ -64,7 +65,40 @@ private func deviceRotationChanged(first: DeviceRotation, second: DeviceRotation
  * window stops rendering and the animation freezes.
  */
 public class UiContext {
+    private var eventModifierMask: ?UInt16 = None
+
+    /** Event-time keyboard state; legacy events without metadata use the current device state. */
+    public func keyModifiers(): KeyModifiers {
+        match (eventModifierMask) {
+            case Some(mask) => KeyModifiers(mask)
+            case None => Keyboard.modifiers()
+        }
+    }
+
+    /** Owner-thread, nestable event scope. Never changes SDL's global keyboard state. */
+    public func withEventModifiers(mask: ?UInt16, body: () -> Bool): Bool {
+        let previous = eventModifierMask
+        eventModifierMask = mask
+        try { body() } finally { eventModifierMask = previous }
+    }
+
     private let ownershipTokenValue = UI_CONTEXT_OWNERSHIP_COUNTER.fetchAdd(1)
+    private let focusedKeyboard = FocusedKeyboardRouter()
+
+    /** Shared desktop/Harmony custom-host route. Call once for each KeyDown/KeyUp,
+     * inside withEventModifiers; this includes overlays, capture and normal traversal. */
+    public func dispatchKeyboardEvent(root: Widget, event: UiEvent): Bool {
+        focusedKeyboard.dispatch(this, root, event)
+    }
+
+    /** A host must report focus loss/gain before dispatching further keyboard input. */
+    public func setKeyboardWindowActive(active: Bool): Unit {
+        focusedKeyboard.setActive(active)
+    }
+
+    internal func registerFocusedKeyboardBinding(binding: FocusedKeyboardBinding): Unit {
+        focusedKeyboard.register(binding)
+    }
     public let renderer: Renderer
     public var theme: Theme
     public var focusId: String = ""
@@ -76,6 +110,7 @@ public class UiContext {
     public var dragId: String = ""
     public var pressedId: String = ""
     private var pointerCaptureId: String = ""
+    private var cancellingPointer = false
     // Single-slot overlay: a hovered `Tooltip` registers here during draw and the shell
     // paints it above everything after the tree. Empty text means no tooltip this frame.
     public var tooltipText: String = ""
@@ -105,6 +140,10 @@ public class UiContext {
     private var preserveScrollAnchorRequested = false
     /** Physical pixels per virtual pixel; set from the window content scale. */
     public var displayScale: Float32 = 1.0
+    /** Monotonic coordinate transform revision paired with `displayScale`. */
+    public var inputTransformRevision: UInt64 = UInt64(1)
+    /** Last rich pointer sample; compatibility widgets receive its lowered mouse event. */
+    public var lastPointerEvent: ?PointerEvent = None
     /** User font scale applied to `fp` lengths; `1.0` keeps `fp` equal to `vp`. */
     public var fontScale: Float32 = 1.0
 
@@ -119,6 +158,7 @@ public class UiContext {
 
     /** Clears the previous declarative build's external-surface scheduling registrations. */
     protected func beginFrameSurfaceRegistration(): Unit {
+        focusedKeyboard.beginLayout()
         nativeChildFrameSurfaces.clear()
         finishSharedFrameSurfaces("abandoned")
         sharedFrameSurfaces.clear()
@@ -455,7 +495,9 @@ public class UiContext {
      * currently on screen and in their declared order.
      */
     protected func adoptFocusRing(ids: Array<String>): Unit {
+        focusedKeyboard.beginLayout()
         focusOrder = ids.clone()
+        if (semanticFocusOrder(focusId).isNone()) { focusedKeyboard.invalidateHeld() }
     }
 
     /** Focuses only an ID present in the latest declarative focus ring. */
@@ -510,6 +552,7 @@ public class UiContext {
         } else {
             (((current + step) % count) + count) % count
         }
+        focusedKeyboard.invalidateHeld()
         focusId = focusOrder[next]
         focusRingVisible = true // Tab traversal is keyboard, so the ring shows
     }
@@ -530,6 +573,7 @@ public class UiContext {
     // `viaKeyboard` marks focus the user reached by keyboard (Tab, autofocus) versus a pointer
     // press; it drives whether a ring shows, not focus itself.
     public func focus(id: String, viaKeyboard!: Bool = false): Unit {
+        if (focusId != id) { focusedKeyboard.invalidateHeld() }
         focusId = id
         focusClaimedInPress = true
         focusRingVisible = viaKeyboard
@@ -537,6 +581,7 @@ public class UiContext {
 
     /** Removes keyboard focus from every control. */
     public func clearFocus(): Unit {
+        focusedKeyboard.invalidateHeld()
         focusId = ""
         focusRingVisible = false
     }
@@ -635,15 +680,24 @@ public class UiContext {
     // forwards changes to the window, so the candidate window follows the caret instead
     // of sitting in a screen corner.
     private var textInputAnchor: ?Rect = None
+    private var textInputRequested: Bool = false
+
+    /** Requests an editing session this frame, even when the caret is outside its viewport. */
+    public func requestTextInput(): Unit { textInputRequested = true }
+
+    /** Whether a drawn editor requested native text input during this frame. */
+    public func hasTextInputRequest(): Bool { textInputRequested }
 
     /** Reports the focused caret rectangle this frame, anchoring the IME candidate window. */
     public func setTextInputAnchor(rect: Rect): Unit {
+        requestTextInput()
         textInputAnchor = Some(rect)
     }
 
     /** Clears the reported caret anchor; the shell calls this before drawing each frame. */
     public func clearTextInputAnchor(): Unit {
         textInputAnchor = None
+        textInputRequested = false
     }
 
     /** The caret rectangle reported during this frame's draw, if a text control has focus. */
@@ -657,6 +711,7 @@ public class UiContext {
      * that entry in place, keeping its z position.
      */
     public func setOverlay(overlay: Overlay): Unit {
+        focusedKeyboard.invalidateHeld()
         overlay.captureTypography(typographyEnvironment())
         if (!overlay.owner.isEmpty()) {
             for (i in 0..overlays.size) {
@@ -720,6 +775,46 @@ public class UiContext {
             i -= 1
         }
         false
+    }
+
+    /**
+     * Cancels a window's primary pointer transaction without activating or dropping.
+     * Notify every registered overlay and the tree before disposing owner state.
+     * Unlike ordinary input, an overlay cannot swallow lifecycle cancellation.
+     * Custom hosts call this for PointerCancelled, focus loss or transform replacement.
+     */
+    public func cancelPointerInteraction(root: Widget): Bool {
+        if (cancellingPointer) { return false }
+        cancellingPointer = true
+        let oldPress = pressedId
+        let oldDrag = dragId
+        let oldCapture = pointerCaptureId
+        var handled = false
+        try {
+            let snapshot = overlays.toArray()
+            var i = snapshot.size - 1
+            while (i >= 0) {
+                let overlay = snapshot[i]
+                if (isRegistered(overlay)) {
+                    let consumed = overlay.dispatch(this, UiEvent.PointerCancelled)
+                    handled = consumed || handled
+                }
+                i -= 1
+            }
+            let consumed = root.handle(this, UiEvent.PointerCancelled)
+            handled = consumed || handled
+        } finally {
+            if (!oldPress.isEmpty()) { cancelInkRipple(oldPress) }
+            if (!oldDrag.isEmpty()) { cancelInkRipple(oldDrag) }
+            if (!oldCapture.isEmpty()) { cancelInkRipple(oldCapture) }
+            leftMouseDown = false
+            clearDrag()
+            clearPress()
+            pointerCaptureId = ""
+            cancellingPointer = false
+            requestFrame()
+        }
+        handled
     }
 
     private func isRegistered(overlay: Overlay): Bool {

@@ -14,11 +14,11 @@ public struct TypographyEnvironment
 
 ## 说明
 
-环境由 [`Widget.typography`](Widget.md#typography) 或便捷修饰器 `fontFamily` / `fontSize` / `fontStyle` / `bold` / `italic` / `underline` / `strikethrough` 作用于一棵子树。最近的内层环境逐字段覆盖外层；没有提供的字段继续继承。首批消费此环境的语义文本叶子是 [`Label`](Label.md)、[`RichText`](../controls/RichText.md) 与其中的 [`RichSpan`](../controls/RichSpan.md)。自绘控件不会仅因位于该容器内就自动改变其内部文字。
+环境由 [`Widget.typography`](Widget.md#typography) 或便捷修饰器 `fontFamily` / `fontSize` / `fontStyle` / `bold` / `italic` / `underline` / `strikethrough` 作用于一棵子树。最近的内层环境逐字段覆盖外层；没有提供的字段继续继承。消费此环境的内置文本叶子包括 [`Label`](Label.md)、[`RichText`](../controls/RichText.md) 与其中的 [`RichSpan`](../controls/RichSpan.md)，以及单行编辑控件 [`TextField`](../text/TextField.md)。普通自绘控件不会仅因位于该容器内就自动改变其内部文字，仍需在自己的测量、绘制与命中路径中显式消费环境。
 
 叶子的显式配置优先于环境，而且同样逐字段生效。例如片段 `.bold(value: false)` 只清除继承的粗体，不影响继承的斜体；`.fontStyle(FontStyle.regular)` 则显式清除四个样式字段。未被环境或叶子指定的字号回退到 15 fp，字族回退到主题字体，样式回退到 Regular。
 
-环境覆盖组件的 `measure`、`layout`、`draw` 与 `handle` 全阶段，因而文字测量、绘制、换行缓存和富文本链接命中使用同一组有效值。经 [`UiContext.setOverlay`](UiContext.md#setoverlay) 登记的浮层捕获登记位置的有效环境，延迟绘制与事件派发不会丢失声明上下文。
+环境覆盖组件的 `measure`、`layout`、`draw` 与 `handle` 全阶段，因而文字测量、绘制、换行缓存、富文本链接命中，以及 TextField 的点击定位、选区、光标和水平跟随使用同一组有效值。经 [`UiContext.setOverlay`](UiContext.md#setoverlay) 登记的浮层捕获登记位置的有效环境，延迟绘制与事件派发不会丢失声明上下文。
 
 ## 示例
 
@@ -122,3 +122,4 @@ public func withStrikethrough(value!: Bool = true): TypographyEnvironment
 - [UiContext](UiContext.md) — 有效环境的查询与作用域协议。
 - [Label](Label.md) — 单样式语义文本叶子。
 - [RichText](../controls/RichText.md) — 可逐片段覆盖环境的富文本叶子。
+- [TextField](../text/TextField.md) — 测量、命中与绘制共享继承字体的单行编辑控件。

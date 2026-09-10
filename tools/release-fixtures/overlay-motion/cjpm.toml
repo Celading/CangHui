@@ -1,0 +1,8 @@
+[package]
+cjc-version = "1.1.3"
+name = "chui_overlay_motion"
+version = "0.1.0"
+output-type = "executable"
+
+[dependencies]
+chui = { path = "../../.." }

@@ -180,6 +180,9 @@ public struct SemanticNode {
     public let editable: ?Bool
     public let selectionStart: ?Int64
     public let selectionEnd: ?Int64
+    /** Active selection endpoint in UTF-8 bytes, not sorted range end. */
+    public let selectionFocus: ?Int64
+    public let textGeometry: ?SemanticTextGeometry
     public let actions: Array<SemanticActionKind>
 
     public init(
@@ -200,6 +203,8 @@ public struct SemanticNode {
         editable!: ?Bool = None,
         selectionStart!: ?Int64 = None,
         selectionEnd!: ?Int64 = None,
+        selectionFocus!: ?Int64 = None,
+        textGeometry!: ?SemanticTextGeometry = None,
         actions!: Array<SemanticActionKind> = []
     ) {
         validateSemanticIdentifier(id, "semantic node id")
@@ -226,9 +231,17 @@ public struct SemanticNode {
         this.readOnly = readOnly
         this.focused = focused
         this.editable = editable
-        this.selectionStart = selectionStart
-        this.selectionEnd = selectionEnd
-        this.actions = if (enabled && !readOnly) { actions.clone() } else { [] }
+        this.selectionStart = if (role == "password") { None } else { selectionStart }
+        this.selectionEnd = if (role == "password") { None } else { selectionEnd }
+        this.selectionFocus = if (role == "password") { None } else { selectionFocus }
+        this.textGeometry = checkedSemanticTextGeometry(role, value, textGeometry)
+        let allowed = ArrayList<SemanticActionKind>()
+        if (enabled) {
+            for (action in actions) {
+                if (!readOnly || semanticActionName(action) == "focus") { allowed.add(action) }
+            }
+        }
+        this.actions = allowed.toArray()
     }
 }
 
@@ -261,6 +274,15 @@ public struct SemanticTreeSnapshot {
             if (candidate.id == id) { return Some(candidate) }
         }
         None
+    }
+
+    /** Full ordered semantic content; revision is deliberately compared by the caller. */
+    internal func sameContent(other: SemanticTreeSnapshot, includeGeometry!: Bool = true): Bool {
+        if (windowId != other.windowId || nodes.size != other.nodes.size) { return false }
+        for (index in 0..nodes.size) {
+            if (!sameSemanticNode(nodes[index], other.nodes[index], includeGeometry: includeGeometry)) { return false }
+        }
+        true
     }
 }
 
@@ -402,6 +424,8 @@ public class SemanticRuntime {
             editable: semantics.editable,
             selectionStart: semantics.selectionStart,
             selectionEnd: semantics.selectionEnd,
+            selectionFocus: semantics.selectionFocus,
+            textGeometry: semantics.textGeometry,
             actions: actions
         ))
         match (focusOrder) {
@@ -468,7 +492,9 @@ public class SemanticRuntime {
             case None => return rejected(request, "node-not-found")
         }
         if (!target.enabled) { return rejected(request, "node-disabled") }
-        if (target.readOnly) { return rejected(request, "node-readonly") }
+        if (target.readOnly && semanticActionName(request.action) != "focus") {
+            return rejected(request, "node-readonly")
+        }
         if (!containsSemanticAction(target.actions, request.action)) {
             return rejected(request, "action-not-supported")
         }
@@ -799,16 +825,19 @@ private func semanticFocusOrder(values: HashMap<String, Int64>, id: String): Int
     }
 }
 
-private func sameSemanticNode(left: SemanticNode, right: SemanticNode): Bool {
+private func sameSemanticNode(left: SemanticNode, right: SemanticNode, includeGeometry!: Bool = true): Bool {
+    if (includeGeometry && !sameSemanticTextGeometry(left.textGeometry, right.textGeometry)) { return false }
+    if (includeGeometry && (left.frame.x != right.frame.x || left.frame.y != right.frame.y ||
+        left.frame.w != right.frame.w || left.frame.h != right.frame.h)) { return false }
     if (left.id != right.id || left.parentId != right.parentId || left.order != right.order ||
-        left.frame.x != right.frame.x || left.frame.y != right.frame.y || left.frame.w != right.frame.w ||
-        left.frame.h != right.frame.h || left.widgetType != right.widgetType || left.role != right.role ||
+        left.widgetType != right.widgetType || left.role != right.role ||
         left.label != right.label || left.value != right.value || left.placeholder != right.placeholder ||
         left.enabled != right.enabled || left.readOnly != right.readOnly ||
         optionBoolName(left.focused) != optionBoolName(right.focused) ||
         optionBoolName(left.editable) != optionBoolName(right.editable) ||
         optionInt64Name(left.selectionStart) != optionInt64Name(right.selectionStart) ||
         optionInt64Name(left.selectionEnd) != optionInt64Name(right.selectionEnd) ||
+        optionInt64Name(left.selectionFocus) != optionInt64Name(right.selectionFocus) ||
         optionBoolName(left.selected) != optionBoolName(right.selected) ||
         optionBoolName(left.expanded) != optionBoolName(right.expanded) ||
         left.actions.size != right.actions.size) {
@@ -883,6 +912,8 @@ private func cloneSemanticNode(node: SemanticNode): SemanticNode {
         editable: node.editable,
         selectionStart: node.selectionStart,
         selectionEnd: node.selectionEnd,
+        selectionFocus: node.selectionFocus,
+        textGeometry: node.textGeometry,
         actions: node.actions.clone())
 }
 
@@ -905,5 +936,7 @@ private func cloneSemanticNodeWithOrder(node: SemanticNode, order: Int64): Seman
         editable: node.editable,
         selectionStart: node.selectionStart,
         selectionEnd: node.selectionEnd,
+        selectionFocus: node.selectionFocus,
+        textGeometry: node.textGeometry,
         actions: node.actions.clone())
 }

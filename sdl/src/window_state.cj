@@ -139,6 +139,23 @@ internal func backingPixelResizeUpdate(
     WindowResizeUpdate(logicalWidth, logicalHeight, pixelWidth, pixelHeight)
 }
 
+/** Native-free scale transaction used by runtime code and mixed-DPI regression tests. */
+internal func nextWindowMetrics(
+    current: WindowMetrics,
+    displayScale: Float32,
+    pixelWidth: Int32,
+    pixelHeight: Int32
+): WindowMetrics {
+    let nextScale = normalizedScale(displayScale)
+    let nextRevision = if (nextScale == current.displayScale) {
+        current.transformRevision
+    } else {
+        current.transformRevision + UInt64(1)
+    }
+    WindowMetrics(current.logicalWidth, current.logicalHeight, pixelWidth, pixelHeight,
+        nextScale, nextRevision, pixelDensity: current.pixelDensity)
+}
+
 internal func rectFromSdlRect(raw: SdlRect): Rect {
     Rect(Float32(raw.x), Float32(raw.y), Float32(raw.w), Float32(raw.h))
 }

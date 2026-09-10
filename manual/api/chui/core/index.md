@@ -21,6 +21,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 | [`ComponentControlStyle`](ComponentControlStyle.md) | 按选择/展开、hover、press 与 focus 解析 Chip、Checkbox、Dropdown 和 Accordion header 外观。 |
 | [`DerivedState`](DerivedState.md) | 由一个或多个源计算出的只读可观察状态，用 derive 或 Observable.map 创建。 |
 | [`DesignSnapshot`](DesignSnapshot.md) | 把稳定结构、计算几何、语义状态与 scoped Draw IR 合成为有界、可差分的 `canghui.design-snapshot/v1` 硬真相。 |
+| [`DesignSnapshotV2`](DesignSnapshotV2.md) | 在不改变 v1 的前提下增加组件/源码跳转、声明式交互和 phone/tablet/desktop/foldable 多 DPI 场景。 |
 | [`AdaptiveGrid`](AdaptiveGrid.md) | 按可用宽度和最小单元宽度稳定推导列数的等宽响应式网格。 |
 | [`Divider`](Divider.md) | 分隔内容的 1 逻辑像素发丝线，走向由 `axis` 指定、长度由父栈拉伸铺满。 |
 | [`DeviceRotationLayout`](DeviceRotationLayout.md) | 根据规范化设备方向选择竖屏/横屏结构；宿主统一旋转完整界面帧。 |

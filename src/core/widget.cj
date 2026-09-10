@@ -16,6 +16,13 @@ protected let CUI_GAP: Float32 = 8.0
  * wrap the widget in a `ModifiedWidget` and return the wrapper for chaining.
  */
 public interface Widget {
+    /** Opt-in physical keys for this single focusable control. Ctrl+Tab escapes capture.
+     * Return true to consume, false for ordinary handling (Tab then traverses focus).
+     * The callback never receives committed text or IME composition. */
+    func captureKeyboard(handler: (UiContext, UiEvent) -> Bool): Widget {
+        applyKeyboardCapture(this, handler)
+    }
+
     func measure(ctx: UiContext, available: Size): Size
     func layout(ctx: UiContext, rect: Rect): Unit
     func draw(ctx: UiContext): Unit
@@ -90,6 +97,15 @@ public interface Widget {
         true
     }
 
+    /**
+     * Runtime-resolved design facts consumed only by ComponentProbe/DesignSnapshot v2.
+     * Widgets return no facts by default; wrappers and layout containers expose the
+     * values they actually resolved without changing normal rendering behavior.
+     */
+    func designComputedFacts(_: UiContext): Array<DesignComputedFact> {
+        emptyDesignComputedFacts()
+    }
+
     /** Supplies independently optional typography values to descendant semantic text leaves. */
     func typography(value: TypographyEnvironment): Widget {
         applyModifier(this, WidgetModifier.Typography(value))
@@ -149,6 +165,21 @@ public interface Widget {
 
     func strikethrough(value!: Bool): Widget {
         typography(TypographyEnvironment(strikethrough: value))
+    }
+
+    /**
+     * Animates supported generic modifiers preceding this call when their values change on rebuild.
+     * Use a stable unique key and stable modifier-chain shape. Initial placement is immediate; sizes,
+     * padding, background and border interpolate in actual layout, so input follows visible geometry.
+     * Child-specific properties and modifiers added after this call are not implicitly animated.
+     */
+    func animateProperties(key: String): Widget {
+        animateProperties(key, AnimationSpec.automatic(duration: Motion.normal))
+    }
+
+    /** Uses an explicit curve/duration; reduced motion still snaps these property transitions. */
+    func animateProperties(key: String, spec: AnimationSpec): Widget {
+        applyPropertyAnimation(this, key, spec)
     }
 
     /** Constrains this widget to an exact width, e.g. `.width(160.vp)`. */

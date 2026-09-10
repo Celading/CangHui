@@ -89,6 +89,7 @@ func dropdownArrowsMoveHighlightWhileOpen(): Unit {
 @Test
 func dropdownInsideModalSelectsWithoutClosingDialog(): Unit {
     let ctx = controlTestContext()
+    ctx.theme = ctx.theme.withReduceMotion(true)
     ctx.viewportWidth = 400.0
     ctx.viewportHeight = 400.0
     let presented = State<Bool>(true)

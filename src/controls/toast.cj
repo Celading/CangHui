@@ -1,13 +1,17 @@
 package chui.controls
 
 import std.collection.ArrayList
-import sdl.{Color, FontSizes, Rect, Size, UiEvent, clampF32}
-import chui.core.{UiContext, Widget, emit}
+import sdl.{Color, Fonts, FontSizes, Rect, Size, UiEvent, clampF32}
+import chui.core.{Length, LengthUnit, UiContext, Widget, ellipsize, emit, wrapText}
 
 private let TOAST_MARGIN: Float32 = 16.0
 private let TOAST_WIDTH: Float32 = 320.0
-private let TOAST_HEIGHT: Float32 = 46.0
 private let TOAST_GAP: Float32 = 10.0
+private let TOAST_V_PAD: Float32 = 9.0
+private let TOAST_TEXT_LEFT: Float32 = 18.0
+private let TOAST_TEXT_RIGHT: Float32 = 12.0
+// 消息最多排成几行；超出部分以省略号收尾（卡片高度随行数自适应）。
+private let TOAST_MAX_LINES: Int64 = 4
 // Entrance slide/fade and exit fade durations, in milliseconds.
 private let TOAST_SLIDE_MS: Float32 = 150.0
 private let TOAST_FADE_MS: Float32 = 300.0
@@ -27,6 +31,10 @@ class ActiveToast {
     let kind: ToastKind
     var ageMs: UInt64
     var remainingMs: UInt64
+    // 断行结果缓存（懒计算，卡片宽度变化时失效），避免存活期间逐帧重新排版。
+    var fittedLines: Array<String> = []
+    var fittedWidth: Float32 = -1.0
+    var fittedTypography: String = ""
 
     init(id: Int64, message: String, kind: ToastKind, remainingMs: UInt64) {
         this.id = id
@@ -117,17 +125,23 @@ public class ToastLayer <: Widget {
         var i = toasts.size - 1
         while (i >= 0) {
             let toast = toasts[i]
-            let enter = clampF32(Float32(toast.ageMs) / TOAST_SLIDE_MS, 0.0, 1.0)
+            let enter: Float32 = if (ctx.theme.reduceMotion) { 1.0 } else {
+                clampF32(Float32(toast.ageMs) / TOAST_SLIDE_MS, 0.0, 1.0)
+            }
             let exit: Float32 = if (Float32(toast.remainingMs) < TOAST_FADE_MS) {
                 Float32(toast.remainingMs) / TOAST_FADE_MS
             } else {
                 1.0
             }
             let alpha = min(enter, exit)
+            let lines = toastFittedLines(ctx, toast, width)
+            let lineHeight = toastLineHeight(ctx)
+            // 卡片高度随断行行数自适应，长通知不再被截断。
+            let cardHeight = TOAST_V_PAD * 2.0 + Float32(lines.size) * lineHeight
             // Starts one slot lower and slides up into place as it enters.
-            let slide = (1.0 - enter) * (TOAST_HEIGHT + TOAST_GAP)
-            drawToast(ctx, Rect(x, bottom - TOAST_HEIGHT + slide, width, TOAST_HEIGHT), toast, alpha)
-            bottom = bottom - TOAST_HEIGHT - TOAST_GAP
+            let slide = (1.0 - enter) * (cardHeight + TOAST_GAP)
+            drawToast(ctx, Rect(x, bottom - cardHeight + slide, width, cardHeight), lines, toast, alpha)
+            bottom = bottom - cardHeight - TOAST_GAP
             i -= 1
         }
     }
@@ -145,19 +159,92 @@ public class ToastLayer <: Widget {
         false
     }
 
-    private func drawToast(ctx: UiContext, rect: Rect, toast: ActiveToast, alpha: Float32): Unit {
+    private func drawToast(ctx: UiContext, rect: Rect, lines: Array<String>, toast: ActiveToast,
+        alpha: Float32): Unit {
         let a = Int64(clampF32(alpha, 0.0, 1.0) * 255.0)
         let accent = toastColor(ctx, toast.kind)
         // Soft shadow, card, then a coloured accent bar and the message — all faded by `alpha`.
         ctx.renderer.fillRoundedRect(rect.shift(0.0, 3.0), ctx.theme.controlRadius,
             ctx.theme.shadow.withAlpha(Int64(clampF32(alpha, 0.0, 1.0) * 40.0)))
         ctx.renderer.fillRoundedRect(rect, ctx.theme.controlRadius, ctx.theme.panelRaised.withAlpha(a))
-        ctx.renderer.fillRoundedRect(Rect(rect.x + 6.0, rect.y + 8.0, 4.0, rect.h - 16.0), 2.0, accent.withAlpha(a))
-        let textY = rect.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0
-        ctx.renderer.pushClip(Rect(rect.x + 18.0, rect.y, rect.w - 28.0, rect.h))
-        ctx.renderer.text(toast.message, rect.x + 18.0, textY, ctx.theme.text.withAlpha(a), pointSize: FontSizes.CONTROL)
-        ctx.renderer.popClip()
+        ctx.renderer.fillRoundedRect(Rect(rect.x + 6.0, rect.y + 8.0, 4.0, max(0.0, rect.h - 16.0)), 2.0,
+            accent.withAlpha(a))
+        // 消息按断行结果逐行绘制，行距与卡片高度一致；右缘裁剪防止意外溢出。
+        let pointSize = toastPointSize(ctx)
+        let lineHeight = toastLineHeight(ctx)
+        ctx.renderer.pushClip(Rect(rect.x + TOAST_TEXT_LEFT, rect.y,
+            max(0.0, rect.w - TOAST_TEXT_LEFT - TOAST_TEXT_RIGHT), rect.h))
+        try {
+            var ty = rect.y + TOAST_V_PAD
+            for (line in lines) {
+                ctx.renderer.text(line, rect.x + TOAST_TEXT_LEFT, ty, ctx.theme.text.withAlpha(a),
+                    pointSize: pointSize, style: ctx.typographyEnvironment().resolvedFontStyle(), font: toastFont(ctx))
+                ty += lineHeight
+            }
+        } finally {
+            ctx.renderer.popClip()
+        }
     }
+}
+
+/** 懒断行：卡片宽度不变时复用缓存，避免 toast 存活期间逐帧重复测量排版。 */
+internal func toastFittedLines(ctx: UiContext, toast: ActiveToast, width: Float32): Array<String> {
+    let fontKey = match (toastFont(ctx)) { case Some(value) => "named:" + value case None => "default" }
+    let typography = fontKey + "|" + toastPointSize(ctx).toString() + "|" +
+        ctx.typographyEnvironment().resolvedFontStyle().ttfFlags().toString() + "|" + Fonts.generation().toString()
+    if (toast.fittedWidth != width || toast.fittedTypography != typography) {
+        toast.fittedLines = wrapToastText(ctx, toast.message,
+            max(0.0, width - TOAST_TEXT_LEFT - TOAST_TEXT_RIGHT))
+        toast.fittedWidth = width
+        toast.fittedTypography = typography
+    }
+    toast.fittedLines
+}
+
+// Share the framework's measured wrapping/ellipsis engine; explicit paragraphs remain separate.
+internal func wrapToastText(ctx: UiContext, message: String, availableWidth: Float32): Array<String> {
+    let paragraphs = message.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    let out = ArrayList<String>()
+    let ps = toastPointSize(ctx)
+    let style = ctx.typographyEnvironment().resolvedFontStyle()
+    let font = toastFont(ctx)
+    for (i in 0..paragraphs.size) {
+        let lines = wrapText(ctx, paragraphs[i], availableWidth, ps, TOAST_MAX_LINES - out.size,
+            style: style, font: font)
+        for (line in lines) {
+            // The shared wrapper advances by one rune even in a sub-glyph width. Fit that case too.
+            out.add(ellipsize(ctx, line, availableWidth, ps, style: style, font: font))
+        }
+        if (out.size == TOAST_MAX_LINES) {
+            if (i + 1 < paragraphs.size) {
+                let last = out.remove(at: out.size - 1)
+                out.add(ellipsize(ctx, last + "…", availableWidth, ps, style: style, font: font))
+            }
+            break
+        }
+    }
+    if (out.isEmpty()) { out.add("") }
+    out.toArray()
+}
+
+private func toastPointSize(ctx: UiContext): Float32 {
+    let length = match (ctx.typographyEnvironment().fontSize) {
+        case Some(value) => value
+        case None => Length(FontSizes.CONTROL, LengthUnit.Fp)
+    }
+    max(1.0, ctx.resolve(length))
+}
+
+private func toastFont(ctx: UiContext): ?String {
+    match (ctx.typographyEnvironment().fontFamily) {
+        case Some(value) => Some(value)
+        case None => ctx.theme.fontFamily
+    }
+}
+
+private func toastLineHeight(ctx: UiContext): Float32 {
+    ctx.renderer.textHeight(pointSize: toastPointSize(ctx),
+        style: ctx.typographyEnvironment().resolvedFontStyle(), font: toastFont(ctx))
 }
 
 private func toastColor(ctx: UiContext, kind: ToastKind): Color {

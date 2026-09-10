@@ -2,6 +2,21 @@
 
 # LazyColumn
 
+## 增量加载
+
+```cangjie
+LazyColumn(count, 48.0, id: "results") {index => row(index)}
+    .onReachEnd(threshold: 300.0, loading: loading, hasMore: hasMore,
+        revision: retryRevision) {=> requestNextPage()}
+```
+
+阈值使用逻辑像素且必须有限、非负。列表接近末端或未填满视口时，在后续 `Frame` 事件回调，
+不在布局中调用业务代码。同一数量与 `revision` 最多通知一次；数量改变、重试标记改变，或
+离开阈值再进入时重新允许通知。`loading: true` / `hasMore: false` 阻止通知，零面积列表不触发。
+空列表可触发首次加载。稳定 `id` 保持跨帧去重；更换查询时同时更新 `revision`。
+回调在 UI 线程执行：启动异步工作，结果通过宿主 UI 队列回写；失败重试需更新 `revision`，
+仅把 loading 改回 false 不会无限重试。自定义宿主必须继续派发 `UiEvent.Frame`。
+
 `chui.core` 包中的 public class
 
 只构建视口附近行的定行高垂直滚动列表，构建、布局与绘制均为 O(可见) 而非 O(行数)。行按索引惰性（按需）构建，上千行任意组件的列表以一屏的成本滚动。
@@ -53,6 +68,7 @@ main(): Unit {
 |---|---|
 | [`static of(...)`](#of) | 数据驱动形式：由 `Array<T>` 与每条目的行构建器建列表，无需手写 `count` 与按索引取数。 |
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
+| [`onReachEnd(...)`](#onreachend) | 接近末端时按列表身份去重通知，支持加载状态、结束和显式重试。 |
 | [`measure(...)`](#measure) | 恒占满全部可用空间：列表填满父容器分配的区域。 |
 | [`layout(...)`](#layout) | 记录视口高度供下一帧构建、把滚动偏移限制在有效范围，并把每个已构建行摆到内容坐标减滚动偏移的位置。 |
 | [`draw(...)`](#draw) | 裁剪到视口逐行绘制，内容溢出时在右缘画滚动条。 |
@@ -93,6 +109,20 @@ public init(
 - `IllegalArgumentException` — `id` 显式给出且为空字符串时。
 
 ## 方法
+
+### onReachEnd
+
+```cangjie
+public func onReachEnd(
+    threshold!: Float32 = 300.0,
+    loading!: Bool = false,
+    hasMore!: Bool = true,
+    revision!: Int64 = 0,
+    action!: () -> Unit
+): LazyColumn
+```
+
+生命周期和异步使用规则见本页“增量加载”。
 
 ### of
 

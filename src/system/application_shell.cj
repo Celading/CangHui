@@ -130,6 +130,8 @@ public class AppActionRegistry {
     }
 
     public func size(): Int64 { actions.size }
+
+    internal func clear(): Unit { actions.clear(); handlers.clear() }
 }
 
 public struct AppStatusItem {
@@ -207,6 +209,7 @@ public struct SystemNotification {
 
 public enum SystemSurface <: Equatable<SystemSurface> {
     | ApplicationMenu
+    | DockMenu
     | StatusItem
     | Notification
     | Settings
@@ -228,6 +231,7 @@ public enum SystemSurface <: Equatable<SystemSurface> {
 public func systemSurfaceName(surface: SystemSurface): String {
     match (surface) {
         case SystemSurface.ApplicationMenu => "application-menu"
+        case SystemSurface.DockMenu => "dock-menu"
         case SystemSurface.StatusItem => "status-item"
         case SystemSurface.Notification => "notification"
         case SystemSurface.Settings => "settings"
@@ -347,13 +351,15 @@ public interface SystemShellProvider {
 }
 
 /** Deterministic provider used by kMode, headless tests and unsupported hosts. */
-public class HeadlessSystemShellProvider <: SystemShellProvider {
+public class HeadlessSystemShellProvider <: SystemShellProvider & SystemShellBadgeProvider & SystemShellDockMenuProvider {
     private let registeredActions = ArrayList<AppAction>()
     private let notifications = ArrayList<SystemNotification>()
     private let settingKeys = ArrayList<String>()
     private let settingValues = ArrayList<AppSettingValue>()
     private let deepLinks = ArrayList<AppDeepLinkRoute>()
     private var applicationMenu: ?AppMenuBar = None
+    private var badgeLabel: ?String = None
+    private var dockMenu: ?AppMenu = None
     private let notificationPermissionState: NotificationPermissionState
 
     public init(notificationPermission!: NotificationPermissionState = NotificationPermissionState.NotRequired) {
@@ -452,6 +458,18 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
     }
 
     public func actionCount(): Int64 { registeredActions.size }
+    public func setBadge(label: ?String): SystemShellResult {
+        validateApplicationBadge(label)
+        badgeLabel = label
+        if (let Some(text) <- label) { if (text.isEmpty()) { badgeLabel = None } }
+        SystemShellResult(SystemShellResultStatus.Queued, message: "badge captured by headless provider")
+    }
+    public func capturedBadge(): ?String { badgeLabel }
+    public func setDockMenu(menu: ?AppMenu): SystemShellResult {
+        dockMenu = copyApplicationDockMenu(menu)
+        SystemShellResult(SystemShellResultStatus.Queued, message: "Dock menu captured by headless provider")
+    }
+    public func capturedDockMenu(): ?AppMenu { copyApplicationDockMenu(dockMenu) }
     public func notificationCount(): Int64 { notifications.size }
     public func deepLinkCount(): Int64 { deepLinks.size }
     public func applicationMenuCount(): Int64 {
@@ -465,6 +483,7 @@ public class HeadlessSystemShellProvider <: SystemShellProvider {
 public class ApplicationShell {
     public let manifest: ApplicationManifest
     private let provider: SystemShellProvider
+    private let runtime: ApplicationShellRuntime
     private let actionRegistry = AppActionRegistry()
     private let registeredDeepLinks = ArrayList<AppDeepLinkRoute>()
 
@@ -475,13 +494,45 @@ public class ApplicationShell {
         }
         this.manifest = manifest
         this.provider = provider
+        this.runtime = ApplicationShellRuntime(provider)
+    }
+
+    /** Attach after the native application exists, on its UI owner thread. */
+    public func attach(): SystemShellResult { runtime.attach(manifest) }
+
+    /** Native callbacks never execute business handlers from inside AppKit. */
+    public func dispatchPendingActions(limit!: Int64 = 64): Array<SystemShellResult> {
+        runtime.dispatch(limit, {id => invokeAction(id)})
+    }
+
+    /** Terminal and idempotent; disconnect native targets before SDL shutdown. */
+    public func detach(): Unit {
+        try { runtime.detach() }
+        finally { actionRegistry.clear(); registeredDeepLinks.clear() }
+    }
+
+    /** Terminal state of this instance, including detach before attachment. */
+    public func isClosed(): Bool { runtime.isClosed() }
+
+    private func closedResult(): SystemShellResult {
+        SystemShellResult(SystemShellResultStatus.Failed, message: "application shell is closed")
     }
 
     public func capability(surface: SystemSurface): SystemSurfaceState {
+        if (isClosed()) { return SystemSurfaceState.Unsupported }
         provider.state(surface)
     }
 
+    /** Application-wide badge, not a per-window widget. Native updates require the UI owner thread. */
+    public func setBadge(label: ?String): SystemShellResult {
+        if (isClosed()) { return closedResult() }
+        validateApplicationBadge(label)
+        if (let Some(badge) <- (provider as SystemShellBadgeProvider)) { return badge.setBadge(label) }
+        SystemShellResult(SystemShellResultStatus.Unsupported, message: "provider does not support application badges")
+    }
+
     public func registerAction(action: AppAction, handler: AppActionHandler): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         if (actionRegistry.contains(action.id)) {
             return SystemShellResult(SystemShellResultStatus.Failed,
                 message: "duplicate application action: " + action.id)
@@ -492,10 +543,12 @@ public class ApplicationShell {
     }
 
     public func invokeAction(id: String): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         actionRegistry.invoke(id)
     }
 
     public func setApplicationMenu(menu: AppMenuBar): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         for (entry in menu.menus) {
             validateRuntimeActionReferences(entry.actionIds, "menu " + entry.id, errors)
@@ -507,7 +560,24 @@ public class ApplicationShell {
         provider.setApplicationMenu(menu)
     }
 
+    /** Optional application-wide Dock menu. None restores the native owner's menu. */
+    public func setDockMenu(menu: ?AppMenu): SystemShellResult {
+        if (isClosed()) { return closedResult() }
+        let snapshot = copyApplicationDockMenu(menu)
+        let errors = ArrayList<String>()
+        if (let Some(value) <- snapshot) {
+            validateRuntimeActionReferences(value.actionIds, "Dock menu", errors)
+        }
+        if (!errors.isEmpty()) {
+            return SystemShellResult(SystemShellResultStatus.Failed,
+                message: renderApplicationManifestErrors(errors.toArray()))
+        }
+        if (let Some(dock) <- (provider as SystemShellDockMenuProvider)) { return dock.setDockMenu(snapshot) }
+        SystemShellResult(SystemShellResultStatus.Unsupported, message: "provider does not support Dock menus")
+    }
+
     public func setStatusItem(item: AppStatusItem): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         validateRuntimeActionReferences(item.actionIds, "status item", errors)
         if (!errors.isEmpty()) {
@@ -518,6 +588,7 @@ public class ApplicationShell {
     }
 
     public func projectSystemSurfaces(): AppSurfaceProjectionResult {
+        if (isClosed()) { return AppSurfaceProjectionResult(closedResult(), closedResult()) }
         let menuResult = match (manifest.applicationMenu) {
             case Some(menu) => setApplicationMenu(menu)
             case None => SystemShellResult(SystemShellResultStatus.Applied,
@@ -532,6 +603,7 @@ public class ApplicationShell {
     }
 
     public func notify(notification: SystemNotification): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         validateRuntimeActionReferences(notification.actionIds, "notification " + notification.id, errors)
         if (!errors.isEmpty()) {
@@ -562,14 +634,17 @@ public class ApplicationShell {
     }
 
     public func notificationPermission(): NotificationPermissionState {
+        if (isClosed()) { return NotificationPermissionState.Unsupported }
         provider.notificationPermission()
     }
 
     public func requestNotificationPermission(): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         provider.requestNotificationPermission()
     }
 
     public func registerDeepLink(route: AppDeepLinkRoute): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         let errors = ArrayList<String>()
         validateRuntimeActionReferences([route.actionId], "deep link " + route.uri, errors)
         if (!errors.isEmpty()) {
@@ -593,6 +668,7 @@ public class ApplicationShell {
     }
 
     public func projectDeepLinks(): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         var status = SystemShellResultStatus.Applied
         for (route in manifest.deepLinks) {
             let result = registerDeepLink(route)
@@ -605,6 +681,7 @@ public class ApplicationShell {
     }
 
     public func handleDeepLink(uri: String): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         validateAppDeepLinkUri(uri)
         for (route in registeredDeepLinks) {
             if (route.uri == uri) { return invokeAction(route.actionId) }
@@ -627,10 +704,12 @@ public class ApplicationShell {
     }
 
     public func readSetting(key: String): ?AppSettingValue {
+        if (isClosed()) { return None }
         provider.readSetting(key)
     }
 
     public func writeSetting(key: String, value: AppSettingValue): SystemShellResult {
+        if (isClosed()) { return closedResult() }
         match (findSetting(manifest.settings, key)) {
             case Some(setting) =>
                 if (setting.sensitive && provider.state(SystemSurface.SecureSettings) != SystemSurfaceState.Native) {

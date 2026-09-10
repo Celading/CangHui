@@ -111,3 +111,66 @@ func harmonyProjectionRefusesForeignOutputDirectory(): Unit {
     @Expect(String.fromUtf8(File.readFrom(
         joinPath(project, ".canghui/harmony/foreign.txt"))), "keep")
 }
+
+@Test
+func harmonyProjectionCopiesCompatibleProviderPackWithoutFrameworkFork(): Unit {
+    let project = joinPath(currentDirectory(), "target/harmony-provider-consumer-fixture")
+    let provider = joinPath(currentDirectory(), "target/harmony-provider-pack-fixture")
+    _ = removeIfExists(project, recursive: true)
+    _ = removeIfExists(provider, recursive: true)
+    Directory.create(joinPath(project, "src"), recursive: true)
+    Directory.create(joinPath(provider, "lib"), recursive: true)
+    File.writeTo(joinPath(project, "src/main.cj"), "package consumer\n".toArray())
+    File.writeTo(joinPath(provider, "lib/libSDL3.so"), [UInt8(1), UInt8(2)])
+    File.writeTo(joinPath(provider, "lib/libcanghui_ohos_surface.so"), [UInt8(3), UInt8(4)])
+    File.writeTo(joinPath(provider, "canghui-harmony-provider.env"),
+        ("schema=canghui.harmony-provider/v1\n" +
+        "providerVersion=20260902.1\n" +
+        "frameworkVersion=0.18.0\n" +
+        "frameworkCommit=0123456789abcdef0123456789abcdef01234567\n" +
+        "frameworkAbi=canghui.harmony-native-surface/v1\n" +
+        "inputAbi=canghui.harmony-pointer/v2\n" +
+        "projectionProtocol=canghui.harmony-projection/v1\n" +
+        "targetAbi=arm64-v8a\n" +
+        "artifacts=lib/libSDL3.so,lib/libcanghui_ohos_surface.so\n").toArray())
+    let manifest = parseApplicationManifest(
+        "[application]\nname = \"Consumer\"\nidentifier = \"dev.example.consumer\"\nversion = \"1.0.0\"\n" +
+        "[harmony]\nsource-roots = [\"src\"]\ntarget-package = \"dev.example.consumer\"\n" +
+        "output = \"generated/harmony\"\n")
+    validateApplicationManifest(manifest, project)
+    let cwd = currentDirectory()
+    let framework = if (frameworkRootCandidate(cwd)) { cwd }
+        else { canonicalize(joinPath(cwd, "../..")).toString() }
+    let receipt = prepareHarmonyProjection(project, framework, manifest, providerRoot: provider)
+    @Expect(receipt.contains("\"version\":\"20260902.1\""))
+    @Expect(receipt.contains("\"targetAbi\":\"arm64-v8a\""))
+    @Expect(exists(joinPath(project,
+        "generated/harmony/native/provider/pack/lib/libSDL3.so")))
+    @Expect(exists(joinPath(project,
+        "generated/harmony/native/provider/pack/lib/libcanghui_ohos_surface.so")))
+    @Expect(exists(joinPath(project,
+        "generated/harmony/native/provider/framework-contract.env")))
+}
+
+@Test
+func harmonyProjectionRejectsProviderBuiltForAnotherFrameworkVersion(): Unit {
+    let provider = joinPath(currentDirectory(), "target/harmony-provider-mismatch-fixture")
+    _ = removeIfExists(provider, recursive: true)
+    Directory.create(joinPath(provider, "lib"), recursive: true)
+    File.writeTo(joinPath(provider, "lib/libSDL3.so"), [UInt8(1)])
+    File.writeTo(joinPath(provider, "canghui-harmony-provider.env"),
+        ("schema=canghui.harmony-provider/v1\n" +
+        "providerVersion=old\nframeworkVersion=0.16.0\n" +
+        "frameworkCommit=0123456789abcdef0123456789abcdef01234567\n" +
+        "frameworkAbi=canghui.harmony-native-surface/v1\n" +
+        "inputAbi=canghui.harmony-pointer/v2\n" +
+        "projectionProtocol=canghui.harmony-projection/v1\n" +
+        "targetAbi=arm64-v8a\nartifacts=lib/libSDL3.so\n").toArray())
+    var rejected = false
+    try {
+        let _ = loadHarmonyProviderPack(provider)
+    } catch (error: CuicError) {
+        rejected = error.message.contains("framework mismatch")
+    }
+    @Expect(rejected)
+}

@@ -30,10 +30,13 @@ public struct ScrollOptions {
     public let behavior: ScrollBehavior
     public let wheelStep: Float32
     public let animation: AnimationSpec
+    /** Extra logical-pixel space between overflowing content and the scrollbar lane. */
+    public let contentInset: Float32
 
     public init(
         behavior!: ScrollBehavior = ScrollBehavior.Smooth,
         wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        contentInset!: Float32 = 0.0,
         animation!: AnimationSpec = AnimationSpec.automatic(
             duration: Motion.normal,
             easing: Easing.CubicBezier(0.22, 1.0, 0.36, 1.0)
@@ -43,6 +46,10 @@ public struct ScrollOptions {
             throw IllegalArgumentException("scroll wheel step must be positive")
         }
         this.behavior = behavior
+        if (!(contentInset >= 0.0 && contentInset <= Float32.Max)) {
+            throw IllegalArgumentException("scroll content inset must be finite and non-negative")
+        }
+        this.contentInset = contentInset
         this.wheelStep = wheelStep
         this.animation = animation
     }
@@ -50,16 +57,18 @@ public struct ScrollOptions {
     /** Browser-like wheel motion that follows Basic / Standard / Full theme timing. */
     public static func web(
         wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        contentInset!: Float32 = 0.0,
         duration!: UInt64 = Motion.normal,
         easing!: Easing = Easing.CubicBezier(0.22, 1.0, 0.36, 1.0)
     ): ScrollOptions {
-        ScrollOptions(behavior: ScrollBehavior.Smooth, wheelStep: wheelStep,
+        ScrollOptions(behavior: ScrollBehavior.Smooth, wheelStep: wheelStep, contentInset: contentInset,
             animation: AnimationSpec.automatic(duration: duration, easing: easing))
     }
 
     /** Immediate wheel motion with no retained animation. */
-    public static func immediate(wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP): ScrollOptions {
-        ScrollOptions(behavior: ScrollBehavior.Immediate, wheelStep: wheelStep,
+    public static func immediate(wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        contentInset!: Float32 = 0.0): ScrollOptions {
+        ScrollOptions(behavior: ScrollBehavior.Immediate, wheelStep: wheelStep, contentInset: contentInset,
             animation: AnimationSpec(duration: UInt64(1), easing: Easing.Linear))
     }
 }
@@ -214,8 +223,8 @@ protected func cancelScrollMotion(motion: ScrollMotion, offset: State<Float32>):
  * so the bar rides in its own lane instead of covering the content's right edge.
  * Module-visible: popup lists (Dropdown/ComboBox) reserve the same lane.
  */
-protected func scrollBarGutter(): Float32 {
-    CUI_SCROLL_W + CUI_SCROLL_MARGIN * 2.0
+protected func scrollBarGutter(inset!: Float32 = 0.0): Float32 {
+    CUI_SCROLL_W + CUI_SCROLL_MARGIN * 2.0 + inset
 }
 
 protected func scrollOffsetAfterWheel(

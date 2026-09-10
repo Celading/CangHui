@@ -21,7 +21,16 @@ else
   fi
 fi
 
-export DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH:-/opt/homebrew/lib}"
+# Keep ImageIO/CoreText on the system's image codecs. A broad Homebrew search
+# path can replace identically named private OS libraries (including libpng).
+# This CI owns only its child environment; never alter the caller's shell/profile.
+if [[ -n "${DYLD_LIBRARY_PATH:-}" && "${DYLD_LIBRARY_PATH}" != "${ROOT_DIR}/sdl/.sdl3" ]]; then
+  echo "==> scoping the CI dynamic-library search path to prepared SDL libraries"
+fi
+export DYLD_LIBRARY_PATH="${ROOT_DIR}/sdl/.sdl3"
+
+echo "==> CI loader environment regression"
+python3 scripts/test-ci-loader-env.py
 
 # 2. Root framework build and tests.
 echo "==> root cjpm build + test"
@@ -48,10 +57,22 @@ bash scripts/verify-probe-option-disambiguation.sh
 echo "==> cuic CLI smoke"
 bash tools/cuic/scripts/test-cli.sh
 
+echo "==> Harmony projection special-file rejection"
+python3 scripts/test-harmony-file-types.py --cuic tools/cuic/target/release/bin/main
+
 echo "==> cuic install smoke"
 bash tools/cuic/scripts/test-install.sh
 
 # 7. Platform and security script tests.
+echo "==> macOS release audit failure-policy regression"
+python3 scripts/test-macos-release-audit.py
+
+echo "==> Linux runtime metadata audit regression"
+python3 scripts/test-linux-runtime-audit.py
+python3 scripts/test-linux-runtime-assembly.py
+python3 scripts/test-linux-source-sdk.py
+python3 scripts/test-linux-desktop-install.py
+
 echo "==> iOS provisioning profile decoder"
 bash scripts/test-ios-provisioning-profile.sh
 

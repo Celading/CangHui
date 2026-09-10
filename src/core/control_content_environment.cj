@@ -1,7 +1,7 @@
 package chui.core
 
 import std.collection.ArrayList
-import sdl.{Color, DrawIrAsciiAnnotationKind, Rect}
+import sdl.{Color, Rect}
 
 /** Read-only visual and interaction state inherited by decorative control content. */
 public struct ControlContentEnvironment {
@@ -64,6 +64,9 @@ public struct ControlSemantics {
     public let editable: ?Bool
     public let selectionStart: ?Int64
     public let selectionEnd: ?Int64
+    /** Active caret endpoint in UTF-8 bytes; None means direction is unknown. */
+    public let selectionFocus: ?Int64
+    public let textGeometry: ?SemanticTextGeometry
     /** Typed actions exposed to in-process semantic consumers. String actions remain probe-only. */
     public let typedActions: Array<SemanticActionKind>
 
@@ -83,6 +86,8 @@ public struct ControlSemantics {
         editable!: ?Bool = None,
         selectionStart!: ?Int64 = None,
         selectionEnd!: ?Int64 = None,
+        selectionFocus!: ?Int64 = None,
+        textGeometry!: ?SemanticTextGeometry = None,
         typedActions!: Array<SemanticActionKind> = []
     ) {
         if (role.isEmpty()) { throw IllegalArgumentException("control semantic role must not be empty") }
@@ -100,8 +105,10 @@ public struct ControlSemantics {
         this.readOnly = readOnly
         this.focused = focused
         this.editable = editable
-        this.selectionStart = selectionStart
-        this.selectionEnd = selectionEnd
+        this.selectionStart = if (role == "password") { None } else { selectionStart }
+        this.selectionEnd = if (role == "password") { None } else { selectionEnd }
+        this.selectionFocus = if (role == "password") { None } else { selectionFocus }
+        this.textGeometry = checkedSemanticTextGeometry(role, value, textGeometry)
         // The semantic contract owns this list. A caller retaining its constructor input cannot
         // mutate the actions later and silently alter a committed runtime tree.
         this.typedActions = typedActions.clone()
@@ -128,8 +135,37 @@ public func recordControlSemantics(
         case Some(environment) => if (!environment.interactionOwner.isEmpty()) { return }
         case None => ()
     }
-    recordControlSemanticsResolved(frame, widgetType, semantics, ctx.interactionsEnabled(),
-        ctx.semanticFocusOrder(semantics.actionOwner))
+    let focusOrder = ctx.semanticFocusOrder(semantics.actionOwner)
+    let resolved = resolveControlSemanticFocus(semantics, focusOrder, ctx.hasFocus(semantics.actionOwner))
+    recordControlSemanticsResolved(frame, widgetType, resolved, ctx.interactionsEnabled(), focusOrder)
+}
+
+// Stock controls need not duplicate the context's focus state in every draw method.
+// Preserve explicit custom semantics and do not invent focus for unregistered nodes.
+private func resolveControlSemanticFocus(
+    semantics: ControlSemantics, focusOrder: ?Int64, focused: Bool
+): ControlSemantics {
+    if (semantics.focused.isSome() || focusOrder.isNone()) { return semantics }
+    ControlSemantics(
+        semantics.role,
+        label: semantics.label,
+        value: semantics.value,
+        placeholder: semantics.placeholder,
+        action: semantics.action,
+        shortcut: semantics.shortcut,
+        actionOwner: semantics.actionOwner,
+        selected: semantics.selected,
+        expanded: semantics.expanded,
+        enabled: semantics.enabled,
+        readOnly: semantics.readOnly,
+        focused: Some(focused),
+        editable: semantics.editable,
+        selectionStart: semantics.selectionStart,
+        selectionEnd: semantics.selectionEnd,
+        selectionFocus: semantics.selectionFocus,
+        textGeometry: semantics.textGeometry,
+        typedActions: semantics.typedActions
+    )
 }
 
 /**
@@ -152,7 +188,7 @@ private func recordControlSemanticsResolved(
     focusOrder: ?Int64
 ): Unit {
     recordActiveSemanticRuntimeControl(frame, widgetType, semantics, interactionsEnabled, focusOrder)
-    if (!shouldRecordAutomaticControlSemantics(semantics.actionOwner)) { return }
+    if (!isComponentProbeActive()) { return }
     let properties = ArrayList<ProbeProperty>()
     properties.add(ProbeProperty("role", semantics.role))
     if (!semantics.label.isEmpty()) { properties.add(ProbeProperty("label", semantics.label)) }
@@ -179,6 +215,10 @@ private func recordControlSemanticsResolved(
     }
     properties.add(ProbeProperty("actionOwner", semantics.actionOwner))
     properties.add(ProbeProperty("semanticDescendants", "decorative"))
+    match (focusOrder) {
+        case Some(value) => properties.add(ProbeProperty("focusOrder", value.toString()))
+        case None => ()
+    }
     match (semantics.selected) {
         case Some(value) => properties.add(ProbeProperty("selected", value.toString()))
         case None => ()
@@ -207,13 +247,10 @@ private func recordControlSemanticsResolved(
         case Some(value) => properties.add(ProbeProperty("selectionEnd", value.toString()))
         case None => ()
     }
-    probeSemanticRegions {=> [
-        ProbeSemanticRegion(
-            "control-semantic:" + semantics.actionOwner,
-            DrawIrAsciiAnnotationKind.Interactive,
-            frame,
-            widgetType: widgetType,
-            properties: properties.toArray()
-        )
-    ]}
+    match (semantics.selectionFocus) {
+        case Some(value) => properties.add(ProbeProperty("selectionFocus", value.toString()))
+        case None => ()
+    }
+    recordActiveProbeControlSemantics(frame, widgetType, semantics, properties.toArray(),
+        semanticallyEnabled, focusOrder.isSome())
 }

@@ -3,6 +3,21 @@ package chui.core
 import sdl.Rect
 
 @Test
+func uiHealthDoesNotInferCompactHeightOrFocusOrderFromGenericCards(): Unit {
+    let snapshot = DesignSnapshot("cards", DesignSnapshotEnvironment("headless", 400.0, 240.0), [
+        DesignSnapshotNode("screen", DesignSnapshotNodeKind.Screen, Rect(0.0, 0.0, 400.0, 240.0)),
+        DesignSnapshotNode("card1", DesignSnapshotNodeKind.Component, Rect(10.0, 10.0, 160.0, 146.0),
+            parentId: "screen", order: 0, widgetType: "InteractionSurface", role: "button", label: "File one"),
+        DesignSnapshotNode("card2", DesignSnapshotNodeKind.Component, Rect(180.0, 10.0, 160.0, 146.0),
+            parentId: "screen", order: 0, widgetType: "InteractionSurface", role: "button", label: "File two")
+    ])
+    let report = UiHealthAudit.analyze(snapshot)
+    @Expect(report.passed())
+    @Expect(!report.toJson().contains("CHUI-AUDIT-TARGET-STRETCHED"))
+    @Expect(!report.toJson().contains("CHUI-AUDIT-FOCUS-ORDER-AMBIGUOUS"))
+}
+
+@Test
 func uiHealthAuditFindsSmallStretchedUnlabelledOverlapAndOverflow(): Unit {
     let snapshot = DesignSnapshot("health.fixture",
         DesignSnapshotEnvironment("headless", 300.0, 200.0), [
@@ -10,10 +25,12 @@ func uiHealthAuditFindsSmallStretchedUnlabelledOverlapAndOverflow(): Unit {
                 Rect(0.0, 0.0, 300.0, 200.0), role: "screen"),
             DesignSnapshotNode("tiny-icon", DesignSnapshotNodeKind.Component,
                 Rect(8.0, 8.0, 20.0, 20.0), parentId: "screen", widgetType: "IconButton",
-                role: "button", states: [DesignSnapshotProperty("actions", "activate")]),
+                role: "button", states: [DesignSnapshotProperty("actions", "activate"),
+                    DesignSnapshotProperty("focusOrder", "0")]),
             DesignSnapshotNode("overlap", DesignSnapshotNodeKind.Component,
                 Rect(18.0, 8.0, 40.0, 36.0), parentId: "screen", widgetType: "Button",
-                role: "button", label: "Open", states: [DesignSnapshotProperty("actions", "activate")]),
+                role: "button", label: "Open", states: [DesignSnapshotProperty("actions", "activate"),
+                    DesignSnapshotProperty("focusOrder", "0")]),
             DesignSnapshotNode("stretched", DesignSnapshotNodeKind.Component,
                 Rect(8.0, 70.0, 160.0, 90.0), parentId: "screen", widgetType: "Button",
                 role: "button", label: "Connect", states: [DesignSnapshotProperty("actions", "activate")]),

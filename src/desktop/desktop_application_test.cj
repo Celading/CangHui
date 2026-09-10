@@ -2,12 +2,18 @@ package chui.desktop
 
 import std.env.getVariable
 import std.collection.ArrayList
+import sdl.system.PerformanceClock
 import sdl.{GamepadAxis, GamepadButton, GamepadConnectionState, GamepadDevice, Key, SdlEventEnvelope,
-    MouseButton, Rect, Renderer, UiEvent, WindowId, WindowSpec, gamepadButtonName,
+    MouseButton, Rect, Renderer, UiEvent, WindowId, WindowSpec, WindowScaleSettings, gamepadButtonName,
     gamepadConnectionStateName}
 import chui.core.{Button, Label, SemanticActionKind, SemanticActionRequest, SemanticActionSource,
-    SharedFrameSurface, Theme, UiContext, VStack}
+    SharedFrameSurface, Theme, UiContext, VStack, StateStore, UiTaskScope, UiTaskSubmission,
+    UiTaskSubmissionStatus, buildRoot}
 import chui.host.{NativeSurfaceBackend, NativeSurfaceDescriptor, NativeSurfaceEvent}
+import chui.controls.Modal
+import chui.text.{TextField, TextCompositionSnapshot}
+import chui.core.State
+import sdl.{TextCompositionEvent, TextCompositionPhase}
 import chui.scene3d.{FakeScene3DProvider, FakeScene3DViewHost, Scene3DFrameClock,
     Scene3DFrameSnapshot, Scene3DResource, Scene3DView, Scene3DViewController,
     Scene3DViewFrameSource, Scene3DViewInputEvent}
@@ -509,16 +515,34 @@ private func runDesktopNativeDoubleWindowSmoke(): DesktopNativeSmokeReceipt {
                 "scene-surface-isolation-failed", "Scene3D native-child registration crossed a window owner")
         }
 
-        let resize = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowResized(240, 150)))
+        // Resize the actual native window. A fabricated size payload is not native resize proof.
+        let didResize = app.setWindowSize(first, 240, 150)
+        // SDL accepts asynchronous resize requests on X11/Wayland. Confirm actual native
+        // state before asserting exact measured geometry; the regular setter stays nonblocking.
+        let didSyncResize = app.syncWindow(first)
+        // Old queued notifications must not restore old geometry after a newer transaction.
+        let resize = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowResized(200, 140)))
         let resizedFirst = app.windowState(first).getOrThrow()
         let untouchedSecond = app.windowState(second).getOrThrow()
-        if (!resize.ok || resizedFirst.logicalWidth != 240 || resizedFirst.logicalHeight != 150 ||
+        if (!didResize || !didSyncResize || !resize.ok || resizedFirst.logicalWidth != 240 || resizedFirst.logicalHeight != 150 ||
             untouchedSecond.logicalWidth != 180 || untouchedSecond.logicalHeight != 140) {
             app.close()
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
                 "window-resize-isolation-failed", "resize escaped its exact WindowId")
         }
 
+        let didZoom = app.setWindowScaling(first, WindowScaleSettings(followSystem: false, zoom: 1.25))
+        let zoomedFirst = app.windowState(first).getOrThrow()
+        let unzoomedSecond = app.windowState(second).getOrThrow()
+        if (!didZoom || zoomedFirst.logicalWidth != 192 || zoomedFirst.logicalHeight != 120 ||
+            unzoomedSecond.logicalWidth != untouchedSecond.logicalWidth ||
+            unzoomedSecond.displayScale != untouchedSecond.displayScale ||
+            zoomedFirst.transformRevision <= resizedFirst.transformRevision) {
+            app.close()
+            return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
+                "window-zoom-isolation-failed", "UI zoom did not remain within its exact WindowId")
+        }
+        let _ = app.setWindowScaling(first, WindowScaleSettings(followSystem: false))
         let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(true)))
         let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.MouseDown(MouseButton.Left, 20.0, 95.0)))
         let capturedFirst = app.windowState(first).getOrThrow()
@@ -581,7 +605,7 @@ private func runDesktopNativeDoubleWindowSmoke(): DesktopNativeSmokeReceipt {
             UiEvent.MouseDown(MouseButton.Left, 20.0, 20.0)))
         if (unknown.ok || unknown.code != "window-not-registered" ||
             firstSceneInput.total() != beforeUnknownFirst || secondSceneInput.total() != beforeUnknownSecond ||
-            app.windowState(WindowId(UInt32(999999))).isSome()) {
+            app.windowState(WindowId(UInt32(999999))).isSome() || app.syncWindow(WindowId(UInt32(999999)))) {
             app.close()
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
                 "unknown-window-did-not-fail-closed", "unknown WindowId mutated a managed scene")
@@ -593,7 +617,7 @@ private func runDesktopNativeDoubleWindowSmoke(): DesktopNativeSmokeReceipt {
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
                 "double-window-step-failed", "expected two presented managed-window receipts")
         }
-        if (!app.closeWindow(first) || app.semanticSnapshot(first).isSome() || app.isClosed() ||
+        if (!app.closeWindow(first) || app.syncWindow(first) || app.semanticSnapshot(first).isSome() || app.isClosed() ||
             !app.closeWindow(second) || !app.isClosed()) {
             app.close()
             return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed,
@@ -621,4 +645,168 @@ func desktopApplicationCreatesAndRunsTwoRealWindowsOrEmitsExplicitHeadlessReceip
     let receipt = runDesktopNativeDoubleWindowSmoke()
     println("[desktop-native-double-window] ${receipt.code}: ${receipt.detail}")
     @Expect(receipt.accepted())
+}
+
+@Test
+func desktopApplicationSyncRejectsUnknownAndClosedOwnersWithoutNativeCreation(): Unit {
+    let app = DesktopApplication()
+    let unknown = WindowId(UInt32(999999))
+    @Expect(!app.syncWindow(unknown))
+    @Expect(app.sessionCount(), 0)
+    app.close()
+    @Expect(!app.syncWindow(unknown))
+}
+
+@Test
+func managedWindowFocusLossReachesModalEditorWithoutCrossingWindows(): Unit {
+    let app = DesktopApplication()
+    let firstText = State<String>("A")
+    let secondText = State<String>("B")
+    let firstOpen = State<Bool>(true)
+    let secondOpen = State<Bool>(true)
+    let firstComposition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    let secondComposition = State<TextCompositionSnapshot>(TextCompositionSnapshot())
+    try {
+        let first = app.openWindow(WindowSpec("IME route A", 300, 180, vsync: false, supersample: 1), {=>
+            Modal(firstOpen) {
+                TextField(firstText, key: "first-ime", composition: Some(firstComposition)).autofocus()
+            }
+        }, theme: Theme.light(reduceMotion: true))
+        let second = app.openWindow(WindowSpec("IME route B", 300, 180, vsync: false, supersample: 1), {=>
+            Modal(secondOpen) {
+                TextField(secondText, key: "second-ime", composition: Some(secondComposition)).autofocus()
+            }
+        }, theme: Theme.light(reduceMotion: true))
+        @Expect(app.windowState(first).getOrThrow().focusId, "first-ime")
+        @Expect(app.windowState(second).getOrThrow().focusId, "second-ime")
+        let preedit = UiEvent.TextComposition(TextCompositionEvent(TextCompositionPhase.Begin, text: "新"))
+        @Expect(app.route(SdlEventEnvelope(Some(first), preedit)).consumed)
+        @Expect(app.route(SdlEventEnvelope(Some(second), preedit)).consumed)
+        @Expect(firstComposition.value.active && secondComposition.value.active)
+        let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(false)))
+        @Expect(!firstComposition.value.active)
+        @Expect(firstComposition.value.preedit, "")
+        @Expect(secondComposition.value.active)
+        @Expect(firstText.value, "A")
+        @Expect(secondText.value, "B")
+        @Expect(firstOpen.value && secondOpen.value)
+        let generation = firstComposition.value.generation
+        let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(false)))
+        let _ = app.route(SdlEventEnvelope(Some(first), UiEvent.WindowFocusChanged(true)))
+        @Expect(firstComposition.value.generation, generation)
+        @Expect(app.windowState(first).getOrThrow().focusId, "first-ime")
+        @Expect(app.route(SdlEventEnvelope(Some(second), UiEvent.TextInput("新"))).consumed)
+        @Expect(secondText.value, "B新")
+        @Expect(firstText.value, "A")
+    } finally {
+        app.close()
+    }
+}
+
+private class ManagedTaskNativeState {
+    var firstScope: ?UiTaskScope = None
+    var secondScope: ?UiTaskScope = None
+    var failedScope: ?UiTaskScope = None
+    var firstApplied: Int64 = 0
+    var secondApplied: Int64 = 0
+    var shown = true
+}
+
+private func awaitManagedOwnerTask(task: UiTaskSubmission): Unit {
+    var attempts = 5000
+    while (task.status() == UiTaskSubmissionStatus.Preparing && attempts > 0) {
+        // A coroutine sleep may resume this UI test on another native thread.
+        // Match the desktop loop's native delay while the worker prepares its result.
+        PerformanceClock.delayNanoseconds(UInt64(1000000))
+        attempts -= 1
+    }
+    if (task.status() != UiTaskSubmissionStatus.OwnerQueued) {
+        throw IllegalStateException("managed task did not reach owner queue")
+    }
+}
+
+private func requireManagedTask(value: Bool, reason: String): Unit {
+    if (!value) { throw IllegalStateException("managed task lifecycle: ${reason}") }
+}
+
+private func runManagedWindowTaskSmoke(): DesktopNativeSmokeReceipt {
+    if (let Some(reason) <- configuredNativeSmokeSkip()) {
+        return DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Skipped, "skipped-explicitly", reason)
+    }
+    let app = DesktopApplication()
+    let state = ManagedTaskNativeState()
+    try {
+        let first = app.openWindow(WindowSpec("Task owner A", 240, 160, vsync: false), {=>
+            state.firstScope = Some(app.rememberTaskScope("load"))
+            VStack { Label("A") }
+        })
+        let second = app.openWindow(WindowSpec("Task owner B", 240, 160, vsync: false), {=>
+            if (state.shown) { state.secondScope = Some(app.rememberTaskScope("load")) }
+            VStack { Label("B ${state.secondApplied}") }
+        })
+        let oldFirst = state.firstScope.getOrThrow()
+        let oldSecond = state.secondScope.getOrThrow()
+        var failedBuild = false
+        try {
+            let _ = app.openWindow(WindowSpec("Rolled-back owner", 240, 160, vsync: false), {=>
+                state.failedScope = Some(app.rememberTaskScope("load"))
+                throw IllegalStateException("intentional managed build failure")
+            })
+        } catch (_: IllegalStateException) { failedBuild = true }
+        requireManagedTask(failedBuild && state.failedScope.getOrThrow().isClosed() &&
+            app.sessionCount() == 2 && !oldFirst.isClosed() && !oldSecond.isClosed(),
+            "failed window build disposes only its new owner")
+        requireManagedTask(!refEq((oldFirst as Object).getOrThrow(), (oldSecond as Object).getOrThrow()),
+            "same key across windows must keep distinct owners")
+        let stale = oldFirst.submit({=> Int64(99)}, {value=> state.firstApplied = value})
+        let live = oldSecond.submit({=> Int64(1)}, {value=> state.secondApplied = value})
+        awaitManagedOwnerTask(stale)
+        awaitManagedOwnerTask(live)
+        requireManagedTask(app.closeWindow(first), "close first")
+        let _ = app.step()
+        requireManagedTask(oldFirst.isClosed() && state.firstApplied == 0 &&
+            stale.status() == UiTaskSubmissionStatus.Cancelled, "closed window cannot apply queued result")
+        requireManagedTask(!oldSecond.isClosed() && state.secondApplied == 1 &&
+            live.status() == UiTaskSubmissionStatus.Committed && !app.isClosed(), "surviving owner commits")
+        state.shown = false
+        let _ = app.step()
+        requireManagedTask(oldSecond.isClosed(), "committed unmount closes view scope")
+        state.shown = true
+        let _ = app.step()
+        let fresh = state.secondScope.getOrThrow()
+        requireManagedTask(!fresh.isClosed() && !refEq((fresh as Object).getOrThrow(),
+            (oldSecond as Object).getOrThrow()), "remount gets fresh owner on same window queue")
+        let closing = fresh.submit({=> Int64(2)}, {_=> let _ = app.closeWindow(second)})
+        awaitManagedOwnerTask(closing)
+        let terminal = app.step()
+        requireManagedTask(app.isClosed() && fresh.isClosed() && terminal.size == 1 &&
+            terminal[0].detail == "closed-during-owner-work", "callback close must not rebuild released window")
+        DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Passed, "passed-managed-task-lifecycle",
+            "two owners, stale cancellation, surviving commit, remount and reentrant close")
+    } catch (error: Exception) {
+        if (nativeSmokeFailureCanSkip(error.message)) {
+            DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Skipped, "skipped-headless-runtime", error.message)
+        } else {
+            DesktopNativeSmokeReceipt(DesktopNativeSmokeStatus.Failed, "managed-task-lifecycle-failed", error.message)
+        }
+    } finally { app.close() }
+}
+
+@Test
+func managedWindowTaskScopeFollowsViewAndWindowLifetime(): Unit {
+    let receipt = runManagedWindowTaskSmoke()
+    println("[managed-task-native] ${receipt.code}: ${receipt.detail}")
+    @Expect(receipt.accepted())
+}
+
+@Test
+func managedWindowTaskScopeRejectsOutsideAndForeignBuilds(): Unit {
+    let app = DesktopApplication()
+    var failures = 0
+    try { let _ = app.rememberTaskScope("outside") }
+    catch (_: IllegalStateException) { failures += 1 }
+    try { let _ = buildRoot({=> let _ = app.rememberTaskScope("foreign")}, StateStore()) }
+    catch (_: IllegalStateException) { failures += 1 }
+    app.close()
+    @Expect(failures, 2)
 }

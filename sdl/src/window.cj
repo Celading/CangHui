@@ -17,6 +17,8 @@ public struct WindowSpec {
      */
     public let cornerRadius: Float32
     public let scale: Float32
+    /** None preserves explicit legacy window-unit scale. Some enables system-aware UI zoom. */
+    public let scaling: ?WindowScaleSettings
     // Whether the renderer waits for the vertical blank on present. On (the default) prevents
     // tearing and is the right choice for real applications. Off lets the frame loop run
     // uncapped, which is how a benchmark measures true per-frame work: with vsync on, every
@@ -39,7 +41,8 @@ public struct WindowSpec {
         supersample!: Int32 = 2,
         decorated!: Bool = true,
         frameless!: Bool = false,
-        cornerRadius!: Float32 = 0.0
+        cornerRadius!: Float32 = 0.0,
+        scaling!: ?WindowScaleSettings = None
     ) {
         this.title = title
         this.width = width
@@ -50,6 +53,7 @@ public struct WindowSpec {
         this.frameless = frameless
         this.cornerRadius = normalizedCornerRadius(cornerRadius)
         this.scale = normalizedScale(scale)
+        this.scaling = scaling
         this.vsync = vsync
         this.supersample = supersample
     }
@@ -61,12 +65,19 @@ public class SdlWindow <: Resource {
     private let ownerThreadId: UInt64
     private let closeGate: WindowCloseGate
     private let runtime: SdlRuntime
+    private var textInputEnabled: Bool
+    private var backingPixelWidth: Int32
+    private var backingPixelHeight: Int32
+    private var backingDensity: Float32 = 1.0
+    private let legacyWindowScale: Float32
+    private var scalingSettings: ?WindowScaleSettings
     private var shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested,
         0.0, 0.0, 0, 0)
 
     public var width: Int32
     public var height: Int32
-    public let scale: Float32
+    public var scale: Float32
+    public var transformRevision: UInt64
     public let cornerRadius: Float32
     public let renderer: Renderer
     public let id: WindowId
@@ -74,10 +85,16 @@ public class SdlWindow <: Resource {
     /**
      * Throws `CuiException` when SDL cannot create or initialize the window, renderer, or text input.
      */
-    public init(spec: WindowSpec) {
+    public init(spec: WindowSpec, textInput!: Bool = true) {
+        this.textInputEnabled = textInput
         this.width = spec.width
         this.height = spec.height
         this.scale = spec.scale
+        this.legacyWindowScale = spec.scale
+        this.scalingSettings = spec.scaling
+        this.transformRevision = UInt64(1)
+        this.backingPixelWidth = scaledDimension(spec.width, spec.scale)
+        this.backingPixelHeight = scaledDimension(spec.height, spec.scale)
         this.cornerRadius = spec.cornerRadius
         this.runtime = SdlRuntime()
 
@@ -86,6 +103,10 @@ public class SdlWindow <: Resource {
         var window = CPointer<Unit>()
         var createdRenderer = CPointer<Unit>()
         var nativeWindowId = UInt32(0)
+        var initialDensity: Float32 = 1.0
+        var initialScale = spec.scale
+        var initialPixelWidth: Int32 = 0
+        var initialPixelHeight: Int32 = 0
         var initialShapeReceipt = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested,
             spec.cornerRadius, 0.0, 0, 0)
         let titleText = unsafe { LibC.mallocCString(spec.title) }
@@ -100,10 +121,21 @@ public class SdlWindow <: Resource {
                 if (!ok || window.isNull() || createdRenderer.isNull()) {
                     throw CuiException("SDL_CreateWindowAndRenderer failed: ${lastSdlError()}")
                 }
-                configureRenderer(createdRenderer, spec.scale, spec.vsync)
-                initialShapeReceipt = applyRoundedWindowShape(window, pixelWidth, pixelHeight,
-                    spec.cornerRadius * spec.scale)
-                if (!unsafe { SDL_StartTextInput(window) }) {
+                initialDensity = unsafe { SDL_GetWindowPixelDensity(window) }
+                let transform = resolveWindowTransform(unsafe { SDL_GetWindowDisplayScale(window) },
+                    initialDensity, spec.scale, spec.scaling)
+                initialScale = transform.renderScale
+                if (spec.scaling.isSome()) {
+                    ensureSdl(unsafe { SDL_SetWindowSize(window,
+                        scaledDimension(spec.width, transform.windowScale),
+                        scaledDimension(spec.height, transform.windowScale)) }, "SDL_SetWindowSize")
+                }
+                ensureSdl(unsafe { SDL_GetWindowSizeInPixels(window, inout initialPixelWidth,
+                    inout initialPixelHeight) }, "SDL_GetWindowSizeInPixels")
+                configureRenderer(createdRenderer, initialScale, spec.vsync)
+                initialShapeReceipt = applyRoundedWindowShape(window, initialPixelWidth, initialPixelHeight,
+                    spec.cornerRadius * initialScale)
+                if (textInput && !unsafe { SDL_StartTextInput(window) }) {
                     throw CuiException("SDL_StartTextInput failed: ${lastSdlError()}")
                 }
                 nativeWindowId = unsafe { SDL_GetWindowID(window) }
@@ -122,9 +154,108 @@ public class SdlWindow <: Resource {
         let nativeOwner = unsafe { SDL_GetCurrentThreadID() }
         this.ownerThreadId = nativeOwner
         this.closeGate = WindowCloseGate(nativeOwner)
-        this.renderer = Renderer(createdRenderer, contentScale: spec.scale, supersample: spec.supersample)
+        this.renderer = Renderer(createdRenderer, contentScale: initialScale, supersample: spec.supersample)
+        this.scale = initialScale
+        this.backingDensity = initialDensity
+        this.backingPixelWidth = initialPixelWidth
+        this.backingPixelHeight = initialPixelHeight
+        this.width = Int32(Float32(initialPixelWidth) / initialScale)
+        this.height = Int32(Float32(initialPixelHeight) / initialScale)
         this.id = WindowId(nativeWindowId)
         this.shapeReceiptValue = initialShapeReceipt
+    }
+
+    /** Snapshot used by render, input and probes to agree on one transform revision. */
+    public func currentMetrics(): WindowMetrics {
+        WindowMetrics(width, height, backingPixelWidth, backingPixelHeight, scale, transformRevision,
+            pixelDensity: backingDensity)
+    }
+
+    public func coordinateTransform(): WindowCoordinateTransform {
+        WindowCoordinateTransform(scale, backingDensity)
+    }
+
+    /** UI-owner operation. Keeps native window size, relayouts content at the selected zoom. */
+    public func setScaling(settings: WindowScaleSettings): WindowMetrics {
+        ensureScaleOwner()
+        let previous = scalingSettings
+        scalingSettings = Some(settings)
+        try {
+            return refreshDisplayScale()
+        } catch (error: Exception) {
+            scalingSettings = previous
+            throw error
+        }
+    }
+
+    /** Shared lowering for the single-window and application-level event pumps. */
+    public func normalizeWindowEvent(event: UiEvent): UiEvent {
+        match (event) {
+            // Query a complete native snapshot, not one possibly stale queued size payload.
+            case UiEvent.WindowDisplayScaleChanged => UiEvent.WindowMetricsChanged(refreshDisplayScale())
+            case UiEvent.WindowPixelSizeChanged(_, _) => UiEvent.WindowMetricsChanged(refreshDisplayScale())
+            case UiEvent.WindowResized(_, _) => UiEvent.WindowMetricsChanged(refreshDisplayScale())
+            case UiEvent.WindowMaximized =>
+                ensureScaleOwner()
+                refreshRoundedShape(backingPixelWidth, backingPixelHeight)
+                event
+            case UiEvent.WindowRestored =>
+                ensureScaleOwner()
+                refreshRoundedShape(backingPixelWidth, backingPixelHeight)
+                event
+            case _ => scaleEventCoordinates(event, coordinateTransform().windowScale)
+        }
+    }
+
+    /**
+     * Atomically publishes a provider scale/backing-size change. Logical layout remains stable;
+     * the renderer and physical shape resources switch before the new revision is returned.
+     */
+    public func applyDisplayScale(
+        displayScale: Float32,
+        pixelWidth: Int32,
+        pixelHeight: Int32
+    ): WindowMetrics {
+        let next = nextWindowMetrics(currentMetrics(), displayScale, pixelWidth, pixelHeight)
+        return commitMetrics(next)
+    }
+
+    private func commitMetrics(next: WindowMetrics): WindowMetrics {
+        renderer.setScale(next.displayScale)
+        width = next.logicalWidth
+        height = next.logicalHeight
+        scale = next.displayScale
+        backingDensity = next.pixelDensity
+        transformRevision = next.transformRevision
+        backingPixelWidth = next.pixelWidth
+        backingPixelHeight = next.pixelHeight
+        refreshRoundedShape(next.pixelWidth, next.pixelHeight)
+        next
+    }
+
+    /** Samples backing size and both scale facts together on the native UI owner. */
+    public func refreshDisplayScale(): WindowMetrics {
+        ensureScaleOwner()
+        var pixelWidth: Int32 = 0
+        var pixelHeight: Int32 = 0
+        ensureSdl(unsafe { SDL_GetWindowSizeInPixels(windowPtr, inout pixelWidth, inout pixelHeight) },
+            "SDL_GetWindowSizeInPixels")
+        let nativeDisplayScale = unsafe { SDL_GetWindowDisplayScale(windowPtr) }
+        let nativePixelDensity = unsafe { SDL_GetWindowPixelDensity(windowPtr) }
+        let transform = resolveWindowTransform(nativeDisplayScale, nativePixelDensity, legacyWindowScale, scalingSettings)
+        commitMetrics(measuredWindowMetrics(currentMetrics(), pixelWidth, pixelHeight, transform))
+    }
+
+    /** Explicit native-state barrier; normal event processing does not call this. */
+    public func sync(): Unit {
+        ensureScaleOwner()
+        ensureSdl(unsafe { SDL_SyncWindow(windowPtr) }, "SDL_SyncWindow")
+    }
+
+    private func ensureScaleOwner(): Unit {
+        if (isClosed() || !sameNativeThread(ownerThreadId, unsafe { SDL_GetCurrentThreadID() })) {
+            throw IllegalStateException("window metrics require the open window's native UI owner")
+        }
     }
 
     public func setTitle(title: String): Unit {
@@ -134,22 +265,23 @@ public class SdlWindow <: Resource {
         }
     }
 
+    /** Sets a live window icon where supported; application bundle/Dock identity is separate. */
+    public func setIcon(icon: Surface): Unit {
+        ensureScaleOwner()
+        if (icon.isClosed()) { throw IllegalStateException("window icon surface is closed") }
+        ensureSdl(unsafe { SDL_SetWindowIcon(windowPtr, icon.ptr) }, "SDL_SetWindowIcon")
+    }
+
     public func setSize(width: Int32, height: Int32): Unit {
-        let pixelWidth = scaledDimension(width, scale)
-        let pixelHeight = scaledDimension(height, scale)
+        let windowScale = coordinateTransform().windowScale
+        let pixelWidth = scaledDimension(width, windowScale)
+        let pixelHeight = scaledDimension(height, windowScale)
         ensureSdl(unsafe { SDL_SetWindowSize(windowPtr, pixelWidth, pixelHeight) }, "SDL_SetWindowSize")
-        this.width = width
-        this.height = height
-        refreshRoundedShape(pixelWidth, pixelHeight)
+        let _ = refreshDisplayScale()
     }
 
     public func refreshSize(): Size {
-        var w: Int32 = 0
-        var h: Int32 = 0
-        ensureSdl(unsafe { SDL_GetWindowSize(windowPtr, inout w, inout h) }, "SDL_GetWindowSize")
-        width = Int32(Float32(w) / scale)
-        height = Int32(Float32(h) / scale)
-        refreshRoundedShape(w, h)
+        let _ = refreshDisplayScale()
         Size(Float32(width), Float32(height))
     }
 
@@ -179,8 +311,22 @@ public class SdlWindow <: Resource {
      * caret instead of a screen corner. The conversion to window pixels happens here.
      */
     public func setTextInputArea(rect: Rect): Unit {
-        var raw = Rect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale).toSdlRect()
+        var raw = coordinateTransform().logicalToWindow(rect).toSdlRect()
         ensureSdl(unsafe { SDL_SetTextInputArea(windowPtr, inout raw, 0) }, "SDL_SetTextInputArea")
+    }
+
+    /** Enables native text events/IME only while editing. Must run on the open window owner. */
+    public func setTextInputEnabled(enabled: Bool): Unit {
+        if (isClosed() || !sameNativeThread(ownerThreadId, unsafe { SDL_GetCurrentThreadID() })) {
+            throw IllegalStateException("text input requires the open window's native UI owner")
+        }
+        if (textInputEnabled == enabled) { return }
+        if (enabled) {
+            ensureSdl(unsafe { SDL_StartTextInput(windowPtr) }, "SDL_StartTextInput")
+        } else {
+            ensureSdl(unsafe { SDL_StopTextInput(windowPtr) }, "SDL_StopTextInput")
+        }
+        textInputEnabled = enabled
     }
 
     public func pollEvent(): ?UiEvent {
@@ -195,13 +341,16 @@ public class SdlWindow <: Resource {
         let currentThreadId = unsafe { SDL_GetCurrentThreadID() }
         if (!sameNativeThread(ownerThreadId, currentThreadId)) {
             throw CuiException(
-                "SDL event polling moved across native threads; create or borrow the desktop window only after blocking startup work"
+                "SDL event polling moved across native threads (owner=${ownerThreadId}, current=${currentThreadId}); create or borrow the desktop window only after blocking startup work"
             )
         }
         match (runtime.pollEvent()) {
             case Some(envelope) =>
                 let scaled = match (envelope.windowId) {
-                    case Some(target) => if (target == id) { scaleEventEnvelope(envelope, scale) } else { envelope }
+                    case Some(target) =>
+                        if (target == id) {
+                            SdlEventEnvelope(envelope.windowId, normalizeWindowEvent(envelope.event), modifierMask: envelope.modifierMask)
+                        } else { envelope }
                     case None => envelope
                 }
                 Some(scaled)
@@ -269,14 +418,38 @@ public class SdlWindow <: Resource {
     }
 
     private func refreshRoundedShape(pixelWidth: Int32, pixelHeight: Int32): Unit {
+        // 最大化时满屏直角：清除已应用的圆角遮罩（还原时恢复配置圆角）
+        let maximized = windowFlagsFromRaw(unsafe { SDL_GetWindowFlags(windowPtr) }).maximized
+        if (maximized) {
+            if (cornerRadius > 0.0 && shapeReceiptValue.status != WindowShapeApplyStatus.NotRequested) {
+                try {
+                    ensureSdl(unsafe { SDL_SetWindowShape(windowPtr, CPointer<Unit>()) }, "SDL_SetWindowShape(clear)")
+                    shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested, 0.0, 0.0,
+                        pixelWidth, pixelHeight, detail: "shape cleared for maximized window")
+                } catch (error: Exception) {
+                    shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.Failed, 0.0,
+                        shapeReceiptValue.appliedRadius, pixelWidth, pixelHeight,
+                        detail: "shape clear failed: " + error.message)
+                }
+            }
+            return
+        }
         if (cornerRadius > 0.0) {
-            shapeReceiptValue = applyRoundedWindowShape(windowPtr, pixelWidth, pixelHeight, cornerRadius * scale)
+            try {
+                shapeReceiptValue = applyRoundedWindowShape(windowPtr, pixelWidth, pixelHeight, cornerRadius * scale)
+            } catch (error: Exception) {
+                // Native shape allocation failure must not roll policy back after metrics committed.
+                shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.Failed, cornerRadius * scale,
+                    0.0, pixelWidth, pixelHeight, detail: "shape refresh failed: " + error.message)
+            }
         }
     }
 
     private func applyResizeUpdate(update: WindowResizeUpdate): Unit {
         width = update.logicalWidth
         height = update.logicalHeight
+        backingPixelWidth = update.pixelWidth
+        backingPixelHeight = update.pixelHeight
         refreshRoundedShape(update.pixelWidth, update.pixelHeight)
     }
 }

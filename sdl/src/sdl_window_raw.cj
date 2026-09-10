@@ -1,6 +1,7 @@
 package sdl
 
 foreign {
+    func SDL_GetCurrentVideoDriver(): CString
     func SDL_SetWindowRelativeMouseMode(window: CPointer<Unit>, enabled: Bool): Bool
 
     func SDL_CreateWindowAndRenderer(
@@ -67,6 +68,8 @@ foreign {
     func SDL_SetWindowOpacity(window: CPointer<Unit>, opacity: Float32): Bool
 
     func SDL_SetWindowShape(window: CPointer<Unit>, shape: CPointer<Unit>): Bool
+
+    func SDL_SetWindowIcon(window: CPointer<Unit>, icon: CPointer<Unit>): Bool
 
     func SDL_GetWindowOpacity(window: CPointer<Unit>): Float32
 

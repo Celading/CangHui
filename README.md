@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Cangjie-CangHui-c96b2c?style=for-the-badge&labelColor=1f2430" alt="Cangjie" />
-  <img src="https://img.shields.io/badge/version-0.17.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.17.0" />
+  <img src="https://img.shields.io/badge/version-0.18.0-3182ce?style=for-the-badge&labelColor=1f2430" alt="Version 0.18.0" />
   <img src="https://img.shields.io/badge/package-chui-2f855a?style=for-the-badge&labelColor=1f2430" alt="Package chui" />
   <img src="https://img.shields.io/badge/output-static-805ad5?style=for-the-badge&labelColor=1f2430" alt="Static Output" />
   <img src="https://img.shields.io/badge/focus-multiplatform%20GUI-1f9d55?style=for-the-badge&labelColor=1f2430" alt="Multiplatform GUI" />
@@ -232,6 +232,11 @@ framework development, but it is not the normal application layout.
   exposes deterministic snapshot/diff plus typed actions. Agent and voice action
   sources are denied unless the application opts in; no coordinate, key,
   process-attach, socket or command execution surface is included.
+- `DesignSnapshotV2` preserves the complete v1 hard-truth envelope while adding
+  public component/source navigation, declarative click/key/gamepad interaction
+  edges, and recommended phone/tablet/desktop/foldable multi-density design
+  scenes. `cuic design snapshot --version 2` stays debug-gated and carries no
+  callback body, source execution, absolute path, or private capability matrix.
 - `Scene3DView` can opt into `PreferSharedFrame`. The current desktop path
   samples a bounded CPU RGBA8 lease at the widget's normal paint position and
   releases it exactly once with the terminal composition outcome; native private GPU textures
@@ -282,6 +287,8 @@ framework development, but it is not the normal application layout.
   window; release cuic keeps only `kmode diff` and refuses execution
 - debug-built `cuic probe` / `pview` for deterministic component/function/event/
   animation and Draw IR reports; release cuic keeps only `probe diff`
+- debug-built `cuic design snapshot --version 1|2`; v2 can carry typed component,
+  handler and Multiplatform adaptation metadata supplied by `ComponentProbe`
 - `cuic symbol` for declared provider subsets and generation
 - `cuic font` for font preparation and registration
 - `cuic prnt` for deterministic settled-frame screenshots
@@ -303,6 +310,9 @@ typed `ComponentPackageDescriptor`, receive a `ComponentContext` with
 `Expanded` layout classes without importing a platform host.
 
 - Reference package: `packages/gallery-components`
+- Optional design recipes: [CangHuiKit](manual/reference/canghui-kit.md), including
+  choice/settings/step compositions and Editorial, Focused and Guided intros;
+  [property motion](manual/guide/how-to/animate-properties.md) follows ordinary modifier values.
 - Desktop gallery: `examples/component-gallery`
 - Responsive preview matrix: `src/testkit/preview_matrix.cj`
 - Component-package schema: `contracts/canghui-component-package-v0.schema.json`

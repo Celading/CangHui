@@ -2,7 +2,6 @@ package cuic
 
 import std.collection.{ArrayList, HashMap}
 import std.convert.*
-import std.env.getVariables
 import std.fs.{Directory, File, Path, exists}
 import std.io.{InputStream, OutputStream, StringReader, StringWriter}
 import std.process.{ProcessRedirect, SubProcess, launch}
@@ -58,14 +57,18 @@ class CuicKModeSession {
     private var nextRequestId: Int64 = 1
     private var closed = false
 
-    init(project: String, framework: String) {
+    init(context: ExecutionContext) {
         requireDebugChannelBuild("cuic kMode/probe runtime")
-        let environment = kModeChildEnvironment(framework)
+        let environment = kModeChildEnvironment(context.framework,
+            nativeDirectory: context.sdlDirectory(), project: context.project)
+        // The caller already built this exact debug target under its lease.
+        // cjpm run would rebuild another target without the verified native paths.
+        let executable = canonicalPackagingPath(debugUiExecutable(context.targetDir), "debug executable")
         this.process = launch(
-            "cjpm",
-            ["run", "-g"],
-            workingDirectory: Path(project),
-            environment: environment,
+            executable,
+            [],
+            workingDirectory: Path(context.project),
+            environment: workingDirectoryEnvironment(context.project, environment),
             stdIn: ProcessRedirect.Pipe,
             stdOut: ProcessRedirect.Pipe,
             stdErr: ProcessRedirect.Inherit
@@ -232,9 +235,12 @@ func designCommand(args: Array<String>, start: Int64): Int64 {
         throw CuicError("design requires snapshot")
     }
     requireDebugChannelBuild("cuic design snapshot")
-    let parsed = parseProbeTarget(args, start + 1, true)
+    let parsed = parseProbeTarget(args, start + 1, true, allowDesignVersion: true)
     if (parsed.json) { throw CuicError("design snapshot always emits canonical JSON") }
-    let request = "@cui-design-snapshot\n" + parsed.script
+    let request = (if (parsed.designVersion == 2 && parsed.computedTruth) {
+            "@cui-design-snapshot-v2-computed\n"
+        } else if (parsed.designVersion == 2) { "@cui-design-snapshot-v2\n" }
+        else { "@cui-design-snapshot\n" }) + parsed.script
     runProbeExchange(parsed.project, "cui.probe.run", parsed.name + "\n" + request,
         parsed.name, true)
 }
@@ -267,9 +273,11 @@ class ProbeTargetSelection {
     let columns: Int64
     let rows: Int64
     let failOn: String
+    let designVersion: Int64
+    let computedTruth: Bool
 
     init(project: String, name: String, script: String, json: Bool, columns: Int64, rows: Int64,
-        failOn!: String = "warning") {
+        failOn!: String = "warning", designVersion!: Int64 = 1, computedTruth!: Bool = false) {
         this.project = project
         this.name = name
         this.script = script
@@ -277,21 +285,39 @@ class ProbeTargetSelection {
         this.columns = columns
         this.rows = rows
         this.failOn = failOn
+        this.designVersion = designVersion
+        this.computedTruth = computedTruth
     }
 }
 
 func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
-    allowAscii!: Bool = false, allowAudit!: Bool = false): ProbeTargetSelection {
+    allowAscii!: Bool = false, allowAudit!: Bool = false, allowDesignVersion!: Bool = false): ProbeTargetSelection {
     let positional = ArrayList<String>()
     var script = ""
     var json = false
     var columns: Int64 = 96
     var rows: Int64 = 32
     var failOn = "warning"
+    var designVersion: Int64 = 1
+    var computedTruth = false
     var i = start
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--version") {
+            if (!allowDesignVersion) { throw CuicError("--version is only valid for design snapshot") }
+            if (i + 1 >= args.size) { throw CuicError("--version requires 1 or 2") }
+            designVersion = Int64.parse(args[i + 1])
+            if (designVersion != 1 && designVersion != 2) { throw CuicError("--version requires 1 or 2") }
+            i += 2
+            continue
+        }
+        if (value == "--computed") {
+            if (!allowDesignVersion) { throw CuicError("--computed is only valid for design snapshot") }
+            computedTruth = true
+            i += 1
+            continue
+        }
         if (value == "--fail-on") {
             if (!allowAudit) { throw CuicError("--fail-on is only valid for ui audit") }
             if (i + 1 >= args.size) { throw CuicError("--fail-on requires info, warning, or error") }
@@ -338,11 +364,15 @@ func parseProbeTarget(args: Array<String>, start: Int64, allowScript: Bool,
         if (columns < 20 || columns > 240) { throw CuicError("probe ascii columns must be between 20 and 240") }
         if (rows < 8 || rows > 100) { throw CuicError("probe ascii rows must be between 8 and 100") }
     }
-    ProbeTargetSelection(project, name, script, json, columns, rows, failOn: failOn)
+    if (computedTruth && designVersion != 2) {
+        throw CuicError("--computed requires --version 2")
+    }
+    ProbeTargetSelection(project, name, script, json, columns, rows,
+        failOn: failOn, designVersion: designVersion, computedTruth: computedTruth)
 }
 
 func runProbeExchange(projectValue: String, endpoint: String, payload: String,
-    probeName: String, json: Bool): Int64 {
+    probeName: String, json: Bool, quiet!: Bool = false): Int64 {
     let project = normalizeKModePath(projectValue)
     let framework = ensureFrameworkRoot(project)
     let context = ExecutionContext(project, framework)
@@ -350,43 +380,47 @@ func runProbeExchange(projectValue: String, endpoint: String, payload: String,
     if (diffCode != 0) { return diffCode }
     let probeDiffCode = runProbeDiff(project, quiet: true)
     if (probeDiffCode != 0) { return probeDiffCode }
-    let boot = bootstrap(hostPlatform(), framework, stagingRoot: context.stagingRoot)
+    // JSON probe/design commands are machine-readable contracts. Keep bootstrap
+    // progress off stdout so their output remains directly consumable by jq and
+    // other protocol clients.
+    let boot = bootstrap(hostPlatform(), framework,
+        stagingRoot: context.stagingRoot, quiet: json || quiet)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
-    var buildCode = 0
     try {
-        buildCode = if (json) {
+        let buildCode = if (json || quiet) {
             executeCjpmQuiet(context, ["build", "-g"])
         } else {
             executeCjpm(context, ["build", "-g"])
         }
+        if (buildCode != 0) { return buildCode }
+        let session = CuicKModeSession(context)
+        try {
+            let response = session.exchange("invoke", endpoint: endpoint, payload: payload)
+            if (!response.ok) {
+                throw CuicError("probe ${response.status} (${response.errorCode}): ${response.errorMessage}")
+            }
+            let rendered = if (json && !startsWithText(trimAscii(response.payload), "{")) {
+                "{\"protocol\":\"cui.probe.v0\",\"probe\":" + cuicJsonQuote(probeName) +
+                    ",\"ok\":true,\"result\":" + cuicJsonQuote(response.payload) + "}"
+            } else {
+                response.payload
+            }
+            if (!rendered.isEmpty()) { println(rendered) }
+            let exitCode = session.close()
+            if (exitCode != 0) { throw CuicError("probe process exited with ${exitCode}") }
+            if (containsText(rendered, "\"ok\":false") ||
+                (containsText(rendered, "\"protocol\":\"canghui.ui-health/v1\"") &&
+                    containsText(rendered, "\"passed\":false")) ||
+                startsWithText(rendered, "CUI_PROBE_ASCII_ERROR:")) { return 1 }
+            if (startsWithText(rendered, "CangHui prntx | ok=false")) { return 1 }
+            0
+        } catch (error: Exception) {
+            session.abort()
+            throw error
+        }
     } finally {
         context.releaseLease(lease)
-    }
-    if (buildCode != 0) { return buildCode }
-    let session = CuicKModeSession(project, framework)
-    try {
-        let response = session.exchange("invoke", endpoint: endpoint, payload: payload)
-        if (!response.ok) {
-            throw CuicError("probe ${response.status} (${response.errorCode}): ${response.errorMessage}")
-        }
-        let rendered = if (json && !startsWithText(trimAscii(response.payload), "{")) {
-            "{\"protocol\":\"cui.probe.v0\",\"probe\":" + cuicJsonQuote(probeName) +
-                ",\"ok\":true,\"result\":" + cuicJsonQuote(response.payload) + "}"
-        } else {
-            response.payload
-        }
-        if (!rendered.isEmpty()) { println(rendered) }
-        let exitCode = session.close()
-        if (exitCode != 0) { throw CuicError("probe process exited with ${exitCode}") }
-        if (containsText(rendered, "\"ok\":false") ||
-            (containsText(rendered, "\"protocol\":\"canghui.ui-health/v1\"") &&
-                containsText(rendered, "\"passed\":false")) ||
-            startsWithText(rendered, "CUI_PROBE_ASCII_ERROR:")) { return 1 }
-        0
-    } catch (error: Exception) {
-        session.abort()
-        throw error
     }
 }
 
@@ -441,58 +475,48 @@ func runKModeExchange(projectValue: String, operation: String, endpoint: String,
     let boot = bootstrap(hostPlatform(), framework, stagingRoot: context.stagingRoot)
     if (boot != 0) { return boot }
     let lease = context.acquireLease()
-    var buildCode = 0
     try {
-        buildCode = executeCjpm(context, ["build", "-g"])
+        let buildCode = executeCjpm(context, ["build", "-g"])
+        if (buildCode != 0) { return buildCode }
+        let session = CuicKModeSession(context)
+        try {
+            let response = session.exchange(operation, endpoint: endpoint, payload: payload)
+            if (!response.ok) {
+                throw CuicError("kMode ${response.status} (${response.errorCode}): ${response.errorMessage}")
+            }
+            if (!response.payload.isEmpty()) {
+                println(response.payload)
+            } else {
+                println(response.status)
+            }
+            let exitCode = session.close()
+            if (exitCode != 0) {
+                throw CuicError("kMode process exited with ${exitCode}")
+            }
+            0
+        } catch (error: Exception) {
+            session.abort()
+            throw error
+        }
     } finally {
         context.releaseLease(lease)
-    }
-    if (buildCode != 0) { return buildCode }
-    let session = CuicKModeSession(project, framework)
-    try {
-        let response = session.exchange(operation, endpoint: endpoint, payload: payload)
-        if (!response.ok) {
-            throw CuicError("kMode ${response.status} (${response.errorCode}): ${response.errorMessage}")
-        }
-        if (!response.payload.isEmpty()) {
-            println(response.payload)
-        } else {
-            println(response.status)
-        }
-        let exitCode = session.close()
-        if (exitCode != 0) {
-            throw CuicError("kMode process exited with ${exitCode}")
-        }
-        0
-    } catch (error: Exception) {
-        session.abort()
-        throw error
     }
 }
 
 @When[debug]
-func kModeChildEnvironment(framework: String): HashMap<String, String> {
+func kModeChildEnvironment(framework: String, nativeDirectory!: String = "", project!: String = ""): HashMap<String, String> {
     requireDebugChannelBuild("cuic kMode/probe runtime")
-    let environment = HashMap<String, String>()
-    for ((key, value) in getVariables()) {
-        environment.add(key, value)
-    }
+    // Reuse the normal launcher's verified Cangjie runtime/native/font closure.
+    // A consumer need not compile with --set-runtime-rpath just to use a probe.
+    let environment = applicationEnvironment(framework, "", UInt64(0),
+        nativeDirectory: nativeDirectory, project: project)
     environment.add("CANGHUI_KMODE", "1")
     environment.add("CANGHUI_KMODE_TRANSPORT", "stdio")
-    environment.add("CANGHUI_HARMONYOS_SANS", runtimeHarmonyFont(framework))
-    let sdl = joinPath(framework, "sdl/.sdl3")
-    if (hostPlatform() == "macos") {
-        environment.add("DYLD_LIBRARY_PATH", sdl + ":" + readEnv("DYLD_LIBRARY_PATH"))
-    } else if (hostPlatform() == "linux") {
-        environment.add("LD_LIBRARY_PATH", sdl + ":" + readEnv("LD_LIBRARY_PATH"))
-    } else {
-        environment.add("PATH", sdl + ";" + readEnv("PATH"))
-    }
     environment
 }
 
 @When[!debug]
-func kModeChildEnvironment(_framework: String): HashMap<String, String> {
+func kModeChildEnvironment(_framework: String, nativeDirectory!: String = "", project!: String = ""): HashMap<String, String> {
     requireDebugChannelBuild("cuic kMode/probe runtime")
     HashMap<String, String>()
 }

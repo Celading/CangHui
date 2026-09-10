@@ -12,6 +12,8 @@ import chui.core.{UiContext, Widget}
 import std.env.getVariable
 @When[debug]
 import chui.kmode.decodeKModeText
+@When[debug]
+import chui.core.parseScriptedKeyInput
 
 @When[debug]
 private let DEBUG_UI_SCRIPT_LIMIT: Int64 = 128
@@ -25,20 +27,38 @@ class DebugUiScriptRunner {
     private var index: Int64 = 0
     private var finishing = false
     private var completed = false
+    private var failure: ?String = None
     private var revision: UInt64 = 0
     private var previous: ?DebugUiObservation = None
     private var current: ?DebugUiObservation = None
+    private let requestedWindow: String
 
     init() {
         commands = parseDebugUiScript(debugUiScriptText())
+        requestedWindow = if (commands.isEmpty()) { "" } else { debugUiRequestedWindow() }
+    }
+
+    // Deterministic in-process tests use the same bounded parser, never a new transport.
+    init(script: String, windowId!: String = "") {
+        commands = parseDebugUiScript(script)
+        requestedWindow = validateDebugUiWindow(windowId)
+    }
+
+    func windowId(): String { requestedWindow }
+
+    func requireWindow(actual: String): Unit {
+        if (active() && !requestedWindow.isEmpty() && actual != requestedWindow) {
+            throw IllegalArgumentException("debug UI window '${requestedWindow}' does not match '${actual}'")
+        }
     }
 
     func active(): Bool {
         !commands.isEmpty() && !completed
     }
 
-    func observe(widget: Widget, ctx: UiContext, width: Int32, height: Int32): Unit {
+    func observe(widget: Widget, ctx: UiContext, width: Int32, height: Int32, windowId!: String = ""): Unit {
         if (!active()) { return }
+        requireWindow(windowId)
         revision += 1
         previous = current
         current = Some(DebugUiObservation(
@@ -47,7 +67,8 @@ class DebugUiScriptRunner {
             height,
             ctx.focusId,
             widget.focusableIds(),
-            widget.interactionOwnerIds()
+            widget.interactionOwnerIds(),
+            windowId: windowId
         ))
     }
 
@@ -55,9 +76,16 @@ class DebugUiScriptRunner {
     func executeNext(ctx: UiContext, dispatch: (UiEvent) -> Unit): Unit {
         if (!active() || current.isNone()) { return }
         if (finishing) {
-            emitDebugUiResult("complete", true, current.getOrThrow().snapshotJson(), 0, "")
             completed = true
             ctx.requestClose()
+            if (let Some(message) <- failure) {
+                emitDebugUiResult("complete", false, current.getOrThrow().snapshotJson(), 2, message)
+                // DesktopApp preserves this failure while disposing its resources and window.
+                // Reporting completion must not turn a failed script into a successful process.
+                throw Exception("debug UI script failed: ${message}")
+            }
+            recordDebugUiWindow(current.getOrThrow().windowId)
+            emitDebugUiResult("complete", true, current.getOrThrow().snapshotJson(), 0, "")
             return
         }
 
@@ -66,6 +94,7 @@ class DebugUiScriptRunner {
         try {
             executeDebugUiCommand(line, ctx, dispatch)
         } catch (error: Exception) {
+            failure = Some(error.message)
             emitDebugUiResult("command-error", false, "", 2, error.message)
             index = commands.size
         }
@@ -79,6 +108,12 @@ class DebugUiScriptRunner {
         let parts = line.split(" ")
         if (parts.isEmpty()) { return }
         let operation = parts[0]
+        if (operation == "cancel") {
+            requireDebugUiArity(parts, 1, operation)
+            dispatch(UiEvent.PointerCancelled)
+            emitDebugUiResult(operation, true, "", 0, "")
+            return
+        }
         if (operation == "click" || operation == "touch") {
             requireDebugUiArity(parts, 3, operation)
             let x = Float32.parse(parts[1])
@@ -105,6 +140,9 @@ class DebugUiScriptRunner {
         }
         if (operation == "focus") {
             requireDebugUiArity(parts, 2, operation)
+            if (ctx.hasOverlay()) {
+                throw IllegalArgumentException("focus by id cannot verify overlay ownership; use key Tab")
+            }
             let id = parts[1]
             let observation = current.getOrThrow()
             if (!containsDebugUiId(observation.focusableIds, id)) {
@@ -116,9 +154,12 @@ class DebugUiScriptRunner {
         }
         if (operation == "key") {
             requireDebugUiArity(parts, 2, operation)
-            let key = parseDebugUiKey(parts[1])
-            dispatch(UiEvent.KeyDown(key, false))
-            dispatch(UiEvent.KeyUp(key))
+            let (key, mask) = parseScriptedKeyInput(parts[1])
+            let _ = ctx.withEventModifiers(Some(mask), {=>
+                dispatch(UiEvent.KeyDown(key, false))
+                dispatch(UiEvent.KeyUp(key))
+                true
+            })
             emitDebugUiResult(operation, true, "", 0, "")
             return
         }
@@ -155,19 +196,22 @@ class DebugUiObservation {
     let focusId: String
     let focusableIds: Array<String>
     let interactionIds: Array<String>
+    let windowId: String
 
     init(revision: UInt64, width: Int32, height: Int32, focusId: String,
-        focusableIds: Array<String>, interactionIds: Array<String>) {
+        focusableIds: Array<String>, interactionIds: Array<String>, windowId!: String = "") {
         this.revision = revision
         this.width = width
         this.height = height
         this.focusId = focusId
         this.focusableIds = focusableIds
         this.interactionIds = interactionIds
+        this.windowId = windowId
     }
 
     func snapshotJson(): String {
         "{\"protocol\":\"canghui.ui-observation.v0\",\"revision\":${revision}," +
+            "\"windowId\":" + debugUiJsonQuote(windowId) + "," +
             "\"viewport\":{\"width\":${width},\"height\":${height}}," +
             "\"focus\":" + debugUiJsonQuote(focusId) + "," +
             "\"focusable\":" + debugUiJsonArray(focusableIds) + "," +
@@ -226,28 +270,9 @@ func requireDebugUiArity(parts: Array<String>, expected: Int64, operation: Strin
 }
 
 @When[debug]
-func parseDebugUiKey(value: String): Key {
-    if (value == "escape") { return Key.Escape }
-    if (value == "backspace") { return Key.Backspace }
-    if (value == "enter") { return Key.Enter }
-    if (value == "tab") { return Key.Tab }
-    if (value == "delete") { return Key.Delete }
-    if (value == "space") { return Key.Space }
-    if (value == "home") { return Key.Home }
-    if (value == "end") { return Key.End }
-    if (value == "left") { return Key.Left }
-    if (value == "right") { return Key.Right }
-    if (value == "up") { return Key.Up }
-    if (value == "down") { return Key.Down }
-    let bytes = value.toArray()
-    if (bytes.size == 1 && ((bytes[0] >= UInt8(65) && bytes[0] <= UInt8(90)) ||
-        (bytes[0] >= UInt8(97) && bytes[0] <= UInt8(122)))) {
-        return Key.Letter(bytes[0])
-    }
-    if (bytes.size == 1 && bytes[0] >= UInt8(48) && bytes[0] <= UInt8(57)) {
-        return Key.Digit(bytes[0])
-    }
-    throw IllegalArgumentException("unsupported key: ${value}")
+func parseDebugUiKey(input: String): Key {
+    let (key, _) = parseScriptedKeyInput(input)
+    key
 }
 
 @When[debug]
@@ -298,6 +323,13 @@ func debugUiJsonQuote(value: String): String {
         else if (r == r'\n') { out.append("\\n") }
         else if (r == r'\r') { out.append("\\r") }
         else if (r == r'\t') { out.append("\\t") }
+        else if (UInt32(r) < UInt32(32)) {
+            let digits = "0123456789abcdef".toRuneArray()
+            let code = Int64(UInt32(r))
+            out.append("\\u00")
+            out.append(digits[code / 16].toString())
+            out.append(digits[code % 16].toString())
+        }
         else { out.append(r.toString()) }
     }
     out.append("\"")
@@ -318,7 +350,9 @@ class DebugUiScriptRunner {
 
     func active(): Bool { false }
 
-    func observe(_: Widget, _: UiContext, _: Int32, _: Int32): Unit {}
+    func requireWindow(_: String): Unit {}
+
+    func observe(_: Widget, _: UiContext, _: Int32, _: Int32, windowId!: String = ""): Unit {}
 
     func executeNext(_: UiContext, _: (UiEvent) -> Unit): Unit {}
 }

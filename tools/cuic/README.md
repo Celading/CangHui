@@ -43,6 +43,7 @@ cuic probe diff [project]
 cuic probe list [project] [--json]
 cuic probe describe [project] <probe> [--json]
 cuic probe run [project] <probe> [--script <file>|--events <script>] [--json]
+cuic prntx [project] <probe> [--format summary|tree|json|diff|ascii] [--limit 1..128] [--node <id>]
 cuic scripts init|list [project]
 cuic scripts run <name> [project]
 cuic dependency update [project]
@@ -50,16 +51,22 @@ cuic package plan [macos|windows|linux] [project] [--json]
 cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]
 cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
-cuic build [platform] [project]
-cuic test [platform] [project]
-cuic run [platform] [project|example]
-cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [-- <app args...>]
+cuic build [platform] [project] [--mode release|debug]
+cuic test [platform] [project] [--mode release|debug]
+cuic run [platform] [project|example] [--mode release|debug] [-- <app-args...>]
+cuic prnt [platform] [project|example] [--output <file.bmp|file.png>] [--frames <count>] [--window <semantic-id>] [-- <app args...>]
 cuic clean [project]
 cuic examples
 cuic version
 ```
 
 ## Project Scripts
+
+`build` and `test` default to release. `--mode debug` forwards `-g` to CJPM;
+the build identity of the CUIC executable itself does not select the application's
+profile. These commands reject unknown options, duplicate modes and extra positional
+arguments rather than silently running a different test configuration.
+
 
 `cuic` automatically discovers named lifecycle pipelines from `canghui.toml` in the application project.
 `cuic init` writes a portable starting set:
@@ -124,7 +131,31 @@ From a directory containing `cjpm.toml`, bare `cuic run` runs that current
 application. Outside a Cangjie project, the same command retains the built-in
 `notepad` example fallback. An explicit project or example always wins.
 
+`run` defaults to release; `--mode debug` builds and launches the exact debug
+artifact, without falling back to an older release binary. Unknown options and
+duplicate modes are rejected before building. Put application arguments after
+`--`; they are forwarded literally. The child inherits stdin/stdout/stderr and
+its exit status is returned, so interactive output is visible before exit.
+Ordinary runs do not apply the screenshot-only macOS processor pinning policy.
+
+For a managed multi-window application, `prnt --window settings` selects the
+window declared with `semanticWindowId: "settings"`, not its title or native ID.
+Omitting the selector chooses the first live managed window at the first
+application step. Initial preview paints do not consume the settle-frame budget;
+successful capture shuts down the application so CUIC can finish. Missing,
+ambiguous or prematurely closed targets fail without retargeting another window.
+Single-window `DesktopApp` uses `main` by default. Device system captures do not
+support this selector; it does not enable input injection.
+Explicit selection also requires an acknowledgment of the actual semantic window
+from the runtime. A missing or mismatched acknowledgment fails even if an image
+exists, so an older runtime cannot silently ignore the selector.
+
 ## Framework Resolution
+
+For the immutable offline source SDK candidate, use the paired `bin/cuic` / `bin/cuic-debug`
+and a dependency on its `framework` directory. Its native payload is checked before staging;
+it does not require Homebrew on the consuming host. See the
+[source SDK contract](../../manual/reference/source-sdk.zh-CN.md) for the compiler/target and signing boundaries.
 
 `cuic` resolves CangHui in this order:
 
@@ -203,11 +234,14 @@ opening a window.
 ./bin/cuic probe run component-gallery gallery.primary-button \
   --events $'move-in 80 35\npress 80 35\nrelease 80 35\nassert activation primary-button.click 1' \
   --json
+./bin/cuic design snapshot component-gallery gallery.primary-button --version 2 --computed
 ```
 
 The scanner follows recursive local path dependencies plus the resolved framework cache and reports every duplicate source location before the
 child build. Macro-generated symbols and the runtime registry remain fail-closed backstops. See
 [`manual/reference/probe.md`](../../manual/reference/probe.md) for annotation, scripting, assertion, and report details.
+The optional `--computed` v2 export groups resolved layout/style/typography/resource facts and exact scoped
+Draw IR under stable node IDs. It is still a debug-only structural evidence path; use `cuic prnt` for pixels.
 
 ## Platform Matrix
 

@@ -127,6 +127,12 @@ public class Button <: Widget {
         this
     }
 
+    /** Adds long press, double tap, drag or hover callbacks under this button's existing owner. */
+    public func gestures(value: GestureHandlers): Button {
+        interactionSurface.gestures(value)
+        this
+    }
+
     /** Applies semantic button coloring. */
     public func role(value: ButtonRole): Button {
         buttonRole = value

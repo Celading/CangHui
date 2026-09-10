@@ -82,6 +82,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`fit(...)`](#fit) | 选择图像像素装进分配框的方式。 |
+| [`fromResource(...)`](#fromresource) | 从 `ApplicationResources` receipt 创建不泄漏物理路径的逻辑资源图像。 |
 | [`measure(...)`](#measure) | 未指定首选宽度时填满可用宽度；否则采用首选尺寸，但不超过可用空间。 |
 | [`layout(...)`](#layout) | 记住分配的矩形。 |
 | [`draw(...)`](#draw) | 从共享缓存取纹理并按适配方式绘制（`Cover` 裁剪到框）。 |
@@ -175,6 +176,18 @@ public func handle(_: UiContext, _: UiEvent): Bool
 ```
 
 **返回值** `Bool` — 恒为 `false`。
+
+### fromResource
+
+当资源来自 [`ApplicationResources`](../../../reference/application-resources.zh-CN.md) 时，优先使用：
+
+```cangjie
+ImageView.fromResource(resources.resolve("hero"), fit: ImageFit.Cover)
+```
+
+运行时仍使用已验证的物理路径加载纹理，但 DesignSnapshot v2 computed truth 只导出资源
+逻辑名、角色和 package provenance，不导出本机绝对路径。直接使用 `ImageView(path)` 继续
+兼容，但只能导出 fit/尺寸事实，不能凭路径猜测逻辑资源身份。
 
 ### isClosed
 

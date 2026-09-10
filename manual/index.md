@@ -18,6 +18,7 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
 
 ## 手册地图
 
+- [属性驱动动画](guide/how-to/animate-properties.md)与 [CangHuiKit 设计套件](reference/canghui-kit.md)。
 - [快速开始](getting-started/index.md)：依赖消费与 Agent 首次作业顺序。
 - [渐进式指南](guide/index.md)：按学习路径和实际任务组织。
 - [教程](tutorials/index.md)：cuic、无边框窗口、平台接口与 Surface。
@@ -39,9 +40,12 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
 
 ## cuic 证据顺序
 
+新源码配对支持 [`prntx` 有界摘要与差分](reference/prntx.zh-CN.md)，旧 `pview` 入口继续保留。
+
 ```bash
-cuic doctor macos .
+cuic doctor macos --project .
 cuic shell snapshot .
+cuic prntx . <probe-id>
 cuic pview . <probe-id> --columns 96 --rows 32
 cuic prnt macos . --output artifacts/ui.png
 ```
@@ -52,6 +56,9 @@ cuic prnt macos . --output artifacts/ui.png
 与项目匹配的 debug cuic。只有验证窗口外壳、输入法、系统菜单、设备合成等平台事实时，
 系统截图才是必要证据，且不能替代结构化/ASCII 结果。
 
+桌面 `prnt` 默认捕获 release 构建。仅在验收调试专用界面时指定 `--mode debug`；
+命令会构建并启动对应 profile，不会在目标缺失时改用另一种构建。
+
 公开面审计：
 
 ```bash
@@ -60,4 +67,4 @@ python3 manual/skills/canghui-full-build/scripts/audit_public_surface.py
 
 ## 版本
 
-当前 `chui` 版本线：`0.17.0`（见 [CHANGELOG](CHANGELOG.md)）。
+当前 `chui` 版本线：`0.18.0`，配套源码 CLI 为 `cuic 0.7.0`（见 [CHANGELOG](CHANGELOG.md)）。

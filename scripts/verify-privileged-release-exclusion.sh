@@ -46,7 +46,9 @@ for command in \
   "kmode list ." \
   "probe list ." \
   "pview" \
+  "prntx" \
   "shell snapshot ." \
+  "shell cancel ." \
   "frame trace . --scenario release-gate" \
   "frame replay unavailable.json --executor null"; do
   set +e

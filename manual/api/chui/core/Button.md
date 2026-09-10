@@ -18,6 +18,10 @@ Button <: [`Widget`](Widget.md)
 
 ## 说明
 
+`gestures(value: GestureHandlers): Button` 将长按、双击、拖拽和 hover 回调交给现有动作拥有者，
+无需嵌套 InteractionSurface。长按等待持续续帧，拖拽与长按互斥；详见
+[属性动画与手势](../../../guide/how-to/animate-properties.md)。原来的 `animation` 仍只控制按钮反馈。
+
 点击识别是"按下-释放"式的：主键在按钮内按下时获得焦点与按压，在按钮内松开才算一次点击，拖出按钮后松开则取消。焦点与按下状态标识默认按构建位置自动生成、每次构建唯一；需要在树形变化中保持标识时用 [`key`](#key) 固定。Normal 角色的表面随按下/悬停切换主题填充色（重叠布局中只有位于最上层的控件高亮）；焦点环只在焦点经键盘到达时绘制（`:focus-visible` 约定），指针点击不会留下键盘样式的描边。
 
 slot 构造器用于图标、主副标题、状态点等组合内容。slot 是装饰子树：外层 Button 独占焦点与激活，slot 内的可聚焦后代不会进入 Tab 环或接收事件，因此不要在其中嵌套真正需要独立操作的控件。未显式设色的 Label/Icon/Symbol 会从 [`ControlContentEnvironment`](ControlContentEnvironment.md) 继承 ButtonStyle 已解析的前景色。

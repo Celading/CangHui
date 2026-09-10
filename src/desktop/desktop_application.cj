@@ -1,19 +1,27 @@
 package chui.desktop
 
 import std.collection.ArrayList
+import chui.system.ApplicationShell
 import sdl.{FrameInfo, GamepadButton, GamepadConnectionState, GamepadDevice, Key, MouseButton, Rect,
-    SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowSpec, gamepadButtonName}
-import sdl.input.Keyboard
+    SdlEventEnvelope, SdlRuntime, SdlWindow, UiEvent, WindowId, WindowMetrics, WindowSpec, WindowScaleSettings,
+    gamepadButtonName, pointerEventToLegacyUiEvent}
+
 import chui.core.{SemanticActionHandler, SemanticActionReceipt, SemanticActionRequest,
     SemanticInteractionPolicy, SemanticRuntime, SemanticRuntimeLimits, SemanticTreeDiff,
     SemanticTreeSnapshot, StateStore, Theme, UiContext, Widget, buildRoot, drawTooltip,
-    withActiveSemanticRuntime}
+    withActiveSemanticRuntime, UiOwnerQueue, UiTaskPolicy, UiTaskScope, currentStateStore,
+    rememberUiTaskScope}
 
 /** One independently-owned desktop scene attached to a stable native window identity. */
 public interface DesktopWindowSession {
     func windowId(): WindowId
     func dispatch(event: UiEvent): Bool
     func requestClose(): Unit
+}
+
+/** Optional event-time metadata port; legacy sessions keep their UiEvent-only contract. */
+public interface DesktopWindowInputSession {
+    func dispatchInput(event: UiEvent, modifierMask: ?UInt16): Bool
 }
 
 public struct WindowDispatchReceipt {
@@ -78,6 +86,8 @@ public struct DesktopWindowStateReceipt {
     public let nativeChildSurfaceCount: Int64
     public let sharedFrameSurfaceCount: Int64
     public let closeRequested: Bool
+    public let displayScale: Float32
+    public let transformRevision: UInt64
 
     public init(
         windowId: WindowId,
@@ -88,7 +98,9 @@ public struct DesktopWindowStateReceipt {
         pointerCaptureId: String,
         nativeChildSurfaceCount: Int64,
         sharedFrameSurfaceCount: Int64,
-        closeRequested: Bool
+        closeRequested: Bool,
+        displayScale!: Float32 = 1.0,
+        transformRevision!: UInt64 = UInt64(1)
     ) {
         this.windowId = windowId
         this.logicalWidth = logicalWidth
@@ -99,6 +111,8 @@ public struct DesktopWindowStateReceipt {
         this.nativeChildSurfaceCount = nativeChildSurfaceCount
         this.sharedFrameSurfaceCount = sharedFrameSurfaceCount
         this.closeRequested = closeRequested
+        this.displayScale = displayScale
+        this.transformRevision = transformRevision
     }
 }
 
@@ -183,7 +197,7 @@ protected class WindowRegistry {
             case _ => ()
         }
         match (envelope.windowId) {
-            case Some(id) => return dispatchWindowEvent(id, envelope.event)
+            case Some(id) => return dispatchWindowEvent(id, envelope.event, envelope.modifierMask)
             case None => return dispatchGlobalEvent(envelope.event)
         }
     }
@@ -192,18 +206,18 @@ protected class WindowRegistry {
         for (session in sessions.toArray()) { session.requestClose() }
     }
 
-    private func dispatchWindowEvent(id: WindowId, event: UiEvent): WindowDispatchReceipt {
+    private func dispatchWindowEvent(id: WindowId, event: UiEvent, modifierMask: ?UInt16): WindowDispatchReceipt {
         let session = match (findSession(id)) {
             case Some(value) => value
             case None => return WindowDispatchReceipt(false, "window-not-registered", Some(id))
         }
         match (event) {
             case UiEvent.WindowFocusChanged(true) =>
-                let consumed = session.dispatch(event)
+                let consumed = dispatchSessionInput(session, event, modifierMask)
                 let _ = setActiveWindow(id)
                 return WindowDispatchReceipt(true, "window-event-dispatched", Some(id), consumed: consumed)
             case UiEvent.WindowFocusChanged(false) =>
-                let consumed = session.dispatch(event)
+                let consumed = dispatchSessionInput(session, event, modifierMask)
                 match (active) {
                     case Some(current) => if (current == id) {
                         transferWindowGamepads(id, None)
@@ -216,13 +230,20 @@ protected class WindowRegistry {
                 session.requestClose()
                 return WindowDispatchReceipt(true, "window-close-requested", Some(id))
             case UiEvent.WindowDestroyed =>
-                let consumed = session.dispatch(event)
+                let consumed = dispatchSessionInput(session, event, modifierMask)
                 let _ = unregister(id)
                 return WindowDispatchReceipt(true, "window-destroyed", Some(id), consumed: consumed)
             case _ => ()
         }
-        let consumed = session.dispatch(event)
+        let consumed = dispatchSessionInput(session, event, modifierMask)
         WindowDispatchReceipt(true, "window-event-dispatched", Some(id), consumed: consumed)
+    }
+
+    private func dispatchSessionInput(session: DesktopWindowSession, event: UiEvent, mask: ?UInt16): Bool {
+        match (session as DesktopWindowInputSession) {
+            case Some(input) => input.dispatchInput(event, mask)
+            case None => session.dispatch(event)
+        }
     }
 
     private func dispatchGlobalEvent(event: UiEvent): WindowDispatchReceipt {
@@ -494,14 +515,20 @@ protected func executeManagedSharedFrameTerminal(
  * store and current declarative tree. Keeping one UiContext per window is what isolates focus,
  * overlays, pressed/drag capture and Scene3D surface registration.
  */
-private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
+private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindowInputSession & Resource {
     private let window: SdlWindow
     private let ctx: UiContext
+    private let inputAnchor = TextInputAnchorState()
     private let stateStore = StateStore()
+    private let uiOwnerQueue = UiOwnerQueue()
     private let semanticActionRouter: DesktopSemanticActionRouter
     private let semanticRuntime: SemanticRuntime
+    private var semanticAccessibility: ?DesktopSemanticAccessibility = None
     private let body: () -> Unit
     private var currentWidget: ?Widget = None
+    private var captureRequest: ?DesktopCaptureRequest = None
+    private var captureFrames: UInt64 = 0
+    private var captureDone: Bool = false
     private var previousTick: UInt64
     private var wantsClose: Bool = false
     private var closed: Bool = false
@@ -514,7 +541,8 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         semanticWindowId: String,
         semanticPolicy: SemanticInteractionPolicy,
         semanticLimits: SemanticRuntimeLimits,
-        onSemanticAction: SemanticActionHandler
+        onSemanticAction: SemanticActionHandler,
+        accessibility: ?DesktopAccessibilityFactory
     ) {
         if (fontScale <= 0.0) {
             throw IllegalArgumentException("managed desktop window fontScale must be greater than zero")
@@ -528,7 +556,7 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                 limits: semanticLimits,
                 handler: onSemanticAction)
         }
-        this.window = SdlWindow(spec)
+        this.window = SdlWindow(spec, textInput: false)
         this.ctx = UiContext(window.renderer, theme)
         this.ctx.displayScale = window.scale
         this.ctx.fontScale = fontScale
@@ -546,9 +574,25 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             handler: {request => actionRouter.dispatch(request)})
         this.body = body
         this.previousTick = window.ticks()
+        try {
+            if (let Some(factory) <- accessibility) {
+                semanticAccessibility = Some(DesktopSemanticAccessibility(resolvedSemanticWindowId,
+                    factory(resolvedSemanticWindowId, spec.title), uiOwnerQueue,
+                    {request => semanticRuntime.dispatch(request)}))
+            }
+        } catch (error: Exception) { window.close(); throw error }
     }
 
     public func windowId(): WindowId { window.id }
+
+    func semanticWindowId(): String { semanticRuntime.windowId }
+
+    func armCapture(request: DesktopCaptureRequest): Unit {
+        captureRequest = Some(request)
+        captureFrames = 0
+    }
+
+    func captureCompleted(): Bool { captureDone }
 
     public func requestClose(): Unit { wantsClose = true }
 
@@ -556,10 +600,28 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
 
     public func isClosed(): Bool { closed }
 
+    func ownsBuild(store: StateStore): Bool {
+        !closed && refEq((store as Object).getOrThrow(), (stateStore as Object).getOrThrow())
+    }
+
+    func rememberTaskScope(key: String, policy: UiTaskPolicy): UiTaskScope {
+        rememberUiTaskScope(key, uiOwnerQueue, policy: policy)
+    }
+
     /** Builds and presents exactly one frame, then returns immediately. */
     func step(): DesktopWindowStepReceipt {
         if (closed || wantsClose || ctx.shouldClose) {
             return DesktopWindowStepReceipt(window.id, false, true, detail: "close-requested")
+        }
+        if (let Some(native) <- semanticAccessibility) {
+            native.updateGeometry(window)
+            native.service(window.windowFlags().inputFocus)
+        }
+        let _ = uiOwnerQueue.drain()
+        // An apply callback may close this window or the entire application. Never touch
+        // its released renderer or rebuild its disposed StateStore after that callback.
+        if (closed || wantsClose || ctx.shouldClose) {
+            return DesktopWindowStepReceipt(window.id, false, true, detail: "closed-during-owner-work")
         }
         let currentTick = window.ticks()
         let delta = if (currentTick >= previousTick) { currentTick - previousTick } else { UInt64(0) }
@@ -574,8 +636,14 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         semanticActionRouter.bind(widget)
         // Scene3DView registers only against this window's frame-local context during layout.
         ctx.beginFrameSurfaceRegistration()
+        let layoutRevision = window.currentMetrics().transformRevision
         widget.layout(ctx, Rect(0.0, 0.0, Float32(window.width), Float32(window.height)))
         let _ = widget.handle(ctx, UiEvent.Frame(ctx.frame))
+        if (layoutRevision != window.currentMetrics().transformRevision) {
+            applyWindowMetrics(window.currentMetrics())
+            ctx.beginFrameSurfaceRegistration()
+            widget.layout(ctx, Rect(0.0, 0.0, Float32(window.width), Float32(window.height)))
+        }
 
         ctx.beginSharedFrameCompositionAttempt()
         let sharedOutcome = executeManagedSharedFrameTerminal(ctx, { =>
@@ -595,13 +663,27 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                     ctx.drawActiveOverlay()
                 })
                 let _ = semanticRuntime.commitFrame()
+                if (let Some(native) <- semanticAccessibility) {
+                    native.updateGeometry(window)
+                    native.publish(semanticRuntime.snapshot())
+                }
             } catch (error: Exception) {
                 semanticRuntime.cancelFrame()
                 throw error
             }
             applyTextInputAnchor()
             ctx.renderer.endScene()
+            var captured = false
+            if (let Some(request) <- captureRequest) {
+                captureFrames += 1
+                if (captureFrames >= request.settleFrames && !captureDone) {
+                    writeDesktopCapture(ctx.renderer, request.path)
+                    recordDesktopCaptureSelection(semanticRuntime.windowId)
+                    captured = true
+                }
+            }
             ctx.renderer.present()
+            if (captured) { captureDone = true }
         })
         if (ctx.shouldClose) { wantsClose = true }
         DesktopWindowStepReceipt(
@@ -619,12 +701,27 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
 
     /** Routes one already-window-scoped event against this window's current tree. */
     public func dispatch(rawEvent: UiEvent): Bool {
+        dispatchInput(rawEvent, None)
+    }
+
+    public func dispatchInput(rawEvent: UiEvent, modifierMask: ?UInt16): Bool {
+        ctx.withEventModifiers(modifierMask, {=> dispatchScopedInput(rawEvent) })
+    }
+
+    private func dispatchScopedInput(rawEvent: UiEvent): Bool {
         if (closed) { return false }
-        let event = scaleManagedWindowEvent(rawEvent, window.scale)
+        let event = window.normalizeWindowEvent(rawEvent)
         match (event) {
             case UiEvent.WindowDestroyed => wantsClose = true
             case _ => ()
         }
+        dispatchLogicalInput(event)
+    }
+
+    // Script coordinates already use this window's UI space; do not normalize twice
+    // or replace the modifier scope established by the shared script runner.
+    private func dispatchLogicalInput(event: UiEvent): Bool {
+        if (closed) { return false }
         let widget = match (currentWidget) {
             case Some(value) => value
             case None => return false
@@ -636,7 +733,28 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
         consumed
     }
 
+    @When[debug]
+    func executeDebugUi(runner: DebugUiScriptRunner): Unit {
+        let widget = currentWidget.getOrThrow()
+        runner.observe(widget, ctx, window.width, window.height, windowId: semanticRuntime.windowId)
+        runner.executeNext(ctx, {event => let _ = dispatchLogicalInput(event)})
+    }
+
     func focusNativeWindow(): Unit { window.raiseWindow() }
+
+    func setScaling(settings: WindowScaleSettings): Unit {
+        applyWindowMetrics(window.setScaling(settings))
+    }
+
+    func setSize(width: Int32, height: Int32): Unit {
+        window.setSize(width, height)
+        applyWindowMetrics(window.currentMetrics())
+    }
+
+    func syncNativeState(): Unit {
+        window.sync()
+        applyWindowMetrics(window.refreshDisplayScale())
+    }
 
     func delay(ms: UInt32): Unit { window.delay(ms) }
 
@@ -651,7 +769,9 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             capture,
             ctx.nativeChildFrameSurfaceCount(),
             ctx.sharedFrameSurfaceCount(),
-            closeRequested())
+            closeRequested(),
+            displayScale: ctx.displayScale,
+            transformRevision: ctx.inputTransformRevision)
     }
 
     func semanticSnapshot(): SemanticTreeSnapshot { semanticRuntime.snapshot() }
@@ -666,13 +786,18 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
 
     public func close(): Unit {
         if (closed) { return }
-        let _ = ctx.finishSharedFrameSurfaces("abandoned")
-        semanticActionRouter.clear()
-        stateStore.clear()
-        window.close()
         closed = true
         wantsClose = true
-        currentWidget = None
+        try {
+            if (let Some(native) <- semanticAccessibility) { native.close() }
+        } finally {
+            let _ = uiOwnerQueue.close(reason: "managed desktop window closed")
+            let _ = ctx.finishSharedFrameSurfaces("abandoned")
+            semanticActionRouter.clear()
+            stateStore.clear()
+            window.close()
+            currentWidget = None
+        }
     }
 
     private func routeEvent(widget: Widget, event: UiEvent): Bool {
@@ -682,18 +807,43 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
             case UiEvent.WindowDestroyed => ctx.requestClose(); true
             case UiEvent.WindowResized(width, height) =>
                 window.updateLogicalSize(width, height)
+                inputAnchor.invalidate()
                 widget.handle(ctx, event)
             case UiEvent.WindowPixelSizeChanged(width, height) =>
                 window.updatePixelSize(width, height)
+                inputAnchor.invalidate()
                 widget.handle(ctx, event)
+            case UiEvent.WindowDisplayScaleChanged =>
+                applyWindowMetrics(window.refreshDisplayScale())
+                widget.handle(ctx, UiEvent.WindowMetricsChanged(window.currentMetrics()))
+            case UiEvent.WindowMetricsChanged(metrics) =>
+                applyWindowMetrics(metrics)
+                // Managed events are dispatched before the next build; following input
+                // must not hit the previous-size tree with newly normalized coordinates.
+                ctx.beginFrameSurfaceRegistration()
+                widget.layout(ctx, Rect(0.0, 0.0, Float32(window.width), Float32(window.height)))
+                widget.handle(ctx, event)
+            case UiEvent.Pointer(pointer) =>
+                ctx.lastPointerEvent = Some(pointer)
+                let legacy = pointerEventToLegacyUiEvent(pointer)
+                preparePointer(legacy)
+                let consumed = routeEvent(widget, legacy)
+                completePointer(legacy)
+                consumed
             case UiEvent.DeviceRotationChanged(rotation) =>
                 ctx.updateDeviceRotation(rotation)
                 widget.handle(ctx, event)
             case UiEvent.WindowFocusChanged(false) =>
-                ctx.leftMouseDown = false
-                ctx.clearDrag()
-                ctx.clearPress()
-                widget.handle(ctx, event)
+                inputAnchor.invalidate()
+                ctx.setKeyboardWindowActive(false)
+                let _ = ctx.cancelPointerInteraction(widget)
+                // Modal content belongs to the overlay, not the placeholder in the tree.
+                if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
+            case UiEvent.PointerCancelled => ctx.cancelPointerInteraction(widget)
+            case UiEvent.WindowFocusChanged(true) =>
+                ctx.setKeyboardWindowActive(true)
+                inputAnchor.invalidate()
+                if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
             case UiEvent.MouseMove(_, _) =>
                 ctx.beginHoverTest()
                 let consumed = if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
@@ -709,15 +859,24 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
                     ctx.settleFocusAfterPress()
                     consumed
                 }
-            case UiEvent.KeyDown(Key.Tab, _) =>
-                if (ctx.dispatchOverlay(event)) {
-                    true
-                } else {
-                    if (Keyboard.modifiers().shift) { ctx.focusPrevious() } else { ctx.focusNext() }
-                    true
-                }
+            case UiEvent.KeyDown(_, _) | UiEvent.KeyUp(_) => ctx.dispatchKeyboardEvent(widget, event)
             case _ => if (ctx.dispatchOverlay(event)) { true } else { widget.handle(ctx, event) }
         }
+    }
+
+    private func applyWindowMetrics(metrics: WindowMetrics): Unit {
+        inputAnchor.invalidate()
+        if (ctx.inputTransformRevision != metrics.transformRevision) {
+            if (let Some(widget) <- currentWidget) { let _ = ctx.cancelPointerInteraction(widget) }
+            ctx.leftMouseDown = false
+            ctx.clearDrag()
+            ctx.clearPress()
+        }
+        ctx.displayScale = metrics.displayScale
+        ctx.inputTransformRevision = metrics.transformRevision
+        ctx.viewportWidth = Float32(metrics.logicalWidth)
+        ctx.viewportHeight = Float32(metrics.logicalHeight)
+        ctx.requestFrame()
     }
 
     private func preparePointer(event: UiEvent): Unit {
@@ -750,31 +909,8 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & Resource {
     }
 
     private func applyTextInputAnchor(): Unit {
-        match (ctx.textInputAnchorRect()) {
-            case Some(anchor) => try {
-                window.setTextInputArea(anchor)
-            } catch (_: Exception) {
-                ()
-            }
-            case None => ()
-        }
-    }
-}
-
-/** Applies the same physical-to-logical pointer conversion as SdlWindow.pollEventEnvelope. */
-private func scaleManagedWindowEvent(event: UiEvent, scale: Float32): UiEvent {
-    if (scale == 1.0) { return event }
-    match (event) {
-        case UiEvent.MouseMove(x, y) => UiEvent.MouseMove(x / scale, y / scale)
-        case UiEvent.MouseDown(button, x, y) => UiEvent.MouseDown(button, x / scale, y / scale)
-        case UiEvent.MouseUp(button, x, y) => UiEvent.MouseUp(button, x / scale, y / scale)
-        case UiEvent.MouseWheel(dx, dy, x, y) => UiEvent.MouseWheel(dx, dy, x / scale, y / scale)
-        case UiEvent.DropFile(path, x, y) => UiEvent.DropFile(path, x / scale, y / scale)
-        case UiEvent.DropText(text, x, y) => UiEvent.DropText(text, x / scale, y / scale)
-        case UiEvent.DropPosition(x, y) => UiEvent.DropPosition(x / scale, y / scale)
-        case UiEvent.WindowResized(width, height) => UiEvent.WindowResized(
-            Int32(Float32(width) / scale), Int32(Float32(height) / scale))
-        case _ => event
+        window.setTextInputEnabled(ctx.hasTextInputRequest())
+        inputAnchor.update(ctx.textInputAnchorRect(), {anchor => window.setTextInputArea(anchor)})
     }
 }
 
@@ -788,8 +924,23 @@ public class DesktopApplication <: Resource {
     private let windows: WindowRegistry
     private let managedWindows = ArrayList<ManagedDesktopWindowSession>()
     private var closed: Bool = false
+    private let applicationShell: ?ApplicationShell
+    private let accessibility: ?DesktopAccessibilityFactory
+    private let captureRequest: ?DesktopCaptureRequest
+    private var captureTarget: ?WindowId = None
+    private let debugUiScript = DebugUiScriptRunner()
+    @When[debug]
+    private var debugUiTarget: ?WindowId = None
 
-    public init() {
+    public init(applicationShell!: ?ApplicationShell = None, capture!: ?DesktopCaptureRequest = None,
+        accessibility!: ?DesktopAccessibilityFactory = None) {
+        this.applicationShell = applicationShell
+        this.accessibility = accessibility
+        this.captureRequest = match (capture) {
+            case Some(request) => Some(request)
+            case None => DesktopCaptureRequest.fromEnvironment()
+        }
+        applyDesktopImeDefault()
         runtime = SdlRuntime()
         windows = WindowRegistry()
     }
@@ -829,7 +980,8 @@ public class DesktopApplication <: Resource {
             semanticWindowId,
             semanticPolicy,
             semanticLimits,
-            onSemanticAction)
+            onSemanticAction,
+            accessibility)
         let id = session.windowId()
         if (!windows.register(session)) {
             session.close()
@@ -872,6 +1024,43 @@ public class DesktopApplication <: Resource {
     }
 
     public func activeWindow(): ?WindowId { windows.activeWindow() }
+
+    /** Remembers view-owned work in the managed window whose declarative body is building. */
+    public func rememberTaskScope(key: String, policy!: UiTaskPolicy = UiTaskPolicy.LatestOnly): UiTaskScope {
+        let store = currentStateStore()
+        for (session in managedWindows) {
+            if (session.ownsBuild(store)) { return session.rememberTaskScope(key, policy) }
+        }
+        throw IllegalStateException("Task scope must be remembered in this application's managed window build")
+    }
+
+    /** Changes content zoom in exactly one managed window on the UI owner. */
+    public func setWindowScaling(id: WindowId, settings: WindowScaleSettings): Bool {
+        match (findManagedWindow(id)) {
+            case Some(session) => session.setScaling(settings); true
+            case None => false
+        }
+    }
+
+    /** Requests a native resize in logical units. Measured geometry may converge asynchronously. */
+    public func setWindowSize(id: WindowId, width: Int32, height: Int32): Bool {
+        match (findManagedWindow(id)) {
+            case Some(session) => session.setSize(width, height); true
+            case None => false
+        }
+    }
+
+    /**
+     * Explicit UI-owner barrier for one managed window, followed by measured-metrics refresh.
+     * Returns false for an unmanaged/closed window; native timeout throws, not false success.
+     * Do not call per animation frame: a window system may wait for its own animations.
+     */
+    public func syncWindow(id: WindowId): Bool {
+        match (findManagedWindow(id)) {
+            case Some(session) => session.syncNativeState(); true
+            case None => false
+        }
+    }
 
     /** Read-only count of application-owned sessions; registry mutation stays lifecycle-gated. */
     public func sessionCount(): Int64 { windows.sessionCount() }
@@ -936,6 +1125,11 @@ public class DesktopApplication <: Resource {
         if (limit <= 0 || limit > 4096) {
             throw IllegalArgumentException("desktop event pump limit must be in 1..4096")
         }
+        if (closed) { return [] }
+        if (let Some(shell) <- applicationShell) {
+            let result = shell.attach()
+            if (!result.ok()) { throw IllegalStateException(result.message) }
+        }
         let receipts = ArrayList<WindowDispatchReceipt>()
         while (receipts.size < limit) {
             match (pumpOne()) {
@@ -943,12 +1137,20 @@ public class DesktopApplication <: Resource {
                 case None => break
             }
         }
+        if (!closed) {
+            if (let Some(shell) <- applicationShell) { let _ = shell.dispatchPendingActions() }
+        }
         receipts.toArray()
     }
 
     /** Builds/layouts/draws/presents every managed window once and returns without waiting. */
     public func step(): Array<DesktopWindowStepReceipt> {
         if (closed) { return [] }
+        // openWindow's preview paints must not capture/close an incompletely built application.
+        try { prepareCapture() } catch (error: Exception) {
+            try { close() } catch (_: Exception) { () }
+            throw error
+        }
         let receipts = ArrayList<DesktopWindowStepReceipt>()
         for (session in managedWindows.toArray()) {
             if (!session.closeRequested()) {
@@ -956,15 +1158,95 @@ public class DesktopApplication <: Resource {
                     receipts.add(session.step())
                 } catch (error: Exception) {
                     session.requestClose()
+                    if (captureRequest.isSome() || debugUiScript.active()) {
+                        try { close() } catch (_: Exception) { () }
+                        throw error
+                    }
                     finishRequestedManagedWindows()
                     throw error
                 }
+            }
+        }
+        stepDebugUi(debugUiScript)
+        if (closed) { return receipts.toArray() }
+        if (let Some(id) <- captureTarget) {
+            match (findManagedWindow(id)) {
+                case Some(session) where session.captureCompleted() => close(); return receipts.toArray()
+                case Some(session) where !session.closeRequested() => ()
+                case _ =>
+                    try { close() } catch (_: Exception) { () }
+                    throw IllegalStateException("capture target closed before producing a snapshot")
             }
         }
         finishRequestedManagedWindows()
         closeRuntimeAfterLastWindow()
         receipts.toArray()
     }
+
+    private func prepareCapture(): Unit {
+        let request = match (captureRequest) { case Some(value) => value; case None => return }
+        if (let Some(id) <- captureTarget) {
+            match (findManagedWindow(id)) {
+                case Some(session) where !session.closeRequested() => return
+                case _ => throw IllegalStateException("capture target closed before producing a snapshot")
+            }
+        }
+        var selected: ?ManagedDesktopWindowSession = None
+        for (session in managedWindows) {
+            if (!session.closeRequested() &&
+                (request.windowId.isEmpty() || session.semanticWindowId() == request.windowId)) {
+                if (request.windowId.isEmpty()) { selected = Some(session); break }
+                if (selected.isSome()) {
+                    throw IllegalArgumentException("capture window '${request.windowId}' is ambiguous")
+                }
+                selected = Some(session)
+            }
+        }
+        match (selected) {
+            case Some(session) =>
+                captureTarget = Some(session.windowId())
+                session.armCapture(request)
+            case None => throw IllegalArgumentException("capture window '${request.windowId}' was not found among live managed windows")
+        }
+    }
+
+    @When[debug]
+    internal func stepDebugUi(runner: DebugUiScriptRunner): Unit {
+        if (closed || !runner.active()) { return }
+        try {
+            var selected: ?ManagedDesktopWindowSession = None
+            if (let Some(id) <- debugUiTarget) {
+                selected = findManagedWindow(id)
+                if (selected.isNone() || selected.getOrThrow().closeRequested()) {
+                    throw IllegalStateException("debug UI target closed before script completion")
+                }
+            } else {
+                for (session in managedWindows) {
+                    if (!session.closeRequested() && (runner.windowId().isEmpty() ||
+                        runner.windowId() == session.semanticWindowId())) {
+                        if (selected.isSome()) {
+                            throw IllegalArgumentException("debug UI window is ambiguous; specify a unique --window")
+                        }
+                        selected = Some(session)
+                    }
+                }
+                if (selected.isNone()) { throw IllegalArgumentException("debug UI window was not found") }
+                debugUiTarget = Some(selected.getOrThrow().windowId())
+            }
+            let session = selected.getOrThrow()
+            session.executeDebugUi(runner)
+            if (!runner.active()) { close() }
+            else if (session.closeRequested()) {
+                throw IllegalStateException("debug UI target closed before script completion")
+            }
+        } catch (error: Exception) {
+            try { close() } catch (_: Exception) { () }
+            throw error
+        }
+    }
+
+    @When[!debug]
+    private func stepDebugUi(_: DebugUiScriptRunner): Unit {}
 
     /** Convenience blocking loop built entirely from the public non-blocking pump/step surface. */
     public func run(): Unit {
@@ -994,7 +1276,7 @@ public class DesktopApplication <: Resource {
     public func close(): Unit {
         if (closed) { return }
         windows.requestAllClose()
-        finishRequestedManagedWindows()
+        // The terminal owner closes every window even if one adapter fails to deregister.
         finishApplicationRuntime()
     }
 
@@ -1028,20 +1310,22 @@ public class DesktopApplication <: Resource {
     }
 
     private func finishRequestedManagedWindows(): Unit {
+        var failure: ?Exception = None
         var index = managedWindows.size - 1
         while (index >= 0) {
             if (managedWindows[index].closeRequested()) {
-                closeManagedWindowAt(index)
+                try { closeManagedWindowAt(index) }
+                catch (error: Exception) { failure = Some(preferredDesktopRunFailure(failure, error)) }
             }
             index -= 1
         }
+        if (let Some(error) <- failure) { throw error }
     }
 
     private func closeManagedWindowAt(index: Int64): Unit {
         let session = managedWindows[index]
         let _ = windows.unregister(session.windowId())
-        session.close()
-        managedWindows.remove(at: index)
+        try { session.close() } finally { managedWindows.remove(at: index) }
     }
 
     private func closeRuntimeAfterLastWindow(): Unit {
@@ -1052,15 +1336,21 @@ public class DesktopApplication <: Resource {
 
     private func finishApplicationRuntime(): Unit {
         if (closed) { return }
+        // Detach may fail, but must not strand native windows/runtime.
+        var shellFailure: ?Exception = None
+        try {
+            if (let Some(shell) <- applicationShell) { shell.detach() }
+        } catch (error: Exception) { shellFailure = Some(error) }
         // A process-level quit also owns every managed native window, even when a host-owned
         // session remains registered only long enough to observe its close request.
         var index = managedWindows.size - 1
         while (index >= 0) {
-            closeManagedWindowAt(index)
+            try { closeManagedWindowAt(index) }
+            catch (error: Exception) { shellFailure = Some(preferredDesktopRunFailure(shellFailure, error)) }
             index -= 1
         }
-        runtime.close()
-        closed = true
+        try { runtime.close() } finally { closed = true }
+        if (let Some(error) <- shellFailure) { throw error }
     }
 
     private func delayOneMillisecond(): Unit {

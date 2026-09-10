@@ -27,10 +27,17 @@ public func debugChannelBuildMarker(): String {
     ""
 }
 
+func debugChannelRecoveryHint(channel: String): String {
+    if (channel == "source-sdk") {
+        return "use bin/cuic-debug shipped in the same source SDK; do not rebuild or modify the immutable SDK"
+    }
+    "use a matching cuic-debug; for a source checkout, build it with cuic build <platform> <framework>/tools/cuic --mode debug"
+}
+
 func requireDebugChannelBuild(operation: String): Unit {
     if (!debugChannelBuildEnabled()) {
         throw CuicError(
-            "${operation} is unavailable in release cuic; rebuild cuic with cjpm build -g"
+            "${operation} is unavailable in release cuic; " + debugChannelRecoveryHint(CUIC_BUILD_CHANNEL)
         )
     }
     if (debugChannelBuildMarker().isEmpty()) {

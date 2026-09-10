@@ -1,7 +1,7 @@
 package cuic
 
 import std.collection.ArrayList
-import std.fs.{File, exists}
+import std.fs.{File, FileInfo, exists}
 
 let APPLICATION_MANIFEST_FILE = "canghui.toml"
 let PACKAGING_PLAN_SCHEMA = "canghui.packaging-plan.v0"
@@ -82,9 +82,10 @@ class ApplicationPackagingPlan {
 }
 
 func applicationPackagingCommand(args: Array<String>, start: Int64): Int64 {
-    if (start >= args.size) { throw CuicError("package requires 'plan' or 'build'") }
+    if (start >= args.size) { throw CuicError("package requires 'plan', 'build' or 'run'") }
     if (args[start] == "build") { return applicationPackagingBuildCommand(args, start + 1) }
-    if (args[start] != "plan") { throw CuicError("package supports only 'plan' or 'build'") }
+    if (args[start] == "run") { return applicationPackagingRunCommand(args, start + 1) }
+    if (args[start] != "plan") { throw CuicError("package supports 'plan', 'build' or 'run'") }
     var platform = hostPlatform()
     var requested = ""
     var json = false
@@ -121,12 +122,31 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
     var platform = hostPlatform()
     var requested = ""
     var output = ""
+    var runtimeManifest = ""
+    var harden = false
+    let exports = ArrayList<String>()
     var json = false
     var platformSet = false
     var i = start
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--harden") {
+            if (harden) { throw CuicError("duplicate --harden") }
+            harden = true; i += 1; continue
+        }
+        if (value == "--export-symbol") {
+            if (i + 1 >= args.size) { throw CuicError("--export-symbol requires a Mach-O symbol name") }
+            exports.add(args[i + 1]); i += 2; continue
+        }
+        if (value == "--runtime-manifest") {
+            if (!runtimeManifest.isEmpty() || i + 1 >= args.size || startsWithText(args[i + 1], "-")) {
+                throw CuicError("--runtime-manifest requires one project-relative JSON file")
+            }
+            runtimeManifest = args[i + 1]
+            i += 2
+            continue
+        }
         if (value == "--output") {
             if (i + 1 >= args.size || startsWithText(args[i + 1], "-")) {
                 throw CuicError("--output requires a project-relative directory")
@@ -150,7 +170,26 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
         throw CuicError("package build currently supports macos, windows and linux")
     }
     let project = resolveProject(requested, "")
-    buildApplicationArtifact(project, platform, output, json)
+    buildApplicationArtifact(project, platform, output, json, linuxRuntimeManifest: runtimeManifest,
+        hardening: MacPackagingHardening(enabled: harden, exports: exports.toArray()))
+}
+
+// Runtime identity does not require packaging assets to exist. Legacy projects
+// and script-only manifests keep SDL's own fallback identity.
+func linuxApplicationIdentity(project: String, platform: String): String {
+    if (platform != "linux" || project.isEmpty()) { return "" }
+    let path = joinPath(project, APPLICATION_MANIFEST_FILE)
+    if (!exists(path)) { return "" }
+    let info = FileInfo(path)
+    if (info.isSymbolicLink() || !info.isRegular()) {
+        throw CuicError("application identity manifest must be a regular file: ${path}")
+    }
+    let manifest = parseApplicationManifest(String.fromUtf8(File.readFrom(path)))
+    let identifier = manifest.identifier
+    if (!identifier.isEmpty() && !isApplicationIdentifier(identifier)) {
+        throw CuicError("application.identifier is not a valid Linux application identity")
+    }
+    identifier
 }
 
 func loadApplicationManifest(project: String): ApplicationManifest {
@@ -489,7 +528,7 @@ func applicationPackagingPlanForManifest(project: String, platform: String,
         unsupported.add("code-signing-and-msix-publication")
     } else {
         generated.add("dist/${manifest.name}/${manifest.name}.desktop")
-        generated.add("dist/${manifest.name}/icons/hicolor")
+        generated.add("dist/${manifest.name}/share/icons/hicolor")
         generated.add("dist/${manifest.name}/share")
         generated.add("dist/${manifest.name}/canghui-packaging-receipt.json")
         providers.add("desktop-entry=plan-ready")

@@ -132,6 +132,13 @@ def audit_version_and_identity(root: Path, errors: list[str]) -> None:
     require_text(root / "README.zh-CN.md", f"version-{version}-", errors, "version badge")
     require_text(root / "manual/index.md", f"`{version}`", errors, "manual version")
     require_text(root / "manual/CHANGELOG.md", f"## {version} ", errors, "current changelog heading")
+    cli_version = toml_package_value(root / "tools/cuic/cjpm.toml", "version")
+    require_text(root / "tools/cuic/src/main.cj", f'let VERSION = "{cli_version}"',
+                 errors, "CLI runtime version")
+    require_text(root / "tools/cuic/src/harmony_provider_pack.cj",
+                 f'let HARMONY_FRAMEWORK_VERSION = "{version}"', errors, "provider framework version")
+    require_text(root / "platform/harmony/provider/canghui-harmony-provider-contract.env",
+                 f"frameworkVersion={version}\n", errors, "provider contract version")
 
     retired_governance_assets = (
         root / "contracts/canghui-capability-matrix.json",

@@ -1,11 +1,14 @@
 # Reference
 
 - [API 概览](api-reference.md)
+- [CangHuiKit 设计套件](canghui-kit.md)
+- [属性驱动动画](../guide/how-to/animate-properties.md)
 - [架构](architecture.md)
 - [探针/probe](probe.zh-CN.md)
 - [doctor](doctor.zh-CN.md)
 - [符号/Symbols](symbols.zh-CN.md)
 - [字体](fonts.zh-CN.md)
+- [文本边界与编辑](text-boundaries.md)
 - [Liquid Glass 可选样式包](liquid-glass-style.md)
 - [二维 Renderer effects 与 backdrop adapter](renderer-effects.md)
 - [跨后端 Graphics 适配](graphics-adapter.md)
@@ -20,4 +23,6 @@
 - [移动应用宿主](mobile-application-host.zh-CN.md)
 - [应用资源运行时](application-resources.zh-CN.md)
 - [HarmonyOS 应用投影](harmony-projection.zh-CN.md)
+- [Harmony provider SDK 接入](harmony-provider-sdk.zh-CN.md)
+- [输入坐标与动态 DPI](input-coordinates-and-dpi.zh-CN.md)
 - [CUIC UI Health Audit](ui-health-audit.zh-CN.md)

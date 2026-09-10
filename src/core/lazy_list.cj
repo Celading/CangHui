@@ -115,7 +115,7 @@ public class LazyList <: Widget {
             scrollStateValue.value = clamped
         }
         let contentWidth = if (content > rect.h) {
-            max(0.0, rect.w - scrollBarGutter())
+            max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset))
         } else {
             rect.w
         }
@@ -148,7 +148,7 @@ public class LazyList <: Widget {
         let content = rowTops[count]
         let viewportH = frame.h
         match (event) {
-            case UiEvent.Frame(_) =>
+            case UiEvent.Frame(_) | UiEvent.PointerCancelled =>
                 for (pair in visibleItems) {
                     let (_, widget) = pair
                     let _ = widget.handle(ctx, event)
