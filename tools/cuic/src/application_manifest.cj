@@ -124,6 +124,8 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
     var output = ""
     var runtimeManifest = ""
     var harden = false
+    var windowsExecutable = ""
+    var windowsConsole = false
     let exports = ArrayList<String>()
     var json = false
     var platformSet = false
@@ -131,6 +133,16 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
     while (i < args.size) {
         let value = args[i]
         if (value == "--json") { json = true; i += 1; continue }
+        if (value == "--executable") {
+            if (!windowsExecutable.isEmpty() || i + 1 >= args.size || startsWithText(args[i + 1], "-")) {
+                throw CuicError("--executable requires one project-relative Windows EXE")
+            }
+            windowsExecutable = args[i + 1]; i += 2; continue
+        }
+        if (value == "--console") {
+            if (windowsConsole) { throw CuicError("duplicate --console") }
+            windowsConsole = true; i += 1; continue
+        }
         if (value == "--harden") {
             if (harden) { throw CuicError("duplicate --harden") }
             harden = true; i += 1; continue
@@ -169,7 +181,12 @@ func applicationPackagingBuildCommand(args: Array<String>, start: Int64): Int64 
     if (platform != "macos" && platform != "windows" && platform != "linux") {
         throw CuicError("package build currently supports macos, windows and linux")
     }
+    validateWindowsExecutableRequest(platform, windowsExecutable, windowsConsole, harden,
+        !exports.isEmpty(), runtimeManifest)
     let project = resolveProject(requested, "")
+    if (!windowsExecutable.isEmpty()) {
+        return buildProvidedWindowsArtifact(project, windowsExecutable, output, windowsConsole, json)
+    }
     buildApplicationArtifact(project, platform, output, json, linuxRuntimeManifest: runtimeManifest,
         hardening: MacPackagingHardening(enabled: harden, exports: exports.toArray()))
 }

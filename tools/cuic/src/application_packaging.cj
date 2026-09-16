@@ -239,7 +239,7 @@ func ensurePackagingInputTreeStaysInsideProject(
 func writeApplicationPackagingArtifact(project: String, platform: String,
     manifest: ApplicationManifest, output: String, executable: String,
     hostReplay: String, limitations: Array<String>, sourceSdkFramework!: String = "",
-    linuxRuntimeManifest!: String = ""): ApplicationPackagingArtifactReceipt {
+    linuxRuntimeManifest!: String = "", windowsConsole!: Bool = false): ApplicationPackagingArtifactReceipt {
     ensurePackagingDirectory(output)
     let generated = ArrayList<String>()
     let copied = ArrayList<String>()
@@ -253,6 +253,13 @@ func writeApplicationPackagingArtifact(project: String, platform: String,
         }
     } else if (platform == "windows") {
         copyWindowsApplicationArtifact(project, manifest, output, generated, copied)
+        if (!executable.isEmpty()) {
+            let bytes = readWindowsApplicationExecutable(project, executable)
+            let destination = "${manifest.name}.exe"
+            File.writeTo(joinPath(output, destination), windowsApplicationImage(bytes, windowsConsole))
+            copied.add("${executable} -> ${destination}")
+            executableIncluded = true
+        }
     } else {
         writeLinuxApplicationArtifact(project, manifest, output, generated, copied)
         if (!linuxRuntimeManifest.isEmpty() || !sourceSdkFramework.isEmpty()) {
@@ -271,6 +278,8 @@ func writeApplicationPackagingArtifact(project: String, platform: String,
     generated.add(applicationPackagingReceiptPath(platform))
     let kind = if (platform == "linux" && executableIncluded) {
         "linux-unsigned-runtime-bundle"
+    } else if (platform == "windows" && executableIncluded) {
+        if (windowsConsole) { "windows-unsigned-console-application" } else { "windows-unsigned-gui-application" }
     } else { packagingArtifactKind(platform) }
     ApplicationPackagingArtifactReceipt(
         platform, kind, manifest, generated.toArray(), copied.toArray(),

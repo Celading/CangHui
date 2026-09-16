@@ -1,5 +1,31 @@
 # Application Packaging
 
+## Windows GUI executables
+
+After building an unsigned Windows executable, produce a GUI-subsystem copy before signing:
+
+```bash
+cuic package build windows . --executable target/release/bin/main.exe --output dist/gui
+cuic package build windows . --executable target/release/bin/main.exe --console --output dist/console
+```
+
+Use the actual target-relative EXE path for cross builds. This works from a non-Windows host
+without compiling or running the input. Omit `--executable` to retain metadata-only packaging.
+The default changes only the copied PE subsystem and checksum, preserving the compiler's
+runtime entry point. Windows does not automatically allocate a console for a GUI-subsystem
+application launched from Explorer. It does not hide an existing terminal, change `cjpm build`,
+or prevent an application/child process from explicitly creating a console.
+
+The original EXE is untouched. Embedded certificate tables, DLLs, managed images, unsupported
+subsystems, malformed structural bounds, escaping paths and nonempty outputs are rejected.
+The input limit is 256 MiB. PE32/PE32+ parsing is not an OS/architecture support claim or a full
+loader/security verification. Sign only after packaging. Keep file logging or use `--console`
+for diagnostics; do not rely on interactive standard input in GUI releases.
+
+Receipts distinguish `windows-unsigned-gui-application` and `windows-unsigned-console-application`.
+DLL assembly, icon/version resource compilation, signing and real Windows launch/input testing
+remain separate. This is not a self-contained Windows runtime bundle.
+
 **English** | [中文](application-packaging.zh-CN.md)
 
 `canghui.toml` is the project-side declaration for application identity, logical

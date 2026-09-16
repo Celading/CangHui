@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+- CUIC Windows 打包可通过 `--executable` 将已构建的未签名 EXE 复制为 GUI 子系统
+  应用，保留运行时入口；`--console` 生成诊断副本。原文件不变，已含嵌入签名、
+  非应用/无效 PE 和输出覆盖被拒绝。DLL、资源编译、签名与 Windows 实机验收仍独立。
+  Windows packaging accepts an existing unsigned EXE, preserves its runtime entry
+  and defaults to a GUI-subsystem copy; `--console` retains a diagnostic console.
+  Runtime DLLs, resource compilation, signing and Windows field acceptance remain separate.
+
 ## 0.18.0 (2026-09-10)
 
 - 配套源码 CLI 升至 `cuic 0.7.0`，汇总下列增量能力。版本更新不代表已安装 SDK

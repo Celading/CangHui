@@ -88,6 +88,36 @@ macOS 和 Windows 的产物命名保持不变。
 图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
 文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
 
+## Windows 无控制台应用
+
+Windows 构建后的 EXE 可以在签名前由 CUIC 生成 GUI 子系统副本：
+
+```bash
+cuic package build windows . --executable target/release/bin/main.exe --output dist/gui
+# 交叉编译时传入实际目标路径，例如 target/x86_64-w64-mingw32/release/bin/main.exe
+# 诊断副本保留控制台：
+cuic package build windows . --executable target/release/bin/main.exe --console --output dist/console
+```
+
+`--executable` 接受工程内已有的未签名 EXE，不重新编译，支持在非 Windows 宿主
+组装。未传入时仍生成原来的资源输入树。默认 GUI 模式把 PE `Subsystem` 设为
+`WINDOWS_GUI`，重算校验和，保留仓颉编译器生成的入口及其他字节；不是运行后
+调用隐藏窗口。操作仅修改输出副本，原文件保留供调试。
+
+从资源管理器直接启动 GUI 子系统应用，Windows 不会为其自动分配控制台；应用自己
+调用控制台 API 或启动控制台子程序属于另一条路径。已有终端也不会被强行关闭。
+这不改变 `cjpm build` 默认行为，不为 CUIC 自身关闭控制台。诊断可选择 `--console`
+或应用自己的文件日志；不要让发布程序依赖交互式标准输入。签名应在此步骤之后进行。
+
+入口校验覆盖 PE32/PE32+、应用类型、节数据与入口边界；拒绝 DLL、非 GUI/console
+子系统、托管映像、嵌入证书表、越界路径和非空输出目录。文件上限 256 MiB。
+这不是完整 Windows loader 验证，也不是恶意文件扫描。
+
+回执区分 `windows-unsigned-gui-application` 和 `windows-unsigned-console-application`。
+此入口**不自动携带 DLL、不编译图标/版本资源、不签名、不证明 Windows 实机启动**。
+消费方仍须组装匹配的仓颉/SDL/其他 DLL 与资源，在目标 Windows 上验证双击启动、
+键鼠输入、关闭与异常日志。PE 格式处理能力不代表相应架构/Windows 版本已获支持。
+
 ## macOS SDK 候选包硬化
 
 ```bash
