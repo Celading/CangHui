@@ -63,6 +63,7 @@ CangHui 是运行在 SDL3 上的仓颉声明式桌面界面框架。你在构建
 | 构建带校验和结果提示的表单 | [设置表单](tutorials/settings-form.md) | 空姓名、未同意条款和提交成功三条路径都能重复操作并得到不同提示 |
 | 选择 State、Binding 或派生值 | [状态与绑定](concepts/state-and-binding.md) | 修改输入后派生提示同步更新，且同一份数据只在一个 `State` 中写入 |
 | 组织多文件真实任务工作台 | [任务工作台](tutorials/task-workbench.md) | 模型、动作和视图分文件；筛选与保存逻辑可脱离窗口单独测试 |
+| 迁移游戏化学习应用 | [接入学习应用](how-to/migrate-learning-app.md) | 保留业务，用普通控件完成答题、反馈、结算与重试 |
 | 判断修饰器顺序和尺寸单位 | [修饰器与单位](concepts/modifiers-and-units.md) | 交换背景与内边距的顺序前，就能判断颜色区域和鼠标命中范围怎样变化 |
 
 ### 布局并浏览动态数据

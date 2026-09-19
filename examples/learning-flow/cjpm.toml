@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "chui_learning_flow"
+version = "0.1.0"
+output-type = "executable"
+description = "Responsive learning flow using ordinary CangHui controls."
+
+[dependencies]
+chui = { path = "../.." }
