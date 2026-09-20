@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+- 桌面窗口新增透明创建选项和运行时圆角调节/回执；macOS Shell 接通显式应用图标、
+  About 图标与可显示/隐藏的原生状态项，复用现有 Action 队列。macOS 打包支持方形 PNG
+  转多尺寸 ICNS。增加 [macos-shell 示例](../examples/macos-shell/)。
+  Add transparent-window opt-in and runtime corner-radius updates/receipts. The macOS
+  shell supports explicit application/About icons and visible/hidden native status items
+  through existing actions. macOS packaging converts square PNG icons to multi-size ICNS.
+
 - 明确基础样式与可选 Kit 边界；两个现有设计包支持带许可、来源哈希的选择性源码导出，
   升级仅输出新目录，不覆盖应用自改源码。增加同业务基础/Editorial/Glass 对照与交互回归。
   Clarify base-style and optional Kit ownership. Both existing packs support licensed,

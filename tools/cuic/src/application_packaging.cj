@@ -316,9 +316,13 @@ func copyMacIcon(project: String, sourcePath: String, resources: String, copied:
     let source = joinPath(project, sourcePath)
     if (packagingDirectoryExists(source)) { throw CuicError("application icon must be a file: ${sourcePath}") }
     let extension = packagingExtension(sourcePath)
-    let name = if (extension == "icns") { "application.icns" } else { packagingNameWithExtension("application-icon", extension) }
+    if (extension != "icns" && extension != "png") {
+        throw CuicError("macOS application icon requires ICNS or square PNG")
+    }
+    let name = "application.icns"
     let destination = joinPath(resources, name)
-    copyPackagingFile(source, destination)
+    if (extension == "png") { convertMacApplicationIcon(source, destination, resources) }
+    else { copyPackagingFile(source, destination) }
     copied.add("${sourcePath} -> Contents/Resources/${name}")
     destination
 }

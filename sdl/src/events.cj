@@ -391,7 +391,10 @@ internal func decodeEvent(raw: SdlEvent): UiEvent {
             eventType == SDL_EVENT_WINDOW_METAL_VIEW_RESIZED) {
             let window = unsafe { CPointer<SdlWindowEvent>(eventResource.value).read() }
             decoded = UiEvent.WindowPixelSizeChanged(window.data1, window.data2)
-        } else if (eventType == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED) {
+        } else if (eventType == SDL_EVENT_WINDOW_DISPLAY_SCALE_CHANGED ||
+            eventType == SDL_EVENT_WINDOW_ENTER_FULLSCREEN || eventType == SDL_EVENT_WINDOW_LEAVE_FULLSCREEN) {
+            // Fullscreen transitions may leave size unchanged. Query the whole native
+            // snapshot so both event pumps refresh the shape from current window flags.
             decoded = UiEvent.WindowDisplayScaleChanged
         } else if (eventType == SDL_EVENT_WINDOW_MINIMIZED) {
             decoded = UiEvent.WindowMinimized

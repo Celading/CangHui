@@ -57,10 +57,33 @@ Shell。其 `pump()` / `run()` 负责挂载和派发；单独调用 `pumpOne()` 
 恢复原有菜单。未显式启用自定义 Dock 菜单时，不替换 SDL 的 application delegate。原生队列最多容纳
 256 个动作，溢出明确失败，不提供远程控制入口。
 
-本 Provider 的 `ApplicationMenu`、`DockMenu` 和 `Badge` 报告 native；设置仍是内存 fallback。应用图标、
-状态项、通知以及系统 Deep Link 注册尚未通过此 Provider 接通。系统命令标签暂为
+本 Provider 的 `ApplicationMenu`、`DockMenu`、`Badge`、`AppIcon` 和 `StatusItem` 报告 native；
+设置仍是内存 fallback。通知以及系统 Deep Link 注册尚未通过此 Provider 接通。系统命令标签暂为
 英文；其他操作系统下此工厂选择 Headless Provider。图标打包、签名和分发与原生菜单
 是分别验收的能力，见[应用打包](application-packaging.zh-CN.md)。
+
+## 应用图标、About 与菜单栏状态项
+
+`ApplicationManifest.assets` 中的 `ApplicationIcon` 接到应用级 Dock 图标；原生 About
+显示应用名、版本与当前应用图标。加载失败明确报错，不静默使用通用图标。路径仅接受本地
+图片；相对路径在 `.app` 内以 `Contents/Resources` 为根，裸程序开发时以工作目录为根。
+打包的 `application-icon` 位于 `application.icns`，不会自动改写运行时 manifest。
+
+```cangjie
+shell.registerAction(AppAction("app.settings", "设置…"), {=> openSettings()})
+shell.setStatusItem(AppStatusItem("应用状态", title: "CH",
+    actionIds: ["app.settings"], visible: true, templateIcon: true))
+shell.setStatusItem(AppStatusItem("应用状态", title: "CH", visible: false))
+```
+
+可在 attach 前排队；挂载后由 AppKit `NSStatusItem` 显示。标题与图标至少提供一个，图标
+由 `iconRole` 选择显式资产，默认 `StatusItemIcon`。`templateIcon` 默认 true，适合单色
+模板图；彩色图请关闭。菜单使用现有 Action ID、禁用态与有界派发队列；隐藏或卸载移除
+状态项，替换菜单断开旧回调。标题上限 128 字节、tooltip 上限 1024 字节，动作上限 256。
+Settings 只负责动作路由，实际偏好页与持久化由应用提供。多窗口共享同一应用图标和状态项。
+
+示例：[macos-shell](../../examples/macos-shell/)。About、Dock、状态项和外轮廓不在
+`cuic prnt` 的内容截图内，需要原生系统验证。
 
 ## Dock 动作菜单
 

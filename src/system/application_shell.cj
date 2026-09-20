@@ -138,18 +138,29 @@ public struct AppStatusItem {
     public let tooltip: String
     public let iconRole: AppAssetRole
     public let actionIds: Array<String>
+    public let title: String
+    public let visible: Bool
+    public let templateIcon: Bool
 
     public init(tooltip: String, iconRole!: AppAssetRole = AppAssetRole.StatusItemIcon,
-        actionIds!: Array<String> = []) {
+        actionIds!: Array<String> = [], title!: String = "", visible!: Bool = true,
+        templateIcon!: Bool = true) {
         if (tooltip.isEmpty()) {
             throw IllegalArgumentException("status item tooltip must not be empty")
+        }
+        if (tooltip.contains("\u{0}") || title.contains("\u{0}") || tooltip.size > 1024 ||
+            title.size > 128 || actionIds.size > 256) {
+            throw IllegalArgumentException("invalid or oversized status item")
         }
         for (actionId in actionIds) {
             validateAppActionId(actionId)
         }
         this.tooltip = tooltip
         this.iconRole = iconRole
-        this.actionIds = actionIds
+        this.actionIds = Array<String>(actionIds.size, {i => actionIds[i]})
+        this.title = title
+        this.visible = visible
+        this.templateIcon = templateIcon
     }
 }
 

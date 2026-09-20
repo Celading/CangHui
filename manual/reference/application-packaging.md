@@ -174,9 +174,10 @@ used the display name must update that destination. Display names with spaces,
 percent signs or `=` no longer become command-line syntax or field codes. macOS
 and Windows artifact naming is unchanged.
 
-Icon bytes are never relabelled as another format. A real `.icns` or `.ico`
-uses the native destination name; PNG, SVG and other inputs keep their original
-extension and remain visible as a conversion or provider gate.
+Icon bytes are never relabelled as another format. macOS accepts ICNS, or converts
+square PNG inputs with `sips` and `iconutil` on a macOS host. Other macOS application
+icon formats (including SVG) fail explicitly. Windows still requires real ICO;
+other platform conversions and providers are separate gates.
 
 ## Assemble a Linux runtime with CUIC
 
@@ -265,9 +266,14 @@ clean packaging. The JSON may contain local paths; review it before publishing.
 ## macOS icons: bundle identity and runtime updates
 
 Provide the default Finder, Dock and About icon through the `.app`. Set
-`[assets].application-icon` to a real `.icns` and run `cuic package build macos .`.
-A bare executable is not a replacement for bundle identity, and PNG inputs are
-not automatically converted to ICNS.
+`[assets].application-icon` to `.icns` or a square `.png`, then run
+`cuic package build macos .`. PNG must be a regular file, 16–4096 pixels wide and
+at most 32 MiB; 1024 pixels is recommended. On macOS it becomes a 16–512 point
+1x/2x icon family registered as `CFBundleIconFile=application.icns`. Upscaling
+does not restore missing detail. Conversion failure stops packaging; the input
+is unchanged and temporary conversion files are cleaned up. A bare executable
+does not replace bundle identity. Signing, notarization and cross-machine runtime
+closure still require separate verification.
 
 Use the existing `DesktopApp.setWindowIcon` for runtime updates on the UI thread,
 for example inside a button callback. After a successful call, the input Surface

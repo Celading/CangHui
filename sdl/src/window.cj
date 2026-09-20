@@ -16,6 +16,8 @@ public struct WindowSpec {
      * platform windows should normally leave this at zero and use the system's own corners.
      */
     public let cornerRadius: Float32
+    /** Opt into an alpha-capable window even when the initial corner radius is zero. */
+    public let transparent: Bool
     public let scale: Float32
     /** None preserves explicit legacy window-unit scale. Some enables system-aware UI zoom. */
     public let scaling: ?WindowScaleSettings
@@ -42,7 +44,8 @@ public struct WindowSpec {
         decorated!: Bool = true,
         frameless!: Bool = false,
         cornerRadius!: Float32 = 0.0,
-        scaling!: ?WindowScaleSettings = None
+        scaling!: ?WindowScaleSettings = None,
+        transparent!: Bool = false
     ) {
         this.title = title
         this.width = width
@@ -52,6 +55,7 @@ public struct WindowSpec {
         this.decorated = decorated
         this.frameless = frameless
         this.cornerRadius = normalizedCornerRadius(cornerRadius)
+        this.transparent = transparent
         this.scale = normalizedScale(scale)
         this.scaling = scaling
         this.vsync = vsync
@@ -78,7 +82,9 @@ public class SdlWindow <: Resource {
     public var height: Int32
     public var scale: Float32
     public var transformRevision: UInt64
-    public let cornerRadius: Float32
+    private var requestedCornerRadius: Float32
+    private let supportsCustomShape: Bool
+    public prop cornerRadius: Float32 { get() { requestedCornerRadius } }
     public let renderer: Renderer
     public let id: WindowId
 
@@ -95,7 +101,8 @@ public class SdlWindow <: Resource {
         this.transformRevision = UInt64(1)
         this.backingPixelWidth = scaledDimension(spec.width, spec.scale)
         this.backingPixelHeight = scaledDimension(spec.height, spec.scale)
-        this.cornerRadius = spec.cornerRadius
+        this.requestedCornerRadius = spec.cornerRadius
+        this.supportsCustomShape = spec.transparent || spec.cornerRadius > 0.0
         this.runtime = SdlRuntime()
 
         let flags = windowCreationFlags(spec)
@@ -360,6 +367,20 @@ public class SdlWindow <: Resource {
 
     public func shapeReceipt(): WindowShapeReceipt { shapeReceiptValue }
 
+    /** UI-owner operation. Zero clears custom clipping; requires an alpha-capable window. */
+    public func setCornerRadius(radius: Float32): WindowShapeReceipt {
+        ensureScaleOwner()
+        let normalized = normalizedCornerRadius(radius)
+        if (!supportsCustomShape) {
+            return WindowShapeReceipt(WindowShapeApplyStatus.Failed, normalized * scale, 0.0,
+                backingPixelWidth, backingPixelHeight,
+                detail: "create with transparent: true or a positive cornerRadius before changing shape")
+        }
+        requestedCornerRadius = normalized
+        refreshRoundedShape(backingPixelWidth, backingPixelHeight)
+        shapeReceiptValue
+    }
+
     public func ticks(): UInt64 {
         unsafe { SDL_GetTicks() }
     }
@@ -419,13 +440,13 @@ public class SdlWindow <: Resource {
 
     private func refreshRoundedShape(pixelWidth: Int32, pixelHeight: Int32): Unit {
         // 最大化时满屏直角：清除已应用的圆角遮罩（还原时恢复配置圆角）
-        let maximized = windowFlagsFromRaw(unsafe { SDL_GetWindowFlags(windowPtr) }).maximized
-        if (maximized) {
-            if (cornerRadius > 0.0 && shapeReceiptValue.status != WindowShapeApplyStatus.NotRequested) {
+        let flags = windowFlagsFromRaw(unsafe { SDL_GetWindowFlags(windowPtr) })
+        if (flags.maximized || flags.fullscreen || cornerRadius == 0.0) {
+            if (supportsCustomShape && shapeReceiptValue.status != WindowShapeApplyStatus.NotRequested) {
                 try {
                     ensureSdl(unsafe { SDL_SetWindowShape(windowPtr, CPointer<Unit>()) }, "SDL_SetWindowShape(clear)")
                     shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.NotRequested, 0.0, 0.0,
-                        pixelWidth, pixelHeight, detail: "shape cleared for maximized window")
+                        pixelWidth, pixelHeight, detail: "custom shape disabled or suspended for maximized/fullscreen window")
                 } catch (error: Exception) {
                     shapeReceiptValue = WindowShapeReceipt(WindowShapeApplyStatus.Failed, 0.0,
                         shapeReceiptValue.appliedRadius, pixelWidth, pixelHeight,
@@ -502,12 +523,15 @@ internal func windowCreationFlags(spec: WindowSpec): UInt64 {
     if (!spec.decorated || spec.frameless) {
         flags = flags | SDL_WINDOW_BORDERLESS
     }
-    if (spec.cornerRadius > 0.0) {
+    if (spec.transparent || spec.cornerRadius > 0.0) {
         flags = flags | SDL_WINDOW_TRANSPARENT
     }
     flags
 }
 
 internal func normalizedCornerRadius(radius: Float32): Float32 {
+    if (!(radius <= Float32.Max && radius >= -Float32.Max)) {
+        throw IllegalArgumentException("window corner radius must be finite")
+    }
     if (radius > 0.0) { radius } else { 0.0 }
 }

@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "canghui_macos_shell"
+version = "0.1.0"
+output-type = "executable"
+description = "Native window corners, application identity and status menu example."
+
+[dependencies]
+chui = { path = "../.." }

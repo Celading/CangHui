@@ -234,7 +234,7 @@ import chui.*
 | `WindowProgressState` | 原生任务栏进度指示的状态（Windows 任务栏按钮的进度条），经 `SdlWindow.setProgressState` 设置。 |
 | `WindowShapeApplyStatus` | 原生窗口形状请求的运行时结果：未请求、已应用或失败。 |
 | `WindowShapeReceipt` | `SdlWindow.shapeReceipt()` 返回的精确请求尺寸、应用半径与运行时状态；不替代目标合成器的实机视觉验收。 |
-| `WindowSpec` | 创建窗口时的一次性选项：标题、逻辑尺寸、DPI/缩放、垂直同步、超采样，以及自绘窗口可选的原生 `cornerRadius` 形状。 |
+| `WindowSpec` | 创建选项：标题、逻辑尺寸、DPI/缩放、垂直同步、超采样，以及 `transparent` 与自绘窗口 `cornerRadius`。创建时启用透明或正半径后，可由 `DesktopApp.setWindowCornerRadius(radius)` 调整，`windowShapeReceipt()` 查询结果；多窗入口为 `DesktopApplication.setWindowCornerRadius(id, radius)`。 |
 | `WindowId` | 非零、稳定的 SDL 原生窗口身份。 |
 
 **来自 [`sdl.dialogs`](../../../sdl/docs/api-reference.md)**

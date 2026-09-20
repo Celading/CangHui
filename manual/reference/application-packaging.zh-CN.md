@@ -85,8 +85,9 @@ Linux 入口保留 `application.name` 作为显示名，使用已校验的 `appl
 该目标名称。显示名内的空格、百分号或 `=` 不再成为命令行语法或参数占位符。
 macOS 和 Windows 的产物命名保持不变。
 
-图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
-文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
+图标字节不会被改名伪装成另一种格式。macOS 接受 ICNS，或在 macOS 宿主上将方形 PNG
+通过 `sips`／`iconutil` 转为多尺寸 ICNS；SVG 等其他应用图标格式明确拒绝。Windows
+仍要求真实 ICO，其他平台的格式转换与 Provider 是独立门。
 
 ## Windows 无控制台应用
 
@@ -294,8 +295,11 @@ CUIC 运行包流程在重定位后调用该检查。可执行文件须位于运
 ## macOS 图标：安装身份与运行时更新
 
 Finder、Dock 和 About 的默认图标应随 `.app` 提供。在 `[assets]` 中将
-`application-icon` 指向真实 `.icns`，然后运行 `cuic package build macos .`。
-直接分发裸可执行文件不能替代 bundle 身份；PNG 输入也不会自动转换成 ICNS。
+`application-icon` 指向 `.icns` 或方形 `.png`，然后运行 `cuic package build macos .`。
+PNG 输入须为 16–4096 像素、至多 32 MiB 的普通文件，推荐 1024 像素；macOS 宿主将其
+转换为 16–512 点的 1x/2x 图标族，并注册 `CFBundleIconFile=application.icns`。小图放大
+不能补回细节。转换失败会终止打包，输入不被修改，临时转换目录会清理。
+直接分发裸可执行文件不能替代 bundle 身份。签名、公证和跨机器运行时闭合仍需单独完成。
 
 运行时可以使用已有的 `DesktopApp.setWindowIcon`。在应用 UI 线程执行，例如在
 按钮回调中调用；成功返回后可以释放输入 Surface：

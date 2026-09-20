@@ -517,7 +517,7 @@ func applicationPackagingPlanForManifest(project: String, platform: String,
         generated.add("dist/${manifest.name}.app/Contents/MacOS/${manifest.name}")
         if (!manifest.applicationIcon.isEmpty()) {
             let extension = packagingExtension(manifest.applicationIcon)
-            let icon = if (extension == "icns") { "application.icns" } else {
+            let icon = if (extension == "icns" || extension == "png") { "application.icns" } else {
                 packagingNameWithExtension("application-icon", extension)
             }
             generated.add("dist/${manifest.name}.app/Contents/Resources/${icon}")
