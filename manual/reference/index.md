@@ -1,6 +1,7 @@
 # Reference
 
 - [API 概览](api-reference.md)
+- [基础样式与可选 Kit](basic-styles-and-kits.md)
 - [CangHuiKit 设计套件](canghui-kit.md)
 - [属性驱动动画](../guide/how-to/animate-properties.md)
 - [架构](architecture.md)

@@ -1,0 +1,11 @@
+[package]
+cjc-version = "1.0.5"
+name = "canghui_kit_parity"
+version = "0.1.0"
+output-type = "executable"
+description = "One application-owned workflow, three opt-in compositions."
+
+[dependencies]
+chui = { path = "../.." }
+canghui_kit = { path = "../../packages/kit" }
+canghui_style_liquid_glass = { path = "../../packages/style-liquid-glass" }

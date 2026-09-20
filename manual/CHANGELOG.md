@@ -4,6 +4,18 @@
 
 ## Unreleased
 
+- 明确基础样式与可选 Kit 边界；两个现有设计包支持带许可、来源哈希的选择性源码导出，
+  升级仅输出新目录，不覆盖应用自改源码。增加同业务基础/Editorial/Glass 对照与交互回归。
+  Clarify base-style and optional Kit ownership. Both existing packs support licensed,
+  hash-recorded owned-source export into new directories only. A shared-workflow example
+  compares base, Editorial and Glass without replacing input or focus handling.
+  See [basic styles and Kits](reference/basic-styles-and-kits.md).
+  同时加深基础浅色主题 danger，使默认页面背景上的普通错误文字达到 4.5:1。
+  Darken the base light danger role to meet 4.5:1 for normal error text on its stock page background.
+  修复 Label 显式换行与自动折行组合时的重叠，保留 CR/LF/CRLF、空行与末行省略。
+  Fix overlapping Label lines when hard breaks and wrapping combine, preserving CR/LF/CRLF,
+  empty paragraphs and line-limit ellipsis.
+
 - 网络资源新增可注入的流式传输接口、有界临时文件会话、取消/失败清理及网络图片入口。
   复用UI任务提交，核心不强制依赖HTTP框架；提供Ignite适配示例，默认不隐式联网。
   Network resources gain an injectable streaming transport, bounded temporary-file ownership,
