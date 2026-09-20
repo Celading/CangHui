@@ -702,6 +702,13 @@ public import chui.media.ImageFit
 public import chui.media.ImageView
 public import chui.media.clearImageCache
 public import chui.media.invalidateImage
+public import chui.media.FramePoolMemorySnapshot
+public import sdl.ImageMemoryOptions
+public import sdl.ImageMemoryStats
+public import sdl.configureImageMemory
+public import sdl.currentImageMemoryOptions
+public import sdl.imageMemoryStats
+public import sdl.trimImageMemory
 public import chui.text.ComboBox
 public import chui.text.TextArea
 public import chui.text.TextAreaChrome

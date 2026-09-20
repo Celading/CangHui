@@ -106,6 +106,7 @@ private class TextMetricsCache {
 
 public class Renderer {
     internal let ptr: CPointer<Unit>
+    internal let rendererImageCache = RendererImageCache()
     // Persistent scene scale; temporary render-target scales must not replace it.
     private var contentScale: Float32
     private var ssTarget: CPointer<Unit> = CPointer<Unit>()
@@ -638,6 +639,7 @@ public class Renderer {
      * close, just before destroying the SDL renderer; safe to call more than once.
      */
     internal func releaseResources(): Unit {
+        rendererImageCache.close()
         let _ = this.releaseEffectAdapter()
         if (ssTarget.isNotNull()) {
             unsafe { SDL_DestroyTexture(ssTarget) }

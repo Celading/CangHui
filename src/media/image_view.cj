@@ -14,8 +14,8 @@ public enum ImageFit {
 
 /*
  * Displays an image loaded from a file. Decoded textures live in the shared, path-keyed
- * texture cache (see texture_cache.cj), so an ImageView is declared inline like any other
- * widget — the per-frame rebuild costs one cache lookup, not a disk load. After overwriting
+ * renderer-owned bounded texture cache (see texture_cache.cj), so an ImageView is declared
+ * inline like any other widget. Cache hits do not reload the file. After overwriting
  * an image file, call `invalidateImage(path)` to refresh it.
  *
  * The class still implements `Resource` for source compatibility with the earlier

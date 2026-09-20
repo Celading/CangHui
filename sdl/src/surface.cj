@@ -113,16 +113,5 @@ public func imageFormatFromPath(path: String): ImageFileFormat {
  * Throws `CuiException` when SDL cannot load the requested image file.
  */
 private func loadWith(path: String, format: ImageFileFormat): Surface {
-    let cPath = unsafe { LibC.mallocCString(path) }
-    var surface = CPointer<Unit>()
-    try (pathResource = cPath.asResource()) {
-        surface = match (format) {
-            case ImageFileFormat.Png => unsafe { SDL_LoadPNG(pathResource.value) }
-            case ImageFileFormat.Bmp => unsafe { SDL_LoadBMP(pathResource.value) }
-        }
-    }
-    if (surface.isNull()) {
-        throw CuiException("Image load failed for '${path}': ${lastSdlError()}")
-    }
-    Surface(surface)
+    loadBudgetedImage(path, format, imageMemoryOptions, {_ => ()})
 }

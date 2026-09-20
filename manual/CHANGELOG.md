@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+- 图片缓存增加按渲染器归属的字节/条目预算、LRU 和窗口关闭回收，PNG/BMP 在解码前
+  检查尺寸及工作量；可配置预算并读取托管堆/纹理估算。RGBA 上传去掉显式逐字节副本，
+  修复行宽计算溢出。详见[图片内存与帧池](reference/image-memory.md)。
+  Image caches now have per-renderer budgets, LRU eviction and owner-close cleanup.
+  PNG/BMP decoding checks admission limits; scoped RGBA upload removes the explicit
+  staging copy and checks row width without Int32 overflow. Memory figures are estimates,
+  not a process/GPU hard cap or a guarantee against every out-of-memory condition.
+
 - CUIC Windows 打包可通过 `--executable` 将已构建的未签名 EXE 复制为 GUI 子系统
   应用，保留运行时入口；`--console` 生成诊断副本。原文件不变，已含嵌入签名、
   非应用/无效 PE 和输出覆盖被拒绝。DLL、资源编译、签名与 Windows 实机验收仍独立。

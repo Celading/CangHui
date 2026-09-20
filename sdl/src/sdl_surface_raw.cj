@@ -3,6 +3,13 @@ package sdl
 internal let SDL_PIXELFORMAT_RGBA32: UInt32 = UInt32(0x16762004)
 
 foreign {
+    func SDL_IOFromFile(file: CString, mode: CString): CPointer<Unit>
+    func SDL_GetIOSize(stream: CPointer<Unit>): Int64
+    func SDL_ReadIO(stream: CPointer<Unit>, pixels: CPointer<UInt8>, size: UIntNative): UIntNative
+    func SDL_SeekIO(stream: CPointer<Unit>, offset: Int64, whence: Int32): Int64
+    func SDL_CloseIO(stream: CPointer<Unit>): Bool
+    func SDL_LoadPNG_IO(stream: CPointer<Unit>, closeio: Bool): CPointer<Unit>
+    func SDL_LoadBMP_IO(stream: CPointer<Unit>, closeio: Bool): CPointer<Unit>
     func SDL_CreateSurface(width: Int32, height: Int32, format: UInt32): CPointer<Unit>
 
     func SDL_DestroySurface(surface: CPointer<Unit>): Unit

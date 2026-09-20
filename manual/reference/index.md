@@ -8,6 +8,7 @@
 - [doctor](doctor.zh-CN.md)
 - [符号/Symbols](symbols.zh-CN.md)
 - [字体](fonts.zh-CN.md)
+- [图片内存与帧池](image-memory.md)
 - [文本边界与编辑](text-boundaries.md)
 - [Liquid Glass 可选样式包](liquid-glass-style.md)
 - [二维 Renderer effects 与 backdrop adapter](renderer-effects.md)
