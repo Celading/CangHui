@@ -703,6 +703,17 @@ public import chui.media.ImageView
 public import chui.media.clearImageCache
 public import chui.media.invalidateImage
 public import chui.media.FramePoolMemorySnapshot
+public import chui.media.NetworkResourceException
+public import chui.media.NetworkResourceKind
+public import chui.media.NetworkResourceResult
+public import chui.media.NetworkResourceRequest
+public import chui.media.NetworkResourceControl
+public import chui.media.NetworkResourceResponse
+public import chui.media.NetworkResourceTransport
+public import chui.media.CallbackResourceTransport
+public import chui.media.NetworkResourceOptions
+public import chui.media.NetworkResourceFile
+public import chui.media.NetworkResourceLoader
 public import sdl.ImageMemoryOptions
 public import sdl.ImageMemoryStats
 public import sdl.configureImageMemory

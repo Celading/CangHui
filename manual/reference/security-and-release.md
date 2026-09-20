@@ -19,13 +19,18 @@ security boundary.
 | `cuic debug` and `prnt --device/--app` | refuses | available where the platform route is implemented |
 | `kmode diff` / `probe diff` | static source collision check remains available | available |
 
-The repository does not ship a socket, listener, remote relay implementation
+The core framework does not ship a socket, listener, remote relay implementation
 or `KModeChannelModule` implementation. The channel interface is a
 transport-neutral SPI, not a hidden transport. A future remote module must own
 claim verification, identity binding, replay prevention, capability scope,
 rate/buffer limits and secret redaction, then pass a separate native-platform
 security review. Locality, loopback and a device forward are not
 authentication.
+
+Opt-in application network resources use a transport-neutral streaming interface;
+the manual includes an Ignite client adapter recipe and a loopback-only test fixture.
+These are not runtime listeners or CUIC control channels. Resource downloads never
+execute received content or dispatch input events. See [network resources](network-resources.md).
 
 `cuic shell` is not another transport. It does not attach to an arbitrary PID,
 read a command stream from stdin, listen on a socket/pipe, or interpret shell

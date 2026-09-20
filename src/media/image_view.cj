@@ -31,6 +31,7 @@ public class ImageView <: Widget & Resource {
     private let logicalResourceProvenance: String
     private var frame = Rect.zero()
     private var closed = false
+    private var networkFile: ?NetworkResourceFile = None
 
     public init(
         path: String,
@@ -64,6 +65,21 @@ public class ImageView <: Widget & Resource {
             logicalResourceProvenance: receipt.provenance())
     }
 
+    /** Displays a completed PNG/BMP download. The loader/file remains caller-owned. */
+    public static func fromNetworkResource(file: NetworkResourceFile,
+        fit!: ImageFit = ImageFit.Contain, preferredWidth!: ?Length = None,
+        preferredHeight!: Length = Length(96.0, LengthUnit.Vp)): ImageView {
+        match (file.kind) {
+            case NetworkResourceKind.Data => throw NetworkResourceException("not-an-image")
+            case _ => ()
+        }
+        let view = ImageView(file.path(), fit: fit, preferredWidth: preferredWidth,
+            preferredHeight: preferredHeight, logicalResourceName: "network-image",
+            logicalResourceRole: "image", logicalResourceProvenance: "downloaded-file")
+        view.networkFile = Some(file)
+        view
+    }
+
     /** Selects how image pixels are fitted into the assigned frame. */
     public func fit(value: ImageFit): ImageView {
         imageFit = value
@@ -87,6 +103,10 @@ public class ImageView <: Widget & Resource {
     public func draw(ctx: UiContext): Unit {
         if (closed) {
             return
+        }
+        match (networkFile) {
+            case Some(file) => if (file.isClosed()) { return }
+            case None => ()
         }
         if (!logicalResourceName.isEmpty()) {
             ctx.renderer.recordImageResource(logicalResourceName, logicalResourceRole,

@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- 网络资源新增可注入的流式传输接口、有界临时文件会话、取消/失败清理及网络图片入口。
+  复用UI任务提交，核心不强制依赖HTTP框架；提供Ignite适配示例，默认不隐式联网。
+  Network resources gain an injectable streaming transport, bounded temporary-file ownership,
+  cooperative cancellation and ImageView integration. The core stays HTTP-framework independent;
+  an opt-in Ignite adapter recipe is included. See [network resources](reference/network-resources.md).
+
 - 图片缓存增加按渲染器归属的字节/条目预算、LRU 和窗口关闭回收，PNG/BMP 在解码前
   检查尺寸及工作量；可配置预算并读取托管堆/纹理估算。RGBA 上传去掉显式逐字节副本，
   修复行宽计算溢出。详见[图片内存与帧池](reference/image-memory.md)。

@@ -8,6 +8,10 @@
 
 ## 声明
 
+网络图片需先通过`NetworkResourceLoader`在工作任务中完成下载，再调用
+`ImageView.fromNetworkResource(file)`。它不会在绘制中请求HTTP；file/loader仍由调用方持有和关闭。
+URL和认证信息不进入设计快照。详见[网络资源与自定义传输](../../../reference/network-resources.md)。
+
 ```cangjie
 public class ImageView <: Widget & Resource
 ```

@@ -17,10 +17,14 @@ CangHui 将开发检查能力与可分发应用行为分开。边界由编译条
 | `cuic debug` 与 `prnt --device/--app` | 拒绝 | 在已实现的平台路径上可用 |
 | `kmode diff` / `probe diff` | 保留静态源码冲突检查 | 可用 |
 
-仓库没有内置 socket、listener、远端 relay 或 `KModeChannelModule` 实现。
+框架核心没有内置 socket、listener、远端 relay 或 `KModeChannelModule` 实现。
 channel interface 是传输中立 SPI，不是隐藏隧道。未来远端 module 必须自行完成
 claim 校验、身份绑定、防重放、能力分域、限速/缓冲与敏感信息脱敏，并重新通过
 平台安全审查。local、loopback 或设备转发都不能充当认证。
+
+产品网络资源通过显式传输接口接入；manual提供Ignite客户端适配配方及仅供本机测试的
+loopback夹具，不由框架或CUIC启动。下载内容不执行、不派发输入事件，也不改变调试隔离。
+详见[网络资源](network-resources.md)。
 
 `cuic shell` 也不构成新增传输：它不会 attach 任意 PID，不读取 stdin 命令流，不监听
 socket/pipe，不解释 shell 字符串。cuic 只把最多 128 条、64 KiB 的白名单 UI 脚本交给
