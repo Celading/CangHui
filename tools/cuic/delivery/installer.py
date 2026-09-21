@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Thin, offline Windows EXE packaging. Python 3.11+, private NSIS engine."""
+"""Thin, offline Windows EXE packaging with the private canghui-package engine."""
 from __future__ import annotations
 
 import argparse
@@ -98,15 +98,23 @@ def check_engine(root):
         raise DeliveryError("engine manifest must be an object")
     if info.get("schema") != SCHEMA or info.get("host") != host_tag():
         raise DeliveryError("engine schema/host mismatch")
+    if info.get("engine", "canghui-package") != "canghui-package" or info.get("backend", "NSIS") != "NSIS":
+        raise DeliveryError("engine identity/backend mismatch")
     expected = info.get("files")
     if not isinstance(expected, dict) or expected != {k: v for k, v in files.items() if k != "engine.json"}:
         raise DeliveryError("engine file inventory/hash mismatch")
     if not isinstance(info.get("version"), str) or not re.fullmatch(r"3\.\d+(?:\.\d+)?", info["version"]):
-        raise DeliveryError("unsupported NSIS engine version")
+        raise DeliveryError("unsupported canghui-package NSIS backend version")
     exe = "makensis.exe" if sys.platform == "win32" else "makensis"
     for name in (exe, "COPYING", "Stubs/zlib-x86-unicode"):
         if name not in files:
             raise DeliveryError(f"engine file missing: {name}")
+    if "honorFormat" in info:
+        if info["honorFormat"] != "chui-honor-v1":
+            raise DeliveryError("unsupported Honor format")
+        for name in (f"honor/{exe}", "honor/COPYING", "honor/Stubs/zlib-x86-unicode"):
+            if name not in files:
+                raise DeliveryError(f"incomplete Honor profile: {name}")
     return info, root / exe
 
 
@@ -165,7 +173,7 @@ def render(app, files, entry, mode, honor):
              'SetCompressor zlib', 'Name ' + quote(app["name"]), 'OutFile "package.exe"',
              'ShowInstDetails show', 'SetOverwrite off']
     if honor:
-        lines += ['BrandingText "CangHui - Honor system (not extraction protection)"']
+        lines += ['BrandingText "CangHui - Honor System"']
     if mode == "install":
         lines += ['Page instfiles', 'UninstPage uninstConfirm', 'UninstPage instfiles',
                   'Function .onInit', f'  StrCpy $INSTDIR "{dest}"',
@@ -236,8 +244,17 @@ def build(args):
     if any(p.split('/')[0].casefold() in ("uninstall.exe", ".git", "_helper") for p in files):
         raise DeliveryError("payload contains reserved uninstall or development files")
     target = pe_machine(payload / entry)
-    engine = Path(args.engine_bundle).absolute() if args.engine_bundle else Path(__file__).resolve().parent / "engines/nsis"
+    engine = Path(args.engine_bundle).absolute() if args.engine_bundle else Path(__file__).resolve().parent / "engines/canghui-package"
     info, compiler = check_engine(engine)
+    compile_root = engine
+    if args.honor_system:
+        if info.get("honorFormat") != "chui-honor-v1":
+            raise DeliveryError("canghui-package engine has no paired Honor compiler/stub profile")
+        compile_root = engine / "honor"
+        compiler = compile_root / compiler.name
+        for rel in ("honor/" + compiler.name, "honor/Stubs/zlib-x86-unicode"):
+            if rel not in info["files"]:
+                raise DeliveryError("incomplete Honor compiler/stub profile")
     output.parent.mkdir(parents=True, exist_ok=True)
     # Exclusive create owns only a new output. Failed output is retained for inspection.
     output.mkdir()
@@ -252,7 +269,7 @@ def build(args):
         script = render(app, files, entry, args.mode, args.honor_system)
         (stage / "installer.nsi").write_text(script, encoding="utf-8")
         env = os.environ.copy()
-        env["NSISDIR"] = str(engine)
+        env["NSISDIR"] = str(compile_root)
         env.pop("NSISCONFDIR", None)
         command = [str(compiler), "-NOCONFIG", "-V2", "installer.nsi"]
         if sys.platform == "win32":
@@ -262,18 +279,24 @@ def build(args):
         if result.returncode:
             raise DeliveryError("NSIS compile failed: " + result.stdout.decode(errors="replace")[-8000:])
         pe_machine(stage / "package.exe")
+        if args.honor_system:
+            data = (stage / "package.exe").read_bytes()
+            if b"IUHCHnor1Format!" not in data:
+                raise DeliveryError("Honor output format marker missing; compiler/stub pairing rejected")
         artifact = output / (app["identifier"] + "-" + args.mode + ".exe")
         shutil.copyfile(stage / "package.exe", artifact)
         (output / "installer.nsi").write_text(script, encoding="utf-8")
         # License for the embedded installer engine always travels beside the artifact.
         shutil.copyfile(engine / "COPYING", output / "NSIS-COPYING.txt")
         receipt = {"schema": "chui.installer-artifact.v1", "application": app,
-                   "mode": args.mode, "engineVersion": info["version"], "engineHost": info["host"],
+                   "mode": args.mode, "engine": "canghui-package", "backend": "NSIS",
+                   "engineVersion": info["version"], "engineHost": info["host"],
                    "engineManifestSha256": digest(engine / "engine.json"), "target": target,
                    "artifact": artifact.name, "sha256": digest(artifact), "payload": files,
                    "compiled": True, "windowsExecutionVerified": False, "signed": False,
                    "runtimeDependenciesVerified": False, "honorSystem": args.honor_system,
                    "extractionProtection": False, "selfDelete": False,
+                   "headerObfuscation": "chui-honor-v1" if args.honor_system else "none",
                    "cache": "os-private-temp" if args.mode == "portable" else "not-applicable",
                    "cleanup": "on-launcher-exit-best-effort" if args.mode == "portable" else "exact-installed-files"}
         (output / "receipt.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -289,7 +312,7 @@ def main():
     parser.add_argument("--mode", choices=["install", "portable"], default="install")
     parser.add_argument("--output", required=True, help="new project-relative output directory")
     parser.add_argument("--engine-bundle", help="explicit trusted private engine directory; never discovered on PATH")
-    parser.add_argument("--honor-system", action="store_true", help="branding Easter egg, NOT extraction protection")
+    parser.add_argument("--honor-system", action="store_true", help="paired header-format obfuscation; not encryption or unbreakable extraction protection")
     args = parser.parse_args()
     try:
         print(json.dumps(build(args), ensure_ascii=False, indent=2))

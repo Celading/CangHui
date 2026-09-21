@@ -145,9 +145,54 @@ class InstallerTests(unittest.TestCase):
         receipt = bundle.bundle(self.payload / "app.exe", root, out)
         self.assertEqual(receipt["engineVersion"], "3.12")
         self.assertTrue((out / "cuic-delivery/installer.py").is_file())
-        m.check_engine(out / "cuic-delivery/engines/nsis")
+        m.check_engine(out / "cuic-delivery/engines/canghui-package")
         with self.assertRaises(FileExistsError):
             bundle.bundle(self.payload / "app.exe", root, out)
+
+    def test_honor_requires_paired_profile(self):
+        self.engine()
+        with self.assertRaisesRegex(m.DeliveryError, "paired Honor"):
+            m.build(self.args(honor_system=True))
+        self.assertFalse((self.root / "dist/result").exists())
+
+    def test_engine_identity_not_backend_name(self):
+        root = self.engine()
+        info = json.loads((root / "engine.json").read_text())
+        info["engine"] = "nsis"
+        (root / "engine.json").write_text(json.dumps(info))
+        with self.assertRaisesRegex(m.DeliveryError, "identity"):
+            m.check_engine(root)
+
+    def test_declared_honor_profile_must_exist(self):
+        root = self.engine()
+        info = json.loads((root / "engine.json").read_text())
+        info["honorFormat"] = "chui-honor-v1"
+        (root / "engine.json").write_text(json.dumps(info))
+        with self.assertRaisesRegex(m.DeliveryError, "incomplete Honor"):
+            m.check_engine(root)
+
+    def test_unknown_honor_profile_fails(self):
+        root = self.engine()
+        info = json.loads((root / "engine.json").read_text())
+        info["honorFormat"] = "unknown"
+        (root / "engine.json").write_text(json.dumps(info))
+        with self.assertRaisesRegex(m.DeliveryError, "unsupported Honor"):
+            m.check_engine(root)
+
+    def test_honor_source_pair_changes_only_format_identifiers(self):
+        import prepare_honor_source as h
+        source = self.root / "source"
+        header = source / "Source/exehead/fileform.h"
+        header.parent.mkdir(parents=True)
+        header.write_text("\n".join(h.ORIGINAL) + "\nCRC unchanged\n")
+        out = self.root / "fork"
+        h.prepare(source, out)
+        self.assertIn("CRC unchanged", (out / "Source/exehead/fileform.h").read_text())
+        for value in h.REPLACEMENT:
+            self.assertIn(value, (out / "Source/exehead/fileform.h").read_text())
+        self.assertIn(h.ORIGINAL[0], header.read_text())
+        with self.assertRaises(ValueError):
+            h.prepare(source, out)
 
     def test_engine_missing_no_path_fallback(self):
         with self.assertRaises(m.DeliveryError):
@@ -173,7 +218,7 @@ class InstallerTests(unittest.TestCase):
         self.assertIn("InitPluginsDir", s)
         self.assertIn("ExecWait", s)
         self.assertIn("CRCCheck force", s)
-        self.assertIn("not extraction protection", s)
+        self.assertIn("Honor System", s)
         self.assertNotIn("Delete", s)
         self.assertNotIn("WriteReg", s)
         self.assertNotIn("ExecShell", s)

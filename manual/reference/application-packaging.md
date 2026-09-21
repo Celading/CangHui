@@ -1,7 +1,7 @@
 # Application Packaging
 
 For installer and single-file portable EXEs, see [Windows installers](windows-installer.md).
-That adapter packages a ready-to-run application directory with a private NSIS engine;
+That adapter packages a ready-to-run application directory with the private canghui-package engine (NSIS-backed);
 it is separate from the PE subsystem conversion below.
 
 ## Windows GUI executables

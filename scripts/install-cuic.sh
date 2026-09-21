@@ -105,7 +105,7 @@ func renderCuicVersion(): String {
 EOF
 
 mkdir -p "${INSTALL_ROOT}"
-if [[ -d "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/nsis" && -e "${INSTALL_ROOT}/bin/cuic-delivery/engines/nsis" ]]; then
+if [[ -d "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/canghui-package" && -e "${INSTALL_ROOT}/bin/cuic-delivery/engines/canghui-package" ]]; then
     printf '%s\n' 'Private engine already exists; use a new install root or select a versioned bundle explicitly.' >&2
     exit 1
 fi
@@ -116,9 +116,9 @@ if [[ -f "${WORK_DIR}/CangHui/tools/cuic/delivery/installer.py" ]]; then
     mkdir -p "${INSTALL_ROOT}/bin/cuic-delivery"
     cp "${WORK_DIR}/CangHui/tools/cuic/delivery/installer.py" "${INSTALL_ROOT}/bin/cuic-delivery/installer.py"
     cp "${WORK_DIR}/CangHui/tools/cuic/delivery/seal_engine.py" "${INSTALL_ROOT}/bin/cuic-delivery/seal_engine.py"
-    if [[ -d "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/nsis" ]]; then
+    if [[ -d "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/canghui-package" ]]; then
         mkdir -p "${INSTALL_ROOT}/bin/cuic-delivery/engines"
-        cp -R "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/nsis" "${INSTALL_ROOT}/bin/cuic-delivery/engines/nsis"
+        cp -R "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/canghui-package" "${INSTALL_ROOT}/bin/cuic-delivery/engines/canghui-package"
     fi
 fi
 "${INSTALL_ROOT}/bin/cuic" version

@@ -59,12 +59,12 @@ Unix 通常为系统 `/tmp` 或系统分配的临时根；Windows 使用系统 T
 
 ## 私有引擎与扩展
 
-默认从 CUIC 资源旁 `engines/nsis` 读取私有引擎，不从 PATH 猜测 `makensis` 或 `wix`。
+默认从 CUIC 资源旁 `engines/canghui-package` 读取私有引擎，不从 PATH 猜测 `makensis` 或 `wix`。
 HapCLI 负责外部工具发现/版本托管；也可显式选择已经取得的可信包：
 
 ```bash
 cuic package installer windows . --payload payload --entry App.exe --output dist/setup \
-  --engine-bundle /trusted/nsis-engine
+  --engine-bundle /trusted/canghui-package
 ```
 
 引擎需符合 [引擎包契约](../../tools/cuic/delivery/README.md)，包含宿主编译器、匹配的模板/插件、
@@ -72,9 +72,12 @@ cuic package installer windows . --payload payload --entry App.exe --output dist
 普通 Git 源码不携带原生工具二进制。发布者可用 `delivery/bundle.py` 将审核后的引擎和 CUIC
 组合成自包含工具目录；宿主运行库、签名和各平台实测仍是独立发布要求。
 
-`--honor-system` 是品牌彩蛋开关，当前只增加可见的 Honor system 标记。
-它**不隐藏 NSIS 头、不阻止解包或反编译**，不关闭 CRC，也不损伤签名。隐藏格式头等趣味包装留给
-自定义分发扩展，不作为默认安全能力。不要将任何本地包装用于保存私钥或不可公开的秘密。
+私有引擎名为 **canghui-package**，底层使用并保留 NSIS 许可。
+`--honor-system` 启用 `chui-honor-v1`：成对替换归档头的四个格式标识及读取端，隐藏标准
+NSIS 归档签名，使只认标准头的解包器不能直接按 NSIS 格式打开。引擎缺少配对版本时拒绝构建，
+不静默退化成普通包。标准 PE/MZ 加载头、CRC 与上游许可不变；生成后再签名。
+这是真正的格式混淆彩蛋，**不是加密或不可解包保证**：适配过的工具、调试与运行时临时文件仍可恢复内容。
+回执将 `headerObfuscation` 与 `extractionProtection=false` 分开表达；不要在客户端保存秘密。
 
 更精细的自绘安装 UI、企业 MSI、更新/回滚、服务安装、下载器和自删启动器由应用自己的交付系统扩展。
 可以复用输出清单与 NSIS 脚本，但修改后需重新编译、签名与验收，旧回执不能代表新包。

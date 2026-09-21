@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble a standalone CUIC directory with a trusted private NSIS engine."""
+"""Assemble a standalone CUIC directory with a trusted canghui-package engine."""
 import argparse
 import json
 from pathlib import Path
@@ -24,8 +24,8 @@ def bundle(binary, engine, output):
     resources.mkdir()
     for name in ("installer.py", "seal_engine.py"):
         shutil.copyfile(Path(__file__).parent / name, resources / name)
-    shutil.copytree(engine, resources / "engines/nsis")
-    check_engine(resources / "engines/nsis")
+    shutil.copytree(engine, resources / "engines/canghui-package")
+    check_engine(resources / "engines/canghui-package")
     license_path = Path(__file__).resolve().parents[3] / "LICENSE"
     shutil.copyfile(license_path, output / "CangHui-LICENSE.txt")
     receipt = {"schema": "chui.delivery-bundle.v1", "host": info["host"],
