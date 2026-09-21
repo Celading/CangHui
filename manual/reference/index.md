@@ -18,6 +18,7 @@
 - [Scene3D 语义投影](scene3d.md)
 - [运行时语义交互](semantic-runtime.md)
 - [桌面多窗口运行时](desktop-multi-window.md)
+- [macOS 桌面线程归属](desktop-thread-owner.zh-CN.md)
 - [SDL3 Apple Host](sdl3-apple-host.zh-CN.md)
 - [消费者工作流](consumer-workflow.zh-CN.md)
 - [安全与发布](security-and-release.zh-CN.md)

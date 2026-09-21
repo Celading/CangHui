@@ -2,12 +2,19 @@ package sdl
 
 /** Process-wide SDL lifecycle. All leases and event polling stay on the first native thread. */
 public class SdlRuntime <: Resource {
+    private let threadLease: DesktopThreadLease
     private let ownerThreadId: UInt64
     private var closed: Bool = false
 
     public init() {
+        threadLease = DesktopThreadLease()
         ownerThreadId = unsafe { SDL_GetCurrentThreadID() }
-        acquireSdlRuntime(ownerThreadId)
+        try {
+            acquireSdlRuntime(ownerThreadId)
+        } catch (error: Exception) {
+            threadLease.close()
+            throw error
+        }
     }
 
     public func pollEvent(): ?SdlEventEnvelope {
@@ -24,8 +31,9 @@ public class SdlRuntime <: Resource {
     public func close(): Unit {
         if (closed) { return }
         ensureSdlRuntimeOwner(ownerThreadId)
-        closed = true
         releaseSdlRuntime(ownerThreadId)
+        threadLease.close()
+        closed = true
     }
 }
 

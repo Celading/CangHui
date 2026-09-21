@@ -56,6 +56,7 @@ public import sdl.rendererEffectStatusName
 public import sdl.SdlWindow
 public import sdl.SdlEventEnvelope
 public import sdl.SdlRuntime
+public import sdl.DesktopThreadLease
 public import sdl.Size
 public import sdl.Surface as SdlSurface
 public import sdl.SurfaceStyle
