@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- 修复 `animateProperties` 连续跨帧改向时停在起点的问题；尺寸、颜色与命中布局持续推进，
+  保留同帧只推进一次、静止后启动、显式延迟重启和减弱动效策略。
+  Fix stalled property animations when targets change every frame. Geometry, color and hit
+  testing keep advancing without double-stepping a frame or consuming idle time on a new transition.
+
 - CUIC 增加离线 Windows 安装版与便携版 EXE 打包，使用私有 `canghui-package`
   引擎并保留 NSIS 底层许可。可选 Honor 成对格式混淆不改 PE 头或 CRC，也不保证
   内容不可提取。便携缓存使用系统临时目录并在退出时尽力清理；Windows 真机运行、

@@ -17,12 +17,17 @@ private class PropertyMotionTrack {
             sampledAt = ctx.frame.elapsedMs
             return target
         }
+        if (sampledAt != ctx.frame.elapsedMs) {
+            sampledAt = ctx.frame.elapsedMs
+            // Consume the elapsed frame on the running segment before replacing its goal.
+            // Otherwise a target changing every frame would keep restarting without moving.
+            // A settled segment must not consume an idle delta on a newly requested transition.
+            if (!animator.settled()) {
+                animator.animate(ctx, target: animator.goal, spec: spec)
+            }
+        }
         if (animator.goal != target) {
             animator.target(target)
-            sampledAt = ctx.frame.elapsedMs
-        } else if (sampledAt != ctx.frame.elapsedMs) {
-            sampledAt = ctx.frame.elapsedMs
-            animator.animate(ctx, target: target, spec: spec)
         }
         if (!animator.settled()) { ctx.requestFrame() }
         animator.value
