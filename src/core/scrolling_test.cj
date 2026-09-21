@@ -225,7 +225,8 @@ func scrollViewRetainsOffsetWhileDynamicContentCollapses(): Unit {
     @Expect(offset.value, Float32(200.0))
 
     // The next explicit scroll gesture releases the retained anchor and clamps to the new real extent.
-    @Expect(view.handle(ctx, UiEvent.MouseWheel(0.0, 0.0, 20.0, 20.0)))
+    // Zero delta is not a user scroll; an actual upward gesture releases the anchor.
+    @Expect(view.handle(ctx, UiEvent.MouseWheel(0.0, 1.0, 20.0, 20.0)))
     @Expect(offset.value, Float32(50.0))
 }
 

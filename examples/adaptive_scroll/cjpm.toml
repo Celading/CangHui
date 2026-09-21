@@ -1,0 +1,9 @@
+[package]
+cjc-version = "1.0.5"
+name = "chui_adaptive_scroll"
+version = "0.1.0"
+output-type = "executable"
+description = "Horizontal content with automatic vertical overflow and axis-locked dragging."
+
+[dependencies]
+chui = { path = "../.." }

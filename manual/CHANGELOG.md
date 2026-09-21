@@ -4,6 +4,12 @@
 
 ## Unreleased
 
+- ScrollView 可显式配置横向内容宽度，纵向溢出自动启用；嵌套滚轮优先交给子视口，
+  零增量和到达边界的输入继续传递。可选内容拖动锁定单轴并取消子按钮点击。
+  Add explicit horizontal content width with automatic vertical overflow, child-first
+  nested wheel routing and opt-in axis-locked content dragging without accidental clicks.
+  See [adaptive scrolling](guide/how-to/adaptive-scrolling.md).
+
 - Windows SDL 生命周期现在自动持有原生线程租约，防止仓颉线程迁移后 IME/窗口操作触发 owner 异常。
   保留嵌套计数、错线程释放拒绝和外部绑定所有权；后台任务仍并发执行。
   Hold a native-thread lease across the Windows SDL lifecycle to prevent owner violations after

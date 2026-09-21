@@ -1,6 +1,8 @@
 package chui.core
 
-import sdl.{Rect, Size, UiEvent}
+import sdl.{Rect, Size, UiEvent, MouseButton}
+import std.collection.ArrayList
+import std.math.abs
 
 // Effectively-infinite extent offered to a child during measure; shared by the scrolling and
 // collapsible containers (Accordion, in chui.controls) that size a child to its natural content.
@@ -352,6 +354,15 @@ public class ScrollView <: Widget {
     private var frame = Rect.zero()
     private var contentHeight: Float32 = 0.0
     private var rawContentHeight: Float32 = 0.0
+    private var requestedWidth: Float32 = 0.0
+    private var horizontalOffset: State<Float32>
+    private let horizontalMotion: ScrollMotion
+    private let horizontalBar: HScrollBar
+    private var viewport = Rect.zero()
+    private var contentWidth: Float32 = 0.0
+    private let pan: ScrollPan
+    private let panId: String
+    private var contentDrag = false
 
     public init(key!: ?String = None, body!: () -> Unit) {
         let ident = resolveControlKey(key, "ScrollView")
@@ -363,6 +374,11 @@ public class ScrollView <: Widget {
             ScrollMotion(initialScroll.value)
         }.value
         preserveDynamicAnchor = localState<Bool>("ScrollView:${ident}:preserve-anchor") {false}
+        horizontalOffset = localState<Float32>("ScrollView:${ident}:x") {0.0}
+        horizontalMotion = localState<ScrollMotion>("ScrollView:${ident}:x-motion") { ScrollMotion(0.0) }.value
+        horizontalBar = HScrollBar("ScrollView:${ident}:x-thumb")
+        panId = "ScrollView:${ident}:pan"
+        pan = localState<ScrollPan>(panId) { ScrollPan() }.value
         previousRawHeight = localState<Float32>("ScrollView:${ident}:previous-raw-height") {0.0}
         retainedTailPadding = localState<Float32>("ScrollView:${ident}:retained-tail-padding") {0.0}
         emit(this)
@@ -371,6 +387,27 @@ public class ScrollView <: Widget {
     /** Uses an externally owned vertical scroll offset. */
     public func scrollState(value: State<Float32>): ScrollView {
         scrollOffset = value
+        this
+    }
+
+    /** Opt into a finite horizontal canvas; vertical overflow remains automatic. */
+    public func horizontalContent(width: Float32): ScrollView {
+        if (!(width > 0.0 && width <= Float32.Max)) {
+            throw IllegalArgumentException("horizontal scroll content width must be finite and positive")
+        }
+        requestedWidth = width
+        this
+    }
+
+    /** App-owned horizontal offset; scrollState continues to own the vertical offset. */
+    public func horizontalScrollState(value: State<Float32>): ScrollView {
+        horizontalOffset = value
+        this
+    }
+
+    /** Opt-in content panning; off by default to preserve text selection and control drags. */
+    public func dragToScroll(enabled!: Bool = true): ScrollView {
+        contentDrag = enabled
         this
     }
 
@@ -386,14 +423,24 @@ public class ScrollView <: Widget {
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
-        // Content gets the full width until it overflows; then it gives up the bar's
-        // gutter so the bar never covers it. A narrower child can only grow taller,
-        // so a single re-measure settles the decision without oscillating.
-        var contentWidth = rect.w
-        var measured = child.measure(ctx, Size(contentWidth, LAYOUT_UNBOUNDED))
-        if (measured.h > rect.h) {
-            contentWidth = max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset))
+        // Each admitted scrollbar reserves its own gutter. Re-measure after admission
+        // because either gutter can introduce overflow on the other axis.
+        let gutter = scrollBarGutter(inset: scrollPolicy.contentInset)
+        var vertical = false
+        var horizontal = false
+        var measured = Size(0.0, 0.0)
+        // Monotonic gutter admission: either scrollbar can introduce overflow on the other axis.
+        for (_ in 0..3) {
+            let gutterX = if (vertical) {gutter} else {Float32(0.0)}
+            let gutterY = if (horizontal) {gutter} else {Float32(0.0)}
+            viewport = Rect(rect.x, rect.y, max(0.0, rect.w - gutterX), max(0.0, rect.h - gutterY))
+            contentWidth = max(viewport.w, requestedWidth)
             measured = child.measure(ctx, Size(contentWidth, LAYOUT_UNBOUNDED))
+            let nextVertical = vertical || measured.h + retainedTailPadding.value > viewport.h
+            let nextHorizontal = horizontal || contentWidth > viewport.w
+            if (nextVertical == vertical && nextHorizontal == horizontal) { break }
+            vertical = nextVertical
+            horizontal = nextHorizontal
         }
         rawContentHeight = measured.h
         if (preserveDynamicAnchor.value && previousRawHeight.value > 0.0) {
@@ -412,24 +459,29 @@ public class ScrollView <: Widget {
             previousRawHeight.value = rawContentHeight
         }
         contentHeight = rawContentHeight + retainedTailPadding.value
-        advanceScrollMotion(ctx, scrollMotion, scrollOffset, contentHeight, rect.h, scrollPolicy)
+        advanceScrollMotion(ctx, scrollMotion, scrollOffset, contentHeight, viewport.h, scrollPolicy)
+        advanceScrollMotion(ctx, horizontalMotion, horizontalOffset, contentWidth, viewport.w, scrollPolicy)
         // Clamp writes only on change: layout runs every frame, and the offset may be an
         // externally owned state whose observers should not fire for no-op writes.
-        let clamped = clampScrollOffset(scrollOffset.value, contentHeight, rect.h)
+        let clamped = clampScrollOffset(scrollOffset.value, contentHeight, viewport.h)
         if (clamped != scrollOffset.value) {
             scrollOffset.value = clamped
         }
-        child.layout(ctx, Rect(rect.x, rect.y - scrollOffset.value, contentWidth, contentHeight))
+        child.layout(ctx, Rect(rect.x - horizontalOffset.value, rect.y - scrollOffset.value, contentWidth, contentHeight))
     }
 
     public func draw(ctx: UiContext): Unit {
         // Clip exactly on the scroll axis, but give the cross axis shadow clearance: a card at the
         // viewport edge keeps its rounded soft halo instead of having it sliced off vertically.
-        ctx.renderer.pushClip(Rect(frame.x - CUI_SHADOW_CLEARANCE, frame.y, frame.w + 2.0 * CUI_SHADOW_CLEARANCE,
-            frame.h))
+        if (requestedWidth > 0.0) { ctx.renderer.pushClip(viewport) }
+        else { ctx.renderer.pushClip(Rect(frame.x - CUI_SHADOW_CLEARANCE, frame.y,
+            frame.w + 2.0 * CUI_SHADOW_CLEARANCE, viewport.h)) }
         child.draw(ctx)
         ctx.renderer.popClip()
-        drawVerticalScrollBar(ctx, frame, scrollOffset.value, contentHeight, frame.h, active: scrollBar.dragging(ctx))
+        drawVerticalScrollBar(ctx, verticalBarFrame(), scrollOffset.value, contentHeight, viewport.h,
+            active: scrollBar.dragging(ctx))
+        drawHorizontalScrollBar(ctx, horizontalBarFrame(), horizontalOffset.value, contentWidth, viewport.w,
+            active: horizontalBar.dragging(ctx))
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -437,19 +489,43 @@ public class ScrollView <: Widget {
         // a control outside this subtree before offering the current event to our child.
         let _ = ctx.takeScrollAnchorRequest()
         match (event) {
-            case UiEvent.MouseWheel(_, wheelY, pointerX, pointerY) =>
-                // A surface whose content fits does not own the wheel: consuming here would open a
-                // dead zone inside an enclosing scroller, so the event falls through instead.
-                if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentHeight, frame.h) > 0.0) {
-                    releaseDynamicAnchor()
-                    applyWheelScroll(ctx, scrollMotion, scrollOffset, wheelY, contentHeight, frame.h, scrollPolicy)
+            case UiEvent.PointerCancelled | UiEvent.WindowFocusChanged(false) =>
+                pan.cancel(ctx, panId)
+                let _ = child.handle(ctx, event)
+                return false
+            case _ => ()
+        }
+        if (contentDrag) {
+            match (handleContentPan(ctx, event)) { case Some(result) => return result case None => () }
+        } else if (pan.pending) { pan.cancel(ctx, panId) }
+        match (event) {
+            case UiEvent.MouseWheel(wheelX, wheelY, pointerX, pointerY) =>
+                if (!viewport.contains(pointerX, pointerY)) { return false }
+                if (child.handle(ctx, event)) { return true }
+                if (abs(wheelX) > abs(wheelY)) {
+                    if (!horizontalMotion.canWheel(horizontalOffset.value, wheelX, contentWidth, viewport.w)) {
+                        return false
+                    }
+                    applyWheelScroll(ctx, horizontalMotion, horizontalOffset, wheelX, contentWidth, viewport.w, scrollPolicy)
                     return true
                 }
+                if (scrollMotion.canWheel(scrollOffset.value, wheelY, contentHeight, viewport.h)) {
+                    releaseDynamicAnchor()
+                    applyWheelScroll(ctx, scrollMotion, scrollOffset, wheelY, contentHeight, viewport.h, scrollPolicy)
+                    return true
+                }
+                return false
             case UiEvent.MouseDown(_, x, y) =>
-                if (scrollBarTrackRect(frame).contains(x, y)) {
+                if (horizontalBar.press(ctx, horizontalBarFrame(), horizontalOffset, contentWidth, viewport.w, x, y)) {
+                    pan.cancel(ctx, panId)
+                    cancelScrollMotion(horizontalMotion, horizontalOffset)
+                    return true
+                }
+                if (scrollBarTrackRect(verticalBarFrame()).contains(x, y)) {
                     releaseDynamicAnchor()
                 }
-                if (scrollBar.press(ctx, frame, scrollOffset, contentHeight, frame.h, x, y)) {
+                if (scrollBar.press(ctx, verticalBarFrame(), scrollOffset, contentHeight, viewport.h, x, y)) {
+                    pan.cancel(ctx, panId)
                     cancelScrollMotion(scrollMotion, scrollOffset)
                     return true
                 }
@@ -457,7 +533,11 @@ public class ScrollView <: Widget {
                     return false
                 }
             case UiEvent.MouseMove(x, y) =>
-                if (scrollBar.drag(ctx, frame, scrollOffset, contentHeight, frame.h, y)) {
+                if (horizontalBar.drag(ctx, horizontalBarFrame(), horizontalOffset, contentWidth, viewport.w, x)) {
+                    cancelScrollMotion(horizontalMotion, horizontalOffset)
+                    return true
+                }
+                if (scrollBar.drag(ctx, verticalBarFrame(), scrollOffset, contentHeight, viewport.h, y)) {
                     cancelScrollMotion(scrollMotion, scrollOffset)
                     return true
                 }
@@ -489,14 +569,69 @@ public class ScrollView <: Widget {
     }
 
     public func interactionOwnerIds(): Array<String> {
-        child.interactionOwnerIds()
+        let ids = ArrayList<String>()
+        ids.add(panId)
+        for (id in child.interactionOwnerIds()) { ids.add(id) }
+        ids.toArray()
+    }
+
+    private func verticalBarFrame(): Rect { Rect(frame.x, frame.y, frame.w, viewport.h) }
+    private func horizontalBarFrame(): Rect { Rect(frame.x, frame.y, viewport.w, frame.h) }
+
+    private func handleContentPan(ctx: UiContext, event: UiEvent): ?Bool {
+        match (event) {
+            case UiEvent.MouseDown(MouseButton.Left, x, y) =>
+                pan.cancel(ctx, panId)
+                if (viewport.contains(x, y)) { pan.begin(x, y, horizontalOffset.value, scrollOffset.value) }
+            case UiEvent.MouseMove(x, y) =>
+                if (!pan.pending) { return None }
+                if (pan.axis == 0) {
+                    let childHandled = child.handle(ctx, event)
+                    if (childHandled || !ctx.pointerCaptureOwner().isEmpty() || !ctx.dragId.isEmpty()) {
+                        pan.cancel(ctx, panId)
+                        return Some(childHandled)
+                    }
+                    let dx = x - pan.x
+                    let dy = y - pan.y
+                    if (dx * dx + dy * dy < 64.0) { return Some(false) }
+                    let horizontal = abs(dx) > abs(dy)
+                    let admitted = if (horizontal) {
+                        horizontalMotion.canWheel(horizontalOffset.value, dx, contentWidth, viewport.w)
+                    } else { scrollMotion.canWheel(scrollOffset.value, dy, contentHeight, viewport.h) }
+                    if (!admitted) { pan.cancel(ctx, panId); return Some(false) }
+                    let _ = child.handle(ctx, UiEvent.PointerCancelled)
+                    ctx.clearPress()
+                    releaseDynamicAnchor()
+                    pan.axis = if (horizontal) {1} else {2}
+                    ctx.beginDrag(panId)
+                    ctx.capturePointer(panId)
+                }
+                if (!ctx.hasPointerCapture(panId)) { pan.cancel(ctx, panId); return Some(false) }
+                if (pan.axis == 1) {
+                    let next = clampScrollOffset(pan.offsetX - (x - pan.x), contentWidth, viewport.w)
+                    if (horizontalOffset.value != next) { horizontalOffset.value = next }
+                    cancelScrollMotion(horizontalMotion, horizontalOffset)
+                } else {
+                    let next = clampScrollOffset(pan.offsetY - (y - pan.y), contentHeight, viewport.h)
+                    if (scrollOffset.value != next) { scrollOffset.value = next }
+                    cancelScrollMotion(scrollMotion, scrollOffset)
+                }
+                return Some(true)
+            case UiEvent.MouseUp(MouseButton.Left, _, _) =>
+                let consumed = pan.axis != 0 && ctx.hasPointerCapture(panId)
+                pan.cancel(ctx, panId)
+                if (consumed) { return Some(true) }
+            case _ => ()
+        }
+        None
     }
 
     private func releaseDynamicAnchor(): Unit {
+        if (!preserveDynamicAnchor.value && retainedTailPadding.value == 0.0) { return }
         if (preserveDynamicAnchor.value) { preserveDynamicAnchor.value = false }
         if (retainedTailPadding.value != 0.0) { retainedTailPadding.value = 0.0 }
         contentHeight = rawContentHeight
-        let clamped = clampScrollOffset(scrollOffset.value, contentHeight, frame.h)
+        let clamped = clampScrollOffset(scrollOffset.value, contentHeight, viewport.h)
         if (scrollOffset.value != clamped) { scrollOffset.value = clamped }
         cancelScrollMotion(scrollMotion, scrollOffset)
     }
