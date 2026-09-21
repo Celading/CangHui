@@ -1,5 +1,8 @@
 # CangHui Liquid Glass Style
 
+For application-owned source copies and non-destructive upgrades, see
+[Basic styles and optional Kits](../../manual/reference/basic-styles-and-kits.md).
+
 `canghui_style_liquid_glass` is an optional CangHui Multiplatform style pack.
 It translates the public Liquid Glass design principles into CangHui's existing
 `Theme`, `MaterialProvider`, `ButtonStyle`, and `ComponentTheme` extension

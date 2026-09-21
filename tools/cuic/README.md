@@ -49,6 +49,7 @@ cuic scripts run <name> [project]
 cuic dependency update [project]
 cuic package plan [macos|windows|linux] [project] [--json]
 cuic package build [macos|windows|linux] [project] [--output <dir>] [--json]
+cuic package installer windows [project] --payload <dir> --entry <app.exe> --output <new-dir> [--mode install|portable]
 cuic symbol list|discover [material|ant|arco] [--json]
 cuic symbol generate <provider:name[@export]>... --output <file.cj> [--package <name>]
 cuic build [platform] [project] [--mode release|debug]
@@ -61,6 +62,10 @@ cuic version
 ```
 
 ## Project Scripts
+
+Windows installer/portable packaging uses a private engine, not a global NSIS/WiX install.
+See [thin delivery](delivery/README.md) for bundles, Python prerequisites and engine provenance,
+and the [manual](../../manual/reference/windows-installer.md) for cleanup and acceptance limits.
 
 `build` and `test` default to release. `--mode debug` forwards `-g` to CJPM;
 the build identity of the CUIC executable itself does not select the application's

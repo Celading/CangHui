@@ -1,5 +1,7 @@
 # CangHuiKit：可组合的设计套件
 
+先看[基础样式与可选 Kit](basic-styles-and-kits.md)：核心边界、选择性源码导入和不覆盖自改代码的升级方式。
+
 `canghui_kit` 是可选源码包。`chui` 管理状态、布局、输入与动画；Kit 提供常用组件组合、
 密度和页面结构。它不替换 Theme，也不捆绑 Liquid Glass 或产品业务逻辑。
 

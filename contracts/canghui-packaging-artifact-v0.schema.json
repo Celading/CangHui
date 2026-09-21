@@ -24,6 +24,7 @@
     "copiedAssets": { "type": "array", "items": { "type": "string" } },
     "executableIncluded": { "type": "boolean" },
     "signed": { "const": false },
+    "candidateAuditPassed": { "type": "boolean" },
     "hostReplay": { "type": "string" },
     "limitations": { "type": "array", "items": { "type": "string" } }
   }

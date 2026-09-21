@@ -42,6 +42,12 @@ original data URLs and reproducible generation procedure.
 
 ## Other Included Materials
 
+Optional CUIC delivery bundles use [NSIS](https://nsis.sourceforge.io/).
+Native engine binaries are not stored in this source tree. Engine providers must preserve
+the upstream `COPYING` file and applicable component notices; the delivery assembler
+carries that file into both its tool bundle and generated installer output.
+NSIS components have their own license terms and are not relicensed under CangHui's license.
+
 SDL3 and SDL3_ttf use the Zlib license. HarmonyOS Sans and the optional
 Material, Ant Design, and Arco symbol providers retain the licenses and source
 notices stored beside their respective assets or packages.

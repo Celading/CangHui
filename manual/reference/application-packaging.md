@@ -1,5 +1,35 @@
 # Application Packaging
 
+For installer and single-file portable EXEs, see [Windows installers](windows-installer.md).
+That adapter packages a ready-to-run application directory with the private canghui-package engine (NSIS-backed);
+it is separate from the PE subsystem conversion below.
+
+## Windows GUI executables
+
+After building an unsigned Windows executable, produce a GUI-subsystem copy before signing:
+
+```bash
+cuic package build windows . --executable target/release/bin/main.exe --output dist/gui
+cuic package build windows . --executable target/release/bin/main.exe --console --output dist/console
+```
+
+Use the actual target-relative EXE path for cross builds. This works from a non-Windows host
+without compiling or running the input. Omit `--executable` to retain metadata-only packaging.
+The default changes only the copied PE subsystem and checksum, preserving the compiler's
+runtime entry point. Windows does not automatically allocate a console for a GUI-subsystem
+application launched from Explorer. It does not hide an existing terminal, change `cjpm build`,
+or prevent an application/child process from explicitly creating a console.
+
+The original EXE is untouched. Embedded certificate tables, DLLs, managed images, unsupported
+subsystems, malformed structural bounds, escaping paths and nonempty outputs are rejected.
+The input limit is 256 MiB. PE32/PE32+ parsing is not an OS/architecture support claim or a full
+loader/security verification. Sign only after packaging. Keep file logging or use `--console`
+for diagnostics; do not rely on interactive standard input in GUI releases.
+
+Receipts distinguish `windows-unsigned-gui-application` and `windows-unsigned-console-application`.
+DLL assembly, icon/version resource compilation, signing and real Windows launch/input testing
+remain separate. This is not a self-contained Windows runtime bundle.
+
 **English** | [中文](application-packaging.zh-CN.md)
 
 `canghui.toml` is the project-side declaration for application identity, logical
@@ -148,9 +178,10 @@ used the display name must update that destination. Display names with spaces,
 percent signs or `=` no longer become command-line syntax or field codes. macOS
 and Windows artifact naming is unchanged.
 
-Icon bytes are never relabelled as another format. A real `.icns` or `.ico`
-uses the native destination name; PNG, SVG and other inputs keep their original
-extension and remain visible as a conversion or provider gate.
+Icon bytes are never relabelled as another format. macOS accepts ICNS, or converts
+square PNG inputs with `sips` and `iconutil` on a macOS host. Other macOS application
+icon formats (including SVG) fail explicitly. Windows still requires real ICO;
+other platform conversions and providers are separate gates.
 
 ## Assemble a Linux runtime with CUIC
 
@@ -239,9 +270,14 @@ clean packaging. The JSON may contain local paths; review it before publishing.
 ## macOS icons: bundle identity and runtime updates
 
 Provide the default Finder, Dock and About icon through the `.app`. Set
-`[assets].application-icon` to a real `.icns` and run `cuic package build macos .`.
-A bare executable is not a replacement for bundle identity, and PNG inputs are
-not automatically converted to ICNS.
+`[assets].application-icon` to `.icns` or a square `.png`, then run
+`cuic package build macos .`. PNG must be a regular file, 16–4096 pixels wide and
+at most 32 MiB; 1024 pixels is recommended. On macOS it becomes a 16–512 point
+1x/2x icon family registered as `CFBundleIconFile=application.icns`. Upscaling
+does not restore missing detail. Conversion failure stops packaging; the input
+is unchanged and temporary conversion files are cleaned up. A bare executable
+does not replace bundle identity. Signing, notarization and cross-machine runtime
+closure still require separate verification.
 
 Use the existing `DesktopApp.setWindowIcon` for runtime updates on the UI thread,
 for example inside a button callback. After a successful call, the input Surface

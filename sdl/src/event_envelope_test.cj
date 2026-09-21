@@ -38,6 +38,15 @@ func eventEnvelopeKeepsGamepadsProcessGlobal(): Unit {
     }
 }
 
+@Test
+func fullscreenTransitionsRefreshMetricsWithoutLosingWindowIdentity(): Unit {
+    for (kind in [SDL_EVENT_WINDOW_ENTER_FULLSCREEN, SDL_EVENT_WINDOW_LEAVE_FULLSCREEN]) {
+        let envelope = decodeWindowEnvelope(kind, UInt32(42), 0, 0)
+        @Expect(envelope.windowId == Some(WindowId(UInt32(42))))
+        @Expect(match (envelope.event) { case UiEvent.WindowDisplayScaleChanged => true; case _ => false })
+    }
+}
+
 private func decodeWindowEnvelope(
     eventType: UInt32,
     windowId: UInt32,

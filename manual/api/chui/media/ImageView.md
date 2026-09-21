@@ -4,9 +4,13 @@
 
 `chui.media` 包中的 public class
 
-显示从文件加载的图像。解码后的纹理放在按路径键控的进程级共享缓存里，ImageView 像普通组件一样内联声明——每帧重建只花一次缓存查找、不碰磁盘。覆盖写过图像文件后调用 [`invalidateImage`](functions.md#invalidateimage) 刷新。
+显示从文件加载的图像。纹理按文件路径和渲染器分别缓存，并受字节/条目预算与 LRU 淘汰约束。ImageView 像普通组件一样内联声明；缓存命中时无需重新读盘。覆盖写过图像文件后调用 [`invalidateImage`](functions.md#invalidateimage) 刷新。详见[图片内存与帧池](../../../reference/image-memory.md)。
 
 ## 声明
+
+网络图片需先通过`NetworkResourceLoader`在工作任务中完成下载，再调用
+`ImageView.fromNetworkResource(file)`。它不会在绘制中请求HTTP；file/loader仍由调用方持有和关闭。
+URL和认证信息不进入设计快照。详见[网络资源与自定义传输](../../../reference/network-resources.md)。
 
 ```cangjie
 public class ImageView <: Widget & Resource

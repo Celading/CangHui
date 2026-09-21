@@ -28,6 +28,7 @@ import chui.graphics.{DamageRegion, FrameDamageRect, FrameExecutionReceipt, Fram
     sdlFramePhysicalPixelCount}
 import chui.kmode.kModeEnabled
 import chui.system.ApplicationShell
+import sdl.WindowShapeReceipt
 
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
@@ -197,6 +198,15 @@ public class DesktopApp {
     public func setWindowIcon(icon: Surface): Unit {
         window.setIcon(icon)
     }
+
+    /** Change native corner clipping, not widget backgrounds. Alpha support is a creation option. */
+    public func setWindowCornerRadius(radius: Float32): WindowShapeReceipt {
+        let result = window.setCornerRadius(radius)
+        ctx.requestFrame()
+        result
+    }
+
+    public func windowShapeReceipt(): WindowShapeReceipt { window.shapeReceipt() }
 
     /** Requests application shutdown through the normal frame-loop path. */
     public func requestWindowClose(): Unit {

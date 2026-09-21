@@ -85,8 +85,42 @@ Linux 入口保留 `application.name` 作为显示名，使用已校验的 `appl
 该目标名称。显示名内的空格、百分号或 `=` 不再成为命令行语法或参数占位符。
 macOS 和 Windows 的产物命名保持不变。
 
-图标字节不会被改名伪装成另一种格式。只有真实 `.icns` 或 `.ico` 使用对应原生
-文件名；PNG、SVG 等输入保留扩展名，并继续作为转换或平台 Provider 门禁显示。
+图标字节不会被改名伪装成另一种格式。macOS 接受 ICNS，或在 macOS 宿主上将方形 PNG
+通过 `sips`／`iconutil` 转为多尺寸 ICNS；SVG 等其他应用图标格式明确拒绝。Windows
+仍要求真实 ICO，其他平台的格式转换与 Provider 是独立门。
+
+## Windows 无控制台应用
+
+需要安装器或单文件便携 EXE 时，见 [Windows 安装包与便携包](windows-installer.zh-CN.md)。
+它消费已经能运行的应用目录，使用私有 NSIS 引擎；与下面的 PE 子系统设置是两个独立步骤。
+
+Windows 构建后的 EXE 可以在签名前由 CUIC 生成 GUI 子系统副本：
+
+```bash
+cuic package build windows . --executable target/release/bin/main.exe --output dist/gui
+# 交叉编译时传入实际目标路径，例如 target/x86_64-w64-mingw32/release/bin/main.exe
+# 诊断副本保留控制台：
+cuic package build windows . --executable target/release/bin/main.exe --console --output dist/console
+```
+
+`--executable` 接受工程内已有的未签名 EXE，不重新编译，支持在非 Windows 宿主
+组装。未传入时仍生成原来的资源输入树。默认 GUI 模式把 PE `Subsystem` 设为
+`WINDOWS_GUI`，重算校验和，保留仓颉编译器生成的入口及其他字节；不是运行后
+调用隐藏窗口。操作仅修改输出副本，原文件保留供调试。
+
+从资源管理器直接启动 GUI 子系统应用，Windows 不会为其自动分配控制台；应用自己
+调用控制台 API 或启动控制台子程序属于另一条路径。已有终端也不会被强行关闭。
+这不改变 `cjpm build` 默认行为，不为 CUIC 自身关闭控制台。诊断可选择 `--console`
+或应用自己的文件日志；不要让发布程序依赖交互式标准输入。签名应在此步骤之后进行。
+
+入口校验覆盖 PE32/PE32+、应用类型、节数据与入口边界；拒绝 DLL、非 GUI/console
+子系统、托管映像、嵌入证书表、越界路径和非空输出目录。文件上限 256 MiB。
+这不是完整 Windows loader 验证，也不是恶意文件扫描。
+
+回执区分 `windows-unsigned-gui-application` 和 `windows-unsigned-console-application`。
+此入口**不自动携带 DLL、不编译图标/版本资源、不签名、不证明 Windows 实机启动**。
+消费方仍须组装匹配的仓颉/SDL/其他 DLL 与资源，在目标 Windows 上验证双击启动、
+键鼠输入、关闭与异常日志。PE 格式处理能力不代表相应架构/Windows 版本已获支持。
 
 ## macOS SDK 候选包硬化
 
@@ -264,8 +298,11 @@ CUIC 运行包流程在重定位后调用该检查。可执行文件须位于运
 ## macOS 图标：安装身份与运行时更新
 
 Finder、Dock 和 About 的默认图标应随 `.app` 提供。在 `[assets]` 中将
-`application-icon` 指向真实 `.icns`，然后运行 `cuic package build macos .`。
-直接分发裸可执行文件不能替代 bundle 身份；PNG 输入也不会自动转换成 ICNS。
+`application-icon` 指向 `.icns` 或方形 `.png`，然后运行 `cuic package build macos .`。
+PNG 输入须为 16–4096 像素、至多 32 MiB 的普通文件，推荐 1024 像素；macOS 宿主将其
+转换为 16–512 点的 1x/2x 图标族，并注册 `CFBundleIconFile=application.icns`。小图放大
+不能补回细节。转换失败会终止打包，输入不被修改，临时转换目录会清理。
+直接分发裸可执行文件不能替代 bundle 身份。签名、公证和跨机器运行时闭合仍需单独完成。
 
 运行时可以使用已有的 `DesktopApp.setWindowIcon`。在应用 UI 线程执行，例如在
 按钮回调中调用；成功返回后可以释放输入 Surface：

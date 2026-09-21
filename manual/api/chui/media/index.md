@@ -6,7 +6,10 @@
 import chui.media.*
 ```
 
-图像与自绘包：文件图像视图 [`ImageView`](ImageView.md)（解码纹理进按路径键控的进程级缓存，可内联声明）、自由绘制表面 [`CanvasWidget`](CanvasWidget.md)（把原始渲染器交给回调），以及缓存刷新函数。
+图像与自绘包：文件图像视图 [`ImageView`](ImageView.md)（纹理按renderer归属进入有界缓存）、自由绘制表面 [`CanvasWidget`](CanvasWidget.md)，以及缓存刷新函数。
+
+[网络资源](../../../reference/network-resources.md)提供`NetworkResourceLoader`、`NetworkResourceFile`、
+`NetworkResourceTransport`与回调适配器；下载在工作任务中完成，图像在UI owner绘制。
 
 ## 类型
 

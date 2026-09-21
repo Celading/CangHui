@@ -86,6 +86,11 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
     private var requestedDockMenu: ?AppMenu = None
     private let dock = MacShellDock()
     private let dockItems = ArrayList<ShellRef>()
+    private let images = MacShellImages()
+    private let statusItem = MacShellStatusItem()
+    private let statusItems = ArrayList<ShellRef>()
+    private var requestedStatus: ?AppStatusItem = None
+    private var assets: Array<AppAsset> = []
 
     public init() {}
 
@@ -94,6 +99,8 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             case SystemSurface.ApplicationMenu => SystemSurfaceState.Native
             case SystemSurface.Badge => SystemSurfaceState.Native
             case SystemSurface.DockMenu => SystemSurfaceState.Native
+            case SystemSurface.AppIcon => SystemSurfaceState.Native
+            case SystemSurface.StatusItem => SystemSurfaceState.Native
             case SystemSurface.Settings => SystemSurfaceState.Fallback
             case _ => SystemSurfaceState.Unsupported
         }
@@ -115,6 +122,9 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
                 if (let Some(native) <- api) {
                     rebuildMenu(native, currentMenu())
                     for (item in dockItems) {
+                        if (native.getInteger(item, "tag") == index + 100) { native.setText(item, "setTitle:", action.title) }
+                    }
+                    for (item in statusItems) {
                         if (native.getInteger(item, "tag") == index + 100) { native.setText(item, "setTitle:", action.title) }
                     }
                 }
@@ -146,6 +156,8 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
                 }
             }
             app = native.require(native.get(native.cls("NSApplication"), "sharedApplication"), "application")
+            assets = Array<AppAsset>(manifest.assets.size, {i => manifest.assets[i]})
+            images.attach(native, app, manifest)
             target = native.require(native.get(native.get(native.targetClass(), "alloc"), "init"), "action target")
             // Resolve both callback symbols before publication, outside the callback.
             let _ = native.symbol("objc_msgSend"); let _ = native.sel("tag")
@@ -168,6 +180,8 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             requestedMenu = Some(menu)
             if (hasRequestedBadge) { badge.apply(native, app, requestedBadge) }
             if (requestedDockMenu.isSome()) { rebuildDockMenu(native, requestedDockMenu) }
+            let status = match (requestedStatus) { case Some(value) => Some(value); case None => manifest.statusItem }
+            if (let Some(value) <- status) { rebuildStatusItem(native, value); requestedStatus = Some(value) }
             applied("AppKit application menu attached")
         } catch (error: Exception) {
             detach()
@@ -309,6 +323,7 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
                         try {
                             native.dictionaryText(options, "NSAboutPanelOptionApplicationName", info.name)
                             native.dictionaryText(options, "NSAboutPanelOptionApplicationVersion", info.version)
+                            images.addAboutIcon(native, app, options)
                             native.set(app, "orderFrontStandardAboutPanelWithOptions:", options)
                         } finally { native.release(options) }
                     } else {
@@ -392,8 +407,11 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
             sink = None
             disconnectItems(native, actionItems)
             disconnectItems(native, dockItems)
+            statusItem.detach(native)
+            disconnectItems(native, statusItems)
             dock.detach(native)
             badge.restore(native)
+            images.restore(native, app)
             // Dock restores its delegate only while still owned; other surfaces
             // restore independently. Hosts without a custom Dock keep SDL's delegate.
             if (savedSurfaces && (ownedMenu.isNull() || native.get(app, "mainMenu").toUIntNative() == ownedMenu.toUIntNative())) {
@@ -413,7 +431,45 @@ public class MacOSSystemShellProvider <: SystemShellProvider & SystemShellRuntim
     private func applied(message: String): SystemShellResult { SystemShellResult(SystemShellResultStatus.Applied, message: message) }
     private func failed(message: String): SystemShellResult { SystemShellResult(SystemShellResultStatus.Failed, message: message) }
     private func unsupported(): SystemShellResult { SystemShellResult(SystemShellResultStatus.Unsupported, message: "native surface is not implemented by this provider") }
-    public func setStatusItem(_: AppStatusItem): SystemShellResult { unsupported() }
+    public func setStatusItem(item: AppStatusItem): SystemShellResult {
+        if (closed) { return failed("application shell is closed") }
+        let snapshot = AppStatusItem(item.tooltip, iconRole: item.iconRole, actionIds: item.actionIds,
+            title: item.title, visible: item.visible, templateIcon: item.templateIcon)
+        // Reuse bounded menu validation without introducing another action protocol.
+        let _ = copyApplicationDockMenu(Some(AppMenu("status", item.tooltip, actionIds: snapshot.actionIds)))
+        if (let Some(native) <- api) {
+            native.requireMainThread()
+            rebuildStatusItem(native, snapshot)
+            requestedStatus = Some(snapshot)
+            return applied("AppKit status item updated")
+        }
+        requestedStatus = Some(snapshot)
+        SystemShellResult(SystemShellResultStatus.Queued, message: "status item awaits application attachment")
+    }
+
+    private func rebuildStatusItem(native: MacShellApi, model: AppStatusItem): Unit {
+        for (id in model.actionIds) {
+            if (actionIndex(id) < 0) { throw IllegalArgumentException("unknown status action: " + id) }
+        }
+        let menu = native.menu(model.tooltip)
+        let pendingItems = ArrayList<ShellRef>()
+        try {
+            for (id in model.actionIds) {
+                let index = actionIndex(id)
+                let item = native.item(actions[index].title, native.sel("chuiPerformAction:"), target, "", 0)
+                try {
+                    native.integer(item, "setTag:", index + 100)
+                    native.set(menu, "addItem:", item)
+                    pendingItems.add(native.retain(item))
+                } finally { native.release(item) }
+            }
+            statusItem.apply(native, model, assets, menu)
+            disconnectItems(native, statusItems)
+            for (item in pendingItems) { statusItems.add(item) }
+            pendingItems.clear()
+            if (let Some(queue) <- sink) { queue.clear() }
+        } finally { disconnectItems(native, pendingItems); native.release(menu) }
+    }
     public func notificationPermission(): NotificationPermissionState { NotificationPermissionState.Unsupported }
     public func requestNotificationPermission(): SystemShellResult { unsupported() }
     public func notify(_: SystemNotification): SystemShellResult { unsupported() }

@@ -80,24 +80,18 @@ public class Texture <: Resource {
     }
 
     /**
-     * Copies one owned RGBA32 frame into this streaming texture. The temporary native
-     * buffer exists only for the SDL call and is released on success or failure; callers
-     * never lend an Array backing address across the FFI boundary.
+     * Borrows RGBA32 bytes only for the synchronous SDL upload. The runtime may pin or
+     * copy during acquisition; no explicit second malloc/copy or retained pointer is used.
      */
     public func updateRgba(pixels: Array<UInt8>, pitch: Int32): Unit {
-        let required = validateStreamingArrayPixels(
+        ensureOpen()
+        if (!streaming) { throw CuiException("Only a streaming texture can accept pixel updates.") }
+        let _ = validateStreamingArrayPixels(
             pixels, Int32(width), Int32(height), pitch)
-        let native = unsafe { LibC.malloc<UInt8>(count: required) }
-        if (native.isNull()) {
-            throw CuiException("Streaming texture pixel allocation failed.")
-        }
-        try {
-            for (i in 0..required) {
-                unsafe { native.write(i, pixels[i]) }
-            }
-            updateRgba(native, pitch)
-        } finally {
-            unsafe { LibC.free(native) }
+        unsafe {
+            var borrowed = acquireArrayRawData(pixels)
+            try { updateRgba(borrowed.pointer, pitch) }
+            finally { releaseArrayRawData(borrowed) }
         }
     }
 
@@ -142,7 +136,8 @@ extend Renderer {
         }
         let _ = unsafe { SDL_SetTextureScaleMode(raw, SDL_SCALEMODE_LINEAR) }
         let _ = unsafe { SDL_SetTextureBlendMode(raw, SDL_BLENDMODE_NONE) }
-        Texture(raw, streaming: true)
+        try { Texture(raw, streaming: true) }
+        catch (error: Exception) { unsafe { SDL_DestroyTexture(raw) }; throw error }
     }
 
     /** Creates an RGBA render-target texture at the renderer's current logical scale. */
@@ -247,21 +242,17 @@ extend Renderer {
         if (texture.isNull()) {
             throw CuiException("SDL_CreateTextureFromSurface failed: ${lastSdlError()}")
         }
-        Texture(texture)
+        try { Texture(texture) }
+        catch (error: Exception) { unsafe { SDL_DestroyTexture(texture) }; throw error }
     }
 
     /**
      * Throws `CuiException` when SDL cannot load the image or create a texture from it.
      */
     public func loadTexture(path: String): Texture {
-        var texture = CPointer<Unit>()
-        try (surface = Surface.load(path)) {
-            texture = unsafe { SDL_CreateTextureFromSurface(ptr, surface.ptr) }
-        }
-        if (texture.isNull()) {
-            throw CuiException("SDL_CreateTextureFromSurface failed: ${lastSdlError()}")
-        }
-        Texture(texture)
+        let surface = Surface.load(path)
+        try { textureFromSurface(surface) }
+        finally { surface.close() }
     }
 
     /**
@@ -346,7 +337,7 @@ internal func validateStreamingPixels(pixels: CPointer<UInt8>, width: Int32, pit
     if (pixels.isNull()) {
         throw CuiException("Streaming texture pixels must not be null.")
     }
-    if (width <= 0 || pitch < width * 4) {
+    if (width <= 0 || Int64(pitch) < Int64(width) * 4) {
         throw CuiException("Streaming texture pitch must cover one RGBA32 row.")
     }
 }

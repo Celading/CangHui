@@ -1,5 +1,7 @@
 package chui.desktop
 
+import sdl.WindowShapeReceipt
+
 import std.collection.ArrayList
 import chui.system.ApplicationShell
 import sdl.{FrameInfo, GamepadButton, GamepadConnectionState, GamepadDevice, Key, MouseButton, Rect,
@@ -746,6 +748,12 @@ private class ManagedDesktopWindowSession <: DesktopWindowSession & DesktopWindo
         applyWindowMetrics(window.setScaling(settings))
     }
 
+    func setCornerRadius(radius: Float32): WindowShapeReceipt {
+        let result = window.setCornerRadius(radius)
+        ctx.requestFrame()
+        result
+    }
+
     func setSize(width: Int32, height: Int32): Unit {
         window.setSize(width, height)
         applyWindowMetrics(window.currentMetrics())
@@ -1039,6 +1047,14 @@ public class DesktopApplication <: Resource {
         match (findManagedWindow(id)) {
             case Some(session) => session.setScaling(settings); true
             case None => false
+        }
+    }
+
+    /** None means no managed window; Failed in a receipt means native shape was not applied. */
+    public func setWindowCornerRadius(id: WindowId, radius: Float32): ?WindowShapeReceipt {
+        match (findManagedWindow(id)) {
+            case Some(session) => Some(session.setCornerRadius(radius))
+            case None => None
         }
     }
 

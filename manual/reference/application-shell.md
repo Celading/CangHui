@@ -58,12 +58,37 @@ Detachment restores the previous menus if they are still owned by this provider;
 it does not replace the SDL application delegate. The native queue is bounded to
 256 actions and fails explicitly on overflow; there is no remote control endpoint.
 
-`ApplicationMenu` and `Badge` report native support in this provider. Settings remain
-an in-memory fallback. App icons, Dock actions, status items, notifications
-and OS deep-link registration are not implemented here. Menu labels currently
+`ApplicationMenu`, `DockMenu`, `Badge`, `AppIcon` and `StatusItem` report native support.
+Settings remain an in-memory fallback. Notifications and OS deep-link registration
+are not implemented here. Menu labels currently
 use English system commands. On other operating systems this factory selects the
 headless provider. Bundled icons, signing and distribution remain separate from
 native menu support; see [application packaging](application-packaging.md).
+
+## Application icons, About and menu-bar status items
+
+The manifest's explicit `ApplicationIcon` asset sets the application-wide Dock
+icon. About uses the manifest name/version and current application icon. Local
+image loading fails explicitly. Relative runtime assets resolve under
+`Contents/Resources` inside an `.app`, or the working directory in a bare run.
+The packager writes `application.icns`; it does not rewrite the runtime manifest.
+
+```cangjie
+shell.registerAction(AppAction("app.settings", "Settings…"), {=> openSettings()})
+shell.setStatusItem(AppStatusItem("Application status", title: "CH",
+    actionIds: ["app.settings"], visible: true, templateIcon: true))
+shell.setStatusItem(AppStatusItem("Application status", title: "CH", visible: false))
+```
+
+Calls before attach are queued. A visible item requires a title or an explicit
+asset matching `iconRole` (default `StatusItemIcon`). Template rendering defaults
+to true for monochrome icons; disable it for color. Native menu actions reuse the
+bounded action queue and disabled-state rules. Hide/detach removes the native
+item; replacement disconnects old callbacks. Titles are limited to 128 bytes,
+tooltips to 1024 bytes and actions to 256. Settings routes an action, not an
+automatic preferences window or persistence implementation. All windows share
+the application icon and status item. See [macos-shell](../../examples/macos-shell/).
+Native shell surfaces require desktop verification, not a content-only `prnt`.
 
 ## Application badges
 

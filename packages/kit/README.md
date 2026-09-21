@@ -1,5 +1,8 @@
 # CangHuiKit
 
+For application-owned source copies and non-destructive upgrades, see
+[Basic styles and optional Kits](../../manual/reference/basic-styles-and-kits.md).
+
 Optional `canghui_kit` source package for CangHui Multiplatform. It provides
 composable choice cards, settings toggles, decorative steps, density-aware actions
 and three responsive intro compositions. It reuses `chui` interaction and property

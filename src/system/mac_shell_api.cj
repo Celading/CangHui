@@ -150,6 +150,18 @@ internal class MacShellApi {
         } finally { release(native) }
     }
 
+    func dictionaryObject(dict: ShellRef, key: String, value: ShellRef): Unit {
+        let nativeKey = unsafe { CPointer<ShellRef>(symbol(key)).read() }
+        unsafe { CFunc<(ShellRef, ShellRef, ShellRef, ShellRef) -> Unit>(symbol("objc_msgSend"))(
+            dict, sel("setObject:forKey:"), value, nativeKey) }
+    }
+
+    func string(value: ShellRef): String {
+        if (value.isNull()) { return "" }
+        unsafe { CFunc<(ShellRef, ShellRef) -> CString>(symbol("objc_msgSend"))(
+            value, sel("UTF8String")).toString() }
+    }
+
     func targetClass(): ShellRef {
         var result = ShellRef()
         unsafe { try (name = LibC.mallocCString("CHUIAppMenuTarget_v1").asResource()) {

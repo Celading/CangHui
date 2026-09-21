@@ -4,6 +4,65 @@
 
 ## Unreleased
 
+- CUIC 增加离线 Windows 安装版与便携版 EXE 打包，使用私有 `canghui-package`
+  引擎并保留 NSIS 底层许可。可选 Honor 成对格式混淆不改 PE 头或 CRC，也不保证
+  内容不可提取。便携缓存使用系统临时目录并在退出时尽力清理；Windows 真机运行、
+  完整运行时依赖和签名仍需单独验收。详见 [Windows 打包](reference/windows-installer.zh-CN.md)。
+  Add offline Windows installer and portable EXE packaging through the private
+  `canghui-package` engine, retaining NSIS licensing. Optional paired Honor format
+  obfuscation preserves PE headers and CRC; it is not encryption or unextractability.
+  Portable files use OS temporary storage with best-effort exit cleanup. Windows field
+  execution, runtime dependency closure and signing require separate acceptance.
+
+- macOS SDL 生命周期自动持有 `DesktopThreadLease`；窗口创建前有阻塞初始化时，
+  可在 `main` 入口显式持有租约。保留线程归属检查与后台并发；实现使用 CJNative
+  内部接口，升级运行时必须重新验证，不扩大其他平台支持声明。
+  Add a macOS native-thread lease around the SDL lifecycle, with an explicit entry
+  scope for blocking startup. Owner checks and background concurrency remain intact.
+  The adapter uses internal CJNative APIs and needs runtime-version revalidation;
+  it does not extend support claims on other platforms.
+  See [desktop thread ownership](reference/desktop-thread-owner.zh-CN.md).
+
+- 桌面窗口新增透明创建选项和运行时圆角调节/回执；macOS Shell 接通显式应用图标、
+  About 图标与可显示/隐藏的原生状态项，复用现有 Action 队列。macOS 打包支持方形 PNG
+  转多尺寸 ICNS。增加 [macos-shell 示例](../examples/macos-shell/)。
+  Add transparent-window opt-in and runtime corner-radius updates/receipts. The macOS
+  shell supports explicit application/About icons and visible/hidden native status items
+  through existing actions. macOS packaging converts square PNG icons to multi-size ICNS.
+
+- 明确基础样式与可选 Kit 边界；两个现有设计包支持带许可、来源哈希的选择性源码导出，
+  升级仅输出新目录，不覆盖应用自改源码。增加同业务基础/Editorial/Glass 对照与交互回归。
+  Clarify base-style and optional Kit ownership. Both existing packs support licensed,
+  hash-recorded owned-source export into new directories only. A shared-workflow example
+  compares base, Editorial and Glass without replacing input or focus handling.
+  See [basic styles and Kits](reference/basic-styles-and-kits.md).
+  同时加深基础浅色主题 danger，使默认页面背景上的普通错误文字达到 4.5:1。
+  Darken the base light danger role to meet 4.5:1 for normal error text on its stock page background.
+  修复 Label 显式换行与自动折行组合时的重叠，保留 CR/LF/CRLF、空行与末行省略。
+  Fix overlapping Label lines when hard breaks and wrapping combine, preserving CR/LF/CRLF,
+  empty paragraphs and line-limit ellipsis.
+
+- 网络资源新增可注入的流式传输接口、有界临时文件会话、取消/失败清理及网络图片入口。
+  复用UI任务提交，核心不强制依赖HTTP框架；提供Ignite适配示例，默认不隐式联网。
+  Network resources gain an injectable streaming transport, bounded temporary-file ownership,
+  cooperative cancellation and ImageView integration. The core stays HTTP-framework independent;
+  an opt-in Ignite adapter recipe is included. See [network resources](reference/network-resources.md).
+
+- 图片缓存增加按渲染器归属的字节/条目预算、LRU 和窗口关闭回收，PNG/BMP 在解码前
+  检查尺寸及工作量；可配置预算并读取托管堆/纹理估算。RGBA 上传去掉显式逐字节副本，
+  修复行宽计算溢出。详见[图片内存与帧池](reference/image-memory.md)。
+  Image caches now have per-renderer budgets, LRU eviction and owner-close cleanup.
+  PNG/BMP decoding checks admission limits; scoped RGBA upload removes the explicit
+  staging copy and checks row width without Int32 overflow. Memory figures are estimates,
+  not a process/GPU hard cap or a guarantee against every out-of-memory condition.
+
+- CUIC Windows 打包可通过 `--executable` 将已构建的未签名 EXE 复制为 GUI 子系统
+  应用，保留运行时入口；`--console` 生成诊断副本。原文件不变，已含嵌入签名、
+  非应用/无效 PE 和输出覆盖被拒绝。DLL、资源编译、签名与 Windows 实机验收仍独立。
+  Windows packaging accepts an existing unsigned EXE, preserves its runtime entry
+  and defaults to a GUI-subsystem copy; `--console` retains a diagnostic console.
+  Runtime DLLs, resource compilation, signing and Windows field acceptance remain separate.
+
 ## 0.18.0 (2026-09-10)
 
 - 配套源码 CLI 升至 `cuic 0.7.0`，汇总下列增量能力。版本更新不代表已安装 SDK

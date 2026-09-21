@@ -91,7 +91,7 @@ public struct Theme {
             mutedText: Color.rgb(93, 105, 122),
             accent: Color.rgb(33, 114, 229),
             accentText: Color.rgb(255, 255, 255),
-            danger: Color.rgb(208, 63, 67),
+            danger: Color.rgb(196, 55, 60),
             field: Color.rgb(248, 250, 253),
             fieldActive: Color.rgb(235, 244, 255),
             panelRaised: Color.rgb(255, 255, 255),

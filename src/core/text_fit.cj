@@ -52,6 +52,38 @@ protected func wrapText(
     style!: FontStyle = FontStyle.regular,
     font!: ?String = None
 ): Array<String> {
+    if (!text.contains("\n") && !text.contains("\r")) {
+        return wrapParagraph(ctx, text, maxWidth, ps, maxLines, style: style, font: font)
+    }
+    // A renderer line must never contain a hard break: SDL would break it a second time,
+    // independently of Label's measured line count and baseline increments.
+    let lines = ArrayList<String>()
+    var start: Int64 = 0
+    while (start <= text.size && lines.size < maxLines) {
+        var end = start
+        while (end < text.size && text[end] != UInt8(10) && text[end] != UInt8(13)) { end += 1 }
+        let paragraph = wrapParagraph(ctx, text[start..end], maxWidth, ps, maxLines - lines.size,
+            style: style, font: font)
+        for (line in paragraph) { lines.add(line) }
+        if (end == text.size) { break }
+        if (lines.size == maxLines) {
+            let last = lines.size - 1
+            if (!lines[last].endsWith(TEXT_ELLIPSIS)) {
+                lines[last] = ellipsize(ctx, lines[last] + TEXT_ELLIPSIS, maxWidth, ps, style: style, font: font)
+            }
+            break
+        }
+        start = end + 1
+        if (text[end] == UInt8(13) && start < text.size && text[start] == UInt8(10)) { start += 1 }
+    }
+    if (lines.isEmpty()) { lines.add("") }
+    lines.toArray()
+}
+
+private func wrapParagraph(
+    ctx: UiContext, text: String, maxWidth: Float32, ps: Float32, maxLines: Int64,
+    style!: FontStyle = FontStyle.regular, font!: ?String = None
+): Array<String> {
     let index = GraphemeIndex(text)
     let measure = {s: String => ctx.renderer.textWidth(s, pointSize: ps, style: style, font: font)}
     let lines = ArrayList<String>()

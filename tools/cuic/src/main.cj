@@ -392,8 +392,9 @@ func helpText(): String {
     "  cuic scripts run <name> [project]\n" +
     "  cuic dependency update [project]\n" +
     "  cuic package plan [macos|windows|linux] [project] [--json]\n" +
-    "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--runtime-manifest <file>] [--harden] [--export-symbol <_name>] [--json]\n" +
+    "  cuic package build [macos|windows|linux] [project] [--output <dir>] [--runtime-manifest <file>] [--executable <windows.exe>] [--console] [--harden] [--export-symbol <_name>] [--json]\n" +
     "  cuic package run [macos] <trusted.app> [-- <app args...>] (no build or SDK environment)\n" +
+    "  cuic package installer windows [project] --payload <dir> --entry <app.exe> --output <new-dir> [--mode install|portable] [--engine-bundle <dir>] [--honor-system]\n" +
     "  cuic prnt macos --artifact <trusted.app> [--output <file.png>] [--frames <count>] [--window <semantic-id>] [-- <app args...>]\n" +
     "  cuic prepare harmony [project] [--provider <pack-dir>] [--json]\n" +
     "  cuic build [platform] [project] [--mode release|debug] [--jobs 1..256]\n" +
