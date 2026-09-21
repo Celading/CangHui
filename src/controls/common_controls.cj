@@ -243,7 +243,9 @@ public class RadioButton <: Widget {
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         let indicator = Rect(frame.x, frame.centerY() - 9.0, 18.0, 18.0)
-        toggleInteraction(ctx, event, frame, controlId, {=> selected.value = optionValue}, indicator, 9.0)
+        toggleInteraction(ctx, event, frame, controlId, {=>
+            if (selected.value != optionValue) { selected.value = optionValue }
+        }, indicator, 9.0)
     }
 
     public func focusableId(): ?String {
@@ -596,15 +598,17 @@ private func toggleInteraction(
         return true
     }
     match (event) {
-        case UiEvent.KeyDown(Key.Enter, _) =>
+        case UiEvent.KeyDown(Key.Enter, repeated) =>
             if (ctx.hasFocus(id)) {
+                if (repeated) { return true }
                 ctx.startInkRipple(id, inkFrame, inkFrame.centerX(), inkFrame.centerY(),
                     color: Some(ctx.theme.inkColor()), cornerRadius: inkRadius)
                 activate()
                 return true
             }
-        case UiEvent.KeyDown(Key.Space, _) =>
+        case UiEvent.KeyDown(Key.Space, repeated) =>
             if (ctx.hasFocus(id)) {
+                if (repeated) { return true }
                 ctx.startInkRipple(id, inkFrame, inkFrame.centerX(), inkFrame.centerY(),
                     color: Some(ctx.theme.inkColor()), cornerRadius: inkRadius)
                 activate()

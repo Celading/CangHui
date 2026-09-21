@@ -236,13 +236,15 @@ public class InteractionSurface <: Widget {
         let material = materialProvider.resolve(ctx.theme, state)
         if (handleGestures(ctx, event, material)) { return true }
         match (event) {
-            case UiEvent.KeyDown(Key.Enter, _) =>
+            case UiEvent.KeyDown(Key.Enter, repeated) =>
                 if (ctx.hasFocus(controlId)) {
+                    if (repeated) { return true }
                     activateFromKeyboard(ctx, material)
                     return true
                 }
-            case UiEvent.KeyDown(Key.Space, _) =>
+            case UiEvent.KeyDown(Key.Space, repeated) =>
                 if (ctx.hasFocus(controlId)) {
+                    if (repeated) { return true }
                     activateFromKeyboard(ctx, material)
                     return true
                 }

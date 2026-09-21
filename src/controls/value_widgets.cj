@@ -164,22 +164,22 @@ public class Slider <: Widget {
                 }
             case UiEvent.KeyDown(Key.Left, _) =>
                 if (ctx.hasFocus(id)) {
-                    value.value = keyboardPrevious()
+                    setValueIfChanged(keyboardPrevious())
                     return true
                 }
             case UiEvent.KeyDown(Key.Right, _) =>
                 if (ctx.hasFocus(id)) {
-                    value.value = normalize(value.value + keyboardStep())
+                    setValueIfChanged(normalize(value.value + keyboardStep()))
                     return true
                 }
             case UiEvent.KeyDown(Key.Home, _) =>
                 if (ctx.hasFocus(id)) {
-                    value.value = lowerBound
+                    setValueIfChanged(lowerBound)
                     return true
                 }
             case UiEvent.KeyDown(Key.End, _) =>
                 if (ctx.hasFocus(id)) {
-                    value.value = upperBound
+                    setValueIfChanged(upperBound)
                     return true
                 }
             case _ => ()
@@ -195,7 +195,7 @@ public class Slider <: Widget {
         let trackX = frame.x + 8.0
         let trackW = max(1.0, frame.w - 16.0)
         let amount = clampF32((x - trackX) / trackW, 0.0, 1.0)
-        value.value = normalize(lowerBound + amount * rangeSize(lowerBound, upperBound))
+        setValueIfChanged(normalize(lowerBound + amount * rangeSize(lowerBound, upperBound)))
     }
 
     private func trackFrame(): Rect {
@@ -233,10 +233,11 @@ public class Slider <: Widget {
     }
 
     private func applyNormalize(): Unit {
-        let normalized = normalize(value.value)
-        if (normalized != value.value) {
-            value.value = normalized
-        }
+        setValueIfChanged(normalize(value.value))
+    }
+
+    private func setValueIfChanged(next: Float32): Unit {
+        if (next != value.value) { value.value = next }
     }
 }
 

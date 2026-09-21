@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- Button/IconButton、InteractionSurface、Checkbox、Switch/RadioButton 不再把 Enter/Space
+  系统连发当作多次激活；Slider/RadioButton 仅在选值变化时写回绑定，方向键连续调节保留。
+  Ignore keyboard auto-repeat for discrete Enter/Space activation. Avoid redundant Slider and
+  RadioButton binding writes while preserving directional-key repeat and explicit State notifications.
+
 - Slider 构造范围与 `range()` 一致地支持反向上下界；离散步长不能整除范围时仍可取到上限，
   从上限反向时回到相邻刻度。补齐聚焦后的 Home/End，并更新可检查的快捷键语义。
   Normalize reversed Slider constructor bounds, keep inclusive endpoints reachable with uneven steps,

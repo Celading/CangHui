@@ -176,15 +176,17 @@ public class Checkbox <: Widget {
             return true
         }
         match (event) {
-            case UiEvent.KeyDown(Key.Enter, _) =>
+            case UiEvent.KeyDown(Key.Enter, repeated) =>
                 if (ctx.hasFocus(controlId)) {
+                    if (repeated) { return true }
                     ctx.startInkRipple(controlId, box, box.centerX(), box.centerY(),
                         color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
                     checked.value = !checked.value
                     return true
                 }
-            case UiEvent.KeyDown(Key.Space, _) =>
+            case UiEvent.KeyDown(Key.Space, repeated) =>
                 if (ctx.hasFocus(controlId)) {
+                    if (repeated) { return true }
                     ctx.startInkRipple(controlId, box, box.centerX(), box.centerY(),
                         color: Some(appearance.ink), cornerRadius: appearance.focusRadius)
                     checked.value = !checked.value

@@ -62,7 +62,8 @@ public init(
   手势通过 `onDragCancel` 结束，后续松手不会重新提交。宿主失焦、输入变换替换
   使用同一取消路径。自定义控件应清理自己的临时预览，不把取消当作 MouseUp。
 - 主键在面内按下并在面内松开才激活；按住后移出会永久取消本次按压，即使回到内部再松开也不触发；
-- 键盘焦点到达后 Enter 与空格激活；鼠标点击不会伪造 focus-visible；
+- 键盘焦点到达后 Enter 与空格在首次按下时激活；系统连发事件被消费但不再次执行动作或启动 Ink。
+  新的独立按下仍可激活。Button/IconButton 复用此规则；鼠标点击不会伪造 focus-visible；
 - `ControlRole` 提供 Button、Link、Checkbox、Switch 与 `Custom(String)` 语义角色；空 Custom role 在构造时拒绝；
 - `selected`、`expanded`、`enabled`、`readOnly`、focus/hover/press 同时流入 SurfaceState、
   ControlContentEnvironment 与 ComponentProbe 语义输出；
