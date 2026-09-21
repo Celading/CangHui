@@ -4,6 +4,25 @@
 
 ## Unreleased
 
+- CUIC 增加离线 Windows 安装版与便携版 EXE 打包，使用私有 `canghui-package`
+  引擎并保留 NSIS 底层许可。可选 Honor 成对格式混淆不改 PE 头或 CRC，也不保证
+  内容不可提取。便携缓存使用系统临时目录并在退出时尽力清理；Windows 真机运行、
+  完整运行时依赖和签名仍需单独验收。详见 [Windows 打包](reference/windows-installer.zh-CN.md)。
+  Add offline Windows installer and portable EXE packaging through the private
+  `canghui-package` engine, retaining NSIS licensing. Optional paired Honor format
+  obfuscation preserves PE headers and CRC; it is not encryption or unextractability.
+  Portable files use OS temporary storage with best-effort exit cleanup. Windows field
+  execution, runtime dependency closure and signing require separate acceptance.
+
+- macOS SDL 生命周期自动持有 `DesktopThreadLease`；窗口创建前有阻塞初始化时，
+  可在 `main` 入口显式持有租约。保留线程归属检查与后台并发；实现使用 CJNative
+  内部接口，升级运行时必须重新验证，不扩大其他平台支持声明。
+  Add a macOS native-thread lease around the SDL lifecycle, with an explicit entry
+  scope for blocking startup. Owner checks and background concurrency remain intact.
+  The adapter uses internal CJNative APIs and needs runtime-version revalidation;
+  it does not extend support claims on other platforms.
+  See [desktop thread ownership](reference/desktop-thread-owner.zh-CN.md).
+
 - 桌面窗口新增透明创建选项和运行时圆角调节/回执；macOS Shell 接通显式应用图标、
   About 图标与可显示/隐藏的原生状态项，复用现有 Action 队列。macOS 打包支持方形 PNG
   转多尺寸 ICNS。增加 [macos-shell 示例](../examples/macos-shell/)。
