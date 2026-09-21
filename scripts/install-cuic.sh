@@ -105,6 +105,21 @@ func renderCuicVersion(): String {
 EOF
 
 mkdir -p "${INSTALL_ROOT}"
+if [[ -d "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/nsis" && -e "${INSTALL_ROOT}/bin/cuic-delivery/engines/nsis" ]]; then
+    printf '%s\n' 'Private engine already exists; use a new install root or select a versioned bundle explicitly.' >&2
+    exit 1
+fi
 cjpm install --path "${WORK_DIR}/CangHui/tools/cuic" --root "${INSTALL_ROOT}"
+# Thin delivery helpers travel with standalone CUIC. Private engine data, when
+# supplied in the source pack, stays beside the helper and never enters PATH.
+if [[ -f "${WORK_DIR}/CangHui/tools/cuic/delivery/installer.py" ]]; then
+    mkdir -p "${INSTALL_ROOT}/bin/cuic-delivery"
+    cp "${WORK_DIR}/CangHui/tools/cuic/delivery/installer.py" "${INSTALL_ROOT}/bin/cuic-delivery/installer.py"
+    cp "${WORK_DIR}/CangHui/tools/cuic/delivery/seal_engine.py" "${INSTALL_ROOT}/bin/cuic-delivery/seal_engine.py"
+    if [[ -d "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/nsis" ]]; then
+        mkdir -p "${INSTALL_ROOT}/bin/cuic-delivery/engines"
+        cp -R "${WORK_DIR}/CangHui/tools/cuic/delivery/engines/nsis" "${INSTALL_ROOT}/bin/cuic-delivery/engines/nsis"
+    fi
+fi
 "${INSTALL_ROOT}/bin/cuic" version
 printf 'cuic installed at %s\n' "${INSTALL_ROOT}/bin/cuic"

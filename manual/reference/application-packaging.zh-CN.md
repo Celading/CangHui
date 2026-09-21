@@ -91,6 +91,9 @@ macOS 和 Windows 的产物命名保持不变。
 
 ## Windows 无控制台应用
 
+需要安装器或单文件便携 EXE 时，见 [Windows 安装包与便携包](windows-installer.zh-CN.md)。
+它消费已经能运行的应用目录，使用私有 NSIS 引擎；与下面的 PE 子系统设置是两个独立步骤。
+
 Windows 构建后的 EXE 可以在签名前由 CUIC 生成 GUI 子系统副本：
 
 ```bash

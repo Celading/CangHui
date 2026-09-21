@@ -231,6 +231,13 @@ def build_cli_pair(output, revision, verify_binary, cuic=None):
             shutil.copy2(cli / "target" / ("debug" if debug else "release") / "bin/main", output / "bin" / name)
             verify_binary(output / "bin" / name)
             print(run(output / "bin" / name, "version"), flush=True)
+        # Older revisions did not ship delivery helpers. Newer tools must retain
+        # their resource sidecar; this does not provision native installer engines.
+        if (cli / "delivery/installer.py").is_file():
+            resources = output / "bin/cuic-delivery"
+            resources.mkdir()
+            for helper in ("installer.py", "seal_engine.py"):
+                shutil.copyfile(cli / "delivery" / helper, resources / helper)
     return cli_version
 
 
@@ -265,7 +272,8 @@ def build(output, revision, cuic=None):
     sdl_manifest = framework / "sdl/cjpm.toml"
     sdl_manifest.write_text(sdl_manifest.read_text().replace('path = "./.sdl3"', 'path = "../../native"'))
     for binary in (output / "bin").iterdir():
-        minimum = max(minimum, minimum_os(binary))
+        if binary.is_file():
+            minimum = max(minimum, minimum_os(binary))
     manifest = {
         "schema": "canghui.source-sdk/v1", "sourceCommit": revision, "cuicVersion": cli_version,
         "frameworkVersion": version(framework / "cjpm.toml"),

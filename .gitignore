@@ -2,6 +2,7 @@ target/
 **/target/
 bench/results/
 __pycache__/
+tools/cuic/delivery/engines/
 *.gcda
 *.gcno
 *.cov

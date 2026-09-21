@@ -38,6 +38,9 @@ class CuicBuilderTests(unittest.TestCase):
             self.assertEqual(paths, sdk.SOURCE_ROOTS + ["tools/cuic"])
             cli = staging / "tools/cuic"
             (cli / "src").mkdir(parents=True)
+            (cli / "delivery").mkdir()
+            for helper in ("installer.py", "seal_engine.py"):
+                (cli / "delivery" / helper).write_text("delivery fixture")
             (cli / "cjpm.toml").write_text('version = "0.6.0"\ncompile-option = "--static"\n')
         def build(command, cwd, check, env):
             self.assertTrue(check)
@@ -69,6 +72,8 @@ class CuicBuilderTests(unittest.TestCase):
             else:
                 self.assertEqual(action(), "0.6.0")
                 self.assertEqual(verified, [("cuic", "release"), ("cuic-debug", "debug")])
+                self.assertEqual((Path(directory) / "bin/cuic-delivery/installer.py").read_text(), "delivery fixture")
+                self.assertFalse((Path(directory) / "bin/cuic-delivery/engines").exists())
             self.assertEqual(os.environ["CANGHUI_CLI_ROOT"], "/unrelated/source")
             self.assertEqual(os.environ["CUIC_TARGET_DIR"], "/unrelated/target")
 

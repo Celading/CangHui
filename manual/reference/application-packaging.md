@@ -1,5 +1,9 @@
 # Application Packaging
 
+For installer and single-file portable EXEs, see [Windows installers](windows-installer.md).
+That adapter packages a ready-to-run application directory with a private NSIS engine;
+it is separate from the PE subsystem conversion below.
+
 ## Windows GUI executables
 
 After building an unsigned Windows executable, produce a GUI-subsystem copy before signing:

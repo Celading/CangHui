@@ -82,10 +82,11 @@ class ApplicationPackagingPlan {
 }
 
 func applicationPackagingCommand(args: Array<String>, start: Int64): Int64 {
-    if (start >= args.size) { throw CuicError("package requires 'plan', 'build' or 'run'") }
+    if (start >= args.size) { throw CuicError("package requires 'plan', 'build', 'run' or 'installer'") }
+    if (args[start] == "installer") { return applicationInstallerCommand(args, start + 1) }
     if (args[start] == "build") { return applicationPackagingBuildCommand(args, start + 1) }
     if (args[start] == "run") { return applicationPackagingRunCommand(args, start + 1) }
-    if (args[start] != "plan") { throw CuicError("package supports 'plan', 'build' or 'run'") }
+    if (args[start] != "plan") { throw CuicError("package supports 'plan', 'build', 'run' or 'installer'") }
     var platform = hostPlatform()
     var requested = ""
     var json = false
