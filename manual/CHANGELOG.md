@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- Slider 构造范围与 `range()` 一致地支持反向上下界；离散步长不能整除范围时仍可取到上限，
+  从上限反向时回到相邻刻度。补齐聚焦后的 Home/End，并更新可检查的快捷键语义。
+  Normalize reversed Slider constructor bounds, keep inclusive endpoints reachable with uneven steps,
+  return to the adjacent tick from the upper endpoint, and support focused Home/End navigation.
+
 - 修复 `animateProperties` 连续跨帧改向时停在起点的问题；尺寸、颜色与命中布局持续推进，
   保留同帧只推进一次、静止后启动、显式延迟重启和减弱动效策略。
   Fix stalled property animations when targets change every frame. Geometry, color and hit
