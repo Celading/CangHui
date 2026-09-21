@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- Windows SDL 生命周期现在自动持有原生线程租约，防止仓颉线程迁移后 IME/窗口操作触发 owner 异常。
+  保留嵌套计数、错线程释放拒绝和外部绑定所有权；后台任务仍并发执行。
+  Hold a native-thread lease across the Windows SDL lifecycle to prevent owner violations after
+  scheduler migration, preserving nested scopes, external ownership and background concurrency.
+
 - Button/IconButton、InteractionSurface、Checkbox、Switch/RadioButton 不再把 Enter/Space
   系统连发当作多次激活；Slider/RadioButton 仅在选值变化时写回绑定，方向键连续调节保留。
   Ignore keyboard auto-repeat for discrete Enter/Space activation. Avoid redundant Slider and
