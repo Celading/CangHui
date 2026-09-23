@@ -183,13 +183,17 @@ public class ApplicationResources {
         for (root in roots) {
             validateMobileResourceGeneration(root, activeMobileGeneration)
             let rootPath = canonicalResourcePath(root.path, "resource root")
+            let rootInfo = FileInfo(root.path)
+            if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) {
+                throw IllegalArgumentException("application resource root must be a non-link directory")
+            }
             let candidate = resourceJoinPath(root.path, declaration.relativePath)
-            if (!exists(candidate)) { continue }
-            if (FileInfo(candidate).isSymbolicLink()) {
-                throw IllegalArgumentException("application resource must not be a symbolic link: " + name)
+            if (!resourceDeclaredPathExists(root.path, declaration.relativePath, name)) { continue }
+            if (!FileInfo(candidate).isRegular()) {
+                throw IllegalArgumentException("application resource must be a regular file: " + name)
             }
             let resolved = canonicalResourcePath(candidate, "application resource")
-            if (resolved != rootPath && !resolved.startsWith(rootPath + "/")) {
+            if (!resourceCanonicalContained(rootPath, resolved, resourceUsesWindowsPaths())) {
                 throw IllegalArgumentException("application resource escapes its declared root: " + name)
             }
             return ApplicationResourceReceipt(declaration.name, declaration.role, resolved,
@@ -242,10 +246,55 @@ private func validateMobileResourceGeneration(root: ApplicationResourceRoot, act
 }
 
 private func validateResourceRelativePath(value: String): Unit {
-    if (value.isEmpty() || value.startsWith("/") || value.startsWith("./") || value.contains("../") ||
-        value.contains("\\") || value.contains("\u{0000}")) {
+    if (value.isEmpty() || value.contains("\\") || value.contains(":")) {
         throw IllegalArgumentException("application resource path must be a safe package-relative path")
     }
+    for (byte in value.toArray()) {
+        if (byte < 32 || byte == 127) {
+            throw IllegalArgumentException("application resource path must not contain control characters")
+        }
+    }
+    for (part in value.split("/")) {
+        if (part.isEmpty() || part == "." || part == "..") {
+            throw IllegalArgumentException("application resource path must contain only named relative segments")
+        }
+    }
+}
+
+// Check every declared component, not just the leaf. Missing assets may use the
+// next declared root; an existing link or non-directory parent may not.
+private func resourceDeclaredPathExists(root: String, relative: String, name: String): Bool {
+    let parts = relative.split("/")
+    var current = root
+    for (i in 0..parts.size) {
+        current = resourceJoinPath(current, parts[i])
+        if (!exists(current)) { return false }
+        let info = FileInfo(current)
+        if (info.isSymbolicLink()) {
+            throw IllegalArgumentException("application resource must not be a symbolic link: " + name)
+        }
+        if (i < parts.size - 1 && !info.isDirectory()) {
+            throw IllegalArgumentException("application resource parent must be a directory: " + name)
+        }
+    }
+    true
+}
+
+@When[os == "Windows"]
+private func resourceUsesWindowsPaths(): Bool { true }
+
+@When[os != "Windows"]
+private func resourceUsesWindowsPaths(): Bool { false }
+
+// Both inputs MUST be canonical filesystem paths. This helper is only the last
+// containment step, never a lexical path validator. Preserve case and Unicode;
+// folding would admit distinct paths in case-sensitive Windows directories.
+internal func resourceCanonicalContained(root: String, candidate: String, windows: Bool): Bool {
+    let parent = if (windows) { root.replace("\\", "/") } else { root }
+    let child = if (windows) { candidate.replace("\\", "/") } else { candidate }
+    if (parent.isEmpty() || child == parent) { return false }
+    let prefix = if (parent.endsWith("/")) { parent } else { parent + "/" }
+    child.size > prefix.size && child.startsWith(prefix)
 }
 
 private func validateResourceName(value: String, role: String): Unit {

@@ -4,6 +4,13 @@
 
 ## Unreleased
 
+- ApplicationResources 的规范路径归属比较适配 Windows 分隔符及文件系统根，
+  保留大小写、Unicode 与原始回执路径。声明拒绝含糊路径，解析拒绝目录、链接根与链接父级；
+  缺失文件仍按根顺序回退。详见 [应用资源边界](reference/application-resources.zh-CN.md)。
+  Compare canonical resource paths with platform-aware separators and filesystem-root handling,
+  preserving case, Unicode and receipt paths. Reject ambiguous declarations, directories and
+  linked roots or parents while retaining ordered fallback for missing files.
+
 - ScrollView 可显式配置横向内容宽度，纵向溢出自动启用；嵌套滚轮优先交给子视口，
   零增量和到达边界的输入继续传递。可选内容拖动锁定单轴并取消子按钮点击。
   Add explicit horizontal content width with automatic vertical overflow, child-first
