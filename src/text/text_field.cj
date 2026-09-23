@@ -530,7 +530,7 @@ public class TextField <: Widget {
         }
         match (event.phase) {
             case TextCompositionPhase.Cancel => clearComposition()
-            case TextCompositionPhase.Commit => return commitComposition(ctx, edit, event.text)
+            case TextCompositionPhase.Commit => return commitComposition(ctx, edit, event.text, isolated: true)
             case TextCompositionPhase.Begin => compositionStateValue.value = updatedTextComposition(
                 text.value, text.revision, compositionStateValue.value, edit, event, true)
             case TextCompositionPhase.Update => compositionStateValue.value = updatedTextComposition(
@@ -540,15 +540,22 @@ public class TextField <: Widget {
         true
     }
 
-    private func commitComposition(ctx: UiContext, edit: TextEditState, value: String): Bool {
+    private func commitComposition(ctx: UiContext, edit: TextEditState, value: String,
+        isolated!: Bool = false): Bool {
         if (!ctx.hasFocus(id) || !isEditable) { return false }
         let composition = compositionStateValue.value
+        let separateGroup = isolated || composition.active
         if (composition.active && composition.documentRevision == text.revision &&
             validTextCompositionRange(text.value, composition.replacementStartByte, composition.replacementEndByte)) {
             cursorStateValue.value = composition.replacementEndByte
             anchorStateValue.value = composition.replacementStartByte
         }
-        return recordedEdit(ctx, {=> edit.insert(flattenLines(value))})
+        // An IME commit is one transaction, not part of adjacent rapid typing.
+        // Ordinary TextInput without preedit keeps the existing time coalescing.
+        if (separateGroup) { history.breakGroup() }
+        let handled = recordedEdit(ctx, {=> edit.insert(flattenLines(value))})
+        if (separateGroup) { history.breakGroup() }
+        handled
     }
 
     private func resolvedTypography(ctx: UiContext): TextFieldTypography {

@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- TextArea 预编辑期间的 Enter 不再插入换行；TextField/TextArea 的组合提交与前后
+  普通打字分开撤销，TextArea 无历史时撤销/重做也会清空预编辑。
+  Keep Enter from inserting a newline during TextArea preedit. Isolate IME commits from
+  adjacent typing undo groups, and clear TextArea preedit even when undo/redo history is empty.
+
 - ApplicationResources 的规范路径归属比较适配 Windows 分隔符及文件系统根，
   保留大小写、Unicode 与原始回执路径。声明拒绝含糊路径，解析拒绝目录、链接根与链接父级；
   缺失文件仍按根顺序回退。详见 [应用资源边界](reference/application-resources.zh-CN.md)。
