@@ -9,6 +9,7 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
 
 1. **在应用中引用 CangHui**：先看 [5 分钟 SDK 式消费](getting-started/sdk-consumption.md)，
    再运行 `cuic doctor`。普通使用者不需要克隆或修改完整 CangHui 仓库。
+   需要字体、符号、包内图片或应用图标时，直接接着看[资源开箱引导](getting-started/resource-bootstrap.zh-CN.md)。
 2. **让 Agent 实现或审查界面**：先看 [Agent 首次工作流](getting-started/agent-first-workflow.md)，
    再看 [Agent UI 评审规则](guide/how-to/agent-ui-review.md)。优先使用 `cuic pview`/`probe ascii`
    和 `cuic prnt`，不要一开始就依赖系统截图。
@@ -21,6 +22,7 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
 - [属性驱动动画](guide/how-to/animate-properties.md)与 [CangHuiKit 设计套件](reference/canghui-kit.md)。
 - [自适应滚动](guide/how-to/adaptive-scrolling.md)：横向内容、纵向按需溢出与嵌套输入。
 - [快速开始](getting-started/index.md)：依赖消费与 Agent 首次作业顺序。
+- [资源开箱引导](getting-started/resource-bootstrap.zh-CN.md)：字体、符号、图片、图标和增量构建诊断。
 - [渐进式指南](guide/index.md)：按学习路径和实际任务组织。
 - [教程](tutorials/index.md)：cuic、无边框窗口、平台接口与 Surface。
 - [API 参考](api/index.md)：精确类型、构造函数和成员。
