@@ -110,7 +110,7 @@ public func imageFormatFromPath(path: String): ImageFileFormat {
 }
 
 /**
- * Selects a decoder for a real image load and rejects known unsupported formats.
+ * Selects a decoder for a real image load and rejects unsupported extensions.
  * The legacy `imageFormatFromPath` fallback remains available for extensionless
  * capture paths; runtime image loads must not turn `.jpg` or `.svg` into a BMP
  * decode attempt with a misleading header error.

@@ -123,7 +123,7 @@
 | `isClosed()`、`close()` | 生命周期管理 |
 
 `ImageFileFormat` 包含 `Bmp`、`Png`；`imageFormatFromPath(path)` 保留非 PNG 默认 BMP 的兼容行为，供无扩展名捕获路径使用。
-实际图片加载（`Surface.load` 与渲染器图片缓存）只接受 `.png`、`.bmp`；对 `.jpg`、`.jpeg`、`.svg`、`.gif`、`.webp` 会给出明确的“不支持图片格式”错误，不会把它们静默当成 BMP。
+实际图片加载（`Surface.load` 与渲染器图片缓存）只接受 `.png`、`.bmp`；带其他扩展名的路径会给出明确的“不支持图片格式”错误，不会静默当成 BMP。无扩展名路径保留旧的 BMP 兼容行为。
 
 ### `Texture <: Resource`
 
