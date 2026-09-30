@@ -119,8 +119,10 @@ internal func imageFormatForLoad(path: String): ImageFileFormat {
     let lower = path.toAsciiLower()
     if (lower.endsWith(".png")) { return ImageFileFormat.Png }
     if (lower.endsWith(".bmp")) { return ImageFileFormat.Bmp }
-    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".svg") ||
-        lower.endsWith(".gif") || lower.endsWith(".webp")) {
+    let normalized = path.replace("\\", "/")
+    let parts = normalized.split("/")
+    let leaf = parts[parts.size - 1]
+    if (leaf.contains(".")) {
         throw CuiException("unsupported image format; supported formats: .png, .bmp")
     }
     imageFormatFromPath(path)

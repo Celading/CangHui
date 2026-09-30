@@ -17,6 +17,7 @@ func imageFormatForLoadRejectsKnownUnsupportedFormatsWithActionableMessage(): Un
     expectUnsupportedImage("photo.jpg")
     expectUnsupportedImage("photo.JPEG")
     expectUnsupportedImage("icon.svg")
+    expectUnsupportedImage("texture.tiff")
 }
 
 private func expectUnsupportedImage(path: String): Unit {
