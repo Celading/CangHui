@@ -21,7 +21,7 @@ IconButton <: [`Widget`](Widget.md)
 `gestures(value: GestureHandlers): IconButton` 与 Button 使用同一手势契约，不添加额外焦点或
 点击拥有者；详见[属性动画与手势](../../../guide/how-to/animate-properties.md)。
 
-同一视图里的多个纯图标按钮靠"按构建位置生成的默认标识"保持互不混淆——若共用标识，一个按钮会拦截本属于另一个的松开事件；标识必须跨树形变化存活时用 [`key`](#key) 固定。无标签时按钮默认是 38×38 逻辑像素的方形；[`label`](#label) 会在图标右侧加一行文字并按文字宽度扩展。焦点环只在焦点经键盘到达时绘制，与 Button 同一约定。
+同一视图里的多个纯图标按钮靠"按构建位置生成的默认标识"保持互不混淆——若共用标识，一个按钮会拦截本属于另一个的松开事件；标识必须跨树形变化存活时用 [`key`](#key) 固定。无标签时按钮默认是 38×38 逻辑像素的方形；[`label`](#label) 会在图标右侧加一行文字并按文字宽度扩展，带标签时默认宽度下限为 72。焦点环只在焦点经键盘到达时绘制，与 Button 同一约定。
 
 `IconButton` 可以接收 `SymbolName`，并通过 [`density`](#density)、`iconSize`、`contentPadding` 和
 `minControlSize` 分别控制命中区域、图形和内容留白。图标动作优先使用已登记的 Symbol；纯图标按钮必须设置 `accessibilityLabel`。
@@ -68,10 +68,10 @@ main(): Unit {
 | [`role(value: ButtonRole)`](#role) | 应用语义按钮配色。 |
 | [`style(value: SurfaceStyle)`](#style) | 覆盖主题推导的按钮表面。 |
 | [`density(value: ControlDensity)`](#density) | 安装一套 `Compact`、`Comfortable` 或 `Touch` 尺寸配方。 |
-| `iconSize(value: Length)` | 调整绘制的方形图标，不改变命中区域。 |
-| `contentPadding(value: LengthInsets)` | 调整图标与标签的内容留白。 |
+| `iconSize(value: Length)` | 调整绘制的方形图标，不会缩小最小命中区域；图标超过现有区域时控件会随内容扩大。 |
+| `contentPadding(value: LengthInsets)` | 调整纯图标按钮和带标签按钮的内容留白。 |
 | `minControlSize(width, height)` | 设置最小命中区域。 |
-| [`measure(...)`](#measure) | 无标签时测量为 38×38 逻辑像素的方形；有标签时按文字宽度加图标与内边距扩展，宽度下限 76。 |
+| [`measure(...)`](#measure) | 无标签时测量为 38×38 逻辑像素的方形；有标签时按文字宽度加图标与内边距扩展，宽度下限 72。 |
 | [`layout(...)`](#layout) | 记录分配的帧矩形，供绘制与命中测试使用。 |
 | [`draw(...)`](#draw) | 绘制表面、图标与可选标签，按下/悬停时切换填充色，键盘聚焦时叠加焦点环。 |
 | [`handle(...)`](#handle) | 实现与 Button 相同的按下-释放点击识别与键盘激活，并接收悬停。 |
@@ -86,6 +86,18 @@ main(): Unit {
 ```cangjie
 public init(
     icon: IconName,
+    label!: ?String = None,
+    role!: ButtonRole = ButtonRole.Normal,
+    style!: ?SurfaceStyle = None,
+    onClick!: () -> Unit
+)
+```
+
+使用已登记的 provider-neutral Symbol 时，构造器也接受 `SymbolName`：
+
+```cangjie
+public init(
+    name: SymbolName,
     label!: ?String = None,
     role!: ButtonRole = ButtonRole.Normal,
     style!: ?SurfaceStyle = None,
@@ -183,7 +195,7 @@ public func density(value: ControlDensity): IconButton
 
 ### iconSize
 
-设置绘制的方形图标尺寸，不改变按钮的命中区域。
+设置绘制的方形图标尺寸，不会缩小按钮的最小命中区域；图标超过当前区域时，测量尺寸会随内容增大。
 
 ```cangjie
 public func iconSize(value: Length): IconButton
@@ -192,7 +204,7 @@ public func iconSize(value: Float32): IconButton
 
 ### contentPadding
 
-设置图标和标签周围的内容留白；需要同时调整命中区域时配合 `density` 或 `minControlSize`。
+设置纯图标按钮和带标签按钮周围的内容留白；需要同时调整最小命中区域时配合 `density` 或 `minControlSize`。
 
 ```cangjie
 public func contentPadding(value: LengthInsets): IconButton
@@ -208,7 +220,7 @@ public func minControlSize(width!: Float32, height!: Float32): IconButton
 
 ### measure
 
-无标签时测量为 38×38 逻辑像素的方形；有标签时按文字宽度加图标与内边距扩展，宽度下限 76。文字按绘制所用的同一字号测量，两端不会漂移。
+无标签时默认测量为 38×38 逻辑像素的方形；有标签时按文字宽度加图标与内边距扩展，宽度下限 72。密度或显式最小尺寸会覆盖对应下限。文字按绘制所用的同一字号测量，两端不会漂移。
 
 ```cangjie
 public func measure(ctx: UiContext, available: Size): Size

@@ -132,6 +132,11 @@ func iconButtonUsesThemeLayoutAndExplicitSymbolSizing(): Unit {
     let compactSize = compactButton.measure(testContext(), Size(400.0, 120.0))
     @Expect(compactSize.w, Float32(32.0))
     @Expect(compactSize.h >= Float32(32.0))
+
+    let padded = IconButton(SymbolName("save", provider: "builtin")) {=> ()}
+        .contentPadding(LengthInsets(20.vp, 0.vp))
+    let paddedSize = padded.measure(testContext(), Size(400.0, 120.0))
+    @Expect(paddedSize.w, Float32(58.0))
 }
 
 @Test

@@ -301,13 +301,13 @@ public class IconButton <: Widget {
         this
     }
 
-    /** Sets the vector extent without changing the button's hit target. */
+    /** Sets the vector extent without shrinking the button's minimum hit target. */
     public func iconSize(value: Length): IconButton {
         iconExtent = value
         this
     }
 
-    /** Sets the vector extent in virtual pixels without changing the hit target. */
+    /** Sets the vector extent in virtual pixels without shrinking the hit target. */
     public func iconSize(value: Float32): IconButton {
         iconSize(vpLength(value))
     }
@@ -315,6 +315,7 @@ public class IconButton <: Widget {
     /** Overrides the label-and-icon inset while retaining the semantic button owner. */
     public func contentPadding(value: LengthInsets): IconButton {
         contentPaddingOverride = Some(value)
+        iconOnlyPaddingOverride = Some(value)
         this
     }
 
