@@ -84,6 +84,78 @@ func propertyMotionRetargetsFromVisibleValueAndHitTestingFollowsIt(): Unit {
 }
 
 @Test
+func propertyMotionAdvancesDuringContinuousRetargetAndKeepsHitGeometry(): Unit {
+    let ctx = testContext()
+    let store = StateStore()
+    let capture = PropertyCapture()
+    placePropertyFixture(ctx, propertyFixture(store, capture, 100.0))
+    placePropertyFixture(ctx, propertyFixture(store, capture, 200.0))
+    ctx.frame = FrameInfo(UInt64(50), UInt64(50))
+    let growing = propertyFixture(store, capture, 300.0)
+    @Expect(placePropertyFixture(ctx, growing).w, Float32(150.0))
+    @Expect(growing.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 140.0, 20.0)))
+    @Expect(!growing.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 180.0, 20.0)))
+    growing.designComputedFacts(ctx)
+    @Expect(placePropertyFixture(ctx, growing).w, Float32(150.0))
+    ctx.frame = FrameInfo(UInt64(100), UInt64(50))
+    let reversed = propertyFixture(store, capture, 50.0)
+    @Expect(placePropertyFixture(ctx, reversed).w, Float32(225.0))
+    @Expect(ctx.takeFrameRequest())
+    ctx.frame = FrameInfo(UInt64(150), UInt64(50))
+    @Expect(placePropertyFixture(ctx, reversed).w, Float32(137.5))
+    @Expect(!reversed.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 140.0, 20.0)))
+    @Expect(ctx.takeFrameRequest())
+    ctx.frame = FrameInfo(UInt64(200), UInt64(50))
+    @Expect(placePropertyFixture(ctx, reversed).w, Float32(50.0))
+    @Expect(!ctx.takeFrameRequest())
+}
+
+@Test
+func propertyColorRetargetAdvancesChannelsOnceAndReducedMotionCancels(): Unit {
+    let ctx = testContext()
+    let motion = ModifierPropertyMotion()
+    let spec = AnimationSpec(duration: UInt64(100), easing: Easing.Linear)
+    motion.color(ctx, Color.rgba(0, 0, 0, 0), spec)
+    motion.color(ctx, Color.rgba(100, 80, 60, 40), spec)
+    ctx.frame = FrameInfo(UInt64(50), UInt64(50))
+    let current = motion.color(ctx, Color.rgba(200, 160, 120, 80), spec)
+    @Expect(current.r, UInt8(50))
+    @Expect(current.g, UInt8(40))
+    @Expect(current.b, UInt8(30))
+    @Expect(current.a, UInt8(20))
+    @Expect(motion.color(ctx, Color.rgba(200, 160, 120, 80), spec).r, current.r)
+    @Expect(ctx.takeFrameRequest())
+    ctx.theme = ctx.theme.withReduceMotion(true)
+    let snapped = motion.color(ctx, Color.rgba(200, 160, 120, 80), spec)
+    @Expect(snapped.r, UInt8(200))
+    @Expect(snapped.a, UInt8(80))
+    @Expect(!ctx.takeFrameRequest())
+}
+
+@Test
+func propertyRetargetRestartsDelayButDoesNotReuseCompletedFrameDelta(): Unit {
+    let ctx = testContext()
+    let motion = ModifierPropertyMotion()
+    let spec = AnimationSpec(duration: UInt64(100), delay: UInt64(50), easing: Easing.Linear)
+    motion.scalar(ctx, 0, 0.0, spec)
+    motion.scalar(ctx, 0, 100.0, spec)
+    ctx.frame = FrameInfo(UInt64(100), UInt64(100))
+    @Expect(motion.scalar(ctx, 0, 200.0, spec), Float32(50.0))
+    ctx.frame = FrameInfo(UInt64(150), UInt64(50))
+    @Expect(motion.scalar(ctx, 0, 200.0, spec), Float32(50.0))
+    ctx.frame = FrameInfo(UInt64(250), UInt64(100))
+    @Expect(motion.scalar(ctx, 0, 300.0, spec), Float32(200.0))
+    @Expect(motion.scalar(ctx, 0, 400.0, spec), Float32(200.0))
+    @Expect(ctx.takeFrameRequest())
+    ctx.frame = FrameInfo(UInt64(400), UInt64(150))
+    @Expect(motion.scalar(ctx, 0, 400.0, spec), Float32(400.0))
+    @Expect(!ctx.takeFrameRequest())
+    ctx.frame = FrameInfo(UInt64(5400), UInt64(5000))
+    @Expect(motion.scalar(ctx, 0, 500.0, spec), Float32(400.0))
+    @Expect(ctx.takeFrameRequest())
+}
+
+@Test
 func propertyPaddingSharesOneMeasuredAndPaintedGeometry(): Unit {
     let ctx = testContext()
     let store = StateStore()

@@ -295,6 +295,7 @@ public class TextArea <: Widget {
     /** Reverts the last edit group; also bound to Ctrl+Z. */
     public func undo(): Unit {
         if (!isEditable) { return }
+        clearComposition()
         match (history.undo(snapshot())) {
             case Some(state) => applySnapshot(state)
             case None => ()
@@ -304,6 +305,7 @@ public class TextArea <: Widget {
     /** Reapplies the last undone edit; also bound to Ctrl+Y / Ctrl+Shift+Z. */
     public func redo(): Unit {
         if (!isEditable) { return }
+        clearComposition()
         match (history.redo(snapshot())) {
             case Some(state) => applySnapshot(state)
             case None => ()
@@ -480,7 +482,11 @@ public class TextArea <: Widget {
                 if (ctx.hasFocus(id) && compositionStateValue.value.active) {
                     clearComposition(); ctx.requestFrame(); return true
                 }
-            case UiEvent.KeyDown(Key.Enter, _) => return recordedEdit(ctx, {=> edit.insert("\n")})
+            case UiEvent.KeyDown(Key.Enter, _) =>
+                if (!ctx.hasFocus(id) || !isEditable) { return false }
+                // Candidate confirmation belongs to the IME; only its commit writes text.
+                if (compositionStateValue.value.active) { return true }
+                return recordedEdit(ctx, {=> edit.insert("\n")})
             case UiEvent.KeyDown(Key.Backspace, _) => return recordedEdit(ctx, {=> edit.backspace()})
             case UiEvent.KeyDown(Key.Delete, _) => return recordedEdit(ctx, {=> edit.deleteForward()})
             case UiEvent.KeyDown(Key.Left, _) => return navigate(ctx,
@@ -555,7 +561,7 @@ public class TextArea <: Widget {
             case TextCompositionPhase.Cancel =>
                 clearComposition()
                 return true
-            case TextCompositionPhase.Commit => return commitComposition(ctx, edit, event.text)
+            case TextCompositionPhase.Commit => return commitComposition(ctx, edit, event.text, isolated: true)
             case TextCompositionPhase.Begin => publishComposition(edit, event, true)
             case TextCompositionPhase.Update => publishComposition(edit, event, false)
         }
@@ -572,17 +578,23 @@ public class TextArea <: Widget {
             compositionStateValue.value, edit, event, captureCurrentRange)
     }
 
-    private func commitComposition(ctx: UiContext, edit: TextEditState, value: String): Bool {
+    private func commitComposition(ctx: UiContext, edit: TextEditState, value: String,
+        isolated!: Bool = false): Bool {
         if (!ctx.hasFocus(id) || !isEditable) {
             return false
         }
         let composition = compositionStateValue.value
+        let separateGroup = isolated || composition.active
         if (composition.active && composition.documentRevision == text.revision &&
             validCompositionReplacement(composition.replacementStartByte, composition.replacementEndByte)) {
             cursorStateValue.value = composition.replacementEndByte
             anchorStateValue.value = composition.replacementStartByte
         }
-        return recordedEdit(ctx, {=> edit.insert(value)})
+        // Match TextField: isolate composition while retaining ordinary typing coalescing.
+        if (separateGroup) { history.breakGroup() }
+        let handled = recordedEdit(ctx, {=> edit.insert(value)})
+        if (separateGroup) { history.breakGroup() }
+        handled
     }
 
     private func validCompositionReplacement(start: Int64, end: Int64): Bool {

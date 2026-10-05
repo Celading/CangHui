@@ -96,6 +96,15 @@ protected class ScrollMotion {
         moving
     }
 
+    /** Admission against the pending target lets exhausted smooth scrolling chain outward. */
+    public func canWheel(current: Float32, delta: Float32, content: Float32, viewport: Float32): Bool {
+        if (!(delta >= -Float32.Max && delta <= Float32.Max) || delta == 0.0) { return false }
+        syncExternal(current)
+        let base = if (moving) { targetOffset } else { current }
+        let limit = maxScrollOffset(content, viewport)
+        (delta > 0.0 && base > 0.0) || (delta < 0.0 && base < limit)
+    }
+
     public func cancel(value: Float32): Unit {
         let next = max(0.0, value)
         from = next

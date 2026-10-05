@@ -71,8 +71,8 @@ public class Slider <: Widget {
         step!: Float32 = 0.0) {
         this.id = resolveControlKey(key, "Slider")
         this.value = value
-        this.lowerBound = lower
-        this.upperBound = upper
+        this.lowerBound = min(lower, upper)
+        this.upperBound = max(lower, upper)
         this.stepSize = max(0.0, step)
         this.semanticLabel = ""
         // Snap the initial value only for a discrete slider, so a continuous slider keeps its exact
@@ -124,7 +124,7 @@ public class Slider <: Widget {
         let amount = normalizedAmount(value.value, lowerBound, upperBound)
         recordControlSemantics(ctx, frame, "Slider", ControlSemantics(
             "slider", label: semanticLabel, value: value.value.toString(),
-            action: "Slider.adjust()", shortcut: "Left|Right", actionOwner: id,
+            action: "Slider.adjust()", shortcut: "Left|Right|Home|End", actionOwner: id,
             typedActions: [SemanticActionKind.Focus, SemanticActionKind.Decrement,
                 SemanticActionKind.Increment]
         ))
@@ -164,12 +164,22 @@ public class Slider <: Widget {
                 }
             case UiEvent.KeyDown(Key.Left, _) =>
                 if (ctx.hasFocus(id)) {
-                    value.value = normalize(value.value - keyboardStep())
+                    setValueIfChanged(keyboardPrevious())
                     return true
                 }
             case UiEvent.KeyDown(Key.Right, _) =>
                 if (ctx.hasFocus(id)) {
-                    value.value = normalize(value.value + keyboardStep())
+                    setValueIfChanged(normalize(value.value + keyboardStep()))
+                    return true
+                }
+            case UiEvent.KeyDown(Key.Home, _) =>
+                if (ctx.hasFocus(id)) {
+                    setValueIfChanged(lowerBound)
+                    return true
+                }
+            case UiEvent.KeyDown(Key.End, _) =>
+                if (ctx.hasFocus(id)) {
+                    setValueIfChanged(upperBound)
                     return true
                 }
             case _ => ()
@@ -185,7 +195,7 @@ public class Slider <: Widget {
         let trackX = frame.x + 8.0
         let trackW = max(1.0, frame.w - 16.0)
         let amount = clampF32((x - trackX) / trackW, 0.0, 1.0)
-        value.value = normalize(lowerBound + amount * rangeSize(lowerBound, upperBound))
+        setValueIfChanged(normalize(lowerBound + amount * rangeSize(lowerBound, upperBound)))
     }
 
     private func trackFrame(): Rect {
@@ -199,11 +209,21 @@ public class Slider <: Widget {
         rangeSize(lowerBound, upperBound) / 100.0
     }
 
+    private func keyboardPrevious(): Float32 {
+        // The inclusive upper endpoint can be an extra stop after the last regular tick.
+        // Return to that tick instead of skipping it by subtracting a whole step.
+        if (stepSize > 0.0 && value.value == upperBound) {
+            let lastTick = lowerBound + Float32(Int64((upperBound - lowerBound) / stepSize)) * stepSize
+            if (lastTick < upperBound) { return lastTick }
+        }
+        normalize(value.value - keyboardStep())
+    }
+
     // Clamps to the range, then (for a discrete slider) snaps to the nearest step multiple. With
     // stepSize <= 0 this is a plain range clamp, so the continuous path is unchanged.
     private func normalize(raw: Float32): Float32 {
         let clamped = clampF32(raw, lowerBound, upperBound)
-        if (stepSize <= 0.0) {
+        if (stepSize <= 0.0 || clamped == upperBound) {
             return clamped
         }
         // clamped >= lowerBound, so the quotient is non-negative and Int64(.. + 0.5) rounds to
@@ -213,10 +233,11 @@ public class Slider <: Widget {
     }
 
     private func applyNormalize(): Unit {
-        let normalized = normalize(value.value)
-        if (normalized != value.value) {
-            value.value = normalized
-        }
+        setValueIfChanged(normalize(value.value))
+    }
+
+    private func setValueIfChanged(next: Float32): Unit {
+        if (next != value.value) { value.value = next }
     }
 }
 

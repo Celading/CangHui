@@ -1,6 +1,7 @@
 package sdl
 
-// Runtime adapter, not a public std API. ABI verified against CJNative 1.0.5/1.1.3.
+// Runtime adapter, not a public std API. macOS ABI checked on 1.0.5/1.1.3;
+// Windows x64 lifecycle replay targets 1.1.3. Revalidate when upgrading runtime.
 // Keep isolated so a future supported runtime API can replace it without app changes.
 @When[os == "macOS"]
 foreign {
@@ -9,11 +10,17 @@ foreign {
     func pthread_main_np(): Int32
 }
 
+@When[os == "Windows"]
+foreign {
+    func CJ_BindOSThread(): Int32
+    func CJ_UnbindOSThread(): Int32
+}
+
 private let desktopThreadDepth = ThreadLocal<Int64>()
 
 /**
- * macOS desktop-owner scope. Enter on the native main thread before suspending startup
- * work; close on the same Cangjie thread after all windows close. Nested leases are safe.
+ * Desktop-owner scope for macOS and Windows. macOS must enter on the native main thread.
+ * Close on the same Cangjie thread after all windows close. Nested leases are safe.
  * Other platforms currently retain their existing native host contract.
  */
 public class DesktopThreadLease <: Resource {
@@ -51,7 +58,16 @@ private func acquireDesktopThread(): Unit {
     desktopThreadDepth.set(depth + 1)
 }
 
-@When[os == "macOS"]
+@When[os == "Windows"]
+private func acquireDesktopThread(): Unit {
+    let depth = desktopThreadDepth.get() ?? 0
+    if (depth == 0 && unsafe { CJ_BindOSThread() } != 0) {
+        throw IllegalStateException("cannot acquire desktop native-thread binding; external binding is not owned by CangHui")
+    }
+    desktopThreadDepth.set(depth + 1)
+}
+
+@When[os == "macOS" || os == "Windows"]
 private func releaseDesktopThread(): Unit {
     let depth = desktopThreadDepth.get() ?? 0
     if (depth <= 0) { throw IllegalStateException("desktop thread lease underflow") }
@@ -61,8 +77,8 @@ private func releaseDesktopThread(): Unit {
     desktopThreadDepth.set(depth - 1)
 }
 
-@When[os != "macOS"]
+@When[os != "macOS" && os != "Windows"]
 private func acquireDesktopThread(): Unit {}
 
-@When[os != "macOS"]
+@When[os != "macOS" && os != "Windows"]
 private func releaseDesktopThread(): Unit {}

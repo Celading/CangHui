@@ -69,7 +69,7 @@ internal class RendererImageCache {
         let reservation = ImageAdmission()
         var texture: ?Texture = None
         try {
-            try (surface = loadBudgetedImage(path, imageFormatFromPath(path), options, {estimate =>
+            try (surface = loadBudgetedImage(path, imageFormatForLoad(path), options, {estimate =>
                 if (estimate > options.cacheBytes) {
                     throw CuiException("image-budget: single image exceeds renderer cache")
                 }

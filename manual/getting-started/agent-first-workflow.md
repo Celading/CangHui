@@ -66,8 +66,17 @@ cuic prnt <platform> . --output artifacts/ui.png
   `SpaceAround` 猜间距。
 - 普通按钮不写零 padding，不把 `.fillHeight()` 当默认修饰器；高容器中按钮会保持自身高度。
 - 图标用 `Icon`/`IconButton`/`Symbol`，不用单字文本、Emoji 或 iconfont 冒充。
+- 先从原型确定控件密度：`Compact` 适合密集桌面栏，`Comfortable` 是普通页面基线，`Touch` 提供
+  至少 44 vp 的触控命中高；页面统一密度放进 `ComponentTheme`，局部例外使用 `.density(...)`。
+- 图标先查 `cuic symbol list`，用 `SymbolName` 接入已有 Provider；不要在页面重新绘制已经存在的图标，
+  `.iconSize(...)` 只改图形大小，`label`/`accessibilityLabel` 负责动作语义。
 - 筛选 chips 在窄容器中用 `FlowRow`；文本保留标题、说明、尾随状态的层级，不把说明书塞进卡片。
 - 使用同一份状态派生主题，并在亮/暗主题、窄/常规/宽视口检查一次。
+
+原型还原顺序固定为“密度 → 内容内边距 → 图标尺寸 → 语义状态 → 视觉表面”。先用
+`ButtonLayoutStyle`、`contentPadding` 和 `minControlSize` 表达尺寸，再处理颜色、圆角和动效；
+不要通过拉高父容器或复制一个相似组件来碰运气。关键页面至少检查一次高容器、窄宽度、键盘焦点和
+图标缺失兜底，并把结构观察写进交付证据。
 
 ## 5. 交付证据而不是观感句子
 

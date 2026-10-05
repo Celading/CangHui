@@ -4,6 +4,53 @@
 
 ## Unreleased
 
+- 新增 `ControlDensity` 与共享 `ButtonLayoutStyle` 配方，统一 `Compact`/`Comfortable`/`Touch`
+  的按钮和图标按钮命中尺寸；`Button`、`IconButton` 支持按密度、内容留白、最小控件尺寸和图标尺寸
+  明确还原原型。`IconButton` 可直接使用 `SymbolName`，手册与 UI Health 审计补充密度选择、原型落地
+  和已有 Symbol 优先规则。
+  Add shared `ControlDensity` and `ButtonLayoutStyle` recipes for stable `Compact`/`Comfortable`/`Touch`
+  hit targets. `Button` and `IconButton` now expose explicit density, padding, minimum-size and icon-size
+  controls for prototype translation; `IconButton` accepts `SymbolName`, with manual and UI Health guidance
+  for density selection and reusing registered Symbols.
+
+- TextArea 预编辑期间的 Enter 不再插入换行；TextField/TextArea 的组合提交与前后
+  普通打字分开撤销，TextArea 无历史时撤销/重做也会清空预编辑。
+  Keep Enter from inserting a newline during TextArea preedit. Isolate IME commits from
+  adjacent typing undo groups, and clear TextArea preedit even when undo/redo history is empty.
+
+- ApplicationResources 的规范路径归属比较适配 Windows 分隔符及文件系统根，
+  保留大小写、Unicode 与原始回执路径。声明拒绝含糊路径，解析拒绝目录、链接根与链接父级；
+  缺失文件仍按根顺序回退。详见 [应用资源边界](reference/application-resources.zh-CN.md)。
+  Compare canonical resource paths with platform-aware separators and filesystem-root handling,
+  preserving case, Unicode and receipt paths. Reject ambiguous declarations, directories and
+  linked roots or parents while retaining ordered fallback for missing files.
+
+- ScrollView 可显式配置横向内容宽度，纵向溢出自动启用；嵌套滚轮优先交给子视口，
+  零增量和到达边界的输入继续传递。可选内容拖动锁定单轴并取消子按钮点击。
+  Add explicit horizontal content width with automatic vertical overflow, child-first
+  nested wheel routing and opt-in axis-locked content dragging without accidental clicks.
+  See [adaptive scrolling](guide/how-to/adaptive-scrolling.md).
+
+- Windows SDL 生命周期现在自动持有原生线程租约，防止仓颉线程迁移后 IME/窗口操作触发 owner 异常。
+  保留嵌套计数、错线程释放拒绝和外部绑定所有权；后台任务仍并发执行。
+  Hold a native-thread lease across the Windows SDL lifecycle to prevent owner violations after
+  scheduler migration, preserving nested scopes, external ownership and background concurrency.
+
+- Button/IconButton、InteractionSurface、Checkbox、Switch/RadioButton 不再把 Enter/Space
+  系统连发当作多次激活；Slider/RadioButton 仅在选值变化时写回绑定，方向键连续调节保留。
+  Ignore keyboard auto-repeat for discrete Enter/Space activation. Avoid redundant Slider and
+  RadioButton binding writes while preserving directional-key repeat and explicit State notifications.
+
+- Slider 构造范围与 `range()` 一致地支持反向上下界；离散步长不能整除范围时仍可取到上限，
+  从上限反向时回到相邻刻度。补齐聚焦后的 Home/End，并更新可检查的快捷键语义。
+  Normalize reversed Slider constructor bounds, keep inclusive endpoints reachable with uneven steps,
+  return to the adjacent tick from the upper endpoint, and support focused Home/End navigation.
+
+- 修复 `animateProperties` 连续跨帧改向时停在起点的问题；尺寸、颜色与命中布局持续推进，
+  保留同帧只推进一次、静止后启动、显式延迟重启和减弱动效策略。
+  Fix stalled property animations when targets change every frame. Geometry, color and hit
+  testing keep advancing without double-stepping a frame or consuming idle time on a new transition.
+
 - CUIC 增加离线 Windows 安装版与便携版 EXE 打包，使用私有 `canghui-package`
   引擎并保留 NSIS 底层许可。可选 Honor 成对格式混淆不改 PE 头或 CRC，也不保证
   内容不可提取。便携缓存使用系统临时目录并在退出时尽力清理；Windows 真机运行、

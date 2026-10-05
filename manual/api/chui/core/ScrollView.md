@@ -2,6 +2,18 @@
 
 # ScrollView
 
+新增可选横向画布和内容拖动，见[自适应滚动](../../../guide/how-to/adaptive-scrolling.md)。
+默认仍是垂直视口；嵌套滚轮子视口优先，边界交给父层，零增量不消费。
+
+```cangjie
+public func horizontalContent(width: Float32): ScrollView
+public func horizontalScrollState(value: State<Float32>): ScrollView
+public func dragToScroll(enabled!: Bool = true): ScrollView
+```
+
+横向画布宽度须为有限正数；纵向按实测高度自动溢出。两轴状态按稳定 key 保留，或由应用外部持有。
+拖动默认关闭；开启后使用逻辑坐标、8 vp 起拖阈值和单轴锁定，不同时触发子按钮点击。
+
 `chui.core` 包中的 public class
 
 裁剪显示、支持滚轮与拖动滚动条的垂直滚动视口，滚动位置按稳定标识跨帧保留。内容以无上限高度测量出自然尺寸，超出视口的部分按当前偏移滚动显示。
@@ -62,7 +74,7 @@ main(): Unit {
 | [`scrollState(value: State<Float32>)`](#scrollstate) | 改用外部持有的垂直滚动偏移状态。 |
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`measure(_: UiContext, available: Size)`](#measure) | 原样返回可用空间：视口总是填满分到的区域。 |
-| [`layout(ctx: UiContext, rect: Rect)`](#layout) | 先用不限高度的空间测量内容；确认溢出后为滚动条留出宽度并再测量一次。 |
+| [`layout(ctx: UiContext, rect: Rect)`](#layout) | 用不限高度测量内容；按需为两轴滚动条留槽，最多三轮测量稳定视口。 |
 | [`draw(ctx: UiContext)`](#draw) | 在滚动轴上精确裁剪地绘制内容，内容溢出时再绘制滚动条。 |
 | [`handle(ctx: UiContext, event: UiEvent)`](#handle) | 处理滚轮与滚动条的按下/拖拽，其余事件转发给内容并实现指针捕获。 |
 | [`isFlexible()`](#isflexible) | 恒返回 `true`：滚动视口天生填满父容器分到的空间。 |

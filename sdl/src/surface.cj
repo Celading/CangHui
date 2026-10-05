@@ -20,7 +20,7 @@ public class Surface <: Resource {
     }
 
     public static func load(path: String): Surface {
-        match (imageFormatFromPath(path)) {
+        match (imageFormatForLoad(path)) {
             case ImageFileFormat.Png => return loadPng(path)
             case ImageFileFormat.Bmp => return loadBmp(path)
         }
@@ -107,6 +107,25 @@ public func imageFormatFromPath(path: String): ImageFileFormat {
     } else {
         ImageFileFormat.Bmp
     }
+}
+
+/**
+ * Selects a decoder for a real image load and rejects unsupported extensions.
+ * The legacy `imageFormatFromPath` fallback remains available for extensionless
+ * capture paths; runtime image loads must not turn `.jpg` or `.svg` into a BMP
+ * decode attempt with a misleading header error.
+ */
+internal func imageFormatForLoad(path: String): ImageFileFormat {
+    let lower = path.toAsciiLower()
+    if (lower.endsWith(".png")) { return ImageFileFormat.Png }
+    if (lower.endsWith(".bmp")) { return ImageFileFormat.Bmp }
+    let normalized = path.replace("\\", "/")
+    let parts = normalized.split("/")
+    let leaf = parts[parts.size - 1]
+    if (leaf.contains(".")) {
+        throw CuiException("unsupported image format; supported formats: .png, .bmp")
+    }
+    imageFormatFromPath(path)
 }
 
 /**

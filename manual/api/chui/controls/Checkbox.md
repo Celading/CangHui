@@ -2,6 +2,8 @@
 
 # Checkbox
 
+聚焦后的 Enter/Space 首次按下切换一次；系统连发不会反复翻转，下一次独立按下可以再次切换。
+
 `chui.controls` 包中的 public class
 
 带文本或装饰性 slot 的勾选框，双向绑定一个 `Bindable<Bool>`。控件内按下并抬起（或聚焦后 Enter/Space）翻转绑定值；勾选填充块以弹簧动画从中心放大。

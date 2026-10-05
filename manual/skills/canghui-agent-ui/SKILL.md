@@ -14,7 +14,9 @@ not authority to edit the CangHui framework, dependency cache, sibling repositor
 2. `manual/getting-started/agent-first-workflow.md`
 3. `manual/getting-started/sdk-consumption.md`
 4. `manual/guide/how-to/agent-ui-review.md`
-5. the one task guide and API page directly needed by the change
+5. `manual/getting-started/resource-bootstrap.md` or `.zh-CN.md` when the task uses fonts,
+   symbols, images, packaged data, application icons, or a packaged desktop build
+6. the one task guide and API page directly needed by the change
 
 Stop if the consumer's registered framework version, `cjpm.lock`, and installed `cuic version` disagree. Report
 the mismatch instead of changing framework source or a CJPM cache behind the application owner's back.
@@ -29,6 +31,20 @@ cuic doctor <platform> --project .
 cuic build <platform> .
 cuic test <platform> .
 ```
+
+For resource work, use the smallest complete route before reading framework internals:
+
+```bash
+cuic doctor <platform> --project . --verbose
+cuic package plan <platform> .
+cuic package build <platform> .
+```
+
+Register text and fallback fonts before the first window through `Fonts.register` or
+`ApplicationResources.registerFonts`. Keep symbol fonts and symbol catalogs separate from
+Chinese text fallback. The public image path is PNG/BMP; SVG/JPEG require a path-specific
+conversion or capability decision. A macOS PNG application icon is converted to ICNS only on
+a macOS host.
 
 The default dependency is `chui` pinned by `commitId` and `cjpm.lock`. Use a local CangHui path only when the
 task explicitly owns framework development or an offline source checkout.
