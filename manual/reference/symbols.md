@@ -19,6 +19,21 @@ Symbol(SymbolName("save", provider: "builtin"),
 `Icon` and `IconButton` accept either the legacy `IconName` enum or a
 `SymbolName`, so existing callers do not need to migrate in one step.
 
+## Icon Selection Rules
+
+Choose an icon by checking the built-in catalog or an adopted provider first,
+then declare its meaning with `SymbolName`. Use `IconButton(SymbolName(...))`
+for an action and provide a visible `label` or an `accessibilityLabel`.
+`.iconSize(...)` changes the drawn square without shrinking the hit target.
+
+Do not replace an available Symbol with a text glyph, emoji, icon font, or a
+one-off path drawing. Run `cuic symbol list` to confirm a name and use
+`cuic symbol generate` when an application needs a smaller registry. If a
+required icon is absent, add an audited catalog entry to the provider with its
+source record, then consume it through `SymbolName`; keep variants, direction
+mirroring, fallback state, and accessibility metadata in the shared resolution
+path.
+
 ## Optional Providers
 
 Add only the providers used by the application:

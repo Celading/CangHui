@@ -1,6 +1,7 @@
 package chui.core
 
 import sdl.{Color, IconName, MouseButton, Rect, Renderer, Size, SurfaceStyle, UiEvent}
+import chui.symbol.SymbolName
 
 private class ButtonSlotProbe <: Widget {
     private let desired: Size
@@ -113,6 +114,24 @@ func componentThemeResolvesButtonStateAndPanelSurface(): Unit {
     @Expect(resolveCount.value >= Int64(2))
     @Expect(theme.panelSurface().fill.r, panel.fill.r)
     @Expect(theme.panelSurface().radius, panel.radius)
+}
+
+@Test
+func iconButtonUsesThemeLayoutAndExplicitSymbolSizing(): Unit {
+    let touchTheme = Theme.light().withComponents(ComponentTheme(
+        buttonLayout: ControlDensity.Touch.buttonLayout()
+    ))
+    let touchContext = UiContext(Renderer.headless(), touchTheme)
+    let touchButton = IconButton(SymbolName("save", provider: "builtin"), label: Some("Save")) {=> ()}
+    let touchSize = touchButton.measure(touchContext, Size(400.0, 120.0))
+    @Expect(touchSize.w >= Float32(80.0))
+    @Expect(touchSize.h >= Float32(44.0))
+
+    let compactButton = IconButton(SymbolName("save", provider: "builtin")) {=> ()}
+        .density(ControlDensity.Compact).iconSize(24.vp)
+    let compactSize = compactButton.measure(testContext(), Size(400.0, 120.0))
+    @Expect(compactSize.w, Float32(32.0))
+    @Expect(compactSize.h >= Float32(32.0))
 }
 
 @Test

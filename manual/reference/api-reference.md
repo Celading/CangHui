@@ -229,9 +229,9 @@ interaction owner 与 selected/expanded/focus/hover/press 状态。作用域在�
 | 类型 | 必要构造信息 | 链式 API |
 |---|---|---|
 | `Label` | `text` | `muted()`、`muted(bool)`、`textAlign`、`foregroundColor`、`fontSize`、`maxLines(n)`、`wrap()` |
-| `Button` | `title + onClick`，或 `onClick + body` slot | `key`、`role`、`accessibilityLabel`、`style`、`buttonStyle`、`contentPadding`、`minControlSize`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
+| `Button` | `title + onClick`，或 `onClick + body` slot | `key`、`role`、`accessibilityLabel`、`style`、`buttonStyle`、`density`、`contentPadding`、`minControlSize`、`fontSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Icon` | `IconName` | `iconSize`、`foregroundColor` |
-| `IconButton` | `IconName`、`onClick` | `id`、`label`、`accessibilityLabel`、`role`、`style`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
+| `IconButton` | `IconName` 或 `SymbolName`、`onClick` | `key`、`label`、`accessibilityLabel`、`role`、`style`、`density`、`iconSize`、`contentPadding`、`minControlSize`、`animation(AnimationSpec)`、`animation(duration, easing:)` |
 | `Divider` | 无 | `axis`、`color` |
 
 单行 `Label` 超宽时自动省略号截断；`maxLines(n)` 换行至 n 行（末行截断），`wrap()` 不限行数，

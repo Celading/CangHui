@@ -28,8 +28,9 @@ slot 构造器用于图标、主副标题、状态点等组合内容。slot 是�
 
 Button 可以在水平方向接受父布局的剩余宽度，但默认不接受高 `HStack` 的纵向拉伸，普通按钮因而保持本征高度。只有显式 `.height(...)` 或 `.fillHeight()` 才会铺满高度；这类覆盖应代表明确设计，而不是容器的偶然结果。
 
-默认最小高度 38 vp 是常规/触控友好的基线，不是紧凑桌面栏的强制高度。工具栏、侧栏筛选等高密度区域可显式使用
-`.minControlSize(width: 0.0, height: 28.0)`，并通过 `contentPadding` 保留合理的左右留白；不要用父容器高度或全局主题偶然压出紧凑效果。
+默认最小高度 38 vp 是常规页面基线。工具栏、侧栏筛选等高密度区域优先使用
+`.density(ControlDensity.Compact)`；触控和主要操作使用 `.density(ControlDensity.Touch)`。
+确有原型特例时再用 `.minControlSize(...)` 与 `contentPadding` 精确表达，不要用父容器高度或全局主题偶然压出紧凑效果。
 
 ## 示例
 
@@ -77,6 +78,7 @@ main(): Unit {
 | `accessibilityLabel(value: String)` | 为 slot Button 设置 headless/native accessibility 可复用的语义名称。 |
 | [`style(value: SurfaceStyle)`](#style) | 覆盖主题推导的按钮表面。 |
 | `buttonStyle(value: ButtonStyle)` | 覆盖状态感知的表面、前景、InkWell 与焦点几何。 |
+| `density(value: ControlDensity)` | 按 `Compact`、`Comfortable` 或 `Touch` 安装一套控件密度配方。 |
 | `contentPadding(value: LengthInsets)` | 覆盖标题或 slot 内容内边距。 |
 | `minControlSize(width, height)` | 覆盖按钮最小尺寸。 |
 | [`fontSize(value: Length)`](#fontsize) | 设置标题字号。 |
@@ -173,6 +175,17 @@ public func style(value: SurfaceStyle): Button
 - `value`: `SurfaceStyle` — 完整的表面样式（填充、描边、圆角）。
 
 **返回值** `Button` — `this`。
+
+### density
+
+按命名密度安装按钮布局配方；它同时设置内容内边距、最小宽度和最小高度，并保留内容驱动的测量方式。
+
+```cangjie
+public func density(value: ControlDensity): Button
+```
+
+`Compact`、`Comfortable`、`Touch` 分别提供 32、38、44 vp 的最小命中高。页面统一节奏时可把同一
+`ButtonLayoutStyle` 放进 `ComponentTheme`，不必逐个控件复制数值。
 
 ### fontSize
 

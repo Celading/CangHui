@@ -4,7 +4,6 @@ import sdl.{Color, FontSizes, IconName, Rect, Size, SurfaceStyle, UiEvent}
 import chui.symbol.{SymbolDirection, SymbolMissingPolicy, SymbolName, SymbolVariant, drawSymbol, symbolNameForIcon}
 
 private let ICON_DEFAULT_SIZE: Float32 = 18.0
-private let ICON_BUTTON_PAD: Float32 = 10.0
 private let ICON_TEXT_GAP: Float32 = 8.0
 
 /** Provider-neutral vector symbol with deterministic fallback and Draw IR reporting. */
@@ -168,12 +167,18 @@ public class IconButton <: Widget {
     }
 
     private let symbolName: SymbolName
+    private var iconExtent: Length
     private var labelText: ?String
     private var semanticLabel: String
     private var semanticLabelExplicit: Bool
     private var buttonRole: ButtonRole
     private var customStyle: ?SurfaceStyle
     private var customButtonStyle: ?ButtonStyle
+    private var contentPaddingOverride: ?LengthInsets
+    private var iconOnlyPaddingOverride: ?LengthInsets
+    private var minWidthOverride: ?Float32
+    private var minHeightOverride: ?Float32
+    private var iconOnlySizeOverride: ?Float32
     private var controlId: String
     private let interactionSurface: InteractionSurface
     private let interactionMaterial: ButtonInteractionMaterial
@@ -189,12 +194,18 @@ public class IconButton <: Widget {
         onClick!: () -> Unit
     ) {
         this.symbolName = symbolNameForIcon(icon)
+        this.iconExtent = Length(ICON_DEFAULT_SIZE, LengthUnit.Vp)
         this.labelText = label
         this.semanticLabel = match (label) { case Some(value) => value case None => "" }
         this.semanticLabelExplicit = false
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
+        this.contentPaddingOverride = None
+        this.iconOnlyPaddingOverride = None
+        this.minWidthOverride = None
+        this.minHeightOverride = None
+        this.iconOnlySizeOverride = None
         this.controlId = focusableControlIdentity(match (label) {
             case Some(value) => "IconButton:${value}"
             case None => "IconButton"
@@ -217,12 +228,18 @@ public class IconButton <: Widget {
         onClick!: () -> Unit
     ) {
         this.symbolName = name
+        this.iconExtent = Length(ICON_DEFAULT_SIZE, LengthUnit.Vp)
         this.labelText = label
         this.semanticLabel = match (label) { case Some(value) => value case None => "" }
         this.semanticLabelExplicit = false
         this.buttonRole = role
         this.customStyle = style
         this.customButtonStyle = None
+        this.contentPaddingOverride = None
+        this.iconOnlyPaddingOverride = None
+        this.minWidthOverride = None
+        this.minHeightOverride = None
+        this.iconOnlySizeOverride = None
         // The build-order identity keeps several icon-only buttons in one view distinct;
         // a shared id would let one button swallow the release meant for another.
         this.controlId = focusableControlIdentity(match (label) {
@@ -284,6 +301,41 @@ public class IconButton <: Widget {
         this
     }
 
+    /** Sets the vector extent without changing the button's hit target. */
+    public func iconSize(value: Length): IconButton {
+        iconExtent = value
+        this
+    }
+
+    /** Sets the vector extent in virtual pixels without changing the hit target. */
+    public func iconSize(value: Float32): IconButton {
+        iconSize(vpLength(value))
+    }
+
+    /** Overrides the label-and-icon inset while retaining the semantic button owner. */
+    public func contentPadding(value: LengthInsets): IconButton {
+        contentPaddingOverride = Some(value)
+        this
+    }
+
+    /** Overrides the minimum hit target while retaining content-based measurement. */
+    public func minControlSize(width!: Float32, height!: Float32): IconButton {
+        minWidthOverride = Some(max(0.0, width))
+        minHeightOverride = Some(max(0.0, height))
+        this
+    }
+
+    /** Applies a named interaction density while retaining the Symbol provider path. */
+    public func density(value: ControlDensity): IconButton {
+        let layout = value.buttonLayout()
+        contentPaddingOverride = Some(layout.contentPadding)
+        iconOnlyPaddingOverride = Some(layout.iconOnlyPadding)
+        minWidthOverride = Some(layout.minWidth)
+        minHeightOverride = Some(layout.minHeight)
+        iconOnlySizeOverride = Some(layout.iconOnlySize)
+        this
+    }
+
     /** Applies an automatic or explicit hover/press animation property. */
     public func animation(value: AnimationSpec): IconButton {
         animationSpec = value
@@ -296,15 +348,44 @@ public class IconButton <: Widget {
     }
 
     public func measure(ctx: UiContext, available: Size): Size {
-        let width = match (labelText) {
-            // Measure at the same size draw uses (FontSizes.CONTROL), so the two cannot drift
-            // apart if the token tables ever diverge from the measurement default.
-            case Some(value) => max(76.0,
-                ICON_BUTTON_PAD * 2.0 + ICON_DEFAULT_SIZE + ICON_TEXT_GAP +
-                    ctx.renderer.textWidth(value, pointSize: FontSizes.CONTROL))
-            case None => CUI_CONTROL_H
+        let layoutStyle = ctx.theme.components.buttonLayout
+        let contentPadding = ctx.resolve(match (contentPaddingOverride) {
+            case Some(value) => value
+            case None => layoutStyle.contentPadding
+        })
+        let iconOnlyPadding = ctx.resolve(match (iconOnlyPaddingOverride) {
+            case Some(value) => value
+            case None => layoutStyle.iconOnlyPadding
+        })
+        let extent = max(1.0, ctx.resolve(iconExtent))
+        let minHeight = match (minHeightOverride) {
+            case Some(value) => value
+            case None => layoutStyle.minHeight
         }
-        Size(min(available.w, width), CUI_CONTROL_H)
+        let width = match (labelText) {
+            case Some(value) => max(
+                match (minWidthOverride) {
+                    case Some(minimum) => minimum
+                    case None => layoutStyle.minWidth
+                },
+                contentPadding.horizontal() + extent + ICON_TEXT_GAP +
+                    ctx.renderer.textWidth(value, pointSize: FontSizes.CONTROL))
+            case None => max(
+                match (iconOnlySizeOverride) {
+                    case Some(size) => size
+                    case None => match (minWidthOverride) {
+                        case Some(minimum) => minimum
+                        case None => layoutStyle.iconOnlySize
+                    }
+                },
+                extent + iconOnlyPadding.horizontal())
+        }
+        let contentHeight = match (labelText) {
+            case Some(_) => max(extent, ctx.renderer.textHeight(pointSize: FontSizes.CONTROL)) +
+                contentPadding.vertical()
+            case None => max(extent, iconOnlyPadding.vertical() + extent)
+        }
+        Size(min(available.w, width), min(available.h, max(minHeight, contentHeight)))
     }
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
@@ -324,11 +405,11 @@ public class IconButton <: Widget {
             typedActions: [SemanticActionKind.Focus, SemanticActionKind.Activate]
         ))
         let color = appearance.foreground
-        let _ = drawSymbol(ctx.renderer, symbolName, iconFrame(visualFrame), color)
+        let _ = drawSymbol(ctx.renderer, symbolName, iconFrame(ctx, visualFrame), color)
         match (labelText) {
             case Some(value) => ctx
                 .renderer
-                .text(value, iconFrame(visualFrame).right() + ICON_TEXT_GAP,
+                .text(value, iconFrame(ctx, visualFrame).right() + ICON_TEXT_GAP,
                     visualFrame.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.CONTROL) / 2.0, color,
                     pointSize: FontSizes.CONTROL)
             case None => ()
@@ -360,15 +441,20 @@ public class IconButton <: Widget {
         }
     }
 
-    private func iconFrame(bounds: Rect): Rect {
+    private func iconFrame(ctx: UiContext, bounds: Rect): Rect {
+        let extent = max(1.0, ctx.resolve(iconExtent))
+        let padding = match (contentPaddingOverride) {
+            case Some(value) => value
+            case None => ctx.theme.components.buttonLayout.contentPadding
+        }
         match (labelText) {
             case Some(_) => Rect(
-                bounds.x + ICON_BUTTON_PAD,
-                bounds.centerY() - ICON_DEFAULT_SIZE / 2.0,
-                ICON_DEFAULT_SIZE,
-                ICON_DEFAULT_SIZE
+                bounds.x + max(0.0, ctx.resolve(padding.left)),
+                bounds.centerY() - extent / 2.0,
+                extent,
+                extent
             )
-            case None => centeredIconRect(bounds, ICON_DEFAULT_SIZE)
+            case None => centeredIconRect(bounds, extent)
         }
     }
 

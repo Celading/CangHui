@@ -103,6 +103,7 @@ public import chui.core.ButtonLayoutStyle
 public import chui.core.ButtonRole
 public import chui.core.ButtonStyle
 public import chui.core.ButtonVisualState
+public import chui.core.ControlDensity
 public import chui.core.ComponentControlAppearance
 public import chui.core.ComponentControlKind
 public import chui.core.ComponentControlState

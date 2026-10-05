@@ -72,20 +72,66 @@ public class ButtonStyle {
     }
 }
 
+/**
+ * Interaction density is a product decision, not a platform guess. Use it to
+ * express the target prototype's control rhythm before adding local dimensions.
+ */
+public enum ControlDensity {
+    | Compact
+    | Comfortable
+    | Touch
+
+    /** Returns the minimum hit target promised by this density. */
+    public func minimumHitTarget(): Float32 {
+        match (this) {
+            case ControlDensity.Compact => 32.0
+            case ControlDensity.Comfortable => 38.0
+            case ControlDensity.Touch => 44.0
+        }
+    }
+
+    /** Returns a button layout recipe that can be installed in ComponentTheme. */
+    public func buttonLayout(): ButtonLayoutStyle {
+        match (this) {
+            case ControlDensity.Compact => ButtonLayoutStyle(
+                contentPadding: LengthInsets(10.vp, 0.vp),
+                iconOnlyPadding: LengthInsets(4.vp, 0.vp),
+                minWidth: 64.0,
+                minHeight: 32.0,
+                iconOnlySize: 32.0
+            )
+            case ControlDensity.Comfortable => ButtonLayoutStyle()
+            case ControlDensity.Touch => ButtonLayoutStyle(
+                contentPadding: LengthInsets(14.vp, 0.vp),
+                iconOnlyPadding: LengthInsets(13.vp, 0.vp),
+                minWidth: 80.0,
+                minHeight: 44.0,
+                iconOnlySize: 44.0
+            )
+        }
+    }
+}
+
 /** Layout anatomy shared by title and slot-based buttons. */
 public struct ButtonLayoutStyle {
     public let contentPadding: LengthInsets
+    public let iconOnlyPadding: LengthInsets
     public let minWidth: Float32
     public let minHeight: Float32
+    public let iconOnlySize: Float32
 
     public init(
         contentPadding!: LengthInsets = LengthInsets(12.vp, 0.vp),
+        iconOnlyPadding!: LengthInsets = LengthInsets(10.vp, 0.vp),
         minWidth!: Float32 = 72.0,
-        minHeight!: Float32 = CUI_CONTROL_H
+        minHeight!: Float32 = CUI_CONTROL_H,
+        iconOnlySize!: Float32 = CUI_CONTROL_H
     ) {
         this.contentPadding = contentPadding
+        this.iconOnlyPadding = iconOnlyPadding
         this.minWidth = max(0.0, minWidth)
         this.minHeight = max(0.0, minHeight)
+        this.iconOnlySize = max(0.0, iconOnlySize)
     }
 }
 

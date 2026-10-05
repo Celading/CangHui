@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+- 新增 `ControlDensity` 与共享 `ButtonLayoutStyle` 配方，统一 `Compact`/`Comfortable`/`Touch`
+  的按钮和图标按钮命中尺寸；`Button`、`IconButton` 支持按密度、内容留白、最小控件尺寸和图标尺寸
+  明确还原原型。`IconButton` 可直接使用 `SymbolName`，手册与 UI Health 审计补充密度选择、原型落地
+  和已有 Symbol 优先规则。
+  Add shared `ControlDensity` and `ButtonLayoutStyle` recipes for stable `Compact`/`Comfortable`/`Touch`
+  hit targets. `Button` and `IconButton` now expose explicit density, padding, minimum-size and icon-size
+  controls for prototype translation; `IconButton` accepts `SymbolName`, with manual and UI Health guidance
+  for density selection and reusing registered Symbols.
+
 - TextArea 预编辑期间的 Enter 不再插入换行；TextField/TextArea 的组合提交与前后
   普通打字分开撤销，TextArea 无历史时撤销/重做也会清空预编辑。
   Keep Enter from inserting a newline during TextArea preedit. Isolate IME commits from

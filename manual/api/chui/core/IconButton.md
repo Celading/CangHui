@@ -21,7 +21,10 @@ IconButton <: [`Widget`](Widget.md)
 `gestures(value: GestureHandlers): IconButton` 与 Button 使用同一手势契约，不添加额外焦点或
 点击拥有者；详见[属性动画与手势](../../../guide/how-to/animate-properties.md)。
 
-同一视图里的多个纯图标按钮靠"按构建位置生成的默认标识"保持互不混淆——若共用标识，一个按钮会拦截本属于另一个的松开事件；标识必须跨树形变化存活时用 [`key`](#key) 固定。无标签时按钮是 38×38 逻辑像素的方形；[`label`](#label) 会在图标右侧加一行文字并按文字宽度扩展。焦点环只在焦点经键盘到达时绘制，与 Button 同一约定。
+同一视图里的多个纯图标按钮靠"按构建位置生成的默认标识"保持互不混淆——若共用标识，一个按钮会拦截本属于另一个的松开事件；标识必须跨树形变化存活时用 [`key`](#key) 固定。无标签时按钮默认是 38×38 逻辑像素的方形；[`label`](#label) 会在图标右侧加一行文字并按文字宽度扩展。焦点环只在焦点经键盘到达时绘制，与 Button 同一约定。
+
+`IconButton` 可以接收 `SymbolName`，并通过 [`density`](#density)、`iconSize`、`contentPadding` 和
+`minControlSize` 分别控制命中区域、图形和内容留白。图标动作优先使用已登记的 Symbol；纯图标按钮必须设置 `accessibilityLabel`。
 
 IconButton 在普通高 `HStack` 中保持本征高度，不会被交叉轴自动撑成整行高；显式 `.height(...)` 或 `.fillHeight()` 仍可选择全高布局。
 
@@ -64,6 +67,10 @@ main(): Unit {
 | `accessibilityLabel(value: String)` | 设置无障碍与 headless probe 名称，不改变可见图标或文字。 |
 | [`role(value: ButtonRole)`](#role) | 应用语义按钮配色。 |
 | [`style(value: SurfaceStyle)`](#style) | 覆盖主题推导的按钮表面。 |
+| [`density(value: ControlDensity)`](#density) | 安装一套 `Compact`、`Comfortable` 或 `Touch` 尺寸配方。 |
+| `iconSize(value: Length)` | 调整绘制的方形图标，不改变命中区域。 |
+| `contentPadding(value: LengthInsets)` | 调整图标与标签的内容留白。 |
+| `minControlSize(width, height)` | 设置最小命中区域。 |
 | [`measure(...)`](#measure) | 无标签时测量为 38×38 逻辑像素的方形；有标签时按文字宽度加图标与内边距扩展，宽度下限 76。 |
 | [`layout(...)`](#layout) | 记录分配的帧矩形，供绘制与命中测试使用。 |
 | [`draw(...)`](#draw) | 绘制表面、图标与可选标签，按下/悬停时切换填充色，键盘聚焦时叠加焦点环。 |
@@ -165,6 +172,39 @@ public func style(value: SurfaceStyle): IconButton
 - `value`: `SurfaceStyle` — 完整的表面样式。
 
 **返回值** `IconButton` — `this`。
+
+### density
+
+按命名密度设置最小命中区域与内容内边距；图标仍由 `iconSize` 单独控制。
+
+```cangjie
+public func density(value: ControlDensity): IconButton
+```
+
+### iconSize
+
+设置绘制的方形图标尺寸，不改变按钮的命中区域。
+
+```cangjie
+public func iconSize(value: Length): IconButton
+public func iconSize(value: Float32): IconButton
+```
+
+### contentPadding
+
+设置图标和标签周围的内容留白；需要同时调整命中区域时配合 `density` 或 `minControlSize`。
+
+```cangjie
+public func contentPadding(value: LengthInsets): IconButton
+```
+
+### minControlSize
+
+设置按钮的最小宽高，保留内容驱动的测量和语义动作。
+
+```cangjie
+public func minControlSize(width!: Float32, height!: Float32): IconButton
+```
 
 ### measure
 

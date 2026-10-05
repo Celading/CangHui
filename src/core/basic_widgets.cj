@@ -172,6 +172,15 @@ public class Button <: Widget {
         this
     }
 
+    /** Applies a named interaction density while keeping the button content-driven. */
+    public func density(value: ControlDensity): Button {
+        let layout = value.buttonLayout()
+        contentPaddingOverride = Some(layout.contentPadding)
+        minWidthOverride = Some(layout.minWidth)
+        minHeightOverride = Some(layout.minHeight)
+        this
+    }
+
     /** Sets the label font size, e.g. `.fontSize(15.fp)`. */
     public func fontSize(value: Length): Button {
         pointSize = value

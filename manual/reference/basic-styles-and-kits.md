@@ -29,6 +29,34 @@ ComponentTheme、Kit API 保留；已有应用不需要一次性迁移。
 - `Theme.withReduceMotion(true)` 与 Glass 的 `LiquidGlassPreferences` 使用已有动画开关。
   玻璃还应响应减少透明度、增强对比度。自定义颜色、透明叠底与图像背景必须重新验收对比度。
 
+## 从原型落到控件规格
+
+原型评审先确定页面的交互密度，再决定颜色和装饰。不要把原型里的按钮矩形直接换成默认
+`Button`，也不要用父容器高度反推按钮高度。框架提供三档可复用的控件节奏：
+
+| 密度 | 最小命中高 | 适用区域 | 说明 |
+| --- | ---: | --- | --- |
+| `Compact` | 32 vp | 桌面工具栏、密集筛选条 | 只在已有空间约束和键盘操作明确时使用 |
+| `Comfortable` | 38 vp | 普通页面操作 | `Button` 与 `IconButton` 的默认基线 |
+| `Touch` | 44 vp | 触控、主要操作、窄屏 | 保留触达余量，标签变长时重排内容 |
+
+页面有统一节奏时，把配方装进 `ComponentTheme`；只有局部例外时才在控件上指定密度：
+
+```cangjie
+let pageTheme = Theme.light().withComponents(ComponentTheme(
+    buttonLayout: ControlDensity.Touch.buttonLayout()
+))
+
+Button("保存", {=> save()}).density(ControlDensity.Touch)
+IconButton(SymbolName("save", provider: "builtin"), label: Some("保存")) {=> save()}
+    .iconSize(20.vp)
+```
+
+原型有特殊尺寸时，优先调整 `ButtonLayoutStyle` 或 `contentPadding`，并记录它对应的交互理由。
+`.fillWidth()` 可以表示主要表单动作的整行宽度；`.fillHeight()` 只在设计明确要求整高操作面时使用。
+按钮在高容器中应保持本征高度，图标尺寸应独立于命中区域调节。交付前逐项检查文字、hover、press、
+键盘焦点、禁用态、窄宽度和浅深主题；再用 `cuic pview` 或结构审计确认没有被意外拉伸或裁切。
+
 基础控件的尺寸、禁用命令回归见 `basic_style_contract_test.cj`；键盘焦点、press、quiet 样式继续由
 现有 Button / InteractionSurface 测试承担，不创建另一个组件引擎。
 

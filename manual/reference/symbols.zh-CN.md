@@ -15,6 +15,17 @@ Symbol(SymbolName("save", provider: "builtin"),
 
 `Icon` 与 `IconButton` 同时接受旧的 `IconName` 枚举和 `SymbolName`，现有调用方可以逐步迁移。
 
+## 图标选择规范
+
+业务页面按以下顺序选择图标：先查 `builtin` 或已接入的 Provider，再用 `SymbolName` 声明语义，
+最后才为确实缺少的图标补充 Provider 清单。可点击图标使用 `IconButton(SymbolName(...))`，
+同时设置可见 `label` 或 `accessibilityLabel`；`.iconSize(...)` 只调整图形大小，不缩小命中区域。
+
+不要用单字文本、Emoji、iconfont 或手绘路径替代已有 Symbol。需要确认名称时先运行
+`cuic symbol list`；需要减少包内清单时使用 `cuic symbol generate`。若清单确实缺少目标图标，
+应在 Provider 目录中补充经过审查的条目和来源，再通过 `SymbolName` 使用，而不是在页面里重新绘制
+一个一次性图标。这样可以保留变体、方向镜像、兜底状态和无障碍标签的统一记录。
+
 ## 可选 Provider
 
 应用只添加实际使用的 Provider：
