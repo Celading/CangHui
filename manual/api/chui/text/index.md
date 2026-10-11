@@ -25,7 +25,7 @@ import chui.text.*
 
 | 类型 | 说明 |
 |---|---|
-| [`TextAreaWrapMode`](TextAreaWrapMode.md) | `TextArea` 的逻辑行布局契约；当前明确支持一逻辑行一视觉行的 `NoWrap`。 |
+| [`TextAreaWrapMode`](TextAreaWrapMode.md) | `TextArea` 的逻辑行布局契约，支持保持硬换行语义的 `NoWrap` 与 `SoftWrap`。 |
 | [`TextAreaUnderlineShape`](TextAreaDecorationStyle.md) | 文本装饰下划线形状；`Straight` 保持旧行为，`Squiggle` 绘制有界诊断波浪线。 |
 
 **结构体**
@@ -34,3 +34,4 @@ import chui.text.*
 |---|---|
 | [`TextAreaDecoration`](TextAreaDecoration.md) | 一段半开 UTF-8 字节范围及其绘制样式。 |
 | [`TextAreaDecorationStyle`](TextAreaDecorationStyle.md) | 可选的前景、背景与下划线颜色。 |
+| [`TextAreaVisualLine`](TextAreaVisualLine.md) | 软换行后的逻辑行号、UTF-8 字节范围、测量宽度和硬换行标记。 |

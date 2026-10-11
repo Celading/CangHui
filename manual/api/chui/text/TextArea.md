@@ -4,7 +4,7 @@
 
 `chui.text` 包中的 public class
 
-多行文本编辑控件：把编辑写回绑定的 `Bindable<String>`，显式采用一逻辑行一视觉行的 no-wrap 契约，带双轴滚动与右缘/底缘滚动条，行间导航按字节列对齐。沿用单行编辑的全部桌面惯例（多击选择、Ctrl 快捷键表、分组撤销），文档的行拆分与最宽逻辑行按文本修订和字体度量缓存，不会每帧重扫整篇文本；绑定可以是 [`State`](../core/State.md)，也可以是任何 [`Bindable`](../core/Bindable.md) 实现。
+多行文本编辑控件：把编辑写回绑定的 `Bindable<String>`，支持保持硬换行语义的 no-wrap 与软换行契约，带双轴滚动与右缘/底缘滚动条。沿用单行编辑的全部桌面惯例（多击选择、Ctrl 快捷键表、分组撤销）；绑定可以是 [`State`](../core/State.md)，也可以是任何 [`Bindable`](../core/Bindable.md) 实现。
 
 窗口失焦或 Escape 会清空当前预编辑但不提交正文；没有活动组合时，Escape 留给外层处理。外部替换绑定正文后，控件在下一次绘制或事件处理前清理旧组合，后续 Update 从当前选区重新开始，不复用旧正文的替换范围。
 
@@ -24,7 +24,7 @@ public class TextArea <: Widget
 - **键盘表**：方向键按字符移动，Up/Down 跨行且尽量保持字节列；Home/End 移到**行**首尾，Ctrl+Home/End 移到**全文**首尾；Enter 插入换行。按住 Shift 的导航键（包括 Ctrl+Shift+Home/End）保留锚点并扩展选区；Ctrl+A/C/X/V/Z/Y 与 Ctrl+Shift+Z 同单行控件。
 - **只读模式**：`editable: false` 时保留 Tab／无障碍焦点、移动光标、选择和复制；Ctrl+X 只复制而不删除，粘贴与撤销/重做会被忽略。禁用或隐藏的区域仍不进入焦点遍历。
 - **嵌入式表面**：`chrome: TextAreaChrome.None`（或链式 `.chrome(...)`）只移除默认字段底色与描边；文本、选区、滚动条及共享 `scroll` 状态保持不变，适合编辑器行号和日志分栏。
-- **逻辑行契约**：`wrapMode: TextAreaWrapMode.NoWrap` 是当前唯一支持的模式，也是默认值。视口变窄不会把一个逻辑源代码行拆成多个视觉行；软换行和“逻辑行到视觉行”投影尚未提供，框架不会用一个看似可选但实际不完整的布尔开关暗示它们存在。
+- **逻辑行契约**：`NoWrap` 是默认模式，一个逻辑行对应一个视觉行，超出宽度的内容通过横向滚动访问。`SoftWrap` 在字素边界拆分视觉行，绑定文本中的 `\n` 不变；`visualLines(ctx, width)`、`visualLineForOffset` 和 `visualOffsetForPoint` 为行号槽、光标和命中测试提供同一份视觉行投影。切换模式不会清除光标、锚点或选区。
 - **双轴滚动**：`scroll` 是垂直偏移，`horizontalScroll` 是横向偏移；两者都可外部接管。触控板/侧倾滚轮的水平分量直接横移，Shift+垂直滚轮也横移，普通垂直滚轮仍纵向滚动。内容装得下时事件让给外层，不留死区。键盘编辑、导航与外部光标变化以最小距离让光标在两轴可见。聚焦时，逻辑视口宽高改变也会重新显示光标（含预编辑光标）；只移动控件位置或普通重绘不会拉回用户手动滚动的位置。这不等于已经完成原生字体度量变化或所有平台 DPI 输入验收。
 - **统一坐标平面**：普通/装饰文本、装饰背景、选区、光标、IME 锚点和指针命中都减去或加回同一个 `horizontalScroll`；应用不应自行平移其中一层。
 - **IME 预编辑**：SDL 文本组合事件通过 [`TextCompositionSnapshot`](TextCompositionSnapshot.md) 进入控件。预编辑在临时显示文本中替换捕获的范围，包括跨行范围；被替换的原文不会继续叠在画面下面。测量、双轴滚动、装饰和光标使用同一显示文本，预编辑的 CRLF 压成空格并同步转换选区偏移。原文装饰只保留替换区两侧，不染色到新预编辑；指针跳转先从显示位置映射回文档，再取消组合。绑定文本、撤销栈、文档修订与语义值保持原样，最终 `TextInput`/`Commit` 才执行一次真实替换。失焦和普通编辑取消组合；外部文档修订使旧组合失效。这不是原生输入法候选窗或完整 bidi 编辑的验收声明。
@@ -81,7 +81,10 @@ main(): Unit {
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
 | [`scrollOptions(value: ScrollOptions)`](#scrolloptions) | 选择平滑/即时滚轮行为，并配置步长、时长与曲线。 |
 | [`horizontalScrollState(value: State<Float32>)`](#horizontalscrollstate) | 改用外部持有的横向偏移。 |
-| [`wrapMode(value: TextAreaWrapMode)`](#wrapmode) | 显式选择逻辑行布局；当前支持 `NoWrap`。 |
+| [`wrapMode(value: TextAreaWrapMode)`](#wrapmode) | 显式选择 `NoWrap` 或保持硬换行语义的 `SoftWrap`。 |
+| [`visualLines(ctx: UiContext, width: Float32)`](#visuallines) | 返回当前显示文本的测量视觉行投影。 |
+| [`visualLineForOffset(ctx: UiContext, offset: Int64, width: Float32)`](#visuallineforoffset) | 把显示文本字节偏移映射到视觉行。 |
+| [`visualOffsetForPoint(ctx: UiContext, row: Int64, x: Float32, width: Float32)`](#visualoffsetforpoint) | 把视觉行和横坐标映射回显示文本字节偏移。 |
 | [`verticalScrollBar(visible: Bool)`](#verticalscrollbar) | 显示或隐藏纵向滚动指示器，不禁用滚动。 |
 | [`horizontalScrollBar(visible: Bool)`](#horizontalscrollbar) | 显示或隐藏横向滚动指示器，不禁用滚动。 |
 | [`chrome(value: TextAreaChrome)`](#chrome) | 选择普通字段外观或无框嵌入式表面。 |
@@ -127,7 +130,7 @@ public init(
 - `composition!`: `?State<TextCompositionSnapshot>` — 默认 `None`；外部可观察的非持久化 IME 组合状态。应用通常不需要直接写入；宿主组合事件由控件更新它。
 - `editable!`: `Bool` — 默认 `true`；传 `false` 渲染为只读：保留焦点、导航选择复制，不可编辑。
 - `chrome!`: `TextAreaChrome` — 默认 `Field`；传 `None` 不绘制默认字段底色和描边。
-- `wrapMode!`: [`TextAreaWrapMode`](TextAreaWrapMode.md) — 默认且当前唯一支持 `NoWrap`。
+- `wrapMode!`: [`TextAreaWrapMode`](TextAreaWrapMode.md) — 默认 `NoWrap`；`SoftWrap` 只改变视觉行布局，不写入隐藏换行。
 - `decorations!`: `?Observable<TextAreaDecorationSnapshot>` — 默认 `None`；可传 `State` 或 `DerivedState` 发布的不可变装饰快照。
 
 **异常**
@@ -206,10 +209,34 @@ public func horizontalScrollState(value: State<Float32>): TextArea
 
 ### wrapMode
 
-显式选择逻辑行布局。当前只提供 `TextAreaWrapMode.NoWrap`；该枚举为未来增加完整软换行契约保留类型安全的扩展面。
+显式选择逻辑行布局。`NoWrap` 保持横向滚动，`SoftWrap` 提供按字素边界的视觉行投影；两者都保持绑定文本的硬换行语义。
 
 ```cangjie
 public func wrapMode(value: TextAreaWrapMode): TextArea
+```
+
+### visualLines
+
+返回当前显示文本按给定宽度测量得到的视觉行。返回值的 UTF-8 字节范围只用于定位，不会改变绑定文本。
+
+```cangjie
+public func visualLines(ctx: UiContext, width: Float32): Array<TextAreaVisualLine>
+```
+
+### visualLineForOffset
+
+使用同一视觉行模型把显示文本的字节偏移映射到视觉行号。
+
+```cangjie
+public func visualLineForOffset(ctx: UiContext, offset: Int64, width: Float32): Int64
+```
+
+### visualOffsetForPoint
+
+使用同一视觉行模型把视觉行和横坐标映射回显示文本的字节偏移，适合外部行号槽和命中测试。
+
+```cangjie
+public func visualOffsetForPoint(ctx: UiContext, row: Int64, x: Float32, width: Float32): Int64
 ```
 
 ### verticalScrollBar
