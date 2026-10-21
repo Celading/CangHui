@@ -1,8 +1,8 @@
 package chui.text
 
-import chui.core.{NativeTextIndex, NativeTextScalarIndex, UiContext, CUI_SMALL_H,
+import chui.core.{NativeTextIndex, NativeTextScalarIndex, UiContext,
     SemanticTextGlyph, SemanticTextLayout, SemanticTextGeometry}
-import sdl.{Color, FontSizes, Rect, Size}
+import sdl.{Color, Rect, Size}
 import sdl.text.{NativeTextColorSpan, NativeTextLineSpec}
 import std.collection.ArrayList
 import std.math.abs
@@ -10,6 +10,7 @@ import std.math.abs
 // One immutable displayed line: paint ranges use exact scalars, editing uses
 // graphemes. Every native request below uses THIS spec, including its colors.
 internal class TextAreaNativeLine {
+    let typography: TextAreaTypography
     let start: Int64
     let end: Int64
     let spec: NativeTextLineSpec
@@ -17,7 +18,9 @@ internal class TextAreaNativeLine {
     let editor: NativeTextIndex
     let runs: Array<TextAreaDecorationRun>
 
-    init(text: String, start: Int64, runs: Array<TextAreaDecorationRun>, color: Color) {
+    init(text: String, start: Int64, runs: Array<TextAreaDecorationRun>, color: Color,
+        typography!: TextAreaTypography = TextAreaTypography()) {
+        this.typography = typography
         this.start = start
         this.end = start + text.size
         this.scalar = NativeTextScalarIndex(text)
@@ -40,7 +43,7 @@ internal class TextAreaNativeLine {
     }
 
     func size(ctx: UiContext): Size {
-        match (ctx.renderer.textSize(spec, pointSize: FontSizes.BODY)) {
+        match (ctx.renderer.textSize(spec, pointSize: typography.pointSize, style: typography.style, font: typography.font)) {
             case Some(value) => value
             case None => throw IllegalStateException("Native TextArea line measurement unavailable")
         }
@@ -50,7 +53,7 @@ internal class TextAreaNativeLine {
         let local = min(max(position - start, Int64(0)), spec.text.size)
         let offset = scalar.utf16OffsetForByte(local).getOrThrow()
         let positions = ctx.renderer.textCaretPositionsUtf16(spec, offset,
-            pointSize: FontSizes.BODY).getOrThrow()
+            pointSize: typography.pointSize, style: typography.style, font: typography.font).getOrThrow()
         if (affinity.usesSecondary(position)) { positions[1] } else { positions[0] }
     }
 
@@ -60,11 +63,11 @@ internal class TextAreaNativeLine {
         if (left >= right) { return [] }
         ctx.renderer.textSelectionSpansUtf16(spec,
             scalar.utf16OffsetForByte(left - start).getOrThrow(),
-            scalar.utf16OffsetForByte(right - start).getOrThrow(), pointSize: FontSizes.BODY).getOrThrow()
+            scalar.utf16OffsetForByte(right - start).getOrThrow(), pointSize: typography.pointSize, style: typography.style, font: typography.font).getOrThrow()
     }
 
     func hit(ctx: UiContext, x: Float32, affinity: TextBoundaryCache): Int64 {
-        let raw = ctx.renderer.textHitUtf16(spec, x, pointSize: FontSizes.BODY).getOrThrow()
+        let raw = ctx.renderer.textHitUtf16(spec, x, pointSize: typography.pointSize, style: typography.style, font: typography.font).getOrThrow()
         let floor = editor.byteOffsetForUtf16(raw)
         let ceil = editor.byteOffsetForUtf16(raw, forward: true)
         var chosen = floor
@@ -72,7 +75,7 @@ internal class TextAreaNativeLine {
         var distance: Float32 = 1.0e30
         for (candidate in [floor, ceil, Int64(0), spec.text.size]) {
             let positions = ctx.renderer.textCaretPositionsUtf16(spec,
-                editor.utf16OffsetForByte(candidate), pointSize: FontSizes.BODY).getOrThrow()
+                editor.utf16OffsetForByte(candidate), pointSize: typography.pointSize, style: typography.style, font: typography.font).getOrThrow()
             for ((point, secondary) in [(positions[0], false), (positions[1], true)]) {
                 let delta = abs(point - x)
                 if (delta < distance) { distance = delta; chosen = candidate; second = secondary }
@@ -88,7 +91,7 @@ internal class TextAreaNativeLine {
         let count = editor.graphemes.count + 1
         let indices = Array<Int64>(count, {i => editor.utf16OffsetForByte(editor.graphemes.boundary(i))})
         let positions = ctx.renderer.textCaretPositionsUtf16(spec, indices,
-            pointSize: FontSizes.BODY).getOrThrow()
+            pointSize: typography.pointSize, style: typography.style, font: typography.font).getOrThrow()
         let x = caret(ctx, position, affinity)
         var distance: Float32 = 1.0e30
         var chosen: Int64 = -1
@@ -110,6 +113,7 @@ internal class TextAreaNativeLine {
 // Per-control retained model; no native CTLine ownership escapes the existing
 // Renderer cache. Only the displayed text and decoration snapshot rebuild it.
 internal class TextAreaNativeDocument {
+    let typography: TextAreaTypography
     let text: String
     let lines: Array<TextAreaNativeLine>
     private var widthEnvironment = ""
@@ -118,7 +122,9 @@ internal class TextAreaNativeDocument {
     private var glyphReady = false
     private var glyphLayout: ?SemanticTextLayout = None
 
-    init(text: String, runs: Array<TextAreaDecorationRun>, color: Color) {
+    init(text: String, runs: Array<TextAreaDecorationRun>, color: Color,
+        typography!: TextAreaTypography = TextAreaTypography()) {
+        this.typography = typography
         this.text = text
         let built = ArrayList<TextAreaNativeLine>()
         var start: Int64 = 0
@@ -135,7 +141,7 @@ internal class TextAreaNativeDocument {
             while (nextRun < runs.size && runs[nextRun].lineIndex == row) {
                 rowRuns.add(runs[nextRun]); nextRun += 1
             }
-            built.add(TextAreaNativeLine(value, start, rowRuns.toArray(), color))
+            built.add(TextAreaNativeLine(value, start, rowRuns.toArray(), color, typography: typography))
             if (logicalEnd >= text.size) { break }
             start = nextTextBoundary(text, logicalEnd)
             row += 1
@@ -155,7 +161,7 @@ internal class TextAreaNativeDocument {
 
     func semanticGeometry(ctx: UiContext, viewport: Rect, vertical: Float32, horizontal: Float32): ?SemanticTextGeometry {
         if (!semanticGlyphValueSupported(text) || lines.size > 4096) { return None }
-        let environment = ctx.renderer.textLayoutEnvironmentKey()
+        let environment = typography.key(ctx)
         if (!glyphReady || glyphEnvironment != environment) {
             let glyphs = ArrayList<SemanticTextGlyph>()
             var valid = true
@@ -163,7 +169,7 @@ internal class TextAreaNativeDocument {
                 let line = lines[i]
                 let end = if (i + 1 < lines.size) { lines[i + 1].start } else { text.size }
                 if (!appendNativeSemanticGlyphs(ctx, glyphs, line.spec.text, line.start, end, i,
-                    Float32(i) * CUI_SMALL_H, line.size(ctx).h, TextFieldTypography(), paint: Some(line.spec))) {
+                    Float32(i) * typography.rowHeight, line.size(ctx).h, typography.field(), paint: Some(line.spec))) {
                     valid = false; break
                 }
             }
@@ -177,7 +183,7 @@ internal class TextAreaNativeDocument {
     }
 
     func width(ctx: UiContext): Float32 {
-        let environment = ctx.renderer.textLayoutEnvironmentKey()
+        let environment = typography.key(ctx)
         if (environment == widthEnvironment) { return cachedWidth }
         var result: Float32 = 0.0
         for (line in lines) { result = max(result, line.size(ctx).w) }
@@ -222,13 +228,13 @@ internal class TextAreaNativeDocument {
     func draw(ctx: UiContext, viewport: Rect, content: TextAreaContent, id: String,
         selectionStart: Int64, selectionEnd: Int64, composition: TextAreaDisplayProjection,
         affinity: TextBoundaryCache, editable!: Bool = true): Unit {
-        let first = max(Int64(0), Int64(content.scroll / CUI_SMALL_H))
-        let last = min(lines.size, first + Int64(viewport.h / CUI_SMALL_H) + 2)
+        let first = max(Int64(0), Int64(content.scroll / typography.rowHeight))
+        let last = min(lines.size, first + Int64(viewport.h / typography.rowHeight) + 2)
         let origin = viewport.x - content.horizontalScroll
         for (row in first..last) {
             let line = lines[row]
-            let y = viewport.y + Float32(row) * CUI_SMALL_H - content.scroll
-            let height = min(line.size(ctx).h, CUI_SMALL_H)
+            let y = viewport.y + Float32(row) * typography.rowHeight - content.scroll
+            let height = min(line.size(ctx).h, typography.rowHeight)
             for (run in line.runs) {
                 if (let Some(color) <- run.style.background) {
                     paintNativeSpans(ctx, line.spans(ctx, run.startByte, run.endByte), origin, y, height, color)
@@ -244,7 +250,7 @@ internal class TextAreaNativeDocument {
                     }
                 }
             }
-            if (!ctx.renderer.text(line.spec, origin, y, pointSize: FontSizes.BODY)) {
+            if (!ctx.renderer.text(line.spec, origin, y, pointSize: typography.pointSize, style: typography.style, font: typography.font)) {
                 throw IllegalStateException("Native TextArea line exceeds the renderer's drawable limits")
             }
             for (run in line.runs) {
@@ -267,8 +273,8 @@ internal class TextAreaNativeDocument {
             let row = row(content.cursor)
             let line = lines[row]
             let caret = Rect(origin + line.caret(ctx, content.cursor, affinity),
-                viewport.y + Float32(row) * CUI_SMALL_H - content.scroll,
-                1.5, min(line.size(ctx).h, CUI_SMALL_H))
+                viewport.y + Float32(row) * typography.rowHeight - content.scroll,
+                1.5, min(line.size(ctx).h, typography.rowHeight))
             if (caret.right() >= viewport.x && caret.x <= viewport.right() &&
                 caret.bottom() >= viewport.y && caret.y <= viewport.bottom()) {
                 if (editable) { ctx.setTextInputAnchor(caret) }
@@ -287,6 +293,7 @@ private func paintNativeSpans(ctx: UiContext, spans: Array<(Float32, Float32)>,
 
 internal class TextAreaNativeCache {
     var revision: UInt64 = 0
+    private var typographyKey = ""
     private var document: ?TextAreaNativeDocument = None
     private var displayRevision: UInt64 = 0
     private var decorationRevision: UInt64 = 0
@@ -295,19 +302,21 @@ internal class TextAreaNativeCache {
 
     func resolve(text: String, display: UInt64, decoration: UInt64, color: Color,
         snapshot: ?TextAreaDecorationSnapshot, buildRuns: () -> Array<TextAreaDecorationRun>,
-        affinity: TextBoundaryCache): TextAreaNativeDocument {
+        affinity: TextBoundaryCache, typography!: TextAreaTypography = TextAreaTypography()): TextAreaNativeDocument {
+        let key = "${typography.pointSize}|${typography.style.ttfFlags()}|${typography.rowHeight}|${typography.font}"
         let sameSnapshot = match ((this.snapshot, snapshot)) {
             case (Some(previous), Some(current)) => refEq(previous, current)
             case (None, None) => true
             case _ => false
         }
-        if (display == displayRevision && decoration == decorationRevision &&
+        if (key == typographyKey && display == displayRevision && decoration == decorationRevision &&
             sameSnapshot &&
             this.color.r == color.r && this.color.g == color.g && this.color.b == color.b && this.color.a == color.a) {
             if (let Some(value) <- document) { return value }
         }
-        let value = TextAreaNativeDocument(text, buildRuns(), color)
+        let value = TextAreaNativeDocument(text, buildRuns(), color, typography: typography)
         document = Some(value)
+        typographyKey = key
         displayRevision = display; decorationRevision = decoration; this.color = color
         this.snapshot = snapshot
         revision += UInt64(1)

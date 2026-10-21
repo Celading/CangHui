@@ -1,7 +1,7 @@
 package chui.text
 
 import sdl.{FontSizes, FontStyle, Point, Rect}
-import chui.core.{CUI_SMALL_H, GraphemeIndex, NativeTextIndex, UiContext, scrollLineIndex, scrollLineRemainder}
+import chui.core.{GraphemeIndex, NativeTextIndex, UiContext}
 import std.math.abs
 
 private let TEXT_CURSOR_W: Float32 = 1.5
@@ -197,14 +197,15 @@ internal func textAreaCursorForPoint(
     ctx: UiContext,
     frame: Rect,
     content: TextAreaContent,
-    point: Point
+    point: Point,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Int64 {
     let viewport = textInputViewport(frame)
-    let line = Int64(max(0.0, point.y - viewport.y + content.scroll) / CUI_SMALL_H)
+    let line = Int64(max(0.0, point.y - viewport.y + content.scroll) / typography.rowHeight)
     let lineStart = startOfTextLine(content.text, line)
     let lineEnd = lineEndAfterOrAt(content.text, lineStart)
     textCursorForOffset(ctx, content.text, lineStart, lineEnd,
-        point.x - viewport.x + content.horizontalScroll)
+        point.x - viewport.x + content.horizontalScroll, typography: typography.field())
 }
 
 /*
@@ -282,15 +283,16 @@ internal func drawTextAreaSelection(
     viewport: Rect,
     content: TextAreaContent,
     selStart: Int64,
-    selEnd: Int64
+    selEnd: Int64,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
     if (selStart >= selEnd) {
         return
     }
     let text = content.text
-    let lineHeight = ctx.renderer.textHeight(pointSize: FontSizes.BODY)
-    var lineStart = startOfTextLine(text, scrollLineIndex(content.scroll))
-    var y = viewport.y - scrollLineRemainder(content.scroll)
+    let lineHeight = ctx.renderer.textHeight(pointSize: typography.pointSize, style: typography.style, font: typography.font)
+    var lineStart = startOfTextLine(text, Int64(max(0.0, content.scroll) / typography.rowHeight))
+    var y = viewport.y - (content.scroll - Float32(Int64(max(0.0, content.scroll) / typography.rowHeight)) * typography.rowHeight)
     while (y < viewport.bottom()) {
         let lineEnd = lineEndAfterOrAt(text, lineStart)
         let a = max(selStart, lineStart)
@@ -298,12 +300,14 @@ internal func drawTextAreaSelection(
         let newlineSelected = lineEnd < text.size && selStart <= lineEnd && selEnd > lineEnd
         if (a < b || newlineSelected) {
             let xA = viewport.x - content.horizontalScroll +
-                ctx.renderer.textWidth(text[lineStart..a], pointSize: FontSizes.BODY)
+                ctx.renderer.textWidth(text[lineStart..a], pointSize: typography.pointSize,
+                    style: typography.style, font: typography.font)
             let xB = if (newlineSelected) {
                 viewport.right()
             } else {
                 viewport.x - content.horizontalScroll +
-                    ctx.renderer.textWidth(text[lineStart..b], pointSize: FontSizes.BODY)
+                    ctx.renderer.textWidth(text[lineStart..b], pointSize: typography.pointSize,
+                        style: typography.style, font: typography.font)
             }
             if (xB > xA) {
                 ctx.renderer.fill(Rect(xA, y, xB - xA, lineHeight), ctx.theme.accent.withAlpha(115))
@@ -313,15 +317,15 @@ internal func drawTextAreaSelection(
             break
         }
         lineStart = nextTextBoundary(text, lineEnd)
-        y += CUI_SMALL_H
+        y += typography.rowHeight
     }
 }
 
 // Keep fallback and wrapped TextArea caret paint and IME geometry on the same
-// measured glyph row. CUI_SMALL_H remains the visual row pitch, not caret height.
-internal func textAreaCaretRect(ctx: UiContext, x: Float32, y: Float32): Rect {
-    let lineHeight = ctx.renderer.textHeight(pointSize: FontSizes.BODY)
-    Rect(x, y, TEXT_CURSOR_W, min(lineHeight, CUI_SMALL_H))
+// measured glyph row. Row pitch remains separate from caret height.
+internal func textAreaCaretRect(ctx: UiContext, x: Float32, y: Float32, typography!: TextAreaTypography = TextAreaTypography()): Rect {
+    let lineHeight = ctx.renderer.textHeight(pointSize: typography.pointSize, style: typography.style, font: typography.font)
+    Rect(x, y, TEXT_CURSOR_W, min(lineHeight, typography.rowHeight))
 }
 
 internal func drawTextAreaCursor(
@@ -329,7 +333,8 @@ internal func drawTextAreaCursor(
     viewport: Rect,
     id: String,
     content: TextAreaContent,
-    editable!: Bool = true
+    editable!: Bool = true,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
     if (!ctx.hasFocus(id)) {
         return
@@ -341,15 +346,16 @@ internal func drawTextAreaCursor(
     let line = textCursorLineIndex(content.text, position)
     let lineStart = lineStartBeforeOrAt(content.text, position)
     let x = viewport.x - content.horizontalScroll +
-        ctx.renderer.textWidth(content.text[lineStart..position], pointSize: FontSizes.BODY)
-    let y = viewport.y + Float32(line) * CUI_SMALL_H - content.scroll
-    if (y + CUI_SMALL_H < viewport.y || y > viewport.bottom() ||
+        ctx.renderer.textWidth(content.text[lineStart..position], pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)
+    let y = viewport.y + Float32(line) * typography.rowHeight - content.scroll
+    if (y + typography.rowHeight < viewport.y || y > viewport.bottom() ||
         x + TEXT_CURSOR_W < viewport.x || x > viewport.right()) {
         return // an off-screen caret leaves the last visible IME anchor standing
     }
-    // Rows are drawn from the top of each CUI_SMALL_H cell, so the caret matches the
+    // Rows are drawn from the top of each row cell, so the caret matches the
     // glyph row exactly rather than filling the whole cell.
-    let caret = textAreaCaretRect(ctx, x, y)
+    let caret = textAreaCaretRect(ctx, x, y, typography: typography)
     // The IME anchors its candidate window at the caret whenever the area has focus;
     // the blink phase only gates painting.
     if (editable) { ctx.setTextInputAnchor(caret) }

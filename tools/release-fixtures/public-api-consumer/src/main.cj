@@ -89,7 +89,28 @@ private func verifyTreeScene(provider: FixtureSymbols, dark: Bool, selected: Boo
         "keyboard expansion retained")
 }
 
+private func verifyEditorTypography(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    for (size in [Float32(12.0), Float32(32.0)]) {
+        let text = State<String>("a你\nb好")
+        let cursor = State<Int64>(5)
+        let widget = TextArea(text, key: "public-typography", cursor: Some(cursor),
+            anchor: Some(State<Int64>(5)), wrapMode: TextAreaWrapMode.SoftWrap)
+            .lineHeight(Length(52.0, LengthUnit.Vp)).fontSize(size).fontFamily("Consumer face").bold()
+        widget.layout(ctx, Rect(0.0, 0.0, 400.0, 220.0))
+        ctx.focus("public-typography")
+        widget.draw(ctx)
+        let caret = ctx.textInputAnchorRect().getOrThrow()
+        require(caret.y == 60.0 && caret.h == renderer.textHeight(pointSize: size,
+            style: FontStyle(bold: true), font: "Consumer face"), "public editor typography geometry")
+        require(widget.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 8.0, 61.0)) &&
+            cursor.value == 5 && text.value == "a你\nb好", "public editor row hit")
+    }
+}
+
 main(): Int64 {
+    verifyEditorTypography()
     verifyFacadeContracts()
     verifyVisualLineResult()
     let provider = FixtureSymbols()

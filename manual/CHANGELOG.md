@@ -12,6 +12,9 @@
 
 ## Unreleased
 
+- TextArea 继承字体族、字号与样式，测量、绘制、换行、命中、选区和输入法锚点共用字体参数。
+- 新增 TextArea.lineHeight(Length) 最小行距；大字号扩大行格，字体变化更新滚动与布局缓存。
+
 - 修复 TextArea 软换行光标占满整行、超出文字高度的问题：光标绘制与输入法候选锚点
   共同使用字体度量，保留原行距、输入、选区和撤销事务。
   Size the soft-wrapped TextArea caret and IME anchor from the rendered font metrics,

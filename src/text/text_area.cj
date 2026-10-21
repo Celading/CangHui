@@ -4,10 +4,10 @@ import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, TextComp
     TextCompositionPhase, UiEvent}
 import sdl.input.Clipboard
 import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion,
-    ScrollOptions, SemanticActionKind, SemanticTextGeometry, maxScrollOffset, Observable, State, UiContext, Widget, advanceScrollMotion,
+    ScrollOptions, SemanticActionKind, SemanticTextGeometry, maxScrollOffset, Observable, State, UiContext, Widget, Length, advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawHorizontalScrollBar,
     drawSurface, drawVerticalScrollBar, emit, localState, recordControlSemantics, registerFocusable,
-    resolveControlKey, scrollLineIndex, scrollLineRemainder}
+    resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code (see the Ctrl+letter shortcuts).
 private let AREA_LETTER_A: UInt8 = 65
@@ -76,8 +76,7 @@ class TextLineCache {
     private var cachedLines: Array<String> = []
     private var hasValue = false
     private var cachedWidthRevision: UInt64 = 0
-    private var cachedMetricWidth: Float32 = -1.0
-    private var cachedMetricHeight: Float32 = -1.0
+    private var cachedEnvironment = ""
     private var cachedMaxWidth: Float32 = 0.0
     private var hasWidth = false
 
@@ -91,23 +90,19 @@ class TextLineCache {
     }
 
     /*
-     * Measures all logical lines only when the document or active font metrics change. The compact
-     * mixed-script probe distinguishes common font/DPI changes without making the renderer expose
-     * a backend-specific font identity.
+     * Measures logical lines only when document or complete typography/environment identity changes.
      */
-    func maxLineWidth(ctx: UiContext, lines: Array<String>, revision: UInt64): Float32 {
-        let metricWidth = ctx.renderer.textWidth("M你\t", pointSize: FontSizes.BODY)
-        let metricHeight = ctx.renderer.textHeight(pointSize: FontSizes.BODY)
-        if (!hasWidth || revision != cachedWidthRevision || metricWidth != cachedMetricWidth ||
-            metricHeight != cachedMetricHeight) {
+    func maxLineWidth(ctx: UiContext, lines: Array<String>, revision: UInt64, typography: TextAreaTypography): Float32 {
+        let environment = typography.key(ctx)
+        if (!hasWidth || revision != cachedWidthRevision || environment != cachedEnvironment) {
             var widest: Float32 = 0.0
             for (line in lines) {
-                widest = max(widest, ctx.renderer.textWidth(line, pointSize: FontSizes.BODY))
+                widest = max(widest, ctx.renderer.textWidth(line, pointSize: typography.pointSize,
+                    style: typography.style, font: typography.font))
             }
             cachedMaxWidth = widest + TEXT_AREA_CARET_RESERVE
             cachedWidthRevision = revision
-            cachedMetricWidth = metricWidth
-            cachedMetricHeight = metricHeight
+            cachedEnvironment = environment
             hasWidth = true
         }
         cachedMaxWidth
@@ -156,6 +151,9 @@ public class TextArea <: Widget {
     private let lastObservedViewport: State<Size>
     private let lastObservedNativeLayout: State<String>
     private var frame = Rect.zero()
+    private var activeTypography = TextAreaTypography()
+    private var typographyInputKey = ""
+    private var requestedLineHeight: ?Length = None
 
     public init(
         text: Bindable<String>,
@@ -263,19 +261,43 @@ public class TextArea <: Widget {
         this
     }
 
+    /** Sets the minimum row pitch; actual font height remains the lower bound. */
+    public func lineHeight(value: Length): TextArea {
+        requestedLineHeight = Some(value)
+        this
+    }
+
+    private func refreshTypography(ctx: UiContext): Unit {
+        let environment = ctx.typographyEnvironment()
+        let point = match (environment.fontSize) {
+            case Some(value) => max(1.0, ctx.resolve(value))
+            case None => FontSizes.BODY
+        }
+        let height: Float32 = match (requestedLineHeight) { case Some(value) => ctx.resolve(value) case None => CUI_SMALL_H }
+        let key = "${point}|${environment.resolvedFontStyle().ttfFlags()}|${environment.fontFamily}|${height}|" +
+            ctx.renderer.textLayoutEnvironmentKey(font: environment.fontFamily)
+        if (key != typographyInputKey) {
+            activeTypography = resolveTextAreaTypography(ctx, rowHeight: requestedLineHeight)
+            typographyInputKey = key
+        }
+    }
+
     /** Returns the measured visual rows for the current displayed text. */
     public func visualLines(ctx: UiContext, width: Float32): Array<TextAreaVisualLine> {
-        TextAreaWrapLayout(ctx, display().text, width).lines
+        refreshTypography(ctx)
+        TextAreaWrapLayout(ctx, display().text, width, typography: activeTypography).lines
     }
 
     /** Maps a displayed byte offset to its measured visual row. */
     public func visualLineForOffset(ctx: UiContext, offset: Int64, width: Float32): Int64 {
-        TextAreaWrapLayout(ctx, display().text, width).rowForOffset(offset)
+        refreshTypography(ctx)
+        TextAreaWrapLayout(ctx, display().text, width, typography: activeTypography).rowForOffset(offset)
     }
 
     /** Maps a visual row and x position back to a displayed byte offset. */
     public func visualOffsetForPoint(ctx: UiContext, row: Int64, x: Float32, width: Float32): Int64 {
-        TextAreaWrapLayout(ctx, display().text, width).hit(ctx, row, x)
+        refreshTypography(ctx)
+        TextAreaWrapLayout(ctx, display().text, width, typography: activeTypography).hit(ctx, row, x)
     }
 
     /** Shows or hides the vertical indicator without disabling vertical scrolling. */
@@ -333,13 +355,14 @@ public class TextArea <: Widget {
     }
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
+        refreshTypography(ctx)
         frame = rect
         let docLines = lines()
         let viewport = textViewport(rect)
         let visual = wrapLayout(ctx, viewport.w)
         let contentHeight = if (let Some(layout) <- visual) {
-            Float32(layout.lines.size) * CUI_SMALL_H
-        } else { textContentHeight(docLines) }
+            Float32(layout.lines.size) * activeTypography.rowHeight
+        } else { textContentHeight(docLines, typography: activeTypography) }
         advanceScrollMotion(ctx, scrollMotion, scrollStateValue, contentHeight, viewport.h, scrollPolicy)
         advanceScrollMotion(ctx, horizontalScrollMotion, horizontalScrollStateValue,
             contentWidth(ctx, docLines, viewportWidth: viewport.w), viewport.w, scrollPolicy)
@@ -358,7 +381,7 @@ public class TextArea <: Widget {
     private func wrapLayout(ctx: UiContext, width: Float32): ?TextAreaWrapLayout {
         match (wrapModeValue) {
             case TextAreaWrapMode.NoWrap => None
-            case TextAreaWrapMode.SoftWrap => Some(TextAreaWrapLayout(ctx, display().text, width))
+            case TextAreaWrapMode.SoftWrap => Some(TextAreaWrapLayout(ctx, display().text, width, typography: activeTypography))
         }
     }
 
@@ -372,11 +395,11 @@ public class TextArea <: Widget {
     private func contentWidth(ctx: UiContext, docLines: Array<String>, viewportWidth!: Float32 = 0.0): Float32 {
         if (let Some(_) <- wrapLayout(ctx, viewportWidth)) { return viewportWidth }
         if (let Some(native) <- nativeDocument(ctx)) { return native.width(ctx) }
-        lineCache.maxLineWidth(ctx, docLines, displayCache.revision)
+        lineCache.maxLineWidth(ctx, docLines, displayCache.revision, activeTypography)
     }
 
     private func nativeDocument(ctx: UiContext): ?TextAreaNativeDocument {
-        if (!ctx.renderer.platformTextLayoutEnabled()) { return None }
+        if (!ctx.renderer.platformTextLayoutEnabled() || (activeTypography.style.ttfFlags() & 0x0E) != 0) { return None }
         match (wrapModeValue) {
             case TextAreaWrapMode.SoftWrap => return None
             case TextAreaWrapMode.NoWrap => ()
@@ -391,15 +414,15 @@ public class TextArea <: Widget {
             decorationCache.visibleRuns(text.value, text.revision, decorationSource, 0,
                 lineCache.lines(projection.text, displayCache.revision).size,
                 display: Some(projection), displayRevision: displayCache.revision)
-        }, boundaryCache))
+        }, boundaryCache, typography: activeTypography))
     }
 
     private func nativeLayoutIdentity(ctx: UiContext): String {
-        if (!ctx.renderer.platformTextLayoutEnabled()) { return "" }
-        "${nativeCache.revision}|" + ctx.renderer.textLayoutEnvironmentKey()
+        "${nativeCache.revision}|" + activeTypography.key(ctx)
     }
 
     public func draw(ctx: UiContext): Unit {
+        refreshTypography(ctx)
         if (isEditable && ctx.hasFocus(id)) { ctx.requestTextInput() }
         let edit = editState()
         edit.normalizeCursor()
@@ -414,7 +437,7 @@ public class TextArea <: Widget {
         let contentW = contentWidth(ctx, docLines, viewportWidth: viewport.w)
         // Clamp writes only on change: draw runs every frame, and the offset may be an
         // externally owned state whose observers should not fire for no-op writes.
-        let clampedScroll = clampScrollOffset(scrollStateValue.value, Float32(visualRows) * CUI_SMALL_H,
+        let clampedScroll = clampScrollOffset(scrollStateValue.value, Float32(visualRows) * activeTypography.rowHeight,
             viewport.h)
         if (clampedScroll != scrollStateValue.value) {
             scrollStateValue.value = clampedScroll
@@ -451,8 +474,8 @@ public class TextArea <: Widget {
         ))
         let content = TextAreaContent(projection.text, projection.cursor(cursorStateValue.value), scrollStateValue.value,
             horizontalScroll: horizontalScrollStateValue.value)
-        let firstLine = scrollLineIndex(content.scroll)
-        let lastLine = firstLine + Int64(viewport.h / CUI_SMALL_H) + 2
+        let firstLine = Int64(max(0.0, content.scroll) / activeTypography.rowHeight)
+        let lastLine = firstLine + Int64(viewport.h / activeTypography.rowHeight) + 2
         let decorationRuns = if (let Some(_) <- visual) {
             // SoftWrap scroll is measured in visual rows, while decorationCache
             // indexes logical lines; use the complete logical window here so a
@@ -468,10 +491,11 @@ public class TextArea <: Widget {
             if (projection.active) { projection.selectionEnd } else { edit.selectionEnd() },
             ctx.hasFocus(id), showsVerticalScrollBar, showsHorizontalScrollBar, scrollBar.dragging(ctx),
             hScrollBar.dragging(ctx), chromeMode, wrapModeValue, decorationRuns,
-            projection, contentW, nativeDocument(ctx), boundaryCache, isEditable, visual)
+            projection, contentW, nativeDocument(ctx), boundaryCache, isEditable, visual, typography: activeTypography)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
+        refreshTypography(ctx)
         reconcileComposition(ctx)
         claimHoverIfInside(ctx, event, frame, id, CursorShape.Text)
         let edit = editState()
@@ -480,7 +504,7 @@ public class TextArea <: Widget {
                 let docLines = lines()
                 let viewport = textViewport(frame)
                 if (showsVerticalScrollBar && scrollBar.press(ctx, frame, scrollStateValue,
-                    Float32(visualRowCount(ctx, viewport.w, docLines)) * CUI_SMALL_H,
+                    Float32(visualRowCount(ctx, viewport.w, docLines)) * activeTypography.rowHeight,
                     viewport.h, x, y)) {
                     cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
@@ -493,7 +517,7 @@ public class TextArea <: Widget {
                 return pressAt(ctx, edit, x, y)
             case UiEvent.MouseMove(x, y) =>
                 if (showsVerticalScrollBar && scrollBar.drag(ctx, frame, scrollStateValue,
-                    Float32(visualRowCount(ctx, textViewport(frame).w, lines())) * CUI_SMALL_H,
+                    Float32(visualRowCount(ctx, textViewport(frame).w, lines())) * activeTypography.rowHeight,
                     textViewport(frame).h, y)) {
                     cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
@@ -524,7 +548,7 @@ public class TextArea <: Widget {
                         contentW, viewport.w, scrollPolicy)
                     return true
                 }
-                let contentH = Float32(visualRowCount(ctx, viewport.w, docLines)) * CUI_SMALL_H
+                let contentH = Float32(visualRowCount(ctx, viewport.w, docLines)) * activeTypography.rowHeight
                 if (frame.contains(pointerX, pointerY) && maxScrollOffset(contentH, viewport.h) > 0.0) {
                     applyWheelScroll(ctx, scrollMotion, scrollStateValue, wheelY, contentH, viewport.h, scrollPolicy)
                     return true
@@ -692,14 +716,14 @@ public class TextArea <: Widget {
         }
         let projection = display()
         let position = projection.cursor(cursorStateValue.value)
-        let rowTop = Float32(textCursorLineIndex(projection.text, position)) * CUI_SMALL_H
+        let rowTop = Float32(textCursorLineIndex(projection.text, position)) * activeTypography.rowHeight
         var scroll = scrollStateValue.value
         if (rowTop < scroll) {
             scroll = rowTop
-        } else if (rowTop + CUI_SMALL_H > scroll + viewportH) {
-            scroll = rowTop + CUI_SMALL_H - viewportH
+        } else if (rowTop + activeTypography.rowHeight > scroll + viewportH) {
+            scroll = rowTop + activeTypography.rowHeight - viewportH
         }
-        let clamped = clampScrollOffset(scroll, textContentHeight(lines()), viewportH)
+        let clamped = clampScrollOffset(scroll, textContentHeight(lines(), typography: activeTypography), viewportH)
         if (clamped != scrollStateValue.value) {
             scrollStateValue.value = clamped
         }
@@ -718,14 +742,14 @@ public class TextArea <: Widget {
         }
         let projection = display()
         if (let Some(layout) <- wrapLayout(ctx, viewport.w)) {
-            let rowTop = Float32(layout.rowForOffset(projection.cursor(cursorStateValue.value))) * CUI_SMALL_H
+            let rowTop = Float32(layout.rowForOffset(projection.cursor(cursorStateValue.value))) * activeTypography.rowHeight
             var vertical = scrollStateValue.value
             if (rowTop < vertical) {
                 vertical = rowTop
-            } else if (rowTop + CUI_SMALL_H > vertical + viewport.h) {
-                vertical = rowTop + CUI_SMALL_H - viewport.h
+            } else if (rowTop + activeTypography.rowHeight > vertical + viewport.h) {
+                vertical = rowTop + activeTypography.rowHeight - viewport.h
             }
-            let clampedVertical = clampScrollOffset(vertical, Float32(layout.lines.size) * CUI_SMALL_H, viewport.h)
+            let clampedVertical = clampScrollOffset(vertical, Float32(layout.lines.size) * activeTypography.rowHeight, viewport.h)
             if (clampedVertical != scrollStateValue.value) { scrollStateValue.value = clampedVertical }
             cancelScrollMotion(scrollMotion, scrollStateValue)
         } else {
@@ -737,7 +761,7 @@ public class TextArea <: Widget {
             case Some(layout) => layout.caretX(ctx, layout.rowForOffset(position), position)
             case None => match (nativeDocument(ctx)) {
             case Some(native) => native.caret(ctx, position, boundaryCache)
-            case None => ctx.renderer.textWidth(projection.text[lineStart..position], pointSize: FontSizes.BODY)
+            case None => ctx.renderer.textWidth(projection.text[lineStart..position], pointSize: activeTypography.pointSize, style: activeTypography.style, font: activeTypography.font)
             }
         }
         var offset = horizontalScrollStateValue.value
@@ -761,18 +785,18 @@ public class TextArea <: Widget {
         let projection = display()
         let viewport = textViewport(frame)
         if (let Some(layout) <- wrapLayout(ctx, viewport.w)) {
-            let row = Int64(max(0.0, y - viewport.y + scrollStateValue.value) / CUI_SMALL_H)
+            let row = Int64(max(0.0, y - viewport.y + scrollStateValue.value) / activeTypography.rowHeight)
             return projection.documentOffset(layout.hit(ctx, row,
                 x - viewport.x))
         }
         if (let Some(native) <- nativeDocument(ctx)) {
-            let row = Int64(max(0.0, y - viewport.y + scrollStateValue.value) / CUI_SMALL_H)
+            let row = Int64(max(0.0, y - viewport.y + scrollStateValue.value) / activeTypography.rowHeight)
             return projection.documentOffset(native.hit(ctx, row,
                 x - viewport.x + horizontalScrollStateValue.value, boundaryCache))
         }
         let offset = textAreaCursorForPoint(ctx, frame, TextAreaContent(projection.text,
             projection.cursor(cursorStateValue.value), scrollStateValue.value,
-            horizontalScroll: horizontalScrollStateValue.value), Point(x, y))
+            horizontalScroll: horizontalScrollStateValue.value), Point(x, y), typography: activeTypography)
         projection.documentOffset(offset)
     }
 
@@ -938,7 +962,8 @@ private func drawTextAreaBox(
     native: ?TextAreaNativeDocument,
     affinity: TextBoundaryCache,
     editable: Bool,
-    wrapped: ?TextAreaWrapLayout
+    wrapped: ?TextAreaWrapLayout,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
     match (chrome) {
         case TextAreaChrome.Field => drawTextBoxChrome(ctx, frame, id)
@@ -954,27 +979,27 @@ private func drawTextAreaBox(
             document.draw(ctx, viewport, content, id, selStart, selEnd, composition, affinity,
                 editable: editable)
         } else {
-            drawTextAreaDecorationBackgrounds(ctx, viewport, content, decorations)
+            drawTextAreaDecorationBackgrounds(ctx, viewport, content, decorations, typography: typography)
             if (focused) {
-                drawTextAreaSelection(ctx, viewport, content, selStart, selEnd)
+                drawTextAreaSelection(ctx, viewport, content, selStart, selEnd, typography: typography)
             }
             match (wrapMode) {
                 case TextAreaWrapMode.NoWrap =>
                     if (decorations.isEmpty()) {
-                        drawLines(ctx, viewport, lines, content.scroll, content.horizontalScroll)
+                        drawLines(ctx, viewport, lines, content.scroll, content.horizontalScroll, typography: typography)
                     } else {
-                        drawDecoratedLines(ctx, viewport, content, decorations)
+                        drawDecoratedLines(ctx, viewport, content, decorations, typography: typography)
                     }
                 case TextAreaWrapMode.SoftWrap => ()
             }
-            drawTextAreaCursor(ctx, viewport, id, content, editable: editable)
-            drawTextAreaComposition(ctx, viewport, id, content, composition)
+            drawTextAreaCursor(ctx, viewport, id, content, editable: editable, typography: typography)
+            drawTextAreaComposition(ctx, viewport, id, content, composition, typography: typography)
         }
     } finally { ctx.renderer.popClip() }
     if (showVerticalScrollBar) {
         let contentHeight = match (wrapped) {
-            case Some(layout) => Float32(layout.lines.size) * CUI_SMALL_H
-            case None => textContentHeight(lines)
+            case Some(layout) => Float32(layout.lines.size) * typography.rowHeight
+            case None => textContentHeight(lines, typography: typography)
         }
         drawVerticalScrollBar(ctx, frame, content.scroll, contentHeight, viewport.h, active: barActive)
     }
@@ -989,7 +1014,8 @@ private func drawTextAreaComposition(
     viewport: Rect,
     id: String,
     content: TextAreaContent,
-    composition: TextAreaDisplayProjection
+    composition: TextAreaDisplayProjection,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
     if (!ctx.hasFocus(id) || !composition.active) {
         return
@@ -998,12 +1024,15 @@ private func drawTextAreaComposition(
     let line = textCursorLineIndex(content.text, start)
     let lineStart = lineStartBeforeOrAt(content.text, start)
     let x = viewport.x - content.horizontalScroll +
-        ctx.renderer.textWidth(content.text[lineStart..start], pointSize: FontSizes.BODY)
-    let y = viewport.y + Float32(line) * CUI_SMALL_H - content.scroll
+        ctx.renderer.textWidth(content.text[lineStart..start], pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)
+    let y = viewport.y + Float32(line) * typography.rowHeight - content.scroll
     let width = ctx.renderer.textWidth(content.text[lineStart..composition.preeditEnd],
-        pointSize: FontSizes.BODY) - ctx.renderer.textWidth(content.text[lineStart..start],
-        pointSize: FontSizes.BODY)
-    let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
+        pointSize: typography.pointSize,
+            style: typography.style, font: typography.font) - ctx.renderer.textWidth(content.text[lineStart..start],
+        pointSize: typography.pointSize, style: typography.style, font: typography.font)
+    let lineHeight = min(ctx.renderer.textHeight(pointSize: typography.pointSize,
+        style: typography.style, font: typography.font), typography.rowHeight)
     if (y + lineHeight < viewport.y || y > viewport.bottom() || x > viewport.right()) {
         return
     }
@@ -1020,17 +1049,19 @@ private func drawTextAreaDecorationBackgrounds(
     ctx: UiContext,
     viewport: Rect,
     content: TextAreaContent,
-    decorations: Array<TextAreaDecorationRun>
+    decorations: Array<TextAreaDecorationRun>,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
-    let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
+    let lineHeight = min(ctx.renderer.textHeight(pointSize: typography.pointSize,
+        style: typography.style, font: typography.font), typography.rowHeight)
     for (run in decorations) {
         match (run.style.background) {
             case Some(color) =>
                 let x = textAreaDecorationX(ctx, viewport, content.text, run.lineStart, run.startByte,
-                    content.horizontalScroll)
+                    content.horizontalScroll, typography: typography)
                 let width = ctx.renderer.textWidth(content.text[run.startByte..run.endByte],
-                    pointSize: FontSizes.BODY)
-                let y = viewport.y + Float32(run.lineIndex) * CUI_SMALL_H - content.scroll
+                    pointSize: typography.pointSize, style: typography.style, font: typography.font)
+                let y = viewport.y + Float32(run.lineIndex) * typography.rowHeight - content.scroll
                 if (width > 0.0) {
                     ctx.renderer.fill(Rect(x, y, width, lineHeight), color)
                 }
@@ -1043,11 +1074,12 @@ private func drawDecoratedLines(
     ctx: UiContext,
     viewport: Rect,
     content: TextAreaContent,
-    decorations: Array<TextAreaDecorationRun>
+    decorations: Array<TextAreaDecorationRun>,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
-    var lineIndex = scrollLineIndex(content.scroll)
+    var lineIndex = Int64(max(0.0, content.scroll) / typography.rowHeight)
     var lineStart = startOfTextLine(content.text, lineIndex)
-    var y = viewport.y - scrollLineRemainder(content.scroll)
+    var y = viewport.y - (content.scroll - Float32(Int64(max(0.0, content.scroll) / typography.rowHeight)) * typography.rowHeight)
     var runIndex: Int64 = 0
     while (lineStart <= content.text.size && y < viewport.bottom()) {
         let lineEnd = lineEndAfterOrAt(content.text, lineStart)
@@ -1060,20 +1092,20 @@ private func drawDecoratedLines(
             let run = decorations[currentRun]
             if (cursor < run.startByte) {
                 drawTextAreaSlice(ctx, viewport, content.text, lineStart, cursor, run.startByte, y,
-                    ctx.theme.text, None, TextAreaUnderlineShape.Straight, content.horizontalScroll)
+                    ctx.theme.text, None, TextAreaUnderlineShape.Straight, content.horizontalScroll, typography: typography)
             }
             let foreground = match (run.style.foreground) {
                 case Some(color) => color
                 case None => ctx.theme.text
             }
             drawTextAreaSlice(ctx, viewport, content.text, lineStart, run.startByte, run.endByte, y,
-                foreground, run.style.underline, run.style.underlineShape, content.horizontalScroll)
+                foreground, run.style.underline, run.style.underlineShape, content.horizontalScroll, typography: typography)
             cursor = run.endByte
             currentRun += 1
         }
         if (cursor < lineEnd || lineStart == lineEnd) {
             drawTextAreaSlice(ctx, viewport, content.text, lineStart, cursor, lineEnd, y,
-                ctx.theme.text, None, TextAreaUnderlineShape.Straight, content.horizontalScroll)
+                ctx.theme.text, None, TextAreaUnderlineShape.Straight, content.horizontalScroll, typography: typography)
         }
         runIndex = currentRun
         if (lineEnd >= content.text.size) {
@@ -1081,7 +1113,7 @@ private func drawDecoratedLines(
         }
         lineStart = nextTextBoundary(content.text, lineEnd)
         lineIndex += 1
-        y += CUI_SMALL_H
+        y += typography.rowHeight
     }
 }
 
@@ -1096,16 +1128,20 @@ internal func drawTextAreaSlice(
     foreground: Color,
     underline: ?Color,
     underlineShape: TextAreaUnderlineShape,
-    horizontalScroll: Float32
+    horizontalScroll: Float32,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
     let value = text[start..end]
-    let x = textAreaDecorationX(ctx, viewport, text, lineStart, start, horizontalScroll)
-    ctx.renderer.text(value, x, y, foreground, pointSize: FontSizes.BODY)
+    let x = textAreaDecorationX(ctx, viewport, text, lineStart, start, horizontalScroll, typography: typography)
+    ctx.renderer.text(value, x, y, foreground, pointSize: typography.pointSize,
+        style: typography.style, font: typography.font)
     match (underline) {
         case Some(color) =>
-            let width = ctx.renderer.textWidth(value, pointSize: FontSizes.BODY)
+            let width = ctx.renderer.textWidth(value, pointSize: typography.pointSize,
+                style: typography.style, font: typography.font)
             if (width > 0.0) {
-                let lineHeight = min(ctx.renderer.textHeight(pointSize: FontSizes.BODY), CUI_SMALL_H)
+                let lineHeight = min(ctx.renderer.textHeight(pointSize: typography.pointSize,
+                    style: typography.style, font: typography.font), typography.rowHeight)
                 drawTextAreaUnderline(ctx, x, y + lineHeight - 1.0, width, color, underlineShape)
             }
         case None => ()
@@ -1154,10 +1190,12 @@ private func textAreaDecorationX(
     text: String,
     lineStart: Int64,
     offset: Int64,
-    horizontalScroll: Float32
+    horizontalScroll: Float32,
+    typography!: TextAreaTypography = TextAreaTypography()
 ): Float32 {
     viewport.x - horizontalScroll +
-        ctx.renderer.textWidth(text[lineStart..offset], pointSize: FontSizes.BODY)
+        ctx.renderer.textWidth(text[lineStart..offset], pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)
 }
 
 internal func drawTextBoxChrome(ctx: UiContext, frame: Rect, id: String): Unit {
@@ -1165,18 +1203,19 @@ internal func drawTextBoxChrome(ctx: UiContext, frame: Rect, id: String): Unit {
 }
 
 private func drawLines(ctx: UiContext, rect: Rect, lines: Array<String>, scroll: Float32,
-    horizontalScroll: Float32): Unit {
-    var i = scrollLineIndex(scroll)
-    var y = rect.y - scrollLineRemainder(scroll)
+    horizontalScroll: Float32, typography!: TextAreaTypography = TextAreaTypography()): Unit {
+    var i = Int64(max(0.0, scroll) / typography.rowHeight)
+    var y = rect.y - (scroll - Float32(Int64(max(0.0, scroll) / typography.rowHeight)) * typography.rowHeight)
     while (i < lines.size && y < rect.bottom()) {
-        ctx.renderer.text(lines[i], rect.x - horizontalScroll, y, ctx.theme.text, pointSize: FontSizes.BODY)
-        y += CUI_SMALL_H
+        ctx.renderer.text(lines[i], rect.x - horizontalScroll, y, ctx.theme.text, pointSize: typography.pointSize,
+            style: typography.style, font: typography.font)
+        y += typography.rowHeight
         i += 1
     }
 }
 
-private func textContentHeight(lines: Array<String>): Float32 {
-    Float32(lines.size) * CUI_SMALL_H
+private func textContentHeight(lines: Array<String>, typography!: TextAreaTypography = TextAreaTypography()): Float32 {
+    Float32(lines.size) * typography.rowHeight
 }
 
 private func textViewport(frame: Rect): Rect {

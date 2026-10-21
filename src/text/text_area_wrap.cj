@@ -1,7 +1,7 @@
 package chui.text
 
-import chui.core.{GraphemeIndex, UiContext, CUI_SMALL_H}
-import sdl.{FontSizes, Rect}
+import chui.core.{GraphemeIndex, UiContext}
+import sdl.{Rect}
 import std.collection.ArrayList
 
 /** One measured visual row produced by TextArea soft wrapping. */
@@ -28,11 +28,14 @@ public struct TextAreaVisualLine {
 }
 
 internal class TextAreaWrapLayout {
+    let typography: TextAreaTypography
     let text: String
     let width: Float32
     let lines: Array<TextAreaVisualLine>
 
-    init(ctx: UiContext, text: String, width: Float32) {
+    init(ctx: UiContext, text: String, width: Float32,
+        typography!: TextAreaTypography = TextAreaTypography()) {
+        this.typography = typography
         this.text = text
         this.width = max(Float32(1.0), width)
         let built = ArrayList<TextAreaVisualLine>()
@@ -54,12 +57,12 @@ internal class TextAreaWrapLayout {
                 while (cursor < contentEnd) {
                     let next = min(contentEnd, boundaries.next(cursor))
                     let candidate = text[segmentStart..next]
-                    let candidateWidth = ctx.renderer.textWidth(candidate, pointSize: FontSizes.BODY)
+                    let candidateWidth = ctx.renderer.textWidth(candidate, pointSize: typography.pointSize, style: typography.style, font: typography.font)
                     if (cursor > segmentStart && candidateWidth > this.width) {
                         let value = text[segmentStart..cursor]
                         built.add(TextAreaVisualLine(logicalLine: logicalLine, startByte: segmentStart,
                             endByte: cursor,
-                            width: ctx.renderer.textWidth(value, pointSize: FontSizes.BODY),
+                            width: ctx.renderer.textWidth(value, pointSize: typography.pointSize, style: typography.style, font: typography.font),
                             hardBreak: false))
                         segmentStart = cursor
                     } else {
@@ -69,7 +72,7 @@ internal class TextAreaWrapLayout {
                 let value = text[segmentStart..contentEnd]
                 built.add(TextAreaVisualLine(logicalLine: logicalLine, startByte: segmentStart,
                     endByte: contentEnd,
-                    width: ctx.renderer.textWidth(value, pointSize: FontSizes.BODY),
+                    width: ctx.renderer.textWidth(value, pointSize: typography.pointSize, style: typography.style, font: typography.font),
                     hardBreak: logicalEnd < text.size))
             }
             if (logicalEnd >= text.size) { break }
@@ -96,7 +99,7 @@ internal class TextAreaWrapLayout {
         if (lines.isEmpty()) { return 0.0 }
         let line = lines[min(max(row, Int64(0)), lines.size - 1)]
         let end = min(max(offset, line.startByte), line.endByte)
-        ctx.renderer.textWidth(text[line.startByte..end], pointSize: FontSizes.BODY)
+        ctx.renderer.textWidth(text[line.startByte..end], pointSize: typography.pointSize, style: typography.style, font: typography.font)
     }
 
     func hit(ctx: UiContext, row: Int64, x: Float32): Int64 {
@@ -109,7 +112,7 @@ internal class TextAreaWrapLayout {
         var ordinal: Int64 = 1
         while (ordinal <= index.count) {
             let next = line.startByte + index.boundary(ordinal)
-            let nextWidth = ctx.renderer.textWidth(text[line.startByte..next], pointSize: FontSizes.BODY)
+            let nextWidth = ctx.renderer.textWidth(text[line.startByte..next], pointSize: typography.pointSize, style: typography.style, font: typography.font)
             if (x < (previous + nextWidth) / 2.0) {
                 return current
             }
@@ -135,18 +138,19 @@ internal func drawWrappedTextArea(
     focused: Bool,
     editable: Bool
 ): Unit {
-    let first = max(Int64(0), Int64(scroll / CUI_SMALL_H))
-    let last = min(layout.lines.size, first + Int64(viewport.h / CUI_SMALL_H) + 2)
+    let typography = layout.typography
+    let first = max(Int64(0), Int64(scroll / typography.rowHeight))
+    let last = min(layout.lines.size, first + Int64(viewport.h / typography.rowHeight) + 2)
     for (row in first..last) {
         let line = layout.lines[row]
-        let y = viewport.y + Float32(row) * CUI_SMALL_H - scroll
+        let y = viewport.y + Float32(row) * typography.rowHeight - scroll
         if (focused && selectionStart < selectionEnd) {
             let left = max(selectionStart, line.startByte)
             let right = min(selectionEnd, line.endByte)
             if (left < right) {
-                let x = viewport.x + ctx.renderer.textWidth(text[line.startByte..left], pointSize: FontSizes.BODY)
-                let endX = viewport.x + ctx.renderer.textWidth(text[line.startByte..right], pointSize: FontSizes.BODY)
-                ctx.renderer.fill(Rect(x, y, endX - x, CUI_SMALL_H), ctx.theme.accent.withAlpha(115))
+                let x = viewport.x + ctx.renderer.textWidth(text[line.startByte..left], pointSize: typography.pointSize, style: typography.style, font: typography.font)
+                let endX = viewport.x + ctx.renderer.textWidth(text[line.startByte..right], pointSize: typography.pointSize, style: typography.style, font: typography.font)
+                ctx.renderer.fill(Rect(x, y, endX - x, typography.rowHeight), ctx.theme.accent.withAlpha(115))
             }
         }
         var current = line.startByte
@@ -156,8 +160,8 @@ internal func drawWrappedTextArea(
             let b = min(line.endByte, run.endByte)
             if (current < a) {
                 ctx.renderer.text(text[current..a], viewport.x +
-                    ctx.renderer.textWidth(text[line.startByte..current], pointSize: FontSizes.BODY), y,
-                    ctx.theme.text, pointSize: FontSizes.BODY)
+                    ctx.renderer.textWidth(text[line.startByte..current], pointSize: typography.pointSize, style: typography.style, font: typography.font), y,
+                    ctx.theme.text, pointSize: typography.pointSize, style: typography.style, font: typography.font)
             }
             let foreground = match (run.style.foreground) {
                 case Some(color) => color
@@ -165,27 +169,27 @@ internal func drawWrappedTextArea(
             }
             match (run.style.background) {
                 case Some(color) =>
-                    let x = viewport.x + ctx.renderer.textWidth(text[line.startByte..a], pointSize: FontSizes.BODY)
-                    let width = ctx.renderer.textWidth(text[a..b], pointSize: FontSizes.BODY)
-                    if (width > 0.0) { ctx.renderer.fill(Rect(x, y, width, CUI_SMALL_H), color) }
+                    let x = viewport.x + ctx.renderer.textWidth(text[line.startByte..a], pointSize: typography.pointSize, style: typography.style, font: typography.font)
+                    let width = ctx.renderer.textWidth(text[a..b], pointSize: typography.pointSize, style: typography.style, font: typography.font)
+                    if (width > 0.0) { ctx.renderer.fill(Rect(x, y, width, typography.rowHeight), color) }
                 case None => ()
             }
             drawTextAreaSlice(ctx, viewport, text, line.startByte, a, b, y, foreground,
-                run.style.underline, run.style.underlineShape, 0.0)
+                run.style.underline, run.style.underlineShape, 0.0, typography: typography)
             current = b
         }
         if (current < line.endByte || line.startByte == line.endByte) {
             ctx.renderer.text(text[current..line.endByte], viewport.x +
-                ctx.renderer.textWidth(text[line.startByte..current], pointSize: FontSizes.BODY), y,
-                ctx.theme.text, pointSize: FontSizes.BODY)
+                ctx.renderer.textWidth(text[line.startByte..current], pointSize: typography.pointSize, style: typography.style, font: typography.font), y,
+                ctx.theme.text, pointSize: typography.pointSize, style: typography.style, font: typography.font)
         }
         if (focused && composition.active) {
             let a = max(line.startByte, composition.preeditStart)
             let b = min(line.endByte, composition.preeditEnd)
             if (a < b) {
-                let x = viewport.x + ctx.renderer.textWidth(text[line.startByte..a], pointSize: FontSizes.BODY)
-                let width = ctx.renderer.textWidth(text[a..b], pointSize: FontSizes.BODY)
-                drawTextAreaUnderline(ctx, x, y + CUI_SMALL_H - 1.0, width,
+                let x = viewport.x + ctx.renderer.textWidth(text[line.startByte..a], pointSize: typography.pointSize, style: typography.style, font: typography.font)
+                let width = ctx.renderer.textWidth(text[a..b], pointSize: typography.pointSize, style: typography.style, font: typography.font)
+                drawTextAreaUnderline(ctx, x, y + typography.rowHeight - 1.0, width,
                     ctx.theme.accent, TextAreaUnderlineShape.Straight)
             }
         }
@@ -194,8 +198,8 @@ internal func drawWrappedTextArea(
         ctx.requestFrame()
         let row = layout.rowForOffset(cursor)
         let x = viewport.x + layout.caretX(ctx, row, cursor)
-        let y = viewport.y + Float32(row) * CUI_SMALL_H - scroll
-        let caret = textAreaCaretRect(ctx, x, y)
+        let y = viewport.y + Float32(row) * typography.rowHeight - scroll
+        let caret = textAreaCaretRect(ctx, x, y, typography: typography)
         if (caret.right() >= viewport.x && caret.x <= viewport.right() &&
             caret.bottom() >= viewport.y && caret.y <= viewport.bottom()) {
             if (editable) { ctx.setTextInputAnchor(caret) }

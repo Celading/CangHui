@@ -186,9 +186,7 @@ and style in the application's own cache key as well.
 
 This is not complete native-editor certification. SDL composition events already
 reach the controls, and the desktop host forwards the caret area to SDL. Real
-system-IME/candidate-window testing and screen-reader integration still need work. Soft wrap,
-full typography inheritance and incremental long-document edit performance remain
-open. The multi-window host does not yet expose this startup setting.
+system-IME/candidate-window testing and screen-reader integration still need work. TextArea consumes inherited family, size and the existing Boolean style fields, with an explicit minimum row pitch through `lineHeight(Length)`. Soft wrap retains the prefix-width fallback and does not provide complete bidi shaping. Incremental long-document edit performance remains open. The multi-window host does not yet expose this startup setting.
 Headless probe rectangles do not verify native glyphs; use `cuic prnt` for pixels.
 
 On Cangjie 1.1.3 / macOS arm64, native pixel tests exposed a GC unwind failure
@@ -244,3 +242,10 @@ emoji strike scaling on the default SDL path, and cross-style glyph shaping stil
 require separate backend work and target-platform tests. Prefer keeping a complex cluster in one span and
 selecting a face that covers the complete cluster. Grapheme-safe editing and line
 breaking are described separately in [text boundaries](text-boundaries.md).
+
+
+## Editor typography and support limits
+
+TextArea inherits family, point size and the existing FontStyle fields across drawing and editing geometry. `TextArea(...).lineHeight(52.vp).fontSize(32.fp)` uses a minimum row pitch of52 logical pixels, expanded when the selected base font is taller. The default minimum remains28. Set lineHeight before modifiers returning Widget. A row pitch is distinct from glyph/caret height.
+
+Native regular/bold no-wrap lines share their retained native layout; unsupported native styles use the SDL geometry and paint path together. Soft-wrap fallback still measures prefixes and decorated slices; it is not complete contextual-shaping or bidi certification. Numeric font weight and width/stretch axes are not exposed by FontStyle: Boolean bold does not mean arbitrary variable-font axes are supported. System color emoji and fallback coverage require target-platform pixel tests.
