@@ -1,7 +1,7 @@
 package chui.core
 
 import std.collection.ArrayList
-import sdl.{Color, Fonts, FontSizes, FontStyle, Rect, Size, UiEvent}
+import sdl.{Color, FontSizes, FontStyle, Rect, Size, UiEvent}
 
 private let LABEL_LINE_GAP: Float32 = 2.0
 
@@ -33,6 +33,8 @@ public class Label <: Widget {
     private var cachedLinesFontKey: String = ""
     // The widest wrapped line, cached with the lines it derives from so a warm multi-line measure
     // re-measures nothing instead of re-scanning every line each measure pass.
+    private var cachedLinesEnvironment = ""
+    private var cachedTextWidthEnvironment = ""
     private var cachedLinesWidest: Float32 = 0.0
     private var cachedTextWidth: Float32 = -1.0
     private var cachedTextWidthPointSize: Float32 = -1.0
@@ -222,7 +224,7 @@ public class Label <: Widget {
             point.toString() + "|" + style.ttfFlags().toString() + "|" +
             fontKey.toArray().size.toString() + ":" + fontKey + "|" +
             lineLimit.toString() + "|" + lineGap.toString() + "|" +
-            Fonts.generation().toString()
+            ctx.renderer.textLayoutEnvironmentKey(font: font)
     }
 
     public func layout(_: UiContext, rect: Rect): Unit {
@@ -364,12 +366,14 @@ public class Label <: Widget {
     private func singleLineWidth(ctx: UiContext, ps: Float32, style: FontStyle, font: ?String): Float32 {
         let styleFlags = style.ttfFlags()
         let fontKey = typographyFontKey(font)
+        let environment = ctx.renderer.textLayoutEnvironmentKey(font: font)
         if (cachedTextWidthPointSize != ps || cachedTextWidthStyleFlags != styleFlags ||
-            cachedTextWidthFontKey != fontKey) {
+            cachedTextWidthFontKey != fontKey || cachedTextWidthEnvironment != environment) {
             cachedTextWidth = ctx.renderer.textWidth(text, pointSize: ps, style: style, font: font)
             cachedTextWidthPointSize = ps
             cachedTextWidthStyleFlags = styleFlags
             cachedTextWidthFontKey = fontKey
+            cachedTextWidthEnvironment = environment
         }
         cachedTextWidth
     }
@@ -378,9 +382,11 @@ public class Label <: Widget {
         font: ?String): Array<String> {
         let styleFlags = style.ttfFlags()
         let fontKey = typographyFontKey(font)
+        let environment = ctx.renderer.textLayoutEnvironmentKey(font: font)
         match (cachedLines) {
             case Some(lines) where cachedLinesWidth == width && cachedLinesPointSize == ps &&
-                cachedLinesStyleFlags == styleFlags && cachedLinesFontKey == fontKey => lines
+                cachedLinesStyleFlags == styleFlags && cachedLinesFontKey == fontKey &&
+                cachedLinesEnvironment == environment => lines
             case _ =>
                 let lines = wrapText(ctx, text, width, ps, lineLimit, style: style, font: font)
                 var widest: Float32 = 0.0
@@ -392,6 +398,7 @@ public class Label <: Widget {
                 cachedLinesPointSize = ps
                 cachedLinesStyleFlags = styleFlags
                 cachedLinesFontKey = fontKey
+                cachedLinesEnvironment = environment
                 cachedLinesWidest = widest
                 lines
         }

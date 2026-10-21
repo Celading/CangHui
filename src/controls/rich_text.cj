@@ -52,6 +52,7 @@ public class RichText <: Widget {
     private var cachedWidthKey: Float32 = -1.0
     private var cachedPointSize: Float32 = -1.0
     private var cachedBaseStyleFlags: Int32 = -1
+    private var cachedFontEnvironment = ""
     private var cachedBaseFontKey: String = ""
     // A 1vp probe folded into the cache key: per-span sizes resolve through the vp scale, which can
     // change (a DPI move) while the fp-resolved base size stays equal, so ps alone under-keys them.
@@ -332,9 +333,18 @@ public class RichText <: Widget {
         let vpProbe = ctx.resolve(Length(1.0, LengthUnit.Vp))
         let baseStyleFlags = baseStyle.ttfFlags()
         let baseFontKey = richTypographyFontKey(baseFont)
+        let environment = StringBuilder()
+        let baseEnvironment = ctx.renderer.textLayoutEnvironmentKey(font: baseFont)
+        environment.append("${baseEnvironment.size}:${baseEnvironment}")
+        for (span in spans) {
+            let value = ctx.renderer.textLayoutEnvironmentKey(font: span.resolvedFontFamily(baseFont))
+            environment.append("|${value.size}:${value}")
+        }
+        let fontEnvironment = environment.toString()
         match (cached) {
             case Some(layout) where cachedPointSize == ps && cachedVpProbe == vpProbe &&
                 cachedBaseStyleFlags == baseStyleFlags && cachedBaseFontKey == baseFontKey &&
+                cachedFontEnvironment == fontEnvironment &&
                 (cachedWidthKey == width || (layout.lines <= 1 && layout.width <= width)) => layout
             case _ =>
                 let sizes = resolveSpanSizes(ctx, ps)
@@ -358,6 +368,7 @@ public class RichText <: Widget {
                 cachedVpProbe = vpProbe
                 cachedBaseStyleFlags = baseStyleFlags
                 cachedBaseFontKey = baseFontKey
+                cachedFontEnvironment = fontEnvironment
                 layout
         }
     }

@@ -249,3 +249,6 @@ breaking are described separately in [text boundaries](text-boundaries.md).
 TextArea inherits family, point size and the existing FontStyle fields across drawing and editing geometry. `TextArea(...).lineHeight(52.vp).fontSize(32.fp)` uses a minimum row pitch of52 logical pixels, expanded when the selected base font is taller. The default minimum remains28. Set lineHeight before modifiers returning Widget. A row pitch is distinct from glyph/caret height.
 
 Native regular/bold no-wrap lines share their retained native layout; unsupported native styles use the SDL geometry and paint path together. Soft-wrap fallback still measures prefixes and decorated slices; it is not complete contextual-shaping or bidi certification. Numeric font weight and width/stretch axes are not exposed by FontStyle: Boolean bold does not mean arbitrary variable-font axes are supported. System color emoji and fallback coverage require target-platform pixel tests.
+
+
+Label and RichText invalidate measured widths and wrapping when the resolved font chain, registration generation, text backend, measurement class or raster scale changes. RichText includes each explicit span family. Re-registering one family name with a different file updates existing widgets; unchanged environments retain warm layouts.

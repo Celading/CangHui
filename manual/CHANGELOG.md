@@ -12,6 +12,8 @@
 
 ## Unreleased
 
+- 修复 Label / RichText 在同名字体重新注册或渲染环境变化后仍复用旧宽度与换行的问题。
+
 - TextArea 继承字体族、字号与样式，测量、绘制、换行、命中、选区和输入法锚点共用字体参数。
 - 新增 TextArea.lineHeight(Length) 最小行距；大字号扩大行格，字体变化更新滚动与布局缓存。
 
