@@ -19,6 +19,7 @@ CangHui（仓绘）是 Cangjie 多平台声明式 GUI 框架，公开包名与�
 
 ## 手册地图
 
+- [视觉动效与可选 Kit](reference/motion-studies.md)及 [Motion Studio](../examples/motion-lab/README.md)。
 - [属性驱动动画](guide/how-to/animate-properties.md)与 [CangHuiKit 设计套件](reference/canghui-kit.md)。
 - [自适应滚动](guide/how-to/adaptive-scrolling.md)：横向内容、纵向按需溢出与嵌套输入。
 - [快速开始](getting-started/index.md)：依赖消费与 Agent 首次作业顺序。

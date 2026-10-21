@@ -619,6 +619,7 @@ public import chui.probe.registerProbeEndpoint
 public import chui.probe.renderProbeEndpointList
 public import chui.probe.runProbeEndpoint
 public import chui.media.CanvasWidget
+public import chui.core.MotionValue
 public import chui.media.ExternalFrameSnapshot
 public import chui.media.ExternalFramePlane
 public import chui.graphics.CANGHUI_GRAPHICS_PROTOCOL

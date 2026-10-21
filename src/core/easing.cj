@@ -29,6 +29,7 @@ public enum Easing {
     | EaseOutSine
     | EaseInOutSine
     | EaseOutBack
+    | EaseOutBounce
     | CubicBezier(Float32, Float32, Float32, Float32)
 
     /** Maps progress `t` (clamped to `[0, 1]`) to eased progress. */
@@ -63,6 +64,7 @@ public enum Easing {
                 let c3 = BACK_C1 + 1.0
                 let p = x - 1.0
                 1.0 + c3 * p * p * p + BACK_C1 * p * p
+            case EaseOutBounce => bounceOut(x)
             case CubicBezier(x1, y1, x2, y2) => cubicBezierEase(x, x1, y1, x2, y2)
         }
     }
@@ -82,9 +84,18 @@ public func easingName(value: Easing): String {
         case Easing.EaseOutSine => "ease-out-sine"
         case Easing.EaseInOutSine => "ease-in-out-sine"
         case Easing.EaseOutBack => "ease-out-back"
+        case Easing.EaseOutBounce => "ease-out-bounce"
         case Easing.CubicBezier(x1, y1, x2, y2) => "cubic-bezier(" + x1.toString() + "," +
             y1.toString() + "," + x2.toString() + "," + y2.toString() + ")"
     }
+}
+
+private func bounceOut(t: Float32): Float32 {
+    if (t < 1.0 / 2.75) { return 7.5625 * t * t }
+    if (t < 2.0 / 2.75) { let x = t - 1.5 / 2.75; return 7.5625 * x * x + 0.75 }
+    if (t < 2.5 / 2.75) { let x = t - 2.25 / 2.75; return 7.5625 * x * x + 0.9375 }
+    let x = t - 2.625 / 2.75
+    7.5625 * x * x + 0.984375
 }
 
 private func trigCos(radians: Float32): Float32 {

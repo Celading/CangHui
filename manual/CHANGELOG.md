@@ -12,6 +12,12 @@
 
 ## Unreleased
 
+- 新增公开 MotionValue、EaseOutBounce 与透明的上下文 Canvas；绘制异常恢复 Canvas 裁剪。
+  Add a retained interruptible scalar, bounce easing and contextual transparent Canvas drawing.
+- 可选 Kit 增加回弹、精确滚动数字与终端扫描、被动焦点柔光、错峰编排和细线档案五类配方，
+  配套亮暗色与减少动效的 Motion Studio。见 [视觉动效](reference/motion-studies.md)。
+
+
 - 修复 Label / RichText 在同名字体重新注册或渲染环境变化后仍复用旧宽度与换行的问题。
 
 - TextArea 继承字体族、字号与样式，测量、绘制、换行、命中、选区和输入法锚点共用字体参数。

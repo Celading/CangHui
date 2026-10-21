@@ -14,6 +14,7 @@ UI 核心包：提供 [`Widget`](Widget.md) 接口和链式修饰器、栈/网�
 
 | 类型 | 说明 |
 |---|---|
+| [`MotionValue`](MotionValue.md) | 同帧去重、可中断、遵循减少动效的保留数值轨道。 |
 | [`Animator`](Animator.md) | 按固定时长与 [`Easing`](Easing.md) 曲线把数值从当前位置补间到目标的动画器——CSS transition 与 SwiftUI/Compose `.animation(...)` 背后的模型。 |
 | [`Binding`](Binding.md) | 指向另一个可绑定值中某个字段的双向绑定，用 Bindable.project 创建。 |
 | [`Button`](Button.md) | 带主题表面的按压按钮，既可使用居中标题，也可承载任意装饰性内容 slot。 |

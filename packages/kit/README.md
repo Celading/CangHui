@@ -19,3 +19,13 @@ content and long translations; never force the page into a fixed text height.
 
 This version is common-source and macOS SDL verified; it does not certify every
 native host. No third-party art or platform-private material is included.
+
+## Motion recipes
+
+Five visual families add bounce, terminal scans and exact rolling numbers, passive
+focus lighting, staggered choreography and fine-rule archive studies. Ten light/dark
+palettes and a reusable cascade wrapper keep application interaction owners intact.
+See [motion recipes](../../manual/reference/motion-studies.md) and
+[Motion Studio](../../examples/motion-lab/README.md). These recipes require the current
+framework's public MotionValue and contextual Canvas APIs. Reduced motion snaps to
+final values. They add no native dependencies or third-party assets.

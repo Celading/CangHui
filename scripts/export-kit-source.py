@@ -44,6 +44,15 @@ def export(kit, framework, output, source=ROOT):
     version = dependency["version"].split(".")
     if len(version) != 3 or not all(x.isdecimal() for x in version) or tuple(map(int, version)) < (0, 17, 0):
         raise ValueError("these recipes require chui >= 0.17.0; verify the selected compiler/host separately")
+    required_surface = []
+    if kit == "kit":
+        required_surface = ["MotionValue", "CanvasWidget.onDrawContext"]
+        root_api = framework / "src/chui.cj"
+        canvas_api = framework / "src/media/canvas_widget.cj"
+        if (not root_api.is_file() or not canvas_api.is_file() or
+                "MotionValue" not in regular(root_api).decode() or
+                "onDrawContext!" not in regular(canvas_api).decode()):
+            raise ValueError("motion Kit requires current public MotionValue and CanvasWidget.onDrawContext APIs")
     entries = {name: regular(source / name) for name in NOTICES}
     entries["README.md"] = regular(package / "README.md")
     for path in sorted((package / "src").iterdir()):
@@ -75,7 +84,7 @@ def export(kit, framework, output, source=ROOT):
         "schema": "canghui.owned-kit-source.v1", "package": metadata["name"],
         "version": metadata["version"], "sourceRevision": commit, "sourceDirty": dirty,
         "license": metadata["license"], "minimumChui": "0.17.0", "selectedChuiVersion": dependency["version"], "resources": [],
-        "nativeDependencies": [], "dependencies": ["chui"],
+        "nativeDependencies": [], "dependencies": ["chui"], "requiredPublicSurface": required_surface,
         "compatibility": "common-source; compiler and native-host verification required",
         "updatePolicy": "new-directory-only; application owns merge",
         "sourceFiles": {p: hashlib.sha256(data).hexdigest() for p, data in entries.items()

@@ -98,3 +98,8 @@ public func ease(t: Float32): Float32
 
 - [`Animator`](Animator.md) — 按时长与缓动曲线补间的动画器。
 - [`Motion`](Motion.md) — 预置时长与曲线的设计令牌。
+
+## EaseOutBounce
+
+分段减幅回弹曲线，精确从 0 到 1，可交给 Animator、MotionValue 或属性动画。
+与 EaseOutBack 的过冲不同，它在落地后产生数次逐渐变小的反弹。

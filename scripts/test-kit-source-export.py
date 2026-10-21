@@ -29,6 +29,16 @@ class KitExportTest(unittest.TestCase):
                     self.assertEqual(hashlib.sha256((output / path).read_bytes()).hexdigest(), digest)
                 self.assertEqual(json.loads((output / "kit-source.json").read_text()), receipt)
 
+    def test_older_source_framework_without_motion_surface_is_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "old-framework"
+            root.mkdir()
+            (root / "cjpm.toml").write_text('[package]\nname="chui"\nversion="0.18.0"\n')
+            output = Path(folder) / "owned"
+            with self.assertRaisesRegex(ValueError, "motion Kit requires current public"):
+                module.export("kit", root, output)
+            self.assertFalse(output.exists())
+
     def test_repeat_export_never_overwrites_owned_edits(self):
         with tempfile.TemporaryDirectory() as folder:
             output = Path(folder) / "owned"

@@ -12,11 +12,25 @@ import chui.core.{UiContext, Widget, drawSurface, emit}
  */
 public class CanvasWidget <: Widget {
     private let onDraw: (Renderer, Rect) -> Unit
+    private var contextDraw: ?(UiContext, Rect) -> Unit = None
+    private var transparent = false
     private var eventHandler: (UiEvent, Rect) -> Bool
     private var frame = Rect.zero()
 
     public init(onDraw: (Renderer, Rect) -> Unit, onEvent!: (UiEvent, Rect) -> Bool = {_, _ => false}) {
         this.onDraw = onDraw
+        this.eventHandler = onEvent
+        emit(this)
+    }
+
+    /** Context-aware painter for retained motion, typography and passive overlays.
+     * The named parameter keeps the original Renderer callback unambiguous.
+     */
+    public init(onDrawContext!: (UiContext, Rect) -> Unit, transparent!: Bool = false,
+        onEvent!: (UiEvent, Rect) -> Bool = {_, _ => false}) {
+        this.onDraw = {_, _ => ()}
+        this.contextDraw = Some(onDrawContext)
+        this.transparent = transparent
         this.eventHandler = onEvent
         emit(this)
     }
@@ -36,10 +50,14 @@ public class CanvasWidget <: Widget {
     }
 
     public func draw(ctx: UiContext): Unit {
-        drawSurface(ctx, frame, ctx.theme.fieldSurface(false))
+        if (!transparent) { drawSurface(ctx, frame, ctx.theme.fieldSurface(false)) }
         ctx.renderer.pushClip(frame.inset(1.0))
-        onDraw(ctx.renderer, frame)
-        ctx.renderer.popClip()
+        try {
+            match (contextDraw) {
+                case Some(paint) => paint(ctx, frame)
+                case None => onDraw(ctx.renderer, frame)
+            }
+        } finally { ctx.renderer.popClip() }
     }
 
     public func handle(_: UiContext, event: UiEvent): Bool {

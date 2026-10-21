@@ -155,3 +155,22 @@ public func isFlexible(): Bool
 
 - [`ImageView`](ImageView.md) — 文件图像展示。
 - `Renderer`（sdl 模块） — 回调收到的二维绘制入口。
+
+## 上下文绘制与透明装饰层
+
+旧的 `(Renderer, Rect)` 构造继续可用。需要时钟、指针、主题、字体环境或请求下一帧时，使用具名入口：
+
+```cangjie
+public init(onDrawContext!: (UiContext, Rect) -> Unit,
+    transparent!: Bool = false,
+    onEvent!: (UiEvent, Rect) -> Bool = {_, _ => false})
+```
+
+`transparent: true` 跳过输入底色，保留相同的一像素内缩裁剪。
+回调仍接收绝对坐标，局部位置应减去 `rect.x/y`。
+默认不消费事件；装饰层不应另建焦点或点击 owner。
+两种绘制回调抛异常时均在 finally 中恢复 Canvas 自己推入的裁剪。
+回调自己推入的裁剪仍须自行成对弹出。
+
+可复用示例见 [MotionValue](../core/MotionValue.md) 与
+[视觉动效与可选 Kit](../../../reference/motion-studies.md)。
