@@ -71,3 +71,15 @@ Provider 目录必须通过校验，才能向生成的仓颉源码提供 import 
 - Draw IR 记录请求名与解析名、Provider、变体、字重、方向、镜像、无障碍标签和兜底状态。
 
 当前可选包只适配一小组经过检查的样例清单，不会把完整上游图标库全部打包。各包的 `UPSTREAM.md`、`symbols.catalog` 与许可证文件固定了清单使用的准确仓库版本和源码路径。
+
+## 树节点
+
+`TreeNode` 保留 `icon: ?IconName`，并新增可选的 `symbol: ?SymbolName`：
+
+```cangjie
+TreeNode("src", "src", symbol: SymbolName("open-folder", provider: "builtin"),
+    children: [TreeNode("main", "main.cj", icon: IconName.NewDocument)])
+```
+
+同时设置时 `symbol` 优先；未解析的 Symbol 使用共享内建缺失标记，不偷偷改用 `icon`。
+不设置 `symbol` 时仍走原图标绘制路径。前景色跟随明暗主题与选中状态；折叠的子节点不解析或绘制图标。

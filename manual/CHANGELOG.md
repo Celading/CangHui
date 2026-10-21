@@ -2,6 +2,14 @@
 
 本 changelog 只记录开发者可观察的公开变化。
 
+## Unreleased — Public API consumer compatibility
+
+- Complete root exports for measured TextArea rows, rich pointer normalization,
+  bounded input bridges, external frame providers, and Symbol painter callbacks.
+- Add optional `TreeNode.symbol` with explicit precedence and shared missing
+  fallback while preserving legacy `icon` construction and drawing.
+- Add an independently compiled public API consumer to local CI.
+
 ## Unreleased
 
 - 修复 TextArea 软换行光标占满整行、超出文字高度的问题：光标绘制与输入法候选锚点

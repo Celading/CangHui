@@ -43,7 +43,7 @@ main(): Unit {
 
 | 成员 | 说明 |
 |---|---|
-| [`init(id: String, label: String, children!: Array<TreeNode> = [], icon!: ?IconName = None)`](#init) | 以标识与标签构造节点，子节点与图标可选。 |
+| [`init(id: String, label: String, children!: Array<TreeNode> = [], icon!: ?IconName = None, symbol!: ?SymbolName = None)`](#init) | 以标识与标签构造节点，子节点与图标可选。 |
 
 **字段**
 
@@ -52,6 +52,7 @@ main(): Unit {
 | [`id`](#id) | 全树唯一的稳定标识，展开与选中以它为键。 |
 | [`label`](#label) | 行内显示的文本。 |
 | [`icon`](#icon) | 标签前的可选图标。 |
+| [`symbol`](#symbol) | 可选 Provider Symbol；设置时优先于 `icon`。 |
 | [`children`](#children) | 子节点数组，空数组即叶子。 |
 
 ## 构造函数
@@ -61,7 +62,7 @@ main(): Unit {
 以标识与标签构造节点，子节点与图标可选。
 
 ```cangjie
-public init(id: String, label: String, children!: Array<TreeNode> = [], icon!: ?IconName = None)
+public init(id: String, label: String, children!: Array<TreeNode> = [], icon!: ?IconName = None, symbol!: ?SymbolName = None)
 ```
 
 **参数**
@@ -70,6 +71,7 @@ public init(id: String, label: String, children!: Array<TreeNode> = [], icon!: ?
 - `label`: `String` — 行内显示的文本。
 - `children!`: `Array<TreeNode>` — 子节点，按数组顺序展示；默认 `[]` 即叶子节点。
 - `icon!`: `?IconName` — 标签前的图标（sdl `IconName`，语义权威：sdl 模块文档）；默认 `None` 不画图标。
+- `symbol!`: `?SymbolName` — 可选 Provider Symbol；默认 `None`，设置后优先于 `icon` 并使用共享缺失标记回退。
 
 ## 字段
 
@@ -91,7 +93,7 @@ public let label: String
 
 ### icon
 
-标签前的可选图标。`None` 时行内容直接从标签开始。
+标签前的可选旧式图标。仅在 `symbol` 为 `None` 时绘制；两者均为 `None` 时行内容直接从标签开始。
 
 ```cangjie
 public let icon: ?IconName
@@ -103,6 +105,18 @@ public let icon: ?IconName
 
 ```cangjie
 public let children: Array<TreeNode>
+```
+
+### symbol
+
+```cangjie
+public let symbol: ?SymbolName
+```
+
+默认 `None`，保留旧 `icon` 构造与字段。设置后使用共享 `Symbols` 解析器；若名称或 Provider 缺失，绘制内建缺失标记，不退回另一个旧式图标，也不抛出查找异常。
+
+```cangjie
+TreeNode("src", "src", symbol: SymbolName("open-folder", provider: "builtin"))
 ```
 
 ## 另请参阅

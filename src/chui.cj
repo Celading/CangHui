@@ -9,7 +9,8 @@ package chui
  *   - chui: the declarative GUI framework — core widgets, controls, text, media,
  *     and desktop application integration, arranged as focused child packages.
  *
- * Both layers are re-exported here so applications only need `import chui.*`.
+ * Application-facing types from both layers are re-exported here for `import chui.*`.
+ * Platform implementations and generated registration helpers remain in their owning packages.
  */
 public import sdl.Color
 public import sdl.CuiException
@@ -40,6 +41,16 @@ public import sdl.ImageFileFormat
 public import sdl.Insets
 public import sdl.Key
 public import sdl.MouseButton
+public import sdl.InputCoordinateSpace
+public import sdl.PointerDeviceKind
+public import sdl.PointerPhase
+public import sdl.InputTransform
+public import sdl.WindowMetrics
+public import sdl.PointerEvent
+public import sdl.PointerNormalizationDisposition
+public import sdl.PointerNormalizationReceipt
+public import sdl.normalizePointerEvent
+public import sdl.pointerEventToLegacyUiEvent
 public import sdl.Pen
 public import sdl.Point
 public import sdl.Rect
@@ -96,6 +107,8 @@ public import chui.core.Animator
 public import chui.core.AnimationSpec
 public import chui.core.Axis
 public import chui.core.Bindable
+public import chui.core.BoundedMailbox
+public import chui.core.PointerInputBridge
 public import chui.core.Binding
 public import chui.core.Button
 public import chui.core.ButtonAppearance
@@ -315,6 +328,7 @@ public import chui.symbol.SymbolGlyph
 public import chui.symbol.SymbolMissingPolicy
 public import chui.symbol.SymbolName
 public import chui.symbol.SymbolPaint
+public import chui.symbol.SymbolPainter
 public import chui.symbol.SymbolProvider
 public import chui.symbol.SymbolProviderSource
 public import chui.symbol.SymbolRegistry
@@ -605,6 +619,8 @@ public import chui.probe.registerProbeEndpoint
 public import chui.probe.renderProbeEndpointList
 public import chui.probe.runProbeEndpoint
 public import chui.media.CanvasWidget
+public import chui.media.ExternalFrameSnapshot
+public import chui.media.ExternalFramePlane
 public import chui.graphics.CANGHUI_GRAPHICS_PROTOCOL
 public import chui.graphics.FakeGraphicsAdapter
 public import chui.graphics.GraphicsAdapter
@@ -726,6 +742,7 @@ public import chui.text.ComboBox
 public import chui.text.TextArea
 public import chui.text.TextAreaChrome
 public import chui.text.TextAreaWrapMode
+public import chui.text.TextAreaVisualLine
 public import chui.text.TextAreaDecoration
 public import chui.text.TextAreaDecorationSnapshot
 public import chui.text.TextAreaDecorationStyle

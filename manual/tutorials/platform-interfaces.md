@@ -12,3 +12,5 @@ Harmony 侧落地状态：
 - `BoundedMailbox` / `PointerInputBridge` / `ExternalFramePlane` 已进入母体 main。
 - HarmonyHap/CorePlayer 的薄适配代码已就位（`HarmonyExternalFramePlane` 实现母体接口），
   OHOS 构建验证与 ArkTS onTouch 接线待 Harmony/DevEco 环境完成，如实 `delivery-pending`。
+
+应用可以通过 `import chui.*` 使用 `PointerInputBridge`、`BoundedMailbox`、`ExternalFramePlane` 及 `ExternalFrameSnapshot`；富指针归一化的配套类型也从同一入口导出。平台实现与原生入口仍从各自子包消费。详见[公开接口消费边界](../reference/public-api-contracts.md)。

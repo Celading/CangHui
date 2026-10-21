@@ -96,3 +96,17 @@ The current optional packages adapt a small audited fixture inventory rather
 than bundling each complete upstream collection. Their `UPSTREAM.md`,
 `symbols.catalog`, and license files freeze the exact repository revision and
 source paths used by that inventory.
+
+## Tree Nodes
+
+`TreeNode` accepts an optional named `symbol` alongside its existing `icon`:
+
+```cangjie
+TreeNode("src", "src", symbol: SymbolName("open-folder", provider: "builtin"),
+    children: [TreeNode("main", "main.cj", icon: IconName.NewDocument)])
+```
+
+`symbol` takes precedence when both are present. An unresolved symbol uses the
+shared built-in missing mark; it does not silently select `icon`. With no symbol,
+the legacy icon path stays unchanged. Symbol colors follow the selected row and
+current light/dark theme, and collapsed child rows do not resolve or paint icons.

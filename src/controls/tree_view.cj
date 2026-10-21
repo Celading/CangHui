@@ -2,6 +2,7 @@ package chui.controls
 
 import std.collection.{ArrayList, HashSet}
 import sdl.{Color, FontSizes, IconName, Key, MouseButton, Pen, Rect, Size, UiEvent, drawIcon}
+import chui.symbol.{SymbolName, drawSymbol}
 import chui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
     ControlSemantics, SemanticActionKind, State, UiContext, Widget, requireControlId, advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion,
@@ -17,7 +18,8 @@ private let TREE_ICON_SIZE: Float32 = 16.0
 
 /**
  * A node in a `TreeView`: a stable `id`, a display `label`, an optional leading `icon`, and its
- * `children`. Ids must be unique across the whole tree — the view keys expansion and selection by
+ * `children`. Set `symbol` for provider-backed icons; it overrides `icon` and uses the
+ * shared Symbol fallback when unavailable. Ids must be unique across the whole tree — the view keys expansion and selection by
  * them, so a duplicate id would make two nodes toggle and select as one.
  *
  * ```
@@ -30,13 +32,17 @@ public class TreeNode {
     public let id: String
     public let label: String
     public let icon: ?IconName
+    /** Provider-backed symbol takes precedence over the legacy icon when both are present. */
+    public let symbol: ?SymbolName
     public let children: Array<TreeNode>
 
-    public init(id: String, label: String, children!: Array<TreeNode> = [], icon!: ?IconName = None) {
+    public init(id: String, label: String, children!: Array<TreeNode> = [], icon!: ?IconName = None,
+        symbol!: ?SymbolName = None) {
         this.id = id
         this.label = label
         this.children = children
         this.icon = icon
+        this.symbol = symbol
     }
 }
 
@@ -47,14 +53,17 @@ struct TreeRow {
     let id: String
     let label: String
     let icon: ?IconName
+    let symbol: ?SymbolName
     let depth: Int64
     let hasChildren: Bool
     let expanded: Bool
 
-    init(id: String, label: String, icon: ?IconName, depth: Int64, hasChildren: Bool, expanded: Bool) {
+    init(id: String, label: String, icon: ?IconName, symbol: ?SymbolName,
+        depth: Int64, hasChildren: Bool, expanded: Bool) {
         this.id = id
         this.label = label
         this.icon = icon
+        this.symbol = symbol
         this.depth = depth
         this.hasChildren = hasChildren
         this.expanded = expanded
@@ -428,12 +437,19 @@ public class TreeView <: Widget {
             drawChevron(ctx, disclosureX + TREE_TWISTY_W / 2.0, rect.centerY(), row.expanded, textColor)
         }
         var contentX = disclosureX + TREE_TWISTY_W
-        match (row.icon) {
-            case Some(icon) =>
-                drawIcon(ctx.renderer, icon,
+        match (row.symbol) {
+            case Some(symbol) =>
+                let _ = drawSymbol(ctx.renderer, symbol,
                     Rect(contentX, rect.centerY() - TREE_ICON_SIZE / 2.0, TREE_ICON_SIZE, TREE_ICON_SIZE), textColor)
                 contentX += TREE_ICON_SIZE + 6.0
-            case None => ()
+            case None =>
+                match (row.icon) {
+                    case Some(icon) =>
+                        drawIcon(ctx.renderer, icon,
+                            Rect(contentX, rect.centerY() - TREE_ICON_SIZE / 2.0, TREE_ICON_SIZE, TREE_ICON_SIZE), textColor)
+                        contentX += TREE_ICON_SIZE + 6.0
+                    case None => ()
+                }
         }
         let textY = rect.centerY() - ctx.renderer.textHeight(pointSize: FontSizes.BODY) / 2.0
         let textWidth = max(0.0, rect.right() - contentX - 4.0)
@@ -483,7 +499,7 @@ internal func flattenTree(roots: Array<TreeNode>, expanded: HashSet<String>): Ar
 private func appendTreeRows(rows: ArrayList<TreeRow>, node: TreeNode, depth: Int64, expanded: HashSet<String>): Unit {
     let hasChildren = !node.children.isEmpty()
     let isExpanded = expanded.contains(node.id)
-    rows.add(TreeRow(node.id, node.label, node.icon, depth, hasChildren, isExpanded))
+    rows.add(TreeRow(node.id, node.label, node.icon, node.symbol, depth, hasChildren, isExpanded))
     if (hasChildren && isExpanded) {
         for (child in node.children) {
             appendTreeRows(rows, child, depth + 1, expanded)

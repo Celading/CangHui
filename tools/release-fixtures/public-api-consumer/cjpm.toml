@@ -1,0 +1,9 @@
+[package]
+name = "chui_public_api_consumer"
+version = "0.1.0"
+cjc-version = "1.0.5"
+output-type = "executable"
+compile-option = "--set-runtime-rpath"
+
+[dependencies]
+chui = { path = "../../.." }

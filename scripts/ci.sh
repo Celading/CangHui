@@ -37,6 +37,11 @@ echo "==> root cjpm build + test"
 cjpm build
 cjpm test
 
+# Compile outside the framework package so missing facade exports cannot hide
+# behind same-package visibility or inferred return types.
+echo "==> external public API consumer"
+python3 scripts/verify-public-api-consumer.py
+
 # 3. sdl package tests.
 echo "==> sdl cjpm test"
 (cd sdl && cjpm test)
