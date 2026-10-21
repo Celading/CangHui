@@ -195,7 +195,7 @@ internal func drawWrappedTextArea(
         let row = layout.rowForOffset(cursor)
         let x = viewport.x + layout.caretX(ctx, row, cursor)
         let y = viewport.y + Float32(row) * CUI_SMALL_H - scroll
-        let caret = Rect(x, y, 1.5, CUI_SMALL_H)
+        let caret = textAreaCaretRect(ctx, x, y)
         if (caret.right() >= viewport.x && caret.x <= viewport.right() &&
             caret.bottom() >= viewport.y && caret.y <= viewport.bottom()) {
             if (editable) { ctx.setTextInputAnchor(caret) }

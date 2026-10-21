@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+- 修复 TextArea 软换行光标占满整行、超出文字高度的问题：光标绘制与输入法候选锚点
+  共同使用字体度量，保留原行距、输入、选区和撤销事务。
+  Size the soft-wrapped TextArea caret and IME anchor from the rendered font metrics,
+  preserving row spacing, native input, selection and undo transactions.
+
 - 新增 `ControlDensity` 与共享 `ButtonLayoutStyle` 配方，统一 `Compact`/`Comfortable`/`Touch`
   的按钮和图标按钮命中尺寸；`Button`、`IconButton` 支持按密度、内容留白、最小控件尺寸和图标尺寸
   明确还原原型。`IconButton` 可直接使用 `SymbolName`，手册与 UI Health 审计补充密度选择、原型落地

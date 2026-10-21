@@ -317,6 +317,13 @@ internal func drawTextAreaSelection(
     }
 }
 
+// Keep fallback and wrapped TextArea caret paint and IME geometry on the same
+// measured glyph row. CUI_SMALL_H remains the visual row pitch, not caret height.
+internal func textAreaCaretRect(ctx: UiContext, x: Float32, y: Float32): Rect {
+    let lineHeight = ctx.renderer.textHeight(pointSize: FontSizes.BODY)
+    Rect(x, y, TEXT_CURSOR_W, min(lineHeight, CUI_SMALL_H))
+}
+
 internal func drawTextAreaCursor(
     ctx: UiContext,
     viewport: Rect,
@@ -342,8 +349,7 @@ internal func drawTextAreaCursor(
     }
     // Rows are drawn from the top of each CUI_SMALL_H cell, so the caret matches the
     // glyph row exactly rather than filling the whole cell.
-    let lineHeight = ctx.renderer.textHeight(pointSize: FontSizes.BODY)
-    let caret = Rect(x, y, TEXT_CURSOR_W, min(lineHeight, CUI_SMALL_H))
+    let caret = textAreaCaretRect(ctx, x, y)
     // The IME anchors its candidate window at the caret whenever the area has focus;
     // the blink phase only gates painting.
     if (editable) { ctx.setTextInputAnchor(caret) }
