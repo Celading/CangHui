@@ -480,7 +480,8 @@ public class Renderer {
      * font chain, registry generation, layout backend and raster scale. Callers
      * must also key their text, point size and style; do not parse or persist it. */
     public func textLayoutEnvironmentKey(font!: ?String = None<String>): String {
-        "${max(scaleX, scaleY)}|${Fonts.generation()}|${platformTextLayoutEnabled()}|" +
+        let metrics = if (textBackend.isSome()) { "glyph" } else { "headless" }
+        "${metrics}|${max(scaleX, scaleY)}|${Fonts.generation()}|${platformTextLayoutEnabled()}|" +
             fontPathChainKey(fontPaths(resolveFontChain(font)))
     }
 
