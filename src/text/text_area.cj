@@ -5,8 +5,8 @@ import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, TextComp
 import sdl.input.Clipboard
 import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion,
     ScrollOptions, SemanticActionKind, SemanticTextGeometry, maxScrollOffset, Observable, State, UiContext, Widget, Length, advanceScrollMotion,
-    applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawHorizontalScrollBar,
-    drawSurface, drawVerticalScrollBar, emit, localState, recordControlSemantics, registerFocusable,
+    applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, scrollBarContentInset,
+    drawSurface, emit, localState, recordControlSemantics, registerFocusable,
     resolveControlKey}
 
 // SDL reports letter keys as their uppercase ASCII code (see the Ctrl+letter shortcuts).
@@ -131,6 +131,9 @@ public class TextArea <: Widget {
     private var chromeMode: TextAreaChrome
     private var wrapModeValue: TextAreaWrapMode
     private var showsVerticalScrollBar = true
+    private var resolvedTextViewport = Rect.zero()
+    private var verticalBarAdmitted = false
+    private var horizontalBarAdmitted = false
     private var showsHorizontalScrollBar = true
     private let scrollBar: ScrollBar
     private let hScrollBar: HScrollBar
@@ -240,6 +243,8 @@ public class TextArea <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): TextArea {
         scrollPolicy = value
+        scrollBar.configure(value.bar, hoverOwner: id)
+        hScrollBar.configure(value.bar, hoverOwner: id)
         this
     }
 
@@ -357,8 +362,9 @@ public class TextArea <: Widget {
     public func layout(ctx: UiContext, rect: Rect): Unit {
         refreshTypography(ctx)
         frame = rect
+        resolvedTextViewport = resolveTextViewport(ctx)
         let docLines = lines()
-        let viewport = textViewport(rect)
+        let viewport = resolvedTextViewport
         let visual = wrapLayout(ctx, viewport.w)
         let contentHeight = if (let Some(layout) <- visual) {
             Float32(layout.lines.size) * activeTypography.rowHeight
@@ -366,6 +372,34 @@ public class TextArea <: Widget {
         advanceScrollMotion(ctx, scrollMotion, scrollStateValue, contentHeight, viewport.h, scrollPolicy)
         advanceScrollMotion(ctx, horizontalScrollMotion, horizontalScrollStateValue,
             contentWidth(ctx, docLines, viewportWidth: viewport.w), viewport.w, scrollPolicy)
+    }
+
+    private func resolveTextViewport(ctx: UiContext): Rect {
+        let base = textViewport(frame)
+        var result = base
+        var vertical = false
+        var horizontal = false
+        for (_ in 0..3) {
+            vertical = vertical || Float32(visualRowCount(ctx, result.w, lines())) * activeTypography.rowHeight > result.h
+            horizontal = horizontal || contentWidth(ctx, lines(), viewportWidth: result.w) > result.w
+            let inset = scrollBarContentInset(scrollPolicy.bar, 8.0, contentInset: scrollPolicy.contentInset)
+            let right: Float32 = if (vertical && showsVerticalScrollBar) {inset} else {0.0}
+            let bottom: Float32 = if (horizontal && showsHorizontalScrollBar) {inset} else {0.0}
+            result = Rect(base.x, base.y, max(0.0, base.w - right), max(0.0, base.h - bottom))
+        }
+        verticalBarAdmitted = vertical && showsVerticalScrollBar && !scrollPolicy.bar.hidden()
+        horizontalBarAdmitted = horizontal && showsHorizontalScrollBar && !scrollPolicy.bar.hidden()
+        result
+    }
+
+    private func verticalBarFrame(): Rect {
+        let corner: Float32 = if (horizontalBarAdmitted) {scrollPolicy.bar.width + 2.0 * scrollPolicy.bar.margin} else {0.0}
+        Rect(frame.x, frame.y, frame.w, max(0.0, frame.h - corner))
+    }
+
+    private func horizontalBarFrame(): Rect {
+        let corner: Float32 = if (verticalBarAdmitted) {scrollPolicy.bar.width + 2.0 * scrollPolicy.bar.margin} else {0.0}
+        Rect(frame.x, frame.y, max(0.0, frame.w - corner), frame.h)
     }
 
     private func display(): TextAreaDisplayProjection {
@@ -428,7 +462,8 @@ public class TextArea <: Widget {
         edit.normalizeCursor()
         reconcileComposition(ctx)
         let docLines = lines()
-        let viewport = textViewport(frame)
+        resolvedTextViewport = resolveTextViewport(ctx)
+        let viewport = resolvedTextViewport
         let visual = wrapLayout(ctx, viewport.w)
         let visualRows = match (visual) {
             case Some(layout) => layout.lines.size
@@ -489,9 +524,10 @@ public class TextArea <: Widget {
         drawTextAreaBox(ctx, frame, id, content, docLines,
             if (projection.active) { projection.selectionStart } else { edit.selectionStart() },
             if (projection.active) { projection.selectionEnd } else { edit.selectionEnd() },
-            ctx.hasFocus(id), showsVerticalScrollBar, showsHorizontalScrollBar, scrollBar.dragging(ctx),
-            hScrollBar.dragging(ctx), chromeMode, wrapModeValue, decorationRuns,
-            projection, contentW, nativeDocument(ctx), boundaryCache, isEditable, visual, typography: activeTypography)
+            ctx.hasFocus(id), showsVerticalScrollBar, showsHorizontalScrollBar, scrollBar,
+            hScrollBar, chromeMode, wrapModeValue, decorationRuns,
+            projection, contentW, nativeDocument(ctx), boundaryCache, isEditable, visual, viewport,
+            verticalBarFrame(), horizontalBarFrame(), typography: activeTypography)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -502,28 +538,28 @@ public class TextArea <: Widget {
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 let docLines = lines()
-                let viewport = textViewport(frame)
-                if (showsVerticalScrollBar && scrollBar.press(ctx, frame, scrollStateValue,
+                let viewport = resolvedTextViewport
+                if (showsVerticalScrollBar && scrollBar.press(ctx, verticalBarFrame(), scrollStateValue,
                     Float32(visualRowCount(ctx, viewport.w, docLines)) * activeTypography.rowHeight,
                     viewport.h, x, y)) {
                     cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
-                if (showsHorizontalScrollBar && hScrollBar.press(ctx, frame, horizontalScrollStateValue,
+                if (showsHorizontalScrollBar && hScrollBar.press(ctx, horizontalBarFrame(), horizontalScrollStateValue,
                     contentWidth(ctx, docLines, viewportWidth: viewport.w), viewport.w, x, y)) {
                     cancelScrollMotion(horizontalScrollMotion, horizontalScrollStateValue)
                     return true
                 }
                 return pressAt(ctx, edit, x, y)
             case UiEvent.MouseMove(x, y) =>
-                if (showsVerticalScrollBar && scrollBar.drag(ctx, frame, scrollStateValue,
-                    Float32(visualRowCount(ctx, textViewport(frame).w, lines())) * activeTypography.rowHeight,
-                    textViewport(frame).h, y)) {
+                if (showsVerticalScrollBar && scrollBar.drag(ctx, verticalBarFrame(), scrollStateValue,
+                    Float32(visualRowCount(ctx, resolvedTextViewport.w, lines())) * activeTypography.rowHeight,
+                    resolvedTextViewport.h, y)) {
                     cancelScrollMotion(scrollMotion, scrollStateValue)
                     return true
                 }
-                if (showsHorizontalScrollBar && hScrollBar.drag(ctx, frame, horizontalScrollStateValue,
-                    contentWidth(ctx, lines(), viewportWidth: textViewport(frame).w), textViewport(frame).w, x)) {
+                if (showsHorizontalScrollBar && hScrollBar.drag(ctx, horizontalBarFrame(), horizontalScrollStateValue,
+                    contentWidth(ctx, lines(), viewportWidth: resolvedTextViewport.w), resolvedTextViewport.w, x)) {
                     cancelScrollMotion(horizontalScrollMotion, horizontalScrollStateValue)
                     return true
                 }
@@ -534,7 +570,7 @@ public class TextArea <: Widget {
             case UiEvent.MouseWheel(wheelX, wheelY, pointerX, pointerY) =>
                 // Content that fits leaves the wheel to an enclosing scroller (no dead zone).
                 let docLines = lines()
-                let viewport = textViewport(frame)
+                let viewport = resolvedTextViewport
                 let contentW = contentWidth(ctx, docLines, viewportWidth: viewport.w)
                 if (frame.contains(pointerX, pointerY) && wheelX != 0.0 &&
                     maxScrollOffset(contentW, viewport.w) > 0.0) {
@@ -710,7 +746,7 @@ public class TextArea <: Widget {
      * align when below). Pointer paths need no follow — the pointer is already in view.
      */
     private func revealCaretLine(): Unit {
-        let viewportH = textViewport(frame).h
+        let viewportH = resolvedTextViewport.h
         if (viewportH <= 0.0) {
             return
         }
@@ -732,7 +768,7 @@ public class TextArea <: Widget {
 
     private func revealCaret(ctx: UiContext): Unit {
         let docLines = lines()
-        let viewport = textViewport(frame)
+        let viewport = resolvedTextViewport
         revealCaret(ctx, contentWidth(ctx, docLines, viewportWidth: viewport.w), viewport)
     }
 
@@ -783,7 +819,7 @@ public class TextArea <: Widget {
 
     private func pointOffset(ctx: UiContext, x: Float32, y: Float32): Int64 {
         let projection = display()
-        let viewport = textViewport(frame)
+        let viewport = resolvedTextViewport
         if (let Some(layout) <- wrapLayout(ctx, viewport.w)) {
             let row = Int64(max(0.0, y - viewport.y + scrollStateValue.value) / activeTypography.rowHeight)
             return projection.documentOffset(layout.hit(ctx, row,
@@ -826,7 +862,7 @@ public class TextArea <: Widget {
             case TextAreaWrapMode.NoWrap => ()
         }
         if (!horizontal && softWrap) {
-            let viewport = textViewport(frame)
+            let viewport = resolvedTextViewport
             if (let Some(layout) <- wrapLayout(ctx, viewport.w)) {
                 let current = layout.rowForOffset(cursorStateValue.value)
                 let next = current + if (forward) { 1 } else { -1 }
@@ -952,8 +988,8 @@ private func drawTextAreaBox(
     focused: Bool,
     showVerticalScrollBar: Bool,
     showHorizontalScrollBar: Bool,
-    barActive: Bool,
-    horizontalBarActive: Bool,
+    verticalBar: ScrollBar,
+    horizontalBar: HScrollBar,
     chrome: TextAreaChrome,
     wrapMode: TextAreaWrapMode,
     decorations: Array<TextAreaDecorationRun>,
@@ -963,13 +999,15 @@ private func drawTextAreaBox(
     affinity: TextBoundaryCache,
     editable: Bool,
     wrapped: ?TextAreaWrapLayout,
+    viewport: Rect,
+    verticalFrame: Rect,
+    horizontalFrame: Rect,
     typography!: TextAreaTypography = TextAreaTypography()
 ): Unit {
     match (chrome) {
         case TextAreaChrome.Field => drawTextBoxChrome(ctx, frame, id)
         case TextAreaChrome.None => ()
     }
-    let viewport = textViewport(frame)
     ctx.renderer.pushClip(viewport)
     try {
         if (let Some(layout) <- wrapped) {
@@ -1001,11 +1039,10 @@ private func drawTextAreaBox(
             case Some(layout) => Float32(layout.lines.size) * typography.rowHeight
             case None => textContentHeight(lines, typography: typography)
         }
-        drawVerticalScrollBar(ctx, frame, content.scroll, contentHeight, viewport.h, active: barActive)
+        verticalBar.draw(ctx, verticalFrame, content.scroll, contentHeight, viewport.h)
     }
     if (showHorizontalScrollBar) {
-        drawHorizontalScrollBar(ctx, frame, content.horizontalScroll, contentW, viewport.w,
-            active: horizontalBarActive)
+        horizontalBar.draw(ctx, horizontalFrame, content.horizontalScroll, contentW, viewport.w)
     }
 }
 

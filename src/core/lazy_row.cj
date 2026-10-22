@@ -76,6 +76,7 @@ public class LazyRow <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): LazyRow {
         scrollPolicy = value
+        scrollBar.configure(value.bar)
         this
     }
 
@@ -125,7 +126,7 @@ public class LazyRow <: Widget {
         let stride = itemWidth + spacing
         // Reserve the bottom bar lane once the columns overflow, so the bar never covers item content.
         let contentHeight = if (content > rect.w) {
-            max(0.0, rect.h - scrollBarGutter(inset: scrollPolicy.contentInset))
+            max(0.0, rect.h - scrollBarGutter(inset: scrollPolicy.contentInset, style: scrollPolicy.bar))
         } else {
             rect.h
         }
@@ -153,7 +154,7 @@ public class LazyRow <: Widget {
             ctx.renderer.popClip()
         }
         ctx.renderer.popClip()
-        drawHorizontalScrollBar(ctx, frame, frameScroll, content, frame.w, active: scrollBar.dragging(ctx))
+        scrollBar.draw(ctx, frame, frameScroll, content, frame.w)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {

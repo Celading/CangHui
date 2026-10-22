@@ -30,22 +30,25 @@ public struct ScrollOptions {
     public let behavior: ScrollBehavior
     public let wheelStep: Float32
     public let animation: AnimationSpec
+    public let bar: ScrollBarStyle
     /** Extra logical-pixel space between overflowing content and the scrollbar lane. */
     public let contentInset: Float32
 
     public init(
         behavior!: ScrollBehavior = ScrollBehavior.Smooth,
         wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        bar!: ScrollBarStyle = ScrollBarStyle(),
         contentInset!: Float32 = 0.0,
         animation!: AnimationSpec = AnimationSpec.automatic(
             duration: Motion.normal,
             easing: Easing.CubicBezier(0.22, 1.0, 0.36, 1.0)
         )
     ) {
-        if (wheelStep <= 0.0) {
+        if (!(wheelStep > 0.0 && wheelStep <= Float32.Max)) {
             throw IllegalArgumentException("scroll wheel step must be positive")
         }
         this.behavior = behavior
+        this.bar = bar
         if (!(contentInset >= 0.0 && contentInset <= Float32.Max)) {
             throw IllegalArgumentException("scroll content inset must be finite and non-negative")
         }
@@ -57,18 +60,20 @@ public struct ScrollOptions {
     /** Browser-like wheel motion that follows Basic / Standard / Full theme timing. */
     public static func web(
         wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        bar!: ScrollBarStyle = ScrollBarStyle(),
         contentInset!: Float32 = 0.0,
         duration!: UInt64 = Motion.normal,
         easing!: Easing = Easing.CubicBezier(0.22, 1.0, 0.36, 1.0)
     ): ScrollOptions {
-        ScrollOptions(behavior: ScrollBehavior.Smooth, wheelStep: wheelStep, contentInset: contentInset,
+        ScrollOptions(behavior: ScrollBehavior.Smooth, wheelStep: wheelStep, bar: bar, contentInset: contentInset,
             animation: AnimationSpec.automatic(duration: duration, easing: easing))
     }
 
     /** Immediate wheel motion with no retained animation. */
     public static func immediate(wheelStep!: Float32 = CUI_SCROLL_WHEEL_STEP,
+        bar!: ScrollBarStyle = ScrollBarStyle(),
         contentInset!: Float32 = 0.0): ScrollOptions {
-        ScrollOptions(behavior: ScrollBehavior.Immediate, wheelStep: wheelStep, contentInset: contentInset,
+        ScrollOptions(behavior: ScrollBehavior.Immediate, wheelStep: wheelStep, bar: bar, contentInset: contentInset,
             animation: AnimationSpec(duration: UInt64(1), easing: Easing.Linear))
     }
 }
@@ -232,8 +237,10 @@ protected func cancelScrollMotion(motion: ScrollMotion, offset: State<Float32>):
  * so the bar rides in its own lane instead of covering the content's right edge.
  * Module-visible: popup lists (Dropdown/ComboBox) reserve the same lane.
  */
-protected func scrollBarGutter(inset!: Float32 = 0.0): Float32 {
-    CUI_SCROLL_W + CUI_SCROLL_MARGIN * 2.0 + inset
+protected func scrollBarGutter(inset!: Float32 = 0.0, style!: ScrollBarStyle = ScrollBarStyle()): Float32 {
+    if (style.hidden()) { return 0.0 }
+    match (style.layout) { case ScrollBarLayout.Overlay => return 0.0 case _ => () }
+    style.width + style.margin * 2.0 + inset
 }
 
 protected func scrollOffsetAfterWheel(
@@ -262,17 +269,19 @@ protected func scrollLineRemainder(offset: Float32): Float32 {
 }
 
 /** The scrollbar track rectangle: a fixed-width lane inset from the frame's right edge. */
-internal func scrollBarTrackRect(frame: Rect): Rect {
-    Rect(frame.right() - CUI_SCROLL_W - CUI_SCROLL_MARGIN, frame.y + CUI_SCROLL_MARGIN, CUI_SCROLL_W,
-        max(0.0, frame.h - CUI_SCROLL_MARGIN * 2.0))
+internal func scrollBarTrackRect(frame: Rect, style!: ScrollBarStyle = ScrollBarStyle()): Rect {
+    let w = min(style.width, max(0.0, frame.w - style.margin * 2.0))
+    Rect(frame.right() - w - min(style.margin, max(0.0, frame.w)),
+        frame.y + min(style.margin, max(0.0, frame.h)), w, max(0.0, frame.h - style.margin * 2.0))
 }
 
 /** Thumb length, proportional to how much of the content is visible, with a floor. */
-internal func scrollThumbHeight(track: Rect, contentH: Float32, viewportH: Float32): Float32 {
+internal func scrollThumbHeight(track: Rect, contentH: Float32, viewportH: Float32,
+    style!: ScrollBarStyle = ScrollBarStyle()): Float32 {
     if (contentH <= 0.0) {
         return track.h
     }
-    max(CUI_SCROLL_MIN_THUMB_H, track.h * viewportH / contentH)
+    min(track.h, max(style.minThumbLength, track.h * viewportH / contentH))
 }
 
 /** Thumb top for a given scroll offset. */
@@ -291,12 +300,13 @@ internal func scrollThumbTop(
 }
 
 /** The thumb rectangle, or `None` when the content fits and no bar is shown. */
-internal func scrollThumbRect(frame: Rect, offset: Float32, contentH: Float32, viewportH: Float32): ?Rect {
-    if (contentH <= viewportH || frame.h <= 0.0) {
+internal func scrollThumbRect(frame: Rect, offset: Float32, contentH: Float32, viewportH: Float32,
+    style!: ScrollBarStyle = ScrollBarStyle()): ?Rect {
+    if (style.hidden() || contentH <= viewportH || frame.h <= 0.0 || frame.w <= 0.0) {
         return None
     }
-    let track = scrollBarTrackRect(frame)
-    let thumbH = scrollThumbHeight(track, contentH, viewportH)
+    let track = scrollBarTrackRect(frame, style: style)
+    let thumbH = scrollThumbHeight(track, contentH, viewportH, style: style)
     Some(Rect(track.x, scrollThumbTop(track, thumbH, offset, contentH, viewportH), track.w, thumbH))
 }
 
@@ -322,9 +332,32 @@ internal func scrollOffsetForThumbTop(
  */
 public class ScrollBar {
     private let dragId: String
+    private var style = ScrollBarStyle()
+    private var hoverOwner = ""
+    private let visual: ScrollBarVisual
 
     public init(dragId: String) {
         this.dragId = dragId
+        visual = localState<ScrollBarVisual>(dragId + ":visual") { ScrollBarVisual() }.value
+    }
+
+    /** One policy drives draw, hit testing and drag geometry. */
+    public func configure(value: ScrollBarStyle, hoverOwner!: String = ""): Unit {
+        style = value
+        this.hoverOwner = hoverOwner
+    }
+
+    private func acceptsInput(ctx: UiContext): Bool {
+        if (style.interactive()) { return true }
+        if (ctx.isDragging(dragId)) { ctx.clearDrag() }
+        return false
+    }
+
+    public func draw(ctx: UiContext, frame: Rect, offset: Float32, content: Float32, viewport: Float32): Unit {
+        let _ = acceptsInput(ctx)
+        drawVerticalScrollBar(ctx, frame, offset, content, viewport, active: dragging(ctx), style: style,
+            visual: Some(visual), hovered: Some(ctx.isHovered(dragId) ||
+                (!hoverOwner.isEmpty() && ctx.isHovered(hoverOwner))))
     }
 
     /** Whether the thumb is being dragged right now (drives the active highlight). */
@@ -346,7 +379,8 @@ public class ScrollBar {
         x: Float32,
         y: Float32
     ): Bool {
-        match (scrollThumbRect(frame, offset.value, contentH, viewportH)) {
+        if (!acceptsInput(ctx)) { return false }
+        match (scrollThumbRect(frame, offset.value, contentH, viewportH, style: style)) {
             case Some(thumb) =>
                 if (thumb.contains(x, y)) {
                     // The grab point rides in the context beside the drag id: this controller is
@@ -355,7 +389,7 @@ public class ScrollBar {
                     ctx.beginDrag(dragId, grab: y - thumb.y)
                     return true
                 }
-                if (scrollBarTrackRect(frame).contains(x, y)) {
+                if (scrollBarTrackRect(frame, style: style).contains(x, y)) {
                     let direction: Float32 = if (y < thumb.y) {
                         -1.0
                     } else {
@@ -379,9 +413,18 @@ public class ScrollBar {
         viewportH: Float32,
         y: Float32
     ): Bool {
+        if (!acceptsInput(ctx)) { return false }
+        if (contentH <= viewportH || frame.h <= 0.0 || frame.w <= 0.0) {
+            if (ctx.isDragging(dragId)) { ctx.clearDrag() }
+            return false
+        }
+        match (scrollThumbRect(frame, offset.value, contentH, viewportH, style: style)) {
+            case Some(thumb) => if (thumb.contains(ctx.mouseX, y)) { ctx.claimHover(dragId, CursorShape.Default) }
+            case None => ()
+        }
         if (ctx.isDragging(dragId) && ctx.leftMouseDown) {
-            let track = scrollBarTrackRect(frame)
-            let thumbH = scrollThumbHeight(track, contentH, viewportH)
+            let track = scrollBarTrackRect(frame, style: style)
+            let thumbH = scrollThumbHeight(track, contentH, viewportH, style: style)
             offset.value = scrollOffsetForThumbTop(y - ctx.dragGrab(), track, thumbH, contentH, viewportH)
             return true
         }
@@ -390,26 +433,28 @@ public class ScrollBar {
 }
 
 protected func drawVerticalScrollBar(
-    ctx: UiContext,
-    frame: Rect,
-    offset: Float32,
-    contentH: Float32,
-    viewportH: Float32,
-    active!: Bool = false
+    ctx: UiContext, frame: Rect, offset: Float32, contentH: Float32, viewportH: Float32,
+    active!: Bool = false, style!: ScrollBarStyle = ScrollBarStyle(), visual!: ?ScrollBarVisual = None,
+    hovered!: ?Bool = None
 ): Unit {
-    if (contentH <= viewportH || frame.h <= 0.0) {
-        return
-    }
-    let track = scrollBarTrackRect(frame)
-    let thumbH = scrollThumbHeight(track, contentH, viewportH)
-    let thumbTop = scrollThumbTop(track, thumbH, offset, contentH, viewportH)
-    ctx.renderer.fill(track, ctx.theme.panelEdge.withAlpha(80))
-    let thumbAlpha = if (active) {
-        230
-    } else {
-        180
-    }
-    ctx.renderer.fill(Rect(track.x, thumbTop, track.w, thumbH), ctx.theme.accent.withAlpha(thumbAlpha))
+    if (style.hidden() || style.opacity <= 0.0 || contentH <= viewportH || frame.h <= 0.0) { return }
+    let track = scrollBarTrackRect(frame, style: style)
+    let thumbH = scrollThumbHeight(track, contentH, viewportH, style: style)
+    let thumb = Rect(track.x, scrollThumbTop(track, thumbH, offset, contentH, viewportH), track.w, thumbH)
+    drawScrollBarPaint(ctx, track, thumb, active, style, visual, hovered)
+}
+
+internal func drawScrollBarPaint(ctx: UiContext, track: Rect, thumb: Rect, active: Bool,
+    style: ScrollBarStyle, visual: ?ScrollBarVisual, hovered: ?Bool): Unit {
+    let base = match (style.trackColor) { case Some(c) => c case None => ctx.theme.panelEdge.withAlpha(255) }
+    let state = match (visual) { case Some(value) => value case None => ScrollBarVisual() }
+    let over = match (hovered) { case Some(value) => value case None => true }
+    let color = state.color(ctx, style, over && thumb.contains(ctx.mouseX, ctx.mouseY), active)
+    let trackColor = scrollBarAlpha(base, style.opacity * style.trackOpacity)
+    if (style.trackRadius > 0.0) { ctx.renderer.fillRoundedRect(track, style.trackRadius, trackColor) }
+    else { ctx.renderer.fill(track, trackColor) }
+    if (style.radius > 0.0) { ctx.renderer.fillRoundedRect(thumb, style.radius, color) }
+    else { ctx.renderer.fill(thumb, color) }
 }
 
 /*
@@ -419,17 +464,20 @@ protected func drawVerticalScrollBar(
  */
 
 /** The horizontal scrollbar track: a fixed-height lane inset from the frame's bottom edge. */
-internal func scrollBarTrackRectH(frame: Rect): Rect {
-    Rect(frame.x + CUI_SCROLL_MARGIN, frame.bottom() - CUI_SCROLL_W - CUI_SCROLL_MARGIN,
-        max(0.0, frame.w - CUI_SCROLL_MARGIN * 2.0), CUI_SCROLL_W)
+internal func scrollBarTrackRectH(frame: Rect, style!: ScrollBarStyle = ScrollBarStyle()): Rect {
+    let h = min(style.width, max(0.0, frame.h - style.margin * 2.0))
+    Rect(frame.x + min(style.margin, max(0.0, frame.w)),
+        frame.bottom() - h - min(style.margin, max(0.0, frame.h)),
+        max(0.0, frame.w - style.margin * 2.0), h)
 }
 
 /** Thumb length along x, proportional to how much of the content is visible, with a floor. */
-internal func scrollThumbWidth(track: Rect, contentW: Float32, viewportW: Float32): Float32 {
+internal func scrollThumbWidth(track: Rect, contentW: Float32, viewportW: Float32,
+    style!: ScrollBarStyle = ScrollBarStyle()): Float32 {
     if (contentW <= 0.0) {
         return track.w
     }
-    max(CUI_SCROLL_MIN_THUMB_H, track.w * viewportW / contentW)
+    min(track.w, max(style.minThumbLength, track.w * viewportW / contentW))
 }
 
 /** Thumb left edge for a given scroll offset. */
@@ -448,12 +496,13 @@ internal func scrollThumbLeft(
 }
 
 /** The horizontal thumb rectangle, or `None` when the content fits and no bar is shown. */
-internal func scrollThumbRectH(frame: Rect, offset: Float32, contentW: Float32, viewportW: Float32): ?Rect {
-    if (contentW <= viewportW || frame.w <= 0.0) {
+internal func scrollThumbRectH(frame: Rect, offset: Float32, contentW: Float32, viewportW: Float32,
+    style!: ScrollBarStyle = ScrollBarStyle()): ?Rect {
+    if (style.hidden() || contentW <= viewportW || frame.w <= 0.0 || frame.h <= 0.0) {
         return None
     }
-    let track = scrollBarTrackRectH(frame)
-    let thumbW = scrollThumbWidth(track, contentW, viewportW)
+    let track = scrollBarTrackRectH(frame, style: style)
+    let thumbW = scrollThumbWidth(track, contentW, viewportW, style: style)
     Some(Rect(scrollThumbLeft(track, thumbW, offset, contentW, viewportW), track.y, thumbW, track.h))
 }
 
@@ -473,26 +522,15 @@ internal func scrollOffsetForThumbLeft(
 }
 
 protected func drawHorizontalScrollBar(
-    ctx: UiContext,
-    frame: Rect,
-    offset: Float32,
-    contentW: Float32,
-    viewportW: Float32,
-    active!: Bool = false
+    ctx: UiContext, frame: Rect, offset: Float32, contentW: Float32, viewportW: Float32,
+    active!: Bool = false, style!: ScrollBarStyle = ScrollBarStyle(), visual!: ?ScrollBarVisual = None,
+    hovered!: ?Bool = None
 ): Unit {
-    if (contentW <= viewportW || frame.w <= 0.0) {
-        return
-    }
-    let track = scrollBarTrackRectH(frame)
-    let thumbW = scrollThumbWidth(track, contentW, viewportW)
-    let thumbLeft = scrollThumbLeft(track, thumbW, offset, contentW, viewportW)
-    ctx.renderer.fill(track, ctx.theme.panelEdge.withAlpha(80))
-    let thumbAlpha = if (active) {
-        230
-    } else {
-        180
-    }
-    ctx.renderer.fill(Rect(thumbLeft, track.y, thumbW, track.h), ctx.theme.accent.withAlpha(thumbAlpha))
+    if (style.hidden() || style.opacity <= 0.0 || contentW <= viewportW || frame.w <= 0.0) { return }
+    let track = scrollBarTrackRectH(frame, style: style)
+    let thumbW = scrollThumbWidth(track, contentW, viewportW, style: style)
+    let thumb = Rect(scrollThumbLeft(track, thumbW, offset, contentW, viewportW), track.y, thumbW, track.h)
+    drawScrollBarPaint(ctx, track, thumb, active, style, visual, hovered)
 }
 
 /*
@@ -501,9 +539,32 @@ protected func drawHorizontalScrollBar(
  */
 public class HScrollBar {
     private let dragId: String
+    private var style = ScrollBarStyle()
+    private var hoverOwner = ""
+    private let visual: ScrollBarVisual
 
     public init(dragId: String) {
         this.dragId = dragId
+        visual = localState<ScrollBarVisual>(dragId + ":visual") { ScrollBarVisual() }.value
+    }
+
+    /** One policy drives draw, hit testing and drag geometry. */
+    public func configure(value: ScrollBarStyle, hoverOwner!: String = ""): Unit {
+        style = value
+        this.hoverOwner = hoverOwner
+    }
+
+    private func acceptsInput(ctx: UiContext): Bool {
+        if (style.interactive()) { return true }
+        if (ctx.isDragging(dragId)) { ctx.clearDrag() }
+        return false
+    }
+
+    public func draw(ctx: UiContext, frame: Rect, offset: Float32, content: Float32, viewport: Float32): Unit {
+        let _ = acceptsInput(ctx)
+        drawHorizontalScrollBar(ctx, frame, offset, content, viewport, active: dragging(ctx), style: style,
+            visual: Some(visual), hovered: Some(ctx.isHovered(dragId) ||
+                (!hoverOwner.isEmpty() && ctx.isHovered(hoverOwner))))
     }
 
     /** Whether the thumb is being dragged right now (drives the active highlight). */
@@ -524,14 +585,15 @@ public class HScrollBar {
         x: Float32,
         y: Float32
     ): Bool {
-        match (scrollThumbRectH(frame, offset.value, contentW, viewportW)) {
+        if (!acceptsInput(ctx)) { return false }
+        match (scrollThumbRectH(frame, offset.value, contentW, viewportW, style: style)) {
             case Some(thumb) =>
                 if (thumb.contains(x, y)) {
                     // Grab point lives in the context for the same rebuild-survival reason as ScrollBar.
                     ctx.beginDrag(dragId, grab: x - thumb.x)
                     return true
                 }
-                if (scrollBarTrackRectH(frame).contains(x, y)) {
+                if (scrollBarTrackRectH(frame, style: style).contains(x, y)) {
                     let direction: Float32 = if (x < thumb.x) {
                         -1.0
                     } else {
@@ -555,9 +617,18 @@ public class HScrollBar {
         viewportW: Float32,
         x: Float32
     ): Bool {
+        if (!acceptsInput(ctx)) { return false }
+        if (contentW <= viewportW || frame.h <= 0.0 || frame.w <= 0.0) {
+            if (ctx.isDragging(dragId)) { ctx.clearDrag() }
+            return false
+        }
+        match (scrollThumbRectH(frame, offset.value, contentW, viewportW, style: style)) {
+            case Some(thumb) => if (thumb.contains(x, ctx.mouseY)) { ctx.claimHover(dragId, CursorShape.Default) }
+            case None => ()
+        }
         if (ctx.isDragging(dragId) && ctx.leftMouseDown) {
-            let track = scrollBarTrackRectH(frame)
-            let thumbW = scrollThumbWidth(track, contentW, viewportW)
+            let track = scrollBarTrackRectH(frame, style: style)
+            let thumbW = scrollThumbWidth(track, contentW, viewportW, style: style)
             offset.value = scrollOffsetForThumbLeft(x - ctx.dragGrab(), track, thumbW, contentW, viewportW)
             return true
         }

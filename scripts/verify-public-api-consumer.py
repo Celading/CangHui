@@ -64,6 +64,9 @@ def main():
             if run.returncode:
                 raise ValueError("external consumer runtime failed: " + run.stdout + run.stderr)
             result["scenes"] = verify_scenes(run.stdout)
+            if "SCROLL_APPEARANCE_PASS cases=12" not in run.stdout.splitlines():
+                raise ValueError("public scrollbar appearance verification did not finish")
+            result["scrollAppearanceCasesVerified"] = 12
             result.update(ok=True, externalPackage=True, scenesVerified=8,
                           frameworkImports="chui-only", physicalDeviceVerified=False)
     except (ValueError, OSError, subprocess.SubprocessError) as error:

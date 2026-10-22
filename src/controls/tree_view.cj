@@ -6,7 +6,7 @@ import chui.symbol.{SymbolName, drawSymbol}
 import chui.core.{Bindable, CUI_SMALL_H, CursorShape, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset,
     ControlSemantics, SemanticActionKind, State, UiContext, Widget, requireControlId, advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion,
-    claimHoverIfInside, clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity,
+    claimHoverIfInside, clampScrollOffset, scrollBarContentInset, drawSurface, emit, focusableControlIdentity,
     ellipsize, localState, recordControlSemantics, scrollLineIndex, scrollLineRemainder}
 
 // Logical pixels of indentation added per depth level.
@@ -148,6 +148,7 @@ public class TreeView <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): TreeView {
         scrollPolicy = value
+        scrollBar.configure(value.bar, hoverOwner: controlId)
         this
     }
 
@@ -157,13 +158,13 @@ public class TreeView <: Widget {
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
-        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, treeContentHeight(rows), treeViewport(rect).h,
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, treeContentHeight(rows), treeViewport(rect, scrollPolicy, treeContentHeight(rows)).h,
             scrollPolicy)
     }
 
     public func draw(ctx: UiContext): Unit {
         let content = treeContentHeight(rows)
-        let viewport = treeViewport(frame)
+        let viewport = treeViewport(frame, scrollPolicy, treeContentHeight(rows))
         // Clamp on change only: draw runs every frame and the offset may be externally owned.
         let clamped = clampScrollOffset(scrollStateValue.value, content, viewport.h)
         if (clamped != scrollStateValue.value) {
@@ -201,13 +202,13 @@ public class TreeView <: Widget {
             i += 1
         }
         ctx.renderer.popClip()
-        drawVerticalScrollBar(ctx, frame, scrollStateValue.value, content, viewport.h, active: scrollBar.dragging(ctx))
+        scrollBar.draw(ctx, frame, scrollStateValue.value, content, viewport.h)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         claimHoverIfInside(ctx, event, frame, controlId, CursorShape.Interactive)
         let content = treeContentHeight(rows)
-        let viewportH = treeViewport(frame).h
+        let viewportH = treeViewport(frame, scrollPolicy, treeContentHeight(rows)).h
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (scrollBar.press(ctx, frame, scrollStateValue, content, viewportH, x, y)) {
@@ -216,7 +217,7 @@ public class TreeView <: Widget {
                 }
                 if (frame.contains(x, y)) {
                     ctx.focus(controlId)
-                    let viewport = treeViewport(frame)
+                    let viewport = treeViewport(frame, scrollPolicy, treeContentHeight(rows))
                     if (viewport.contains(x, y)) {
                         let idx = Int64((y - viewport.y + scrollStateValue.value) / CUI_SMALL_H)
                         if (idx >= 0 && idx < rows.size) {
@@ -378,7 +379,7 @@ public class TreeView <: Widget {
         if (index < 0) {
             return
         }
-        let viewportH = treeViewport(frame).h
+        let viewportH = treeViewport(frame, scrollPolicy, treeContentHeight(rows)).h
         let rowTop = Float32(index) * CUI_SMALL_H
         let rowBottom = rowTop + CUI_SMALL_H
         var offset = scrollStateValue.value
@@ -471,8 +472,11 @@ private func drawChevron(ctx: UiContext, cx: Float32, cy: Float32, expanded: Boo
     }
 }
 
-private func treeViewport(frame: Rect): Rect {
-    Rect(frame.x + 4.0, frame.y + 6.0, max(0.0, frame.w - 12.0), max(0.0, frame.h - 12.0))
+private func treeViewport(frame: Rect, options: ScrollOptions, content: Float32): Rect {
+    let extra: Float32 = if (content > max(0.0, frame.h - 12.0)) {
+        scrollBarContentInset(options.bar, 8.0, contentInset: options.contentInset)
+    } else {0.0}
+    Rect(frame.x + 4.0, frame.y + 6.0, max(0.0, frame.w - 12.0 - extra), max(0.0, frame.h - 12.0))
 }
 
 private func treeContentHeight(rows: Array<TreeRow>): Float32 {

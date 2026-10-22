@@ -16,6 +16,15 @@ protected let CUI_GAP: Float32 = 8.0
  * wrap the widget in a `ModifiedWidget` and return the wrapper for chaining.
  */
 public interface Widget {
+    /** Wrap this subtree in the existing ScrollView; does not add a second scroll engine. */
+    func scrollable(): ScrollView { applyScrollable(this, None, ScrollOptions.web()) }
+
+    func scrollable(key!: String): ScrollView { applyScrollable(this, Some(key), ScrollOptions.web()) }
+
+    func scrollable(key!: String, options!: ScrollOptions): ScrollView {
+        applyScrollable(this, Some(key), options)
+    }
+
     /** Opt-in physical keys for this single focusable control. Ctrl+Tab escapes capture.
      * Return true to consume, false for ordinary handling (Tab then traverses focus).
      * The callback never receives committed text or IME composition. */

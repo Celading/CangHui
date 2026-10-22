@@ -597,3 +597,9 @@
 - Harmony 渲染面穿透 capture service。
 - Harmony onTouch -> PointerInputBridge 薄适配（OHOS 构建验证）。
 - CangHui CI 门禁。
+
+## Unreleased scroll appearance
+
+- Add shared scrollbar visibility/layout, alpha/color, width/margin/rounding and optional interaction transitions, with matching input geometry across existing scroll surfaces.
+- Add Widget.scrollable wrapping the existing ScrollView and post-layout ScrollMetrics; preserve wheel animation and reduced-motion behavior. Clamp short-viewport thumbs and reject non-finite wheel/style inputs.
+- Add the scroll-style example and public usage guide; no platform or installed SDK acceptance is implied.

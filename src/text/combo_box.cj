@@ -4,7 +4,7 @@ import std.collection.ArrayList
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, SurfaceStyle, UiEvent}
 import chui.core.{Bindable, CUI_CONTROL_H, CUI_SMALL_H, Overlay, ScrollBar, ScrollMotion, ScrollOptions, State,
     UiContext, Widget, resolveControlKey, advanceScrollMotion, applyWheelScroll, buildChild, cancelScrollMotion,
-    clampScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState, scrollBarGutter}
+    clampScrollOffset, drawSurface, emit, localState, scrollBarGutter}
 
 private let COMBO_POPUP_PAD: Float32 = 5.0
 private let COMBO_GAP: Float32 = 4.0
@@ -69,6 +69,7 @@ public class ComboBox <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing for suggestions. */
     public func scrollOptions(value: ScrollOptions): ComboBox {
         scrollPolicy = value
+        popupBar.configure(value.bar, hoverOwner: overlayOwner)
         this
     }
 
@@ -320,7 +321,7 @@ public class ComboBox <: Widget {
             return
         }
         let gutter: Float32 = if (contentH > listH) {
-            scrollBarGutter(inset: scrollPolicy.contentInset)
+            scrollBarGutter(inset: scrollPolicy.contentInset, style: scrollPolicy.bar)
         } else {
             0.0
         }
@@ -342,7 +343,7 @@ public class ComboBox <: Widget {
             i += 1
         }
         ctx.renderer.popClip()
-        drawVerticalScrollBar(ctx, list, offset, contentH, listH, active: popupBar.dragging(ctx))
+        popupBar.draw(ctx, list, offset, contentH, listH)
     }
 
     private func drawChevron(ctx: UiContext): Unit {

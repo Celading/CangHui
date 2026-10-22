@@ -269,6 +269,10 @@ public import chui.core.Reveal
 public import chui.core.ScrollBar
 public import chui.core.ScrollView
 public import chui.core.ScrollBehavior
+public import chui.core.ScrollBarStyle
+public import chui.core.ScrollBarVisibility
+public import chui.core.ScrollBarLayout
+public import chui.core.ScrollMetrics
 public import chui.core.ScrollOptions
 public import chui.core.scrollBehaviorName
 public import chui.core.Shadow

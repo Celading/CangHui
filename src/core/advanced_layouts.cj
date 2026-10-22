@@ -414,7 +414,15 @@ public class ScrollView <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): ScrollView {
         scrollPolicy = value
+        scrollBar.configure(value.bar)
+        horizontalBar.configure(value.bar)
         this
+    }
+
+    /** Read after layout; offsets remain externally owned through scrollState APIs. */
+    public func metrics(): ScrollMetrics {
+        ScrollMetrics(viewport, contentWidth, contentHeight, horizontalOffset.value, scrollOffset.value,
+            max(0.0, frame.w - viewport.w), max(0.0, frame.h - viewport.h))
     }
 
     public func measure(_: UiContext, available: Size): Size {
@@ -425,7 +433,7 @@ public class ScrollView <: Widget {
         frame = rect
         // Each admitted scrollbar reserves its own gutter. Re-measure after admission
         // because either gutter can introduce overflow on the other axis.
-        let gutter = scrollBarGutter(inset: scrollPolicy.contentInset)
+        let gutter = scrollBarGutter(inset: scrollPolicy.contentInset, style: scrollPolicy.bar)
         var vertical = false
         var horizontal = false
         var measured = Size(0.0, 0.0)
@@ -478,10 +486,8 @@ public class ScrollView <: Widget {
             frame.w + 2.0 * CUI_SHADOW_CLEARANCE, viewport.h)) }
         child.draw(ctx)
         ctx.renderer.popClip()
-        drawVerticalScrollBar(ctx, verticalBarFrame(), scrollOffset.value, contentHeight, viewport.h,
-            active: scrollBar.dragging(ctx))
-        drawHorizontalScrollBar(ctx, horizontalBarFrame(), horizontalOffset.value, contentWidth, viewport.w,
-            active: horizontalBar.dragging(ctx))
+        scrollBar.draw(ctx, verticalBarFrame(), scrollOffset.value, contentHeight, viewport.h)
+        horizontalBar.draw(ctx, horizontalBarFrame(), horizontalOffset.value, contentWidth, viewport.w)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -521,7 +527,8 @@ public class ScrollView <: Widget {
                     cancelScrollMotion(horizontalMotion, horizontalOffset)
                     return true
                 }
-                if (scrollBarTrackRect(verticalBarFrame()).contains(x, y)) {
+                if (scrollPolicy.bar.interactive() && contentHeight > viewport.h &&
+                    scrollBarTrackRect(verticalBarFrame(), style: scrollPolicy.bar).contains(x, y)) {
                     releaseDynamicAnchor()
                 }
                 if (scrollBar.press(ctx, verticalBarFrame(), scrollOffset, contentHeight, viewport.h, x, y)) {

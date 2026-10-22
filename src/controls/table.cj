@@ -3,7 +3,7 @@ package chui.controls
 import sdl.{Color, FontSizes, Key, MouseButton, Pen, Rect, Size, UiEvent}
 import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, ScrollBar, ScrollMotion, ScrollOptions,
     SemanticActionKind, State, UiContext, Widget, resolveControlKey, advanceScrollMotion, applyWheelScroll,
-    cancelScrollMotion, clampScrollOffset, maxScrollOffset, drawSurface, drawVerticalScrollBar, emit, localState,
+    cancelScrollMotion, ScrollBarLayout, scrollBarGutter, clampScrollOffset, maxScrollOffset, drawSurface, emit, localState,
     recordControlSemantics, registerFocusable, scrollLineIndex, scrollLineRemainder}
 
 private let TABLE_HEADER_H: Float32 = 32.0
@@ -128,6 +128,7 @@ public class Table <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): Table {
         scrollPolicy = value
+        scrollBar.configure(value.bar)
         this
     }
 
@@ -200,7 +201,7 @@ public class Table <: Widget {
         }
         drawBody(ctx, order, body)
         drawHeader(ctx)
-        drawVerticalScrollBar(ctx, body, scrollOffset.value, contentHeight(), body.h, active: scrollBar.dragging(ctx))
+        scrollBar.draw(ctx, body, scrollOffset.value, contentHeight(), body.h)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
@@ -338,7 +339,13 @@ public class Table <: Widget {
     }
 
     private func drawBody(ctx: UiContext, order: Array<Int64>, body: Rect): Unit {
-        ctx.renderer.pushClip(body)
+        let reserved: Float32 = match (scrollPolicy.bar.layout) {
+            case ScrollBarLayout.Reserved => if (contentHeight() > body.h) {
+                scrollBarGutter(inset: scrollPolicy.contentInset, style: scrollPolicy.bar)
+            } else {0.0}
+            case _ => Float32(0.0)
+        }
+        ctx.renderer.pushClip(Rect(body.x, body.y, max(0.0, body.w - reserved), body.h))
         var d = scrollLineIndex(scrollOffset.value)
         var y = body.y - scrollLineRemainder(scrollOffset.value)
         while (d < order.size && y < body.bottom()) {

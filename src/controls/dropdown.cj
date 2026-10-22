@@ -7,7 +7,7 @@ import chui.core.{AnimationSpec, Animator, Bindable, CUI_SMALL_H, ComponentContr
     Widget, resolveControlKey,
     advanceScrollMotion,
     applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawSurface,
-    drawVerticalScrollBar, emit, handlePointerClick, localState, recordControlSemantics, registerFocusable,
+    emit, handlePointerClick, localState, recordControlSemantics, registerFocusable,
     resolveComponentControlAppearance, scrollBarGutter}
 
 private let DROPDOWN_DEFAULT_W: Float32 = 190.0
@@ -106,6 +106,7 @@ public class Dropdown <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing for the popup list. */
     public func scrollOptions(value: ScrollOptions): Dropdown {
         scrollPolicy = value
+        popupBar.configure(value.bar, hoverOwner: overlayOwner)
         this
     }
 
@@ -419,7 +420,7 @@ public class Dropdown <: Widget {
     private func itemRectAt(popup: Rect, index: Int64): Rect {
         let listH = listHeight(popup)
         let gutter: Float32 = if (contentHeight() > listH) {
-            scrollBarGutter(inset: scrollPolicy.contentInset)
+            scrollBarGutter(inset: scrollPolicy.contentInset, style: scrollPolicy.bar)
         } else {
             0.0
         }
@@ -488,7 +489,7 @@ public class Dropdown <: Widget {
         ctx.renderer.popClip()
         ctx.renderer.popClip()
         if (progress > 0.85) {
-            drawVerticalScrollBar(ctx, list, offset, contentH, listH, active: popupBar.dragging(ctx))
+            popupBar.draw(ctx, list, offset, contentH, listH)
         }
     }
 

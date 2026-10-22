@@ -1,7 +1,7 @@
 package chui.text
 
-import chui.core.{ScrollOptions, State, Theme, UiContext}
-import sdl.{Rect, Renderer, TextCompositionEvent, TextCompositionPhase, UiEvent}
+import chui.core.{ScrollBarLayout, ScrollBarStyle, ScrollOptions, State, Theme, UiContext}
+import sdl.{MouseButton, Rect, Renderer, TextCompositionEvent, TextCompositionPhase, UiEvent}
 
 @Test
 func textAreaViewportShrinkRevealsUnchangedCaretOnBothAxes(): Unit {
@@ -95,4 +95,25 @@ func textAreaViewportShrinkFollowsPreeditWithoutMutatingDocument(): Unit {
     @Expect(caret.x >= 8.0 && caret.right() <= 72.0)
     @Expect(value.value, "aXb")
     @Expect(composition.value.generation, generation)
+}
+
+@Test
+func textAreaWideScrollbarsReserveTextGeometryAndAvoidTheSharedCorner(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    let ctx = UiContext(renderer, Theme.light())
+    let text = State<String>("0123456789012345678901234567890123456789\na\nb\nc\nd\ne\nf\ng\nh")
+    let area = TextArea(text, key: "wide-scrollbars")
+        .scrollOptions(ScrollOptions.immediate(bar: ScrollBarStyle(width: 24.0, margin: 2.0,
+            layout: ScrollBarLayout.Reserved)))
+    area.layout(ctx, Rect(0.0, 0.0, 200.0, 100.0))
+    area.draw(ctx)
+    var contentClip = false
+    for (command in renderer.drawIr()) {
+        if (command.kind == "clip.push" && command.toJson().contains("\"width\":166") &&
+            command.toJson().contains("\"height\":66")) { contentClip = true }
+    }
+    @Expect(contentClip)
+    // Clicking field padding may focus/select text; it must not become a bar drag/page target.
+    @Expect(area.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 185.0, 85.0)))
+    @Expect(ctx.dragId, "wide-scrollbars")
 }

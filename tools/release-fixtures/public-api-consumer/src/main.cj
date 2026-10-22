@@ -109,7 +109,41 @@ private func verifyEditorTypography(): Unit {
     }
 }
 
+private func verifyPublicScrollAppearance(): Unit {
+    let ctx = UiContext(Renderer.recordingHeadless(), Theme.light())
+    var cases: Int64 = 0
+    for (width in [Float32(390.0), Float32(1024.0), Float32(1440.0)]) {
+        for (mode in ["reserved", "overlay", "hidden", "transparent"]) {
+            let bar = ScrollBarStyle(width: 12.0, margin: 3.0, radius: 6.0, trackRadius: 3.0,
+                layout: if (mode == "overlay") {ScrollBarLayout.Overlay} else {ScrollBarLayout.Reserved},
+                visibility: if (mode == "hidden") {ScrollBarVisibility.Hidden} else {ScrollBarVisibility.Automatic},
+                opacity: if (mode == "transparent") {Float32(0.0)} else {Float32(1.0)},
+                trackColor: Some(Color.rgb(10, 20, 30)), thumbColor: Some(Color.rgba(40, 50, 60, 200)),
+                hoverColor: Some(Color.rgb(80, 90, 100)), activeColor: Some(Color.rgb(100, 110, 120)),
+                interactionAnimation: Some(AnimationSpec.automatic(duration: 120)))
+            let offset = State<Float32>(0.0)
+            let child: Widget = Label("public scroll").height(500.0)
+            let view = child.scrollable(key: "external-scroll", options: ScrollOptions.immediate(bar: bar))
+                .scrollState(offset)
+            view.layout(ctx, Rect(0.0, 0.0, width, 100.0))
+            let metrics: ScrollMetrics = view.metrics()
+            let reserved: Float32 = if (mode == "hidden" || mode == "overlay") {0.0} else {18.0}
+            require(metrics.reservedRight == reserved && metrics.viewport.w == width - reserved,
+                "public scroll reservation and metrics")
+            require(view.handle(ctx, UiEvent.MouseWheel(0.0, -1.0, 30.0, 30.0)) && offset.value == 72.0,
+                "public appearance does not disable scrolling")
+            view.draw(ctx)
+            view.layout(ctx, Rect(0.0, 0.0, width, 600.0))
+            require(view.metrics().reservedRight == 0.0 && offset.value == 0.0,
+                "public resize updates geometry and clamps offset")
+            cases += 1
+        }
+    }
+    println("SCROLL_APPEARANCE_PASS cases=${cases}")
+}
+
 main(): Int64 {
+    verifyPublicScrollAppearance()
     verifyEditorTypography()
     verifyFacadeContracts()
     verifyVisualLineResult()

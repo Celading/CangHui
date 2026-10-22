@@ -1,0 +1,10 @@
+[package]
+name = "canghui_scroll_style"
+version = "0.1.0"
+cjc-version = "1.2.0"
+output-type = "executable"
+compile-option = "--set-runtime-rpath"
+description = "Shared scrollbar appearance, parent wrapping and measured viewport."
+
+[dependencies]
+chui = { path = "../.." }

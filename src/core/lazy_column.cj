@@ -92,6 +92,7 @@ public class LazyColumn <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): LazyColumn {
         scrollPolicy = value
+        scrollBar.configure(value.bar)
         this
     }
 
@@ -161,7 +162,7 @@ public class LazyColumn <: Widget {
         }
         let stride = itemHeight + spacing
         let contentWidth = if (content > rect.h) {
-            max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset))
+            max(0.0, rect.w - scrollBarGutter(inset: scrollPolicy.contentInset, style: scrollPolicy.bar))
         } else {
             rect.w
         }
@@ -189,7 +190,7 @@ public class LazyColumn <: Widget {
             ctx.renderer.popClip()
         }
         ctx.renderer.popClip()
-        drawVerticalScrollBar(ctx, frame, frameScroll, content, frame.h, active: scrollBar.dragging(ctx))
+        scrollBar.draw(ctx, frame, frameScroll, content, frame.h)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {

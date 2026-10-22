@@ -5,8 +5,8 @@ import chui.core.{AnimationSpec, Bindable, CUI_SMALL_H, ComponentControlAppearan
     ComponentControlKind, ComponentControlState, ComponentControlStyle, ControlContentEnvironment, ControlSemantics,
     CursorShape, InteractionAnimation, Motion, ScrollBar, ScrollMotion, ScrollOptions, maxScrollOffset, Spring,
     SemanticActionKind, State, UiContext, Widget, requireControlId,
-    advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, drawFocusRing,
-    drawSurface, drawVerticalScrollBar, emit, focusableControlIdentity, handlePointerClick, localState,
+    advanceScrollMotion, applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, scrollBarContentInset, drawFocusRing,
+    drawSurface, emit, focusableControlIdentity, handlePointerClick, localState,
     recordControlSemantics, resolveComponentControlAppearance, reregisterFocusable, scrollLineIndex,
     scrollLineRemainder}
 
@@ -290,6 +290,7 @@ public class ListView <: Widget {
     /** Selects smooth/immediate wheel motion, wheel step, duration and easing. */
     public func scrollOptions(value: ScrollOptions): ListView {
         scrollPolicy = value
+        scrollBar.configure(value.bar)
         this
     }
 
@@ -299,7 +300,7 @@ public class ListView <: Widget {
 
     public func layout(ctx: UiContext, rect: Rect): Unit {
         frame = rect
-        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, listContentHeight(items), listViewport(rect).h,
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, listContentHeight(items), listViewport(rect, scrollPolicy, listContentHeight(items)).h,
             scrollPolicy)
     }
 
@@ -307,7 +308,7 @@ public class ListView <: Widget {
         // Clamp writes only on change: this runs every frame, and the offset may be an
         // externally owned state whose observers should not fire for no-op writes.
         let clampedScroll = clampScrollOffset(scrollStateValue.value, listContentHeight(items),
-            listViewport(frame).h)
+            listViewport(frame, scrollPolicy, listContentHeight(items)).h)
         if (clampedScroll != scrollStateValue.value) {
             scrollStateValue.value = clampedScroll
             cancelScrollMotion(scrollMotion, scrollStateValue)
@@ -330,7 +331,7 @@ public class ListView <: Widget {
         ))
         drawSurface(ctx, frame, ctx.theme.fieldSurface(ctx.showFocusRing(controlId)))
 
-        let viewport = listViewport(frame)
+        let viewport = listViewport(frame, scrollPolicy, listContentHeight(items))
         ctx.renderer.pushClip(viewport)
         var i = scrollLineIndex(scrollStateValue.value)
         var y = viewport.y - scrollLineRemainder(scrollStateValue.value)
@@ -340,14 +341,13 @@ public class ListView <: Widget {
             i += 1
         }
         ctx.renderer.popClip()
-        drawVerticalScrollBar(ctx, frame, scrollStateValue.value, listContentHeight(items), viewport.h,
-            active: scrollBar.dragging(ctx))
+        scrollBar.draw(ctx, frame, scrollStateValue.value, listContentHeight(items), viewport.h)
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {
         claimHoverIfInside(ctx, event, frame, controlId, CursorShape.Interactive)
         let contentH = listContentHeight(items)
-        let viewportH = listViewport(frame).h
+        let viewportH = listViewport(frame, scrollPolicy, listContentHeight(items)).h
         match (event) {
             case UiEvent.MouseDown(MouseButton.Left, x, y) =>
                 if (scrollBar.press(ctx, frame, scrollStateValue, contentH, viewportH, x, y)) {
@@ -358,7 +358,7 @@ public class ListView <: Widget {
                     ctx.focus(controlId)
                     // Presses on the chrome inset around the rows are consumed without
                     // selecting; row math is only valid inside the viewport.
-                    let viewport = listViewport(frame)
+                    let viewport = listViewport(frame, scrollPolicy, listContentHeight(items))
                     if (viewport.contains(x, y)) {
                         let idx = Int64((y - viewport.y + scrollStateValue.value) / CUI_SMALL_H)
                         if (idx >= 0 && idx < items.size) {
@@ -434,7 +434,7 @@ public class ListView <: Widget {
 
     // Scrolls the given row's band just into view, adjusting the offset minimally.
     private func revealRow(index: Int64): Unit {
-        let viewportH = listViewport(frame).h
+        let viewportH = listViewport(frame, scrollPolicy, listContentHeight(items)).h
         let rowTop = Float32(index) * CUI_SMALL_H
         let rowBottom = rowTop + CUI_SMALL_H
         var scroll = scrollStateValue.value
@@ -466,6 +466,9 @@ private func listContentHeight(items: Array<String>): Float32 {
     Float32(items.size) * CUI_SMALL_H
 }
 
-private func listViewport(frame: Rect): Rect {
-    Rect(frame.x + 4.0, frame.y + 6.0, max(0.0, frame.w - 12.0), max(0.0, frame.h - 12.0))
+private func listViewport(frame: Rect, options: ScrollOptions, content: Float32): Rect {
+    let extra: Float32 = if (content > max(0.0, frame.h - 12.0)) {
+        scrollBarContentInset(options.bar, 8.0, contentInset: options.contentInset)
+    } else {0.0}
+    Rect(frame.x + 4.0, frame.y + 6.0, max(0.0, frame.w - 12.0 - extra), max(0.0, frame.h - 12.0))
 }
