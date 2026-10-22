@@ -73,3 +73,15 @@ TreeView、Table、Dropdown、ComboBox 和 TextArea。TextArea 原有
 未拖动时也应转发 MouseMove，以便统一悬停所有权。复合控件已占有悬停时，
 可传 `configure(style, hoverOwner: existingOwnerId)` 复用该所有者，避免新建第二个
 焦点或动作目标；更高层弹层已占有输入时不会点亮背景条。
+
+
+编辑器可直接调用 `TextArea.metrics()` 读取同一 ScrollMetrics，不必用字符数或
+常量内边距推算行号栏几何。`viewport` 已包含实际文本内边距、换行和条槽避让；
+`reservedRight/Bottom` 只表示超出固有内边距的额外条槽。
+ScrollView 的值来自最后完成的布局，TextArea 的值来自最后完成的布局/绘制；
+读取不会触发布局或回调。写入外部 offset 或文本后，在下一次布局前仍返回旧快照。
+首次布局前的视口和内容大小为空；窗口/文本/字体变更后重新布局读取新值。
+
+应先保留 `let editor = TextArea(...).scrollOptions(...)`，再调用通用字体或尺寸修饰器；
+这些修饰器返回 Widget，实际几何仍从保留的 TextArea 引用读取。行号栏应使用
+`metrics().viewport` 和 `offsetY`，而非再次推算文字内边距和条宽。

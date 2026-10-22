@@ -294,3 +294,16 @@ func scrollbarDefaultThemeAlphaPreservesTheExistingChromeContract(): Unit {
     @Expect(ctx.renderer.drawIr()[0].toJson().contains("\"a\":80"))
     @Expect(ctx.renderer.drawIr()[1].toJson().contains("\"a\":180"))
 }
+
+@Test
+func scrollMetricsSnapshotDoesNotMixPendingOffsetsWithOldGeometry(): Unit {
+    let ctx = testContext()
+    let offset = State<Float32>(0.0)
+    let view = ScrollView(key: "metrics-snapshot") {emit(ScrollStyleChild(Size(100.0, 500.0)))}
+        .scrollState(offset)
+    view.layout(ctx, Rect(0.0, 0.0, 200.0, 100.0))
+    offset.value = 80.0
+    @Expect(view.metrics().offsetY, Float32(0.0))
+    view.layout(ctx, Rect(0.0, 0.0, 200.0, 100.0))
+    @Expect(view.metrics().offsetY, Float32(80.0))
+}

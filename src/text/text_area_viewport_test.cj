@@ -1,6 +1,6 @@
 package chui.text
 
-import chui.core.{ScrollBarLayout, ScrollBarStyle, ScrollOptions, State, Theme, UiContext}
+import chui.core.{ScrollBarLayout, ScrollBarStyle, ScrollBarVisibility, ScrollOptions, State, Theme, UiContext}
 import sdl.{MouseButton, Rect, Renderer, TextCompositionEvent, TextCompositionPhase, UiEvent}
 
 @Test
@@ -116,4 +116,43 @@ func textAreaWideScrollbarsReserveTextGeometryAndAvoidTheSharedCorner(): Unit {
     // Clicking field padding may focus/select text; it must not become a bar drag/page target.
     @Expect(area.handle(ctx, UiEvent.MouseDown(MouseButton.Left, 185.0, 85.0)))
     @Expect(ctx.dragId, "wide-scrollbars")
+}
+
+@Test
+func textAreaMetricsExposeActualEditorGutterGeometryAndRefreshAfterResize(): Unit {
+    let ctx = UiContext(Renderer.recordingHeadless(), Theme.light())
+    let text = State<String>("0123456789012345678901234567890123456789\na\nb\nc\nd\ne\nf\ng\nh")
+    let offset = State<Float32>(0.0)
+    let area = TextArea(text, key: "editor-metrics", scroll: Some(offset))
+        .scrollOptions(ScrollOptions.immediate(bar: ScrollBarStyle(width: 24.0, margin: 2.0,
+            layout: ScrollBarLayout.Reserved)))
+    @Expect(area.metrics().viewport.w, Float32(0.0))
+    @Expect(area.metrics().contentHeight, Float32(0.0))
+    area.layout(ctx, Rect(0.0, 0.0, 200.0, 100.0))
+    @Expect(area.metrics().viewport.x, Float32(8.0))
+    @Expect(area.metrics().viewport.w, Float32(166.0))
+    @Expect(area.metrics().viewport.h, Float32(66.0))
+    @Expect(area.metrics().reservedRight, Float32(18.0))
+    @Expect(area.metrics().contentHeight > area.metrics().viewport.h)
+    offset.value = 40.0
+    @Expect(area.metrics().offsetY, Float32(0.0))
+    area.layout(ctx, Rect(0.0, 0.0, 200.0, 100.0))
+    @Expect(area.metrics().offsetY, Float32(40.0))
+    text.value = "short"
+    area.layout(ctx, Rect(10.0, 20.0, 400.0, 300.0))
+    @Expect(area.metrics().viewport.x, Float32(18.0))
+    @Expect(area.metrics().viewport.w, Float32(384.0))
+    @Expect(area.metrics().reservedRight, Float32(0.0))
+    @Expect(area.metrics().offsetY, Float32(0.0))
+}
+
+@Test
+func textAreaMetricsKeepIntrinsicPaddingWhenTheScrollbarIsHidden(): Unit {
+    let ctx = UiContext(Renderer.recordingHeadless(), Theme.light())
+    let area = TextArea(State<String>("a\nb\nc\nd\ne\nf\ng"), key: "hidden-editor-metrics")
+        .scrollOptions(ScrollOptions.immediate(bar: ScrollBarStyle(visibility: ScrollBarVisibility.Hidden)))
+    area.layout(ctx, Rect(0.0, 0.0, 200.0, 100.0))
+    @Expect(area.metrics().viewport.x, Float32(8.0))
+    @Expect(area.metrics().viewport.w, Float32(184.0))
+    @Expect(area.metrics().reservedRight, Float32(0.0))
 }

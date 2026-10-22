@@ -603,3 +603,5 @@
 - Add shared scrollbar visibility/layout, alpha/color, width/margin/rounding and optional interaction transitions, with matching input geometry across existing scroll surfaces.
 - Add Widget.scrollable wrapping the existing ScrollView and post-layout ScrollMetrics; preserve wheel animation and reduced-motion behavior. Clamp short-viewport thumbs and reject non-finite wheel/style inputs.
 - Add the scroll-style example and public usage guide; no platform or installed SDK acceptance is implied.
+
+- Expose TextArea.metrics for actual editor gutters; keep metrics as completed-layout snapshots and reuse resolved wrapping instead of repeating default measurements.

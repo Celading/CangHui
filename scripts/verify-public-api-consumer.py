@@ -67,6 +67,9 @@ def main():
             if "SCROLL_APPEARANCE_PASS cases=12" not in run.stdout.splitlines():
                 raise ValueError("public scrollbar appearance verification did not finish")
             result["scrollAppearanceCasesVerified"] = 12
+            if "EDITOR_VIEWPORT_PASS cases=3" not in run.stdout.splitlines():
+                raise ValueError("public editor viewport verification did not finish")
+            result["editorViewportCasesVerified"] = 3
             result.update(ok=True, externalPackage=True, scenesVerified=8,
                           frameworkImports="chui-only", physicalDeviceVerified=False)
     except (ValueError, OSError, subprocess.SubprocessError) as error:

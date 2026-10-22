@@ -5,7 +5,7 @@ import sdl.{Color, FontSizes, Key, MouseButton, Pen, Point, Rect, Size, TextComp
 import sdl.input.Clipboard
 import chui.core.{Bindable, ControlSemantics, CUI_SMALL_H, CursorShape, HScrollBar, ScrollBar, ScrollMotion,
     ScrollOptions, SemanticActionKind, SemanticTextGeometry, maxScrollOffset, Observable, State, UiContext, Widget, Length, advanceScrollMotion,
-    applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, scrollBarContentInset,
+    applyWheelScroll, cancelScrollMotion, claimHoverIfInside, clampScrollOffset, ScrollMetrics, scrollBarContentInset,
     drawSurface, emit, localState, recordControlSemantics, registerFocusable,
     resolveControlKey}
 
@@ -132,6 +132,10 @@ public class TextArea <: Widget {
     private var wrapModeValue: TextAreaWrapMode
     private var showsVerticalScrollBar = true
     private var resolvedTextViewport = Rect.zero()
+    private var resolvedWrap: ?TextAreaWrapLayout = None
+    private var resolvedContentWidth: Float32 = 0.0
+    private var resolvedContentHeight: Float32 = 0.0
+    private var layoutMetrics = ScrollMetrics(Rect.zero(), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     private var verticalBarAdmitted = false
     private var horizontalBarAdmitted = false
     private var showsHorizontalScrollBar = true
@@ -363,29 +367,47 @@ public class TextArea <: Widget {
         refreshTypography(ctx)
         frame = rect
         resolvedTextViewport = resolveTextViewport(ctx)
-        let docLines = lines()
-        let viewport = resolvedTextViewport
-        let visual = wrapLayout(ctx, viewport.w)
-        let contentHeight = if (let Some(layout) <- visual) {
-            Float32(layout.lines.size) * activeTypography.rowHeight
-        } else { textContentHeight(docLines, typography: activeTypography) }
-        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, contentHeight, viewport.h, scrollPolicy)
+        advanceScrollMotion(ctx, scrollMotion, scrollStateValue, resolvedContentHeight,
+            resolvedTextViewport.h, scrollPolicy)
         advanceScrollMotion(ctx, horizontalScrollMotion, horizontalScrollStateValue,
-            contentWidth(ctx, docLines, viewportWidth: viewport.w), viewport.w, scrollPolicy)
+            resolvedContentWidth, resolvedTextViewport.w, scrollPolicy)
+        recordLayoutMetrics()
+    }
+
+    /** Last completed layout/draw snapshot; reading does not perform layout or invoke callbacks. */
+    public func metrics(): ScrollMetrics { layoutMetrics }
+
+    private func recordLayoutMetrics(): Unit {
+        let base = textViewport(frame)
+        layoutMetrics = ScrollMetrics(resolvedTextViewport, resolvedContentWidth, resolvedContentHeight,
+            horizontalScrollStateValue.value, scrollStateValue.value,
+            max(0.0, base.w - resolvedTextViewport.w), max(0.0, base.h - resolvedTextViewport.h))
     }
 
     private func resolveTextViewport(ctx: UiContext): Rect {
         let base = textViewport(frame)
+        let docLines = lines()
+        let inset = scrollBarContentInset(scrollPolicy.bar, 8.0, contentInset: scrollPolicy.contentInset)
         var result = base
         var vertical = false
         var horizontal = false
         for (_ in 0..3) {
-            vertical = vertical || Float32(visualRowCount(ctx, result.w, lines())) * activeTypography.rowHeight > result.h
-            horizontal = horizontal || contentWidth(ctx, lines(), viewportWidth: result.w) > result.w
-            let inset = scrollBarContentInset(scrollPolicy.bar, 8.0, contentInset: scrollPolicy.contentInset)
+            resolvedWrap = wrapLayout(ctx, result.w)
+            match (resolvedWrap) {
+                case Some(layout) =>
+                    resolvedContentHeight = Float32(layout.lines.size) * activeTypography.rowHeight
+                    resolvedContentWidth = result.w
+                case None =>
+                    resolvedContentHeight = textContentHeight(docLines, typography: activeTypography)
+                    resolvedContentWidth = contentWidth(ctx, docLines, viewportWidth: result.w)
+            }
+            vertical = vertical || resolvedContentHeight > result.h
+            horizontal = horizontal || resolvedContentWidth > result.w
             let right: Float32 = if (vertical && showsVerticalScrollBar) {inset} else {0.0}
             let bottom: Float32 = if (horizontal && showsHorizontalScrollBar) {inset} else {0.0}
-            result = Rect(base.x, base.y, max(0.0, base.w - right), max(0.0, base.h - bottom))
+            let next = Rect(base.x, base.y, max(0.0, base.w - right), max(0.0, base.h - bottom))
+            if (next.w == result.w && next.h == result.h) { break }
+            result = next
         }
         verticalBarAdmitted = vertical && showsVerticalScrollBar && !scrollPolicy.bar.hidden()
         horizontalBarAdmitted = horizontal && showsHorizontalScrollBar && !scrollPolicy.bar.hidden()
@@ -464,12 +486,12 @@ public class TextArea <: Widget {
         let docLines = lines()
         resolvedTextViewport = resolveTextViewport(ctx)
         let viewport = resolvedTextViewport
-        let visual = wrapLayout(ctx, viewport.w)
+        let visual = resolvedWrap
         let visualRows = match (visual) {
             case Some(layout) => layout.lines.size
             case None => docLines.size
         }
-        let contentW = contentWidth(ctx, docLines, viewportWidth: viewport.w)
+        let contentW = resolvedContentWidth
         // Clamp writes only on change: draw runs every frame, and the offset may be an
         // externally owned state whose observers should not fire for no-op writes.
         let clampedScroll = clampScrollOffset(scrollStateValue.value, Float32(visualRows) * activeTypography.rowHeight,
@@ -528,6 +550,7 @@ public class TextArea <: Widget {
             hScrollBar, chromeMode, wrapModeValue, decorationRuns,
             projection, contentW, nativeDocument(ctx), boundaryCache, isEditable, visual, viewport,
             verticalBarFrame(), horizontalBarFrame(), typography: activeTypography)
+        recordLayoutMetrics()
     }
 
     public func handle(ctx: UiContext, event: UiEvent): Bool {

@@ -359,6 +359,7 @@ public class ScrollView <: Widget {
     private let horizontalMotion: ScrollMotion
     private let horizontalBar: HScrollBar
     private var viewport = Rect.zero()
+    private var layoutMetrics = ScrollMetrics(Rect.zero(), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     private var contentWidth: Float32 = 0.0
     private let pan: ScrollPan
     private let panId: String
@@ -420,10 +421,7 @@ public class ScrollView <: Widget {
     }
 
     /** Read after layout; offsets remain externally owned through scrollState APIs. */
-    public func metrics(): ScrollMetrics {
-        ScrollMetrics(viewport, contentWidth, contentHeight, horizontalOffset.value, scrollOffset.value,
-            max(0.0, frame.w - viewport.w), max(0.0, frame.h - viewport.h))
-    }
+    public func metrics(): ScrollMetrics { layoutMetrics }
 
     public func measure(_: UiContext, available: Size): Size {
         available
@@ -476,6 +474,8 @@ public class ScrollView <: Widget {
             scrollOffset.value = clamped
         }
         child.layout(ctx, Rect(rect.x - horizontalOffset.value, rect.y - scrollOffset.value, contentWidth, contentHeight))
+        layoutMetrics = ScrollMetrics(viewport, contentWidth, contentHeight, horizontalOffset.value, scrollOffset.value,
+            max(0.0, frame.w - viewport.w), max(0.0, frame.h - viewport.h))
     }
 
     public func draw(ctx: UiContext): Unit {

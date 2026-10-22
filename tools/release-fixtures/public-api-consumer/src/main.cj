@@ -142,7 +142,32 @@ private func verifyPublicScrollAppearance(): Unit {
     println("SCROLL_APPEARANCE_PASS cases=${cases}")
 }
 
+private func verifyPublicEditorViewport(): Unit {
+    var cases: Int64 = 0
+    for (width in [Float32(390.0), Float32(1024.0), Float32(1440.0)]) {
+        let ctx = UiContext(Renderer.recordingHeadless(), Theme.light())
+        let text = State<String>("a\nb\nc\nd\ne\nf\ng\nh\ni")
+        let offset = State<Float32>(40.0)
+        let editor = TextArea(text, key: "external-editor-metrics", scroll: Some(offset))
+            .scrollOptions(ScrollOptions.immediate(bar: ScrollBarStyle(width: 24.0, margin: 2.0,
+                layout: ScrollBarLayout.Reserved)))
+        require(editor.metrics().viewport.w == 0.0, "editor metrics start empty")
+        editor.layout(ctx, Rect(0.0, 0.0, width, 100.0))
+        let metrics: ScrollMetrics = editor.metrics()
+        require(metrics.viewport.x == 8.0 && metrics.viewport.w == width - 34.0 &&
+            metrics.reservedRight == 18.0 && metrics.offsetY == 40.0,
+            "public editor viewport uses actual padding and scrollbar geometry")
+        text.value = "short"
+        editor.layout(ctx, Rect(0.0, 0.0, width, 300.0))
+        require(editor.metrics().viewport.w == width - 16.0 && editor.metrics().reservedRight == 0.0 &&
+            editor.metrics().offsetY == 0.0, "public editor content/resize refresh")
+        cases += 1
+    }
+    println("EDITOR_VIEWPORT_PASS cases=${cases}")
+}
+
 main(): Int64 {
+    verifyPublicEditorViewport()
     verifyPublicScrollAppearance()
     verifyEditorTypography()
     verifyFacadeContracts()
