@@ -201,3 +201,12 @@ texture commands. The default v2 payload omits this member, preserving existing 
 and digests. Put `.probe("stable.id")` last in a modifier chain to observe the complete widget.
 Computed truth supports design round trips and structural diagnosis; use `cuic prnt` to prove
 platform pixels.
+
+## Borrowing a native recording renderer
+
+An optional `renderer: Some(renderer)` parameter samples an explicitly owned
+recording renderer. Enable recording with `setDrawIrRecording(true)` first; the
+probe borrows the renderer synchronously and never closes it. The caller owns
+its native thread/lifecycle and must not render concurrently. Captured text
+reports its actual metrics backend and top-left origin. See
+[native motion design capture](native-motion-design.md).

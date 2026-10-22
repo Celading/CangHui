@@ -12,6 +12,8 @@ private func motionArgument(name: String, fallback: String): String {
 
 main(): Int64 {
     if (runKModeStdioIfRequested()) { return 0 }
+    let designOutput = motionArgument("--export-native-design", "")
+    if (!designOutput.isEmpty()) { exportNativeMotionDesign(designOutput); return 0 }
     let state = MotionLabState()
     state.family.value = min(Int64(4), max(Int64(0), Int64.parse(motionArgument("--family", "0"))))
     state.width.value = Float32.parse(motionArgument("--width", "1060"))

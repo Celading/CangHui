@@ -30,3 +30,7 @@ python3 capture-matrix.py --output /tmp/motion-native-frames --full
 `CANGHUI_MOTION_DESIGN_OUTPUT` 指向已存在的目录时，测试额外导出五类×两种宽度的计算设计快照。
 样例与可选 Kit 都只使用公开 `chui.*` 接口。
 见 [配方接口与行为](../../manual/reference/motion-studies.md)。
+
+Native measured capture is available with `--export-native-design <directory>`.
+See [native motion design](../../manual/reference/native-motion-design.md) for
+source hashes, original font resources and editable candidate generation.

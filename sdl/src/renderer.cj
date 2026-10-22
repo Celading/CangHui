@@ -138,7 +138,7 @@ public class Renderer {
     private let fontChains = HashMap<String, Array<FontResolution>>()
     private var fontRegistryGeneration: UInt64 = 0
     private var themeFontFamily: ?String = None
-    private let recordsDrawIr: Bool
+    private var recordsDrawIr: Bool
     private let drawIrLog = ArrayList<DrawIrCommand>()
     private let drawIrScopes = ArrayList<String>()
     internal var rendererEffectAdapter: ?RendererEffectAdapter = None
@@ -408,6 +408,14 @@ public class Renderer {
             }
         }
         false
+    }
+
+    /** Enables owned, opt-in command capture without replacing the native renderer.
+     * Switching resets the log; the caller still owns the renderer lifecycle.
+     */
+    public func setDrawIrRecording(value: Bool): Unit {
+        recordsDrawIr = value
+        clearDrawIr()
     }
 
     public func drawIrEnabled(): Bool {
@@ -1031,7 +1039,7 @@ public class Renderer {
      */
     public func strokeRoundedRect(rect: Rect, radius: Float32, pen: Pen): Unit {
         recordDrawIr("paint.stroke-rounded-rect", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
-            "," + drawIrPen(pen))
+            "," + drawIrStrokePen(pen))
         if (ptr.isNull()) { return }
         geometry.strokeRoundedRect(ptr, rect, roundedRadius(rect, radius), pen)
     }
@@ -1039,7 +1047,7 @@ public class Renderer {
     /** Draws a dashed rounded-rectangle border with a continuous dash phase around corners. */
     public func strokeRoundedRectDashed(rect: Rect, radius: Float32, pen: Pen, dash!: Float32, gap!: Float32): Unit {
         recordDrawIr("paint.stroke-rounded-rect-dashed", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
-            ",\"dash\":" + dash.toString() + ",\"gap\":" + gap.toString() + "," + drawIrPen(pen))
+            ",\"dash\":" + dash.toString() + ",\"gap\":" + gap.toString() + "," + drawIrStrokePen(pen))
         if (ptr.isNull()) { return }
         geometry.strokeRoundedRectDashed(ptr, rect, roundedRadius(rect, radius), pen, dash, gap)
     }
@@ -1241,12 +1249,18 @@ public class Renderer {
         let resolutions = resolveFontChain(font)
         let resolved = resolutions[0]
         let facePaths = fontPaths(resolutions)
-        recordDrawIr("text", "\"text\":" + drawIrQuote(text) + ",\"x\":" + x.toString() +
+        if (recordsDrawIr) {
+            let measured = textSize(text, pointSize: pointSize, style: style, font: font)
+            recordDrawIr("text", "\"text\":" + drawIrQuote(text) + ",\"x\":" + x.toString() +
             ",\"y\":" + y.toString() + ",\"pointSize\":" + pointSize.toString() +
             ",\"font\":" + drawIrQuote(requestedFont) + ",\"bold\":" + style.bold.toString() +
             ",\"italic\":" + style.italic.toString() + ",\"resolvedFamily\":" +
             drawIrQuote(resolved.family) + ",\"fontSource\":" + drawIrQuote(resolved.sourceName()) +
-            "," + drawIrColor(color))
+            ",\"textOrigin\":\"top-left\",\"metricsBackend\":" +
+                drawIrQuote(if (textBackend.isSome()) {"native"} else {"heuristic"}) +
+                ",\"measuredWidth\":" + measured.w.toString() +
+                ",\"measuredHeight\":" + measured.h.toString() + "," + drawIrColor(color))
+        }
         match (textBackend) {
             case Some(value) =>
                 let native = NativeTextColor(color.r, color.g, color.b, color.a)

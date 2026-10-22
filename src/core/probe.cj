@@ -251,7 +251,11 @@ protected func recordActiveProbeControlSemantics(frame: Rect, widgetType: String
  * `move-in x y`, `press x y`, `move-out x y`, `release x y`, `key Enter`,
  * `focus id`, `text value`, `advance ms`, `draw`, and `assert ...`.
  */
+/** A deterministic component sampler. An optional recording renderer is borrowed
+ * synchronously from its owner; its lifecycle and native thread remain caller-owned.
+ */
 public class ComponentProbe {
+    private let suppliedRenderer: ?Renderer
     public let name: String
     public let width: Float32
     public let height: Float32
@@ -267,12 +271,14 @@ public class ComponentProbe {
         theme!: Theme = Theme.light(),
         designBindings!: Array<DesignComponentBinding> = [],
         designInteractions!: Array<DesignInteractionBinding> = [],
-        designScenes!: Array<DesignAdaptiveScene> = []
+        designScenes!: Array<DesignAdaptiveScene> = [],
+        renderer!: ?Renderer = None
     ) {
         if (name.isEmpty()) { throw IllegalArgumentException("component probe name must not be empty") }
         if (width <= 0.0 || height <= 0.0) {
             throw IllegalArgumentException("component probe viewport must be positive")
         }
+        this.suppliedRenderer = renderer
         this.name = name
         this.width = width
         this.height = height
@@ -284,13 +290,15 @@ public class ComponentProbe {
 
     public func run(script: String, body: () -> Unit): String {
         let output = parseProbeOutput(script)
-        let renderer = Renderer.recordingHeadless()
+        let renderer = match (suppliedRenderer) { case Some(value) => value case None => Renderer.recordingHeadless() }
+        if (!renderer.drawIrEnabled()) { throw IllegalArgumentException("component probe requires recording enabled") }
         let ctx = UiContext(renderer, theme)
         ctx.viewportWidth = width
         ctx.viewportHeight = height
         let store = StateStore()
         let session = ComponentProbeSession(name, width, height,
-            designBindings, designInteractions, designScenes)
+            designBindings, designInteractions, designScenes,
+            if (suppliedRenderer.isSome()) {"provided-renderer"} else {"headless"})
         let previous = activeComponentProbeSession
         activeComponentProbeSession = Some(session)
         try {
@@ -669,6 +677,7 @@ private class ProbeAssertionResult {
 }
 
 private class ComponentProbeSession {
+    private let backend: String
     let name: String
     let width: Float32
     let height: Float32
@@ -698,7 +707,8 @@ private class ComponentProbeSession {
     init(name: String, width: Float32, height: Float32,
         designBindings: Array<DesignComponentBinding>,
         designInteractions: Array<DesignInteractionBinding>,
-        designScenes: Array<DesignAdaptiveScene>) {
+        designScenes: Array<DesignAdaptiveScene>, backend: String) {
+        this.backend = backend
         this.name = name
         this.width = width
         this.height = height
@@ -1154,7 +1164,7 @@ private class ComponentProbeSession {
         ]
         DesignSnapshot(
             name,
-            DesignSnapshotEnvironment("headless", width, height, theme: "probe", locale: "und"),
+            DesignSnapshotEnvironment(backend, width, height, theme: "probe", locale: "und"),
             snapshotNodes.toArray(), drawIr: latestDrawIr, states: globalStates,
             inputDigest: probeScriptDigest(script), generator: "CangHui/ComponentProbe")
     }

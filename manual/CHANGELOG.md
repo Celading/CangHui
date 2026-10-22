@@ -12,6 +12,11 @@
 
 ## Unreleased
 
+- Native recording can be enabled on an owned Renderer and borrowed by ComponentProbe.
+  Export actual text measurements/origins and preserve rectangle geometry separately from stroke width.
+  Motion Studio adds native design observations and source-checked editable candidate generation.
+
+
 - 新增公开 MotionValue、EaseOutBounce 与透明的上下文 Canvas；绘制异常恢复 Canvas 裁剪。
   Add a retained interruptible scalar, bounce easing and contextual transparent Canvas drawing.
 - 可选 Kit 增加回弹、精确滚动数字与终端扫描、被动焦点柔光、错峰编排和细线档案五类配方，

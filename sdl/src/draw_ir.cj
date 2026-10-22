@@ -48,3 +48,8 @@ internal func drawIrColor(color: Color): String {
 internal func drawIrPen(pen: Pen): String {
     "\"width\":" + pen.width.toString() + "," + drawIrColor(pen.color)
 }
+
+/** Rectangular strokes carry geometry width and strokeWidth separately. */
+internal func drawIrStrokePen(pen: Pen): String {
+    "\"strokeWidth\":" + pen.width.toString() + "," + drawIrColor(pen.color)
+}
