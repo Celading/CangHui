@@ -1101,8 +1101,11 @@ public class Renderer {
      * gradient halo, which is how soft drop shadows and focus glows are drawn banding-free.
      */
     public func fillRoundedRectSoft(rect: Rect, radius: Float32, color: Color, feather!: Float32): Unit {
-        recordDrawIr("paint.fill-rounded-soft", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
-            ",\"feather\":" + feather.toString() + "," + drawIrColor(color))
+        if (recordsDrawIr) {
+            let mesh = if (ptr.isNull()) {"null"} else {geometry.softFillDrawIr(rect, roundedRadius(rect, radius), feather)}
+            recordDrawIr("paint.fill-rounded-soft", drawIrRect(rect) + ",\"radius\":" + radius.toString() +
+                ",\"feather\":" + feather.toString() + ",\"mesh\":" + mesh + "," + drawIrColor(color))
+        }
         if (ptr.isNull()) { return }
         geometry.fillRoundedRectSoft(ptr, rect, roundedRadius(rect, radius), color, feather)
     }

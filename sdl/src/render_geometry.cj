@@ -82,6 +82,46 @@ internal class GeometryBatch {
         flush()
     }
 
+    /** Records the same cached coverage mesh used by the native soft-fill pass. */
+    func softFillDrawIr(rect: Rect, radius: Float32, feather: Float32): String {
+        if (rect.w <= 0.0 || rect.h <= 0.0 || rect.w > 8192.0 || rect.h > 8192.0) { return "null" }
+        let f = clampFeather(feather, min(rect.w, rect.h))
+        let cached = withinKeyBudget(rect.w, rect.h, radius, f)
+        let mesh = if (cached) {
+            let key = meshKey(MESH_KIND_FILL, rect.w, rect.h, radius, f)
+            match (meshCache.get(key)) {
+                case Some(value) => value
+                case None =>
+                    buildRoundedRectPath(Rect(0.0, 0.0, rect.w, rect.h), radius)
+                    let value = buildFillMesh(f)
+                    meshCache.put(key, value)
+                    value
+            }
+        } else {
+            buildRoundedRectPath(Rect(0.0, 0.0, rect.w, rect.h), radius)
+            buildFillMesh(f)
+        }
+        try {
+            if (mesh.vertCount == 0 || mesh.vertCount > 4096 || mesh.idxCount > 24576) { return "null" }
+            let out = StringBuilder()
+            out.append("{\"schema\":\"canghui.paint-mesh/v1\",\"vertices\":[")
+            for (i in 0..mesh.vertCount) {
+                if (i > 0) { out.append(",") }
+                let vertex = unsafe { mesh.relVerts.read(i) }
+                out.append(vertex.px.toString() + "," + vertex.py.toString() + "," + vertex.colA.toString())
+            }
+            out.append("],\"indices\":[")
+            for (i in 0..mesh.idxCount) {
+                if (i > 0) { out.append(",") }
+                out.append(unsafe { mesh.indices.read(i) }.toString())
+            }
+            out.append("]}")
+            out.toString()
+        } finally {
+            if (!cached) { mesh.free() }
+        }
+    }
+
     func fillRoundedRect(renderer: CPointer<Unit>, rect: Rect, radius: Float32, color: Color): Unit {
         fillRoundedRectSoft(renderer, rect, radius, color, AA_FEATHER)
     }

@@ -31,3 +31,19 @@ func recordingSwitchResetsOwnedLogAndDoesNotReplaceTheRenderer(): Unit {
     @Expect(renderer.drawIr().isEmpty())
     @Expect(!renderer.drawIrEnabled())
 }
+
+@Test
+func softFillRecordingKeepsHeadlessPureAndSerializesOwnedNativeMesh(): Unit {
+    let renderer = Renderer.recordingHeadless()
+    renderer.fillRoundedRectSoft(Rect(7.0, 9.0, 72.0, 38.0), 10.0,
+        Color.rgba(16, 24, 40, 12), feather: 9.0)
+    @Expect(renderer.drawIr()[0].data.contains("\"mesh\":null"))
+    let geometry = GeometryBatch()
+    try {
+        let data = geometry.softFillDrawIr(Rect(7.0, 9.0, 72.0, 38.0), 10.0, 9.0)
+        @Expect(data.contains("canghui.paint-mesh/v1"))
+        @Expect(data.contains("\"vertices\":["))
+        @Expect(data.contains("\"indices\":["))
+    } finally { geometry.dispose() }
+    renderer.releaseResources()
+}

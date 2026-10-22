@@ -12,6 +12,9 @@
 
 ## Unreleased
 
+- Native design captures retain bounded soft-fill coverage meshes from the actual draw cache.
+  Headless probes keep native allocation optional, and design refreshes reuse existing font/profile identities.
+
 - Native recording can be enabled on an owned Renderer and borrowed by ComponentProbe.
   Export actual text measurements/origins and preserve rectangle geometry separately from stroke width.
   Motion Studio adds native design observations and source-checked editable candidate generation.

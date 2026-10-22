@@ -38,3 +38,11 @@ Int64 strings and the source event ownership. Capability rows remain drafts.
 A successful compilation or save does not replace actual editor interaction,
 font loading, same-state native comparison or target-host acceptance. Unsupported
 paint and source behavior remain in the generated proof ledger.
+
+Native soft fills can carry a bounded `canghui.paint-mesh/v1` coverage mesh. Its
+relative vertices, per-vertex alpha and triangle indices come from the same cache
+used by the native draw pass; a Gaussian blur is not equivalent. Headless samplers
+keep `mesh:null`, without allocating native geometry. Importers must retain an
+explicit fidelity gap when a native mesh is unavailable. A source-measured text
+advance constrains design line width; original font bytes remain unchanged and
+raw browser font metrics can still differ from the native backend.
