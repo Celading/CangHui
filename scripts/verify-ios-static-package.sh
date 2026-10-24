@@ -281,16 +281,16 @@ verify_device() {
     : "${CANGHUI_IOS_CODESIGN_IDENTITY:?set CANGHUI_IOS_CODESIGN_IDENTITY to an Apple Development identity}"
 
     local app_dir
-    local build_dir="${OUTPUT_ROOT}/device"
-    local profile_plist="${build_dir}/profile.plist"
-    local entitlements="${build_dir}/entitlements.plist"
+    local profile_dir="${OUTPUT_ROOT}/device-profile"
+    local profile_plist="${profile_dir}/profile.plist"
+    local entitlements="${profile_dir}/entitlements.plist"
     local application_identifier
     local allowed_bundle
     local expiration
     local now
     local log_file="${OUTPUT_ROOT}/device-console.log"
 
-    mkdir -p "${build_dir}"
+    mkdir -p "${profile_dir}"
 
     if [[ -z "${CANGHUI_IOS_PROVISIONING_PROFILE:-}" ]]; then
         local discovered
