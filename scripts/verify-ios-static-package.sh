@@ -223,11 +223,62 @@ verify_simulator() {
     fi
 }
 
+profile_matches_bundle() {
+    local plist="$1"
+    local bundle_id="$2"
+    local appid
+    local allowed
+    appid="$(plutil -extract Entitlements.application-identifier raw -o - "${plist}" 2>/dev/null || true)"
+    [[ -n "${appid}" ]] || return 1
+    allowed="${appid#*.}"
+    if [[ "${allowed}" == *'*' ]]; then
+        [[ "${bundle_id}" == "${allowed%\*}"* ]]
+    else
+        [[ "${bundle_id}" == "${allowed}" ]]
+    fi
+}
+
+profile_is_unexpired() {
+    local plist="$1"
+    local expiration
+    local now
+    expiration="$(plutil -extract ExpirationDate raw -o - "${plist}" 2>/dev/null || true)"
+    [[ -n "${expiration}" ]] || return 1
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    [[ "${expiration}" > "${now}" ]]
+}
+
+find_valid_provisioning_profile() {
+    local bundle_id="$1"
+    local dir
+    local candidate
+    local plist
+    local -a search_dirs=(
+        "${HOME}/Library/Developer/Xcode/UserData/Provisioning Profiles"
+        "${HOME}/Library/MobileDevice/Provisioning Profiles"
+        "/Library/MobileDevice/Provisioning Profiles"
+    )
+    for dir in "${search_dirs[@]}"; do
+        [[ -d "${dir}" ]] || continue
+        while IFS= read -r candidate; do
+            plist="$(mktemp)"
+            if decode_ios_provisioning_profile "${candidate}" "${plist}" >/dev/null 2>&1 &&
+                profile_matches_bundle "${plist}" "${bundle_id}" &&
+                profile_is_unexpired "${plist}"; then
+                rm -f "${plist}"
+                printf '%s\n' "${candidate}"
+                return 0
+            fi
+            rm -f "${plist}"
+        done < <(find "${dir}" -maxdepth 1 -type f -name '*.mobileprovision' -print 2>/dev/null | sort -r)
+    done
+    return 1
+}
+
 verify_device() {
     : "${CANGHUI_IOS_DEVICE:?set CANGHUI_IOS_DEVICE to a CoreDevice identifier, UDID or name}"
     : "${CANGHUI_IOS_BUNDLE_ID:?set CANGHUI_IOS_BUNDLE_ID to the signed application identifier}"
     : "${CANGHUI_IOS_CODESIGN_IDENTITY:?set CANGHUI_IOS_CODESIGN_IDENTITY to an Apple Development identity}"
-    : "${CANGHUI_IOS_PROVISIONING_PROFILE:?set CANGHUI_IOS_PROVISIONING_PROFILE to a .mobileprovision path}"
 
     local app_dir
     local build_dir="${OUTPUT_ROOT}/device"
@@ -235,18 +286,40 @@ verify_device() {
     local entitlements="${build_dir}/entitlements.plist"
     local application_identifier
     local allowed_bundle
+    local expiration
+    local now
     local log_file="${OUTPUT_ROOT}/device-console.log"
 
-    build_static_libraries device
-    compile_probe_app device iphoneos ios_aarch64_cjnative \
-        "${OUTPUT_ROOT}/staticlibs/libcanghui_host_ios.a" \
-        "${CANGHUI_IOS_BUNDLE_ID}"
-    app_dir="${COMPILED_APP_DIR}"
+    mkdir -p "${build_dir}"
+
+    if [[ -z "${CANGHUI_IOS_PROVISIONING_PROFILE:-}" ]]; then
+        local discovered
+        if discovered="$(find_valid_provisioning_profile "${CANGHUI_IOS_BUNDLE_ID}")"; then
+            CANGHUI_IOS_PROVISIONING_PROFILE="${discovered}"
+            printf 'Discovered provisioning profile: %s\n' \
+                "${CANGHUI_IOS_PROVISIONING_PROFILE}"
+        else
+            printf 'No valid provisioning profile found for %s.\n' \
+                "${CANGHUI_IOS_BUNDLE_ID}" >&2
+            printf 'Sign in to Xcode (Settings > Accounts) or set CANGHUI_IOS_PROVISIONING_PROFILE to a fresh .mobileprovision.\n' >&2
+            exit 1
+        fi
+    fi
 
     decode_ios_provisioning_profile \
         "${CANGHUI_IOS_PROVISIONING_PROFILE}" "${profile_plist}"
     printf 'CangHui provisioning profile decoder: %s\n' \
         "${CANGHUI_IOS_PROFILE_DECODER_USED}"
+
+    expiration="$(plutil -extract ExpirationDate raw -o - "${profile_plist}")"
+    now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [[ "${expiration}" < "${now}" ]]; then
+        printf 'Provisioning profile expired at %s: %s\n' \
+            "${expiration}" "${CANGHUI_IOS_PROVISIONING_PROFILE}" >&2
+        printf 'Sign in to Xcode (Settings > Accounts) or provide a fresh .mobileprovision.\n' >&2
+        exit 1
+    fi
+
     plutil -extract Entitlements xml1 -o "${entitlements}" "${profile_plist}"
     plutil -remove keychain-access-groups "${entitlements}" >/dev/null 2>&1 || true
     application_identifier="$(plutil -extract Entitlements.application-identifier raw -o - "${profile_plist}")"
@@ -262,6 +335,12 @@ verify_device() {
             "${CANGHUI_IOS_BUNDLE_ID}" "${allowed_bundle}" >&2
         exit 1
     fi
+
+    build_static_libraries device
+    compile_probe_app device iphoneos ios_aarch64_cjnative \
+        "${OUTPUT_ROOT}/staticlibs/libcanghui_host_ios.a" \
+        "${CANGHUI_IOS_BUNDLE_ID}"
+    app_dir="${COMPILED_APP_DIR}"
 
     cp "${CANGHUI_IOS_PROVISIONING_PROFILE}" "${app_dir}/embedded.mobileprovision"
     codesign --force --sign "${CANGHUI_IOS_CODESIGN_IDENTITY}" \
