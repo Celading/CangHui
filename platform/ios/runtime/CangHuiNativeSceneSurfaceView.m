@@ -112,16 +112,32 @@ static void CangHuiSceneDrawText(CGContextRef context, NSDictionary *data) {
     UIFont *font = [data[@"bold"] boolValue]
         ? [UIFont boldSystemFontOfSize:pointSize]
         : [UIFont systemFontOfSize:pointSize];
+    NSMutableParagraphStyle *paragraph = [NSMutableParagraphStyle new];
+    NSString *alignment = data[@"alignment"];
+    paragraph.alignment = [alignment isEqualToString:@"center"]
+        ? NSTextAlignmentCenter
+        : [alignment isEqualToString:@"right"]
+            ? NSTextAlignmentRight
+            : NSTextAlignmentLeft;
+    paragraph.lineBreakMode = NSLineBreakByWordWrapping;
     NSDictionary *attributes = @{
         NSFontAttributeName: font,
         NSForegroundColorAttributeName: CangHuiSceneColor(data[@"color"]),
+        NSParagraphStyleAttributeName: paragraph,
     };
+    CGFloat x = CangHuiSceneNumber(data, @"x", 0.0);
+    CGFloat y = CangHuiSceneNumber(data, @"y", 0.0);
+    CGFloat width = CangHuiSceneNumber(data, @"width", 0.0);
+    CGFloat height = CangHuiSceneNumber(data, @"height", 0.0);
     CGContextSaveGState(context);
     UIGraphicsPushContext(context);
-    [value drawAtPoint:CGPointMake(
-        CangHuiSceneNumber(data, @"x", 0.0),
-        CangHuiSceneNumber(data, @"y", 0.0))
-        withAttributes:attributes];
+    if (width > 0.0 && height > 0.0) {
+        [value drawWithRect:CGRectMake(x, y, width, height)
+            options:NSStringDrawingUsesLineFragmentOrigin | NSStringDrawingTruncatesLastVisibleLine
+            attributes:attributes context:nil];
+    } else {
+        [value drawAtPoint:CGPointMake(x, y) withAttributes:attributes];
+    }
     UIGraphicsPopContext();
     CGContextRestoreGState(context);
 }

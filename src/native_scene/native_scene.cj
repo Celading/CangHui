@@ -134,12 +134,26 @@ public class NativeScene {
         y: Float32,
         color: NativeColor,
         pointSize!: Float32 = 15.0,
-        bold!: Bool = false
+        bold!: Bool = false,
+        width!: Float32 = 0.0,
+        height!: Float32 = 0.0,
+        lineLimit!: Int64 = 0,
+        alignment!: String = "left"
     ): Unit {
+        let resolvedAlignment = if (alignment == "center" || alignment == "right") {
+            alignment
+        } else {
+            "left"
+        }
         command("text", "\"text\":" + nativeSceneQuote(value) +
             ",\"x\":" + x.toString() + ",\"y\":" + y.toString() +
             ",\"pointSize\":" + max(1.0, pointSize).toString() +
-            ",\"bold\":" + bold.toString() + ",\"color\":" + color.toJson())
+            ",\"bold\":" + bold.toString() +
+            ",\"width\":" + max(0.0, width).toString() +
+            ",\"height\":" + max(0.0, height).toString() +
+            ",\"lineLimit\":" + max(0, lineLimit).toString() +
+            ",\"alignment\":" + nativeSceneQuote(resolvedAlignment) +
+            ",\"color\":" + color.toJson())
     }
 
     public func symbol(

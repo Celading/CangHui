@@ -81,6 +81,18 @@ func nativeSceneRoundedStrokeKeepsGeometryWidthSeparate(): Unit {
     @Expect(report.contains("\"strokeWidth\":3.000000"), true)
 }
 
+@Test
+func nativeSceneTextCarriesMeasuredLayoutHints(): Unit {
+    let scene = NativeScene("text-layout", 320.0, 240.0, NativeColor.rgb(255, 255, 255))
+    scene.text("A longer line that wraps", 12.0, 20.0, NativeColor.rgb(20, 20, 20),
+        pointSize: 14.0, width: 160.0, height: 64.0, lineLimit: 3, alignment: "center")
+    let report = scene.report(inputCount: 0, selectedAction: "")
+    @Expect(report.contains("\"width\":160.000000"))
+    @Expect(report.contains("\"height\":64.000000"))
+    @Expect(report.contains("\"lineLimit\":3"))
+    @Expect(report.contains("\"alignment\":\"center\""))
+}
+
 private func pointerFixture(): NativeScene {
     let scene = NativeScene("pointer", 320.0, 240.0, NativeColor.rgb(255, 255, 255))
     scene.button("action", "Action", NativeRect(20.0, 20.0, 120.0, 48.0),
