@@ -1,6 +1,7 @@
 package chui.host
 
 import chui.core.{UiOwnerQueue, UiOwnerTaskStatus}
+import std.collection.ArrayList
 import std.sync.Mutex
 
 private let IOS_BRIDGE_ACCEPTED: Int64 = 0
@@ -11,6 +12,8 @@ private let IOS_MAX_LOGICAL_MILLI: Int64 = 65535000
 private let IOS_MAX_PIXEL_DIMENSION: Int64 = 65535
 private let IOS_MIN_SCALE_MILLI: Int64 = 100
 private let IOS_MAX_SCALE_MILLI: Int64 = 16000
+private let IOS_MAX_KEY_CODE: Int64 = 65535
+private let IOS_MAX_MODIFIERS: Int64 = 4294967295
 
 /**
  * Integer-only iOS host seam. Native callbacks enqueue immutable values here; framework state is
@@ -56,6 +59,17 @@ public class IOSNativeSurfaceBridge {
     private var touchCount: Int64 = 0
     private var pointerCount: Int64 = 0
     private var traitCount: Int64 = 0
+    private var lastKeyPhase: Int64 = -1
+    private var lastKeyCode: Int64 = -1
+    private var lastKeyScanCode: Int64 = -1
+    private var lastKeyRepeat: Int64 = 0
+    private var lastKeyModifiers: Int64 = 0
+    private var keyCount: Int64 = 0
+    private var lastImePhase: Int64 = -1
+    private var lastImeText: String = ""
+    private var lastImeSelectionStart: Int64 = 0
+    private var lastImeSelectionEnd: Int64 = 0
+    private var imeCount: Int64 = 0
 
     public func attach(
         handle: Int64,
@@ -257,6 +271,58 @@ public class IOSNativeSurfaceBridge {
         })
     }
 
+    public func key(
+        phase: Int64,
+        keyCode: Int64,
+        scanCode: Int64,
+        repeat: Int64,
+        modifiers: Int64,
+        generation: Int64
+    ): Int64 {
+        if (phase < 0 || phase > 1 || keyCode < 0 || keyCode > IOS_MAX_KEY_CODE ||
+            scanCode < 0 || scanCode > IOS_MAX_KEY_CODE || repeat < 0 || repeat > 1 ||
+            modifiers < 0 || modifiers > IOS_MAX_MODIFIERS) {
+            return IOS_BRIDGE_INVALID_ARGUMENT
+        }
+        if (!isAttachedGeneration(generation)) {
+            return IOS_BRIDGE_STALE_GENERATION
+        }
+        submit(Some(generation), {=>
+            synchronized(stateMutex) {
+                lastKeyPhase = phase
+                lastKeyCode = keyCode
+                lastKeyScanCode = scanCode
+                lastKeyRepeat = repeat
+                lastKeyModifiers = modifiers
+                keyCount += 1
+            }
+        })
+    }
+
+    public func ime(
+        phase: Int64,
+        text: String,
+        selectionStart: Int64,
+        selectionEnd: Int64,
+        generation: Int64
+    ): Int64 {
+        if (phase < 0 || phase > 2 || selectionStart < 0 || selectionEnd < selectionStart) {
+            return IOS_BRIDGE_INVALID_ARGUMENT
+        }
+        if (!isAttachedGeneration(generation)) {
+            return IOS_BRIDGE_STALE_GENERATION
+        }
+        submit(Some(generation), {=>
+            synchronized(stateMutex) {
+                lastImePhase = phase
+                lastImeText = text
+                lastImeSelectionStart = selectionStart
+                lastImeSelectionEnd = selectionEnd
+                imeCount += 1
+            }
+        })
+    }
+
     public func currentGeneration(): Int64 { synchronized(stateMutex) { generation } }
     public func currentHandle(): Int64 { synchronized(stateMutex) { handle } }
     public func isAttached(): Bool { synchronized(stateMutex) { attached } }
@@ -294,6 +360,17 @@ public class IOSNativeSurfaceBridge {
     public func totalTouchCount(): Int64 { synchronized(stateMutex) { touchCount } }
     public func totalPointerCount(): Int64 { synchronized(stateMutex) { pointerCount } }
     public func totalTraitCount(): Int64 { synchronized(stateMutex) { traitCount } }
+    public func currentKeyPhase(): Int64 { synchronized(stateMutex) { lastKeyPhase } }
+    public func currentKeyCode(): Int64 { synchronized(stateMutex) { lastKeyCode } }
+    public func currentKeyScanCode(): Int64 { synchronized(stateMutex) { lastKeyScanCode } }
+    public func currentKeyRepeat(): Int64 { synchronized(stateMutex) { lastKeyRepeat } }
+    public func currentKeyModifiers(): Int64 { synchronized(stateMutex) { lastKeyModifiers } }
+    public func totalKeyCount(): Int64 { synchronized(stateMutex) { keyCount } }
+    public func currentImePhase(): Int64 { synchronized(stateMutex) { lastImePhase } }
+    public func currentImeText(): String { synchronized(stateMutex) { lastImeText } }
+    public func currentImeSelectionStart(): Int64 { synchronized(stateMutex) { lastImeSelectionStart } }
+    public func currentImeSelectionEnd(): Int64 { synchronized(stateMutex) { lastImeSelectionEnd } }
+    public func totalImeCount(): Int64 { synchronized(stateMutex) { imeCount } }
 
     /** Primary-blue idle color; touch-down uses a brighter Cangjie-selected state. */
     public func clearColorArgb(): Int64 {
@@ -428,6 +505,84 @@ public func canghui_ios_surface_frame(
     generation: Int64
 ): Int64 {
     iosNativeSurfaceBridge.frame(timestampNanos, targetTimestampNanos, generation)
+}
+
+private func iosUtf8String(text: CPointer<UInt8>, length: Int64): ?String {
+    if (text.isNull() || length <= 0) {
+        return Some("")
+    }
+    let bytes = ArrayList<UInt8>()
+    unsafe {
+        for (i in 0..length) {
+            bytes.add(text.read(i))
+        }
+    }
+    try {
+        Some(String.fromUtf8(bytes.toArray()))
+    } catch (error: Exception) {
+        None
+    }
+}
+
+@C
+public func canghui_ios_surface_key(
+    phase: Int64,
+    keyCode: Int64,
+    scanCode: Int64,
+    repeat: Int64,
+    modifiers: Int64,
+    generation: Int64
+): Int64 {
+    iosNativeSurfaceBridge.key(phase, keyCode, scanCode, repeat, modifiers, generation)
+}
+
+@C
+public func canghui_ios_surface_ime(
+    text: CPointer<UInt8>,
+    length: Int64,
+    phase: Int64,
+    selectionStart: Int64,
+    selectionEnd: Int64,
+    generation: Int64
+): Int64 {
+    if (let Some(value) <- iosUtf8String(text, length)) {
+        iosNativeSurfaceBridge.ime(phase, value, selectionStart, selectionEnd, generation)
+    } else {
+        IOS_BRIDGE_INVALID_ARGUMENT
+    }
+}
+
+@C public func canghui_ios_surface_key_count(): Int64 { iosNativeSurfaceBridge.totalKeyCount() }
+@C public func canghui_ios_surface_last_key_phase(): Int64 { iosNativeSurfaceBridge.currentKeyPhase() }
+@C public func canghui_ios_surface_last_key_code(): Int64 { iosNativeSurfaceBridge.currentKeyCode() }
+@C public func canghui_ios_surface_last_key_scan_code(): Int64 { iosNativeSurfaceBridge.currentKeyScanCode() }
+@C public func canghui_ios_surface_last_key_repeat(): Int64 { iosNativeSurfaceBridge.currentKeyRepeat() }
+@C public func canghui_ios_surface_last_key_modifiers(): Int64 { iosNativeSurfaceBridge.currentKeyModifiers() }
+@C public func canghui_ios_surface_ime_count(): Int64 { iosNativeSurfaceBridge.totalImeCount() }
+@C public func canghui_ios_surface_last_ime_phase(): Int64 { iosNativeSurfaceBridge.currentImePhase() }
+@C public func canghui_ios_surface_last_ime_selection_start(): Int64 {
+    iosNativeSurfaceBridge.currentImeSelectionStart()
+}
+@C public func canghui_ios_surface_last_ime_selection_end(): Int64 {
+    iosNativeSurfaceBridge.currentImeSelectionEnd()
+}
+@C
+public func canghui_ios_surface_last_ime_text(
+    output: CPointer<UInt8>,
+    capacity: Int64,
+    length: CPointer<Int64>
+): Int32 {
+    let value = iosNativeSurfaceBridge.currentImeText()
+    unsafe {
+        if (length.isNull() || capacity < 0) { return -1 }
+        let bytes = value.toArray()
+        length.write(Int64(bytes.size))
+        if (output.isNull() || capacity < Int64(bytes.size)) { return -2 }
+        for (i in 0..bytes.size) {
+            output.write(i, UInt8(bytes[i]))
+        }
+        0
+    }
 }
 
 @C public func canghui_ios_surface_generation(): Int64 { iosNativeSurfaceBridge.currentGeneration() }

@@ -98,6 +98,20 @@ int64_t canghui_ios_surface_frame(
     int64_t timestamp_nanos,
     int64_t target_timestamp_nanos,
     int64_t generation);
+int64_t canghui_ios_surface_key(
+    int64_t phase,
+    int64_t key_code,
+    int64_t scan_code,
+    int64_t repeat,
+    int64_t modifiers,
+    int64_t generation);
+int64_t canghui_ios_surface_ime(
+    const uint8_t * _Nullable text,
+    int64_t length,
+    int64_t phase,
+    int64_t selection_start,
+    int64_t selection_end,
+    int64_t generation);
 
 int64_t canghui_ios_surface_generation(void);
 int64_t canghui_ios_surface_is_attached(void);
@@ -117,6 +131,20 @@ int64_t canghui_ios_surface_last_trait_horizontal_size_class(void);
 int64_t canghui_ios_surface_last_trait_vertical_size_class(void);
 int64_t canghui_ios_surface_last_trait_scale_milli(void);
 int64_t canghui_ios_surface_last_frame_nanos(void);
+int64_t canghui_ios_surface_key_count(void);
+int64_t canghui_ios_surface_last_key_phase(void);
+int64_t canghui_ios_surface_last_key_code(void);
+int64_t canghui_ios_surface_last_key_scan_code(void);
+int64_t canghui_ios_surface_last_key_repeat(void);
+int64_t canghui_ios_surface_last_key_modifiers(void);
+int64_t canghui_ios_surface_ime_count(void);
+int64_t canghui_ios_surface_last_ime_phase(void);
+int64_t canghui_ios_surface_last_ime_selection_start(void);
+int64_t canghui_ios_surface_last_ime_selection_end(void);
+int32_t canghui_ios_surface_last_ime_text(
+    uint8_t * _Nullable output,
+    int64_t capacity,
+    int64_t * _Nonnull length);
 int64_t canghui_ios_surface_clear_color_argb(void);
 
 #ifdef __cplusplus

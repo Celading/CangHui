@@ -9,6 +9,7 @@
 #import "CangHuiHost.h"
 #import "CangHuiNativeSurface.h"
 #import "CangHuiRuntimeBootstrap.h"
+#import "CangHuiUIKitHostView.h"
 
 static const int64_t CangHuiProbeTimeoutNanos = 5000000000LL;
 
@@ -131,8 +132,10 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
 @property(nonatomic, strong) UIView *statusPanel;
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, strong) CangHuiMetalSurfaceView *surfaceView;
+@property(nonatomic, strong) CangHuiUIKitHostView *inputHost;
 @property(nonatomic, assign) BOOL drawableObserved;
 @property(nonatomic, assign) BOOL negativePassed;
+@property(nonatomic, assign) BOOL inputProbePassed;
 @end
 
 @implementation AppDelegate
@@ -230,6 +233,60 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
     return passed;
 }
 
+- (BOOL)runInputProbeWithGeneration:(int64_t)generation {
+    if (self.inputHost == nil) {
+        self.inputHost = [[CangHuiUIKitHostView alloc]
+            initWithFrame:CGRectMake(0.0, 0.0, 10.0, 10.0)];
+        self.inputHost.alpha = 0.01;
+        [self.rootController.view addSubview:self.inputHost];
+    }
+    self.inputHost.canghuiInputGeneration = generation;
+    [self.inputHost canghuiForwardKeyWithPhase:0 keyCode:4 modifiers:0 repeat:NO];
+    [self.inputHost canghuiForwardKeyWithPhase:1 keyCode:4 modifiers:0 repeat:NO];
+    [self.inputHost canghuiBeginTextInput];
+    [self.inputHost canghuiSetTextInputText:@"仓绘" selectionStart:0 selectionEnd:2];
+    [self.inputHost canghuiEndTextInput];
+    [self.inputHost canghuiSetAccessibilityNodes:@[
+        @{@"label": @"CangHui scene", @"identifier": @"scene",
+          @"traits": @(UIAccessibilityTraitStaticText),
+          @"x": @0, @"y": @0, @"width": @100, @"height": @20},
+        @{@"label": @"Open", @"identifier": @"open",
+          @"traits": @(UIAccessibilityTraitButton),
+          @"x": @0, @"y": @30, @"width": @100, @"height": @44},
+    ]];
+    uint8_t text[256] = {0};
+    int64_t textLength = 0;
+    int32_t textResult = canghui_ios_surface_last_ime_text(
+        text, (int64_t)sizeof(text), &textLength);
+    NSString *imeText = textResult == 0
+        ? [[NSString alloc] initWithBytes:text
+            length:(NSUInteger)textLength encoding:NSUTF8StringEncoding]
+        : nil;
+    int64_t keyCount = canghui_ios_surface_key_count();
+    int64_t keyCode = canghui_ios_surface_last_key_code();
+    int64_t imeCount = canghui_ios_surface_ime_count();
+    int64_t selectionStart = canghui_ios_surface_last_ime_selection_start();
+    int64_t selectionEnd = canghui_ios_surface_last_ime_selection_end();
+    NSInteger accessibilityCount = self.inputHost.canghuiAccessibilityElementCount;
+    BOOL passed = keyCount == 2 && keyCode == 4 && imeCount >= 1 &&
+        [imeText isEqualToString:@"仓绘"] &&
+        selectionStart == 0 && selectionEnd == 2 && accessibilityCount == 2;
+    fprintf(stderr,
+        "CANGHUI_IOS_INPUT result passed=%d key_count=%" PRId64
+        " key_code=%" PRId64 " ime_count=%" PRId64
+        " selection=%" PRId64 ":%" PRId64 " ime_text=%s accessibility=%ld\n",
+        passed ? 1 : 0,
+        keyCount,
+        keyCode,
+        imeCount,
+        selectionStart,
+        selectionEnd,
+        imeText.UTF8String ?: "",
+        (long)accessibilityCount);
+    fflush(stderr);
+    return passed;
+}
+
 - (void)scheduleDetachReattachReplay {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 500000000), dispatch_get_main_queue(), ^{
         int64_t generation = self.surfaceView.canghuiSurfaceGeneration;
@@ -248,6 +305,8 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
                 (void *)(intptr_t)self.surfaceView.canghuiSurfaceGeneration,
                 CangHuiProbeTimeoutNanos);
             self.negativePassed = [self runNegativeProbeWithOldGeneration:generation];
+            self.inputProbePassed =
+                [self runInputProbeWithGeneration:self.surfaceView.canghuiSurfaceGeneration];
             [self reportSurfaceWhenReadyWithAttempts:100];
         });
     });
@@ -264,7 +323,8 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
     if (!self.drawableObserved && metalReady) {
         self.drawableObserved = [layer nextDrawable] != nil;
     }
-    BOOL passed = self.negativePassed && readback.status == 0 && metalReady && self.drawableObserved &&
+    BOOL passed = self.negativePassed && self.inputProbePassed &&
+        readback.status == 0 && metalReady && self.drawableObserved &&
         snapshot.attached == 1 && snapshot.attaches >= 2 && snapshot.detaches >= 1 &&
         snapshot.generation >= 2 && snapshot.resizes >= 1 && snapshot.frames >= 1 &&
         snapshot.touches >= 1 && snapshot.pointers >= 1 && snapshot.traits >= 1;
@@ -276,12 +336,13 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
     }
 
     fprintf(stderr,
-        "CANGHUI_IOS_SURFACE result passed=%d negative=%s metal=%s drawable=%s attached=%" PRId64
+        "CANGHUI_IOS_SURFACE result passed=%d negative=%s input=%s metal=%s drawable=%s attached=%" PRId64
         " attaches=%" PRId64 " resizes=%" PRId64 " detaches=%" PRId64
         " generation=%" PRId64 " frames=%" PRId64 " touches=%" PRId64
         " pointers=%" PRId64 " traits=%" PRId64 "\n",
         passed ? 1 : 0,
         self.negativePassed ? "ready" : "null",
+        self.inputProbePassed ? "ready" : "null",
         metalReady ? "ready" : "null",
         self.drawableObserved ? "ready" : "null",
         snapshot.attached,

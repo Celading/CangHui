@@ -9,6 +9,7 @@ DEPLOYMENT_TARGET="${CANGHUI_IOS_DEPLOYMENT_TARGET:-13.0}"
 EXECUTABLE_NAME="CangHuiBootstrapProbe"
 EXPECTED_RESULT="CANGHUI_IOS_SURFACE result passed=1"
 EXPECTED_NEGATIVE_RESULT="CANGHUI_IOS_NEGATIVE result passed=1"
+EXPECTED_INPUT_RESULT="CANGHUI_IOS_INPUT result passed=1"
 COMPILED_APP_DIR=""
 
 # shellcheck source=scripts/lib/ios-provisioning-profile.sh
@@ -133,7 +134,8 @@ wait_for_result() {
 
     while (( attempts < 600 )); do
         if grep -Fq "${EXPECTED_RESULT}" "${log_file}" &&
-            grep -Fq "${EXPECTED_NEGATIVE_RESULT}" "${log_file}"; then
+            grep -Fq "${EXPECTED_NEGATIVE_RESULT}" "${log_file}" &&
+            grep -Fq "${EXPECTED_INPUT_RESULT}" "${log_file}"; then
             kill "${launch_pid}" >/dev/null 2>&1 || true
             wait "${launch_pid}" >/dev/null 2>&1 || true
             cat "${log_file}"
@@ -150,8 +152,8 @@ wait_for_result() {
     kill "${launch_pid}" >/dev/null 2>&1 || true
     wait "${launch_pid}" >/dev/null 2>&1 || true
     cat "${log_file}" >&2
-    printf 'Expected probe results were not observed: %s ; %s\n' \
-        "${EXPECTED_RESULT}" "${EXPECTED_NEGATIVE_RESULT}" >&2
+    printf 'Expected probe results were not observed: %s ; %s ; %s\n' \
+        "${EXPECTED_RESULT}" "${EXPECTED_NEGATIVE_RESULT}" "${EXPECTED_INPUT_RESULT}" >&2
     return 1
 }
 

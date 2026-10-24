@@ -274,3 +274,41 @@ func iosNativeSurfaceBridgeRejectsNonMonotonicFramesAcrossReattach(): Unit {
     @Expect(bridge.frame(500, 1500, 2), 0)
     @Expect(bridge.totalFrameCount(), 3)
 }
+
+@Test
+func iosNativeSurfaceBridgeCapturesKeyboardAndImeState(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 2000, 1), 0)
+    @Expect(bridge.key(0, 4, 0, 0, 0, 1), 0)
+    @Expect(bridge.key(1, 4, 0, 0, 0, 1), 0)
+    @Expect(bridge.currentKeyPhase(), 1)
+    @Expect(bridge.currentKeyCode(), 4)
+    @Expect(bridge.currentKeyScanCode(), 0)
+    @Expect(bridge.currentKeyRepeat(), 0)
+    @Expect(bridge.currentKeyModifiers(), 0)
+    @Expect(bridge.totalKeyCount(), 2)
+    @Expect(bridge.ime(0, "仓", 1, 1, 1), 0)
+    @Expect(bridge.ime(1, "仓绘", 2, 2, 1), 0)
+    @Expect(bridge.currentImePhase(), 1)
+    @Expect(bridge.currentImeText(), "仓绘")
+    @Expect(bridge.currentImeSelectionStart(), 2)
+    @Expect(bridge.currentImeSelectionEnd(), 2)
+    @Expect(bridge.totalImeCount(), 2)
+}
+
+@Test
+func iosNativeSurfaceBridgeRejectsInvalidKeyboardAndImeInputs(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 2000, 1), 0)
+    @Expect(bridge.key(2, 4, 0, 0, 0, 1), -1)
+    @Expect(bridge.key(0, -1, 0, 0, 0, 1), -1)
+    @Expect(bridge.key(0, 4, 0, 2, 0, 1), -1)
+    @Expect(bridge.key(0, 4, 0, 0, -1, 1), -1)
+    @Expect(bridge.key(0, 4, 0, 0, 0, 2), -2)
+    @Expect(bridge.ime(3, "", 0, 0, 1), -1)
+    @Expect(bridge.ime(0, "x", -1, 0, 1), -1)
+    @Expect(bridge.ime(0, "x", 2, 1, 1), -1)
+    @Expect(bridge.ime(0, "x", 0, 1, 2), -2)
+    @Expect(bridge.totalKeyCount(), 0)
+    @Expect(bridge.totalImeCount(), 0)
+}

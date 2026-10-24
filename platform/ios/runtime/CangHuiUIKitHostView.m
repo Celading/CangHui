@@ -7,6 +7,8 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <string.h>
+#include <stdlib.h>
 
 static const int64_t CangHuiTaskTimeoutNanos = 5000000000LL;
 
@@ -85,7 +87,50 @@ static void *CangHuiTraitTask(void *rawArguments) {
         arguments->scale);
 }
 
-@implementation CangHuiUIKitHostView
+typedef struct CangHuiKeyArguments {
+    int64_t phase;
+    int64_t keyCode;
+    int64_t scanCode;
+    int64_t repeat;
+    int64_t modifiers;
+    int64_t generation;
+} CangHuiKeyArguments;
+
+typedef struct CangHuiImeArguments {
+    char text[4096];
+    int64_t length;
+    int64_t phase;
+    int64_t selectionStart;
+    int64_t selectionEnd;
+    int64_t generation;
+} CangHuiImeArguments;
+
+static void *CangHuiKeyTask(void *rawArguments) {
+    CangHuiKeyArguments *arguments = rawArguments;
+    return (void *)(intptr_t)canghui_ios_surface_key(
+        arguments->phase,
+        arguments->keyCode,
+        arguments->scanCode,
+        arguments->repeat,
+        arguments->modifiers,
+        arguments->generation);
+}
+
+static void *CangHuiImeTask(void *rawArguments) {
+    CangHuiImeArguments *arguments = rawArguments;
+    return (void *)(intptr_t)canghui_ios_surface_ime(
+        (const uint8_t *)arguments->text,
+        arguments->length,
+        arguments->phase,
+        arguments->selectionStart,
+        arguments->selectionEnd,
+        arguments->generation);
+}
+
+@implementation CangHuiUIKitHostView {
+    UITextField *_canghuiTextInputField;
+    NSArray<UIAccessibilityElement *> *_canghuiAccessibilityElements;
+}
 
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
@@ -106,6 +151,19 @@ static void *CangHuiTraitTask(void *rawArguments) {
 - (void)canghuiConfigureInputAndLifecycle {
     self.multipleTouchEnabled = YES;
     self.userInteractionEnabled = YES;
+    self.isAccessibilityElement = NO;
+    _canghuiTextInputField = [[UITextField alloc] initWithFrame:CGRectMake(0.0, 0.0, 1.0, 1.0)];
+    _canghuiTextInputField.alpha = 0.01;
+    _canghuiTextInputField.backgroundColor = UIColor.clearColor;
+    _canghuiTextInputField.textColor = UIColor.clearColor;
+    _canghuiTextInputField.tintColor = UIColor.clearColor;
+    _canghuiTextInputField.autocorrectionType = UITextAutocorrectionTypeNo;
+    _canghuiTextInputField.spellCheckingType = UITextSpellCheckingTypeNo;
+    _canghuiTextInputField.delegate = self;
+    [_canghuiTextInputField addTarget:self
+        action:@selector(canghuiTextInputChanged:)
+        forControlEvents:UIControlEventEditingChanged];
+    [self addSubview:_canghuiTextInputField];
     if (@available(iOS 13.0, *)) {
         UIHoverGestureRecognizer *hover = [[UIHoverGestureRecognizer alloc]
             initWithTarget:self action:@selector(canghuiHandleHover:)];
@@ -127,7 +185,7 @@ static void *CangHuiTraitTask(void *rawArguments) {
 }
 
 - (int64_t)canghuiSurfaceGeneration {
-    return 0;
+    return self.canghuiInputGeneration;
 }
 
 - (void)safeAreaInsetsDidChange {
@@ -302,6 +360,180 @@ static void *CangHuiTraitTask(void *rawArguments) {
 - (void)canghuiSendLifecycle:(int64_t)state {
     (void)canghui_runtime_run_task(
         CangHuiLifecycleTask, (void *)(intptr_t)state, CangHuiTaskTimeoutNanos);
+}
+
+- (BOOL)canBecomeFirstResponder {
+    return YES;
+}
+
+- (void)canghuiBeginTextInput {
+    [_canghuiTextInputField becomeFirstResponder];
+}
+
+- (void)canghuiEndTextInput {
+    [_canghuiTextInputField resignFirstResponder];
+}
+
+- (void)canghuiSetTextInputText:(NSString *)text
+    selectionStart:(NSInteger)selectionStart
+    selectionEnd:(NSInteger)selectionEnd {
+    _canghuiTextInputField.text = text ?: @"";
+    NSInteger length = (NSInteger)_canghuiTextInputField.text.length;
+    NSInteger start = MIN(MAX(0, selectionStart), length);
+    NSInteger end = MIN(MAX(start, selectionEnd), length);
+    UITextPosition *startPosition = [_canghuiTextInputField
+        positionFromPosition:_canghuiTextInputField.beginningOfDocument offset:start];
+    UITextPosition *endPosition = startPosition == nil ? nil : [_canghuiTextInputField
+        positionFromPosition:startPosition offset:end - start];
+    if (startPosition != nil && endPosition != nil) {
+        _canghuiTextInputField.selectedTextRange = [_canghuiTextInputField
+            textRangeFromPosition:startPosition toPosition:endPosition];
+    }
+    [self canghuiForwardTextInputWithPhase:1];
+}
+
+- (void)canghuiTextInputChanged:(UITextField *)textField {
+    [self canghuiForwardTextInputWithPhase:textField.markedTextRange == nil ? 1 : 0];
+}
+
+- (void)textFieldDidChangeSelection:(UITextField *)textField {
+    [self canghuiForwardTextInputWithPhase:textField.markedTextRange == nil ? 1 : 0];
+}
+
+- (NSRange)canghuiSelectedRange {
+    UITextRange *range = _canghuiTextInputField.selectedTextRange;
+    if (range == nil) {
+        return NSMakeRange(_canghuiTextInputField.text.length, 0);
+    }
+    UITextPosition *beginning = _canghuiTextInputField.beginningOfDocument;
+    NSInteger start = [_canghuiTextInputField offsetFromPosition:beginning toPosition:range.start];
+    NSInteger end = [_canghuiTextInputField offsetFromPosition:beginning toPosition:range.end];
+    if (start < 0) { start = 0; }
+    if (end < start) { end = start; }
+    return NSMakeRange((NSUInteger)start, (NSUInteger)(end - start));
+}
+
+- (void)canghuiForwardTextInputWithPhase:(int64_t)phase {
+    int64_t generation = self.canghuiSurfaceGeneration;
+    if (generation <= 0) {
+        return;
+    }
+    NSString *text = _canghuiTextInputField.text ?: @"";
+    NSData *data = [text dataUsingEncoding:NSUTF8StringEncoding];
+    if (data == nil) {
+        return;
+    }
+    CangHuiImeArguments arguments = {0};
+    NSUInteger copyLength = MIN(data.length, sizeof(arguments.text));
+    if (copyLength > 0) {
+        memcpy(arguments.text, data.bytes, copyLength);
+    }
+    NSRange selection = [self canghuiSelectedRange];
+    arguments.length = (int64_t)copyLength;
+    arguments.phase = phase;
+    arguments.selectionStart = (int64_t)selection.location;
+    arguments.selectionEnd = (int64_t)(selection.location + selection.length);
+    arguments.generation = generation;
+    (void)canghui_runtime_run_task(CangHuiImeTask, &arguments, CangHuiTaskTimeoutNanos);
+}
+
+- (void)canghuiForwardKeyWithPhase:(int64_t)phase
+    keyCode:(int64_t)keyCode
+    modifiers:(int64_t)modifiers
+    repeat:(BOOL)repeat {
+    int64_t generation = self.canghuiSurfaceGeneration;
+    if (generation <= 0) {
+        return;
+    }
+    CangHuiKeyArguments arguments = {
+        .phase = phase,
+        .keyCode = keyCode,
+        .scanCode = 0,
+        .repeat = repeat ? 1 : 0,
+        .modifiers = modifiers,
+        .generation = generation,
+    };
+    (void)canghui_runtime_run_task(CangHuiKeyTask, &arguments, CangHuiTaskTimeoutNanos);
+}
+
+- (void)canghuiForwardPresses:(NSSet<UIPress *> *)presses phase:(int64_t)phase {
+    if (@available(iOS 13.4, *)) {
+        for (UIPress *press in presses) {
+            UIKey *key = press.key;
+            if (key == nil) {
+                continue;
+            }
+            [self canghuiForwardKeyWithPhase:phase
+                keyCode:(int64_t)key.keyCode
+                modifiers:(int64_t)key.modifierFlags
+                repeat:press.phase == UIPressPhaseChanged];
+        }
+    }
+}
+
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    [self canghuiForwardPresses:presses phase:0];
+    [super pressesBegan:presses withEvent:event];
+}
+
+- (void)pressesChanged:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    [self canghuiForwardPresses:presses phase:0];
+    [super pressesChanged:presses withEvent:event];
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    [self canghuiForwardPresses:presses phase:1];
+    [super pressesEnded:presses withEvent:event];
+}
+
+- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
+    [self canghuiForwardPresses:presses phase:1];
+    [super pressesCancelled:presses withEvent:event];
+}
+
+- (void)canghuiSetAccessibilityNodes:(NSArray<NSDictionary *> *)nodes {
+    NSMutableArray<UIAccessibilityElement *> *elements = [NSMutableArray array];
+    for (NSDictionary *node in nodes) {
+        if (![node isKindOfClass:NSDictionary.class]) {
+            continue;
+        }
+        UIAccessibilityElement *element = [[UIAccessibilityElement alloc]
+            initWithAccessibilityContainer:self];
+        element.accessibilityLabel = [node[@"label"] isKindOfClass:NSString.class]
+            ? node[@"label"] : nil;
+        element.accessibilityValue = [node[@"value"] isKindOfClass:NSString.class]
+            ? node[@"value"] : nil;
+        element.accessibilityIdentifier = [node[@"identifier"] isKindOfClass:NSString.class]
+            ? node[@"identifier"] : nil;
+        element.accessibilityTraits = [node[@"traits"] unsignedLongLongValue];
+        element.accessibilityFrameInContainerSpace = CGRectMake(
+            [node[@"x"] doubleValue],
+            [node[@"y"] doubleValue],
+            [node[@"width"] doubleValue],
+            [node[@"height"] doubleValue]);
+        [elements addObject:element];
+    }
+    _canghuiAccessibilityElements = elements.copy;
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification, nil);
+}
+
+- (NSInteger)canghuiAccessibilityElementCount {
+    return (NSInteger)_canghuiAccessibilityElements.count;
+}
+
+- (NSInteger)accessibilityElementCount {
+    return (NSInteger)_canghuiAccessibilityElements.count;
+}
+
+- (id)accessibilityElementAtIndex:(NSInteger)index {
+    if (index < 0 || index >= (NSInteger)_canghuiAccessibilityElements.count) {
+        return nil;
+    }
+    return _canghuiAccessibilityElements[(NSUInteger)index];
+}
+
+- (NSInteger)indexOfAccessibilityElement:(id)element {
+    return (NSInteger)[_canghuiAccessibilityElements indexOfObject:element];
 }
 
 @end
