@@ -177,6 +177,37 @@ the input event exactly once, while the buffer-copy callback receives the
 `none` event and snapshots the resulting state. Render functions must keep a
 `none` event side-effect free.
 
+## Product Consumer Sample
+
+`platform/ios/product` is a reference product application shell. It owns the
+counter, the input text and the action labels, mounts one
+`CangHuiNativeSceneSurfaceView`, and renders its whole screen from the
+`chui.native_scene` Draw IR. A tap on the increment button is resolved through
+the scene's hit regions, IME text and hardware keys arrive through the shared
+UIKit host, and the visible elements are published as accessibility nodes.
+The product C ABI lives in `CangHuiProductScene.h` and
+`src/native_scene/ios_product_scene.cj`.
+
+```bash
+CANGJIE_IOS_HOME=/path/to/cangjie-ios-sdk \
+    ./scripts/verify-ios-static-package.sh product-simulator
+```
+
+Device mode uses the same signing and provisioning preflight as the probe:
+
+```bash
+CANGJIE_IOS_HOME=/path/to/cangjie-ios-sdk \
+CANGHUI_IOS_DEVICE=<device> \
+CANGHUI_IOS_BUNDLE_ID=<profile-bundle-id> \
+CANGHUI_IOS_CODESIGN_IDENTITY=<identity> \
+    ./scripts/verify-ios-static-package.sh product-device
+```
+
+The run asserts the `CANGHUI_IOS_PRODUCT result passed=1` line together with
+presented scene frames, Draw IR command/action counts, the counter transition,
+IME text round-trip, key ingress and the accessibility element count. This is a
+reference consumer, not a store-distributed product or a release claim.
+
 ## Host Modes
 
 - `OwnedWindow` follows SDL3's callback application model. SDL owns the iOS
@@ -187,8 +218,9 @@ the input event exactly once, while the buffer-copy callback receives the
 
 Both modes require a launch screen, high-pixel-density configuration, bundled
 resources and correctly embedded or statically linked dependencies. Current
-device and simulator proof covers runtime, scheduler, static-package
+simulator and device proof covers runtime, scheduler, static-package
 initialization, N2C task entry, ABI return, UIKit lifecycle and safe area,
-touch, frame clock, generation replay, drawable acquisition and a Metal clear
-pass. Full CangHui scene rendering, IME, accessibility and product acceptance
-remain separate platform work.
+touch, frame clock, generation replay, drawable acquisition, a Metal clear
+pass, and the reference product shell's scene rendering, input, IME,
+accessibility and text layout. Release signing, store distribution and
+long-term support remain separate work.

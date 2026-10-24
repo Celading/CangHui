@@ -7,6 +7,8 @@ public func iosMobileApplicationInputTreeFiles(): Array<String> {
     [
         "platform/ios/probe/Info.plist",
         "platform/ios/probe/AppDelegate.m",
+        "platform/ios/product/Info.plist",
+        "platform/ios/product/AppDelegate.m",
         "platform/ios/bootstrap/CangHuiRuntimeBootstrap.m",
         "platform/ios/runtime/CangHuiUIKitHostView.m",
         "platform/ios/runtime/CangHuiMetalSurfaceView.m",
@@ -18,6 +20,7 @@ public func iosMobileApplicationInputTreeFiles(): Array<String> {
         "platform/ios/include/CangHuiUIKitHostView.h",
         "platform/ios/include/CangHuiMetalSurfaceView.h",
         "platform/ios/include/CangHuiNativeSceneSurfaceView.h",
+        "platform/ios/include/CangHuiProductScene.h",
         "platform/ios/include/CangjieGUIHost.h"
     ]
 }

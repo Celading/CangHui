@@ -90,7 +90,9 @@ func iosMobileApplicationProviderBindsReceiptToLifecycleAndSurface(): Unit {
     @Expect(!receipt.deviceProven())
     @Expect(receipt.lifecycleEpoch, 4)
     @Expect(receipt.surfaceGeneration, 9)
-    @Expect(receipt.inputFiles.size, 14)
+    @Expect(receipt.inputFiles.size, 17)
+    @Expect(receipt.inputFiles.contains("platform/ios/product/AppDelegate.m"))
+    @Expect(receipt.inputFiles.contains("platform/ios/include/CangHuiProductScene.h"))
     @Expect(provider.permissionState(HostCapability.NativeSurface), MobilePermissionState.Granted)
 }
 

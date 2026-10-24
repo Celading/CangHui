@@ -46,6 +46,12 @@ xcrun --sdk iphonesimulator clang $COMMON_FLAGS \
     -c "$PROJECT_ROOT/platform/ios/probe/AppDelegate.m" \
     -o "$OUTPUT_ROOT/AppDelegate.o"
 
+xcrun --sdk iphonesimulator clang $COMMON_FLAGS \
+    -isysroot "$SDK" \
+    -I "$PROJECT_ROOT/platform/ios/include" \
+    -c "$PROJECT_ROOT/platform/ios/product/AppDelegate.m" \
+    -o "$OUTPUT_ROOT/ProductAppDelegate.o"
+
 for symbol in \
     canghui_ios_surface_attach \
     canghui_ios_surface_resize \

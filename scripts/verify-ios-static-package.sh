@@ -6,11 +6,27 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT_ROOT="${2:-${PROJECT_ROOT}/target/ios-static-package-probe}"
 CANGJIE_IOS_HOME="${CANGJIE_IOS_HOME:-${CANGHUI_IOS_HOME:-${CANGJIE_HOME:-}}}"
 DEPLOYMENT_TARGET="${CANGHUI_IOS_DEPLOYMENT_TARGET:-13.0}"
-EXECUTABLE_NAME="CangHuiBootstrapProbe"
-EXPECTED_RESULT="CANGHUI_IOS_SURFACE result passed=1"
-EXPECTED_NEGATIVE_RESULT="CANGHUI_IOS_NEGATIVE result passed=1"
-EXPECTED_INPUT_RESULT="CANGHUI_IOS_INPUT result passed=1"
 COMPILED_APP_DIR=""
+NATIVE_SCENE_ARCHIVE=""
+
+case "${MODE}" in
+    product|product-simulator|product-device)
+        APP_KIND="product"
+        EXECUTABLE_NAME="CangHuiProductDemo"
+        APP_SOURCE_DIR="${PROJECT_ROOT}/platform/ios/product"
+        EXPECTED_RESULT="CANGHUI_IOS_PRODUCT result passed=1"
+        EXPECTED_NEGATIVE_RESULT=""
+        EXPECTED_INPUT_RESULT=""
+        ;;
+    *)
+        APP_KIND="probe"
+        EXECUTABLE_NAME="CangHuiBootstrapProbe"
+        APP_SOURCE_DIR="${PROJECT_ROOT}/platform/ios/probe"
+        EXPECTED_RESULT="CANGHUI_IOS_SURFACE result passed=1"
+        EXPECTED_NEGATIVE_RESULT="CANGHUI_IOS_NEGATIVE result passed=1"
+        EXPECTED_INPUT_RESULT="CANGHUI_IOS_INPUT result passed=1"
+        ;;
+esac
 
 # shellcheck source=scripts/lib/ios-provisioning-profile.sh
 source "${PROJECT_ROOT}/scripts/lib/ios-provisioning-profile.sh"
@@ -46,6 +62,20 @@ build_static_libraries() {
         "${OUTPUT_ROOT}/staticlibs"
 }
 
+build_native_scene_libraries() {
+    CANGJIE_HOME="${CANGJIE_IOS_HOME}" \
+        "${PROJECT_ROOT}/scripts/build-ios-native-scene-staticlibs.sh" "$1" \
+        "${OUTPUT_ROOT}/native-scene"
+}
+
+native_scene_archive() {
+    if [[ "${1:-}" == "simulator" ]]; then
+        printf '%s\n' "${OUTPUT_ROOT}/native-scene/libcanghui_native_scene_ios_simulator.a"
+    else
+        printf '%s\n' "${OUTPUT_ROOT}/native-scene/libcanghui_native_scene_ios.a"
+    fi
+}
+
 compile_probe_app() {
     local kind="$1"
     local sdk="$2"
@@ -70,7 +100,7 @@ compile_probe_app() {
     rm -rf "${build_dir}"
     mkdir -p "${app_dir}"
     mkdir -p "${build_dir}/modules"
-    cp "${PROJECT_ROOT}/platform/ios/probe/Info.plist" "${app_dir}/Info.plist"
+    cp "${APP_SOURCE_DIR}/Info.plist" "${app_dir}/Info.plist"
     plutil -replace CFBundleIdentifier -string "${bundle_id}" "${app_dir}/Info.plist"
 
     "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
@@ -96,7 +126,7 @@ compile_probe_app() {
         -fobjc-arc -fblocks -fmodules \
         -fmodules-cache-path="${build_dir}/modules" \
         -I "${PROJECT_ROOT}/platform/ios/include" \
-        -c "${PROJECT_ROOT}/platform/ios/probe/AppDelegate.m" \
+        -c "${APP_SOURCE_DIR}/AppDelegate.m" \
         -o "${build_dir}/AppDelegate.o"
 
     "${clang}" -arch arm64 "${minimum_flag}" -isysroot "${sdk_path}" \
@@ -106,6 +136,7 @@ compile_probe_app() {
         "${build_dir}/CangHuiMetalSurfaceView.o" \
         "${build_dir}/CangHuiDisplayLinkDriver.o" \
         "${build_dir}/CangHuiNativeSceneSurfaceView.o" \
+        ${NATIVE_SCENE_ARCHIVE} \
         "$(runtime_archive "${runtime_dir}" section.o)" \
         "$(runtime_archive "${runtime_dir}" cjstart.o)" \
         "${host_archive}" \
@@ -127,19 +158,29 @@ compile_probe_app() {
     COMPILED_APP_DIR="${app_dir}"
 }
 
+result_lines_present() {
+    local log_file="$1"
+    grep -Fq "${EXPECTED_RESULT}" "${log_file}" || return 1
+    if [[ -n "${EXPECTED_NEGATIVE_RESULT}" ]]; then
+        grep -Fq "${EXPECTED_NEGATIVE_RESULT}" "${log_file}" || return 1
+    fi
+    if [[ -n "${EXPECTED_INPUT_RESULT}" ]]; then
+        grep -Fq "${EXPECTED_INPUT_RESULT}" "${log_file}" || return 1
+    fi
+    return 0
+}
+
 wait_for_result() {
     local log_file="$1"
     local launch_pid="$2"
     local attempts=0
 
     while (( attempts < 600 )); do
-        if grep -Fq "${EXPECTED_RESULT}" "${log_file}" &&
-            grep -Fq "${EXPECTED_NEGATIVE_RESULT}" "${log_file}" &&
-            grep -Fq "${EXPECTED_INPUT_RESULT}" "${log_file}"; then
+        if result_lines_present "${log_file}"; then
             kill "${launch_pid}" >/dev/null 2>&1 || true
             wait "${launch_pid}" >/dev/null 2>&1 || true
             cat "${log_file}"
-            printf 'CangHui iOS static-package probe passed.\n'
+            printf 'CangHui iOS %s package probe passed.\n' "${APP_KIND}"
             return 0
         fi
         if ! kill -0 "${launch_pid}" >/dev/null 2>&1; then
@@ -152,8 +193,9 @@ wait_for_result() {
     kill "${launch_pid}" >/dev/null 2>&1 || true
     wait "${launch_pid}" >/dev/null 2>&1 || true
     cat "${log_file}" >&2
-    printf 'Expected probe results were not observed: %s ; %s ; %s\n' \
-        "${EXPECTED_RESULT}" "${EXPECTED_NEGATIVE_RESULT}" "${EXPECTED_INPUT_RESULT}" >&2
+    printf 'Expected %s probe results were not observed: %s %s %s\n' \
+        "${APP_KIND}" "${EXPECTED_RESULT}" "${EXPECTED_NEGATIVE_RESULT}" \
+        "${EXPECTED_INPUT_RESULT}" >&2
     return 1
 }
 
@@ -198,12 +240,20 @@ resolve_simulator_device() {
 }
 
 verify_simulator() {
-    local bundle_id="${CANGHUI_IOS_SIMULATOR_BUNDLE_ID:-dev.canghui.bootstrap.probe}"
+    local default_bundle="dev.canghui.bootstrap.probe"
+    if [[ "${APP_KIND}" == "product" ]]; then
+        default_bundle="dev.canghui.product.demo"
+    fi
+    local bundle_id="${CANGHUI_IOS_SIMULATOR_BUNDLE_ID:-${default_bundle}}"
     local device
     local app_dir
     local log_file="${OUTPUT_ROOT}/simulator-console.log"
 
     build_static_libraries simulator
+    if [[ "${APP_KIND}" == "product" ]]; then
+        build_native_scene_libraries simulator
+        NATIVE_SCENE_ARCHIVE="$(native_scene_archive simulator)"
+    fi
     device="$(resolve_simulator_device)"
     compile_probe_app simulator iphonesimulator \
         ios_simulator_aarch64_cjnative \
@@ -339,6 +389,10 @@ verify_device() {
     fi
 
     build_static_libraries device
+    if [[ "${APP_KIND}" == "product" ]]; then
+        build_native_scene_libraries device
+        NATIVE_SCENE_ARCHIVE="$(native_scene_archive device)"
+    fi
     compile_probe_app device iphoneos ios_aarch64_cjnative \
         "${OUTPUT_ROOT}/staticlibs/libcanghui_host_ios.a" \
         "${CANGHUI_IOS_BUNDLE_ID}"
@@ -360,18 +414,18 @@ verify_device() {
 }
 
 case "${MODE}" in
-    simulator)
+    simulator|product-simulator)
         verify_simulator
         ;;
-    device)
+    device|product-device)
         verify_device
         ;;
-    all)
+    all|product)
         verify_simulator
         verify_device
         ;;
     *)
-        printf 'usage: %s [simulator|device|all] [output-dir]\n' "$0" >&2
+        printf 'usage: %s [simulator|device|all|product|product-simulator|product-device] [output-dir]\n' "$0" >&2
         exit 2
         ;;
 esac

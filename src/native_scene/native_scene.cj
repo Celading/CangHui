@@ -76,6 +76,7 @@ public class NativeScene {
     public let height: Float32
     private let commands = ArrayList<String>()
     private let actions = ArrayList<NativeSceneAction>()
+    private var measuredTextLayout = false
 
     public init(name: String, width: Float32, height: Float32, background: NativeColor) {
         if (name.isEmpty()) { throw IllegalArgumentException("native scene name must not be empty") }
@@ -145,6 +146,7 @@ public class NativeScene {
         } else {
             "left"
         }
+        if (width > 0.0 && lineLimit > 0) { measuredTextLayout = true }
         command("text", "\"text\":" + nativeSceneQuote(value) +
             ",\"x\":" + x.toString() + ",\"y\":" + y.toString() +
             ",\"pointSize\":" + max(1.0, pointSize).toString() +
@@ -216,8 +218,13 @@ public class NativeScene {
             pointSize: 12.0, bold: true)
     }
 
-    public func actionAt(x: Float32, y: Float32): ?String {
-        var index: Int64 = actions.size - 1
+    public func commandCount(): Int64 { commands.size }
+
+    public func actionCount(): Int64 { actions.size }
+
+    public func hasMeasuredTextLayout(): Bool { measuredTextLayout }
+
+    public func actionAt(x: Float32, y: Float32): ?String {        var index: Int64 = actions.size - 1
         while (index >= 0) {
             let action = actions[index]
             if (action.rect.contains(x, y)) { return Some(action.id) }
@@ -354,7 +361,7 @@ private func appendJoined(out: StringBuilder, values: ArrayList<String>): Unit {
     }
 }
 
-private func nativeSceneQuote(value: String): String {
+func nativeSceneQuote(value: String): String {
     let out = StringBuilder()
     out.append("\"")
     for (r in value.toRuneArray()) {
