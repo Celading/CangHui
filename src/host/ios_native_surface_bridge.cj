@@ -7,6 +7,10 @@ private let IOS_BRIDGE_ACCEPTED: Int64 = 0
 private let IOS_BRIDGE_INVALID_ARGUMENT: Int64 = -1
 private let IOS_BRIDGE_STALE_GENERATION: Int64 = -2
 private let IOS_BRIDGE_REJECTED: Int64 = -3
+private let IOS_MAX_LOGICAL_MILLI: Int64 = 65535000
+private let IOS_MAX_PIXEL_DIMENSION: Int64 = 65535
+private let IOS_MIN_SCALE_MILLI: Int64 = 100
+private let IOS_MAX_SCALE_MILLI: Int64 = 16000
 
 /**
  * Integer-only iOS host seam. Native callbacks enqueue immutable values here; framework state is
@@ -62,7 +66,7 @@ public class IOSNativeSurfaceBridge {
         scaleMilli: Int64,
         generation: Int64
     ): Int64 {
-        if (handle == 0 || !validDimensions(logicalWidthMilli, logicalHeightMilli,
+        if (handle <= 0 || !validDimensions(logicalWidthMilli, logicalHeightMilli,
             pixelWidth, pixelHeight, scaleMilli) || generation <= 0) {
             return IOS_BRIDGE_INVALID_ARGUMENT
         }
@@ -82,6 +86,8 @@ public class IOSNativeSurfaceBridge {
                 this.pixelHeight = pixelHeight
                 this.scaleMilli = scaleMilli
                 this.attachCount += 1
+                this.lastFrameTimestampNanos = 0
+                this.lastFrameTargetNanos = 0
             }
         })
     }
@@ -238,6 +244,10 @@ public class IOSNativeSurfaceBridge {
         if (!isAttachedGeneration(generation)) {
             return IOS_BRIDGE_STALE_GENERATION
         }
+        let monotonic = synchronized(stateMutex) { timestampNanos >= lastFrameTimestampNanos }
+        if (!monotonic) {
+            return IOS_BRIDGE_REJECTED
+        }
         submit(Some(generation), {=>
             synchronized(stateMutex) {
                 lastFrameTimestampNanos = timestampNanos
@@ -299,8 +309,11 @@ public class IOSNativeSurfaceBridge {
         pixelHeight: Int64,
         scaleMilli: Int64
     ): Bool {
-        logicalWidthMilli > 0 && logicalHeightMilli > 0 &&
-            pixelWidth > 0 && pixelHeight > 0 && scaleMilli > 0
+        logicalWidthMilli > 0 && logicalWidthMilli <= IOS_MAX_LOGICAL_MILLI &&
+            logicalHeightMilli > 0 && logicalHeightMilli <= IOS_MAX_LOGICAL_MILLI &&
+            pixelWidth > 0 && pixelWidth <= IOS_MAX_PIXEL_DIMENSION &&
+            pixelHeight > 0 && pixelHeight <= IOS_MAX_PIXEL_DIMENSION &&
+            scaleMilli >= IOS_MIN_SCALE_MILLI && scaleMilli <= IOS_MAX_SCALE_MILLI
     }
 
     private func isAttachedGeneration(generation: Int64): Bool {

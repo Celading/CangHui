@@ -230,3 +230,47 @@ func iosMobileApplicationProviderRecordsInstallationWithoutAdvancingStage(): Uni
     @Expect(provider.packageReceipt().deviceProof, MobileDeviceProofState.NotRun)
     @Expect(!provider.packageReceipt().deviceProven())
 }
+
+@Test
+func iosNativeSurfaceBridgeRejectsInvalidHandleAndOutOfRangeDimensions(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.attach(-1, 320000, 480000, 640, 960, 2000, 1), -1)
+    @Expect(bridge.attach(0, 320000, 480000, 640, 960, 2000, 1), -1)
+    @Expect(bridge.attach(17, 65535001, 480000, 640, 960, 2000, 1), -1)
+    @Expect(bridge.attach(17, 320000, 480000, 65536, 960, 2000, 1), -1)
+    @Expect(bridge.attach(17, 320000, 480000, 640, 65536, 2000, 1), -1)
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 99, 1), -1)
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 16001, 1), -1)
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 2000, 0), -1)
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 100, 1), 0)
+}
+
+@Test
+func iosNativeSurfaceBridgeRejectsStaleResizeInputAndDetach(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 2000, 2), 0)
+    @Expect(bridge.resize(360000, 640000, 720, 1280, 2000, 1), -2)
+    @Expect(bridge.touch(0, 1, 1000, 1000, 10, 1), -2)
+    @Expect(bridge.pointer(0, 1, 1000, 1000, 10, 0, 1), -2)
+    @Expect(bridge.frame(1000, 2000, 1), -2)
+    @Expect(bridge.detach(1), -2)
+    @Expect(bridge.detach(2), 0)
+    @Expect(bridge.resize(360000, 640000, 720, 1280, 2000, 2), -2)
+    @Expect(bridge.touch(0, 1, 1000, 1000, 10, 2), -2)
+    @Expect(bridge.pointer(0, 1, 1000, 1000, 10, 0, 2), -2)
+    @Expect(bridge.frame(1000, 2000, 2), -2)
+}
+
+@Test
+func iosNativeSurfaceBridgeRejectsNonMonotonicFramesAcrossReattach(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.attach(17, 320000, 480000, 640, 960, 2000, 1), 0)
+    @Expect(bridge.frame(1000, 2000, 1), 0)
+    @Expect(bridge.frame(900, 1900, 1), -3)
+    @Expect(bridge.frame(1000, 900, 1), -1)
+    @Expect(bridge.frame(1000, 2000, 1), 0)
+    @Expect(bridge.detach(1), 0)
+    @Expect(bridge.attach(19, 320000, 480000, 640, 960, 2000, 2), 0)
+    @Expect(bridge.frame(500, 1500, 2), 0)
+    @Expect(bridge.totalFrameCount(), 3)
+}

@@ -8,6 +8,7 @@ CANGJIE_IOS_HOME="${CANGJIE_IOS_HOME:-${CANGHUI_IOS_HOME:-${CANGJIE_HOME:-}}}"
 DEPLOYMENT_TARGET="${CANGHUI_IOS_DEPLOYMENT_TARGET:-13.0}"
 EXECUTABLE_NAME="CangHuiBootstrapProbe"
 EXPECTED_RESULT="CANGHUI_IOS_SURFACE result passed=1"
+EXPECTED_NEGATIVE_RESULT="CANGHUI_IOS_NEGATIVE result passed=1"
 COMPILED_APP_DIR=""
 
 # shellcheck source=scripts/lib/ios-provisioning-profile.sh
@@ -130,8 +131,9 @@ wait_for_result() {
     local launch_pid="$2"
     local attempts=0
 
-    while (( attempts < 200 )); do
-        if grep -Fq "${EXPECTED_RESULT}" "${log_file}"; then
+    while (( attempts < 600 )); do
+        if grep -Fq "${EXPECTED_RESULT}" "${log_file}" &&
+            grep -Fq "${EXPECTED_NEGATIVE_RESULT}" "${log_file}"; then
             kill "${launch_pid}" >/dev/null 2>&1 || true
             wait "${launch_pid}" >/dev/null 2>&1 || true
             cat "${log_file}"
@@ -148,7 +150,22 @@ wait_for_result() {
     kill "${launch_pid}" >/dev/null 2>&1 || true
     wait "${launch_pid}" >/dev/null 2>&1 || true
     cat "${log_file}" >&2
-    printf 'Expected probe result was not observed: %s\n' "${EXPECTED_RESULT}" >&2
+    printf 'Expected probe results were not observed: %s ; %s\n' \
+        "${EXPECTED_RESULT}" "${EXPECTED_NEGATIVE_RESULT}" >&2
+    return 1
+}
+
+wait_for_simulator_system() {
+    local device="$1"
+    local attempts=0
+    while (( attempts < 120 )); do
+        if xcrun simctl spawn "${device}" launchctl print system >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.5
+        attempts=$((attempts + 1))
+    done
+    printf 'Simulator did not reach system readiness: %s\n' "${device}" >&2
     return 1
 }
 
@@ -174,6 +191,7 @@ resolve_simulator_device() {
         xcrun simctl boot "${selected}" >/dev/null 2>&1 || true
         xcrun simctl bootstatus "${selected}" -b >&2
     fi
+    wait_for_simulator_system "${selected}" || return 1
     printf '%s\n' "${selected}"
 }
 
@@ -191,10 +209,18 @@ verify_simulator() {
         "${bundle_id}"
     app_dir="${COMPILED_APP_DIR}"
     xcrun simctl install "${device}" "${app_dir}"
-    : > "${log_file}"
-    xcrun simctl launch --terminate-running-process --console \
-        "${device}" "${bundle_id}" >"${log_file}" 2>&1 &
-    wait_for_result "${log_file}" "$!"
+    launch_simulator_probe() {
+        : > "${log_file}"
+        xcrun simctl launch --terminate-running-process --console \
+            "${device}" "${bundle_id}" >"${log_file}" 2>&1 &
+        wait_for_result "${log_file}" "$!"
+    }
+    if ! launch_simulator_probe; then
+        printf 'Retrying simulator probe after cold-boot race.\n' >&2
+        xcrun simctl terminate "${device}" "${bundle_id}" >/dev/null 2>&1 || true
+        sleep 2
+        launch_simulator_probe
+    fi
 }
 
 verify_device() {

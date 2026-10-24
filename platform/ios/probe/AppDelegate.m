@@ -65,6 +65,61 @@ static void *write_canghui_probe_traits(void *unused) {
         2000);
 }
 
+typedef struct CangHuiFrameProbeArguments {
+    int64_t generation;
+    int64_t baseNanos;
+} CangHuiFrameProbeArguments;
+
+static int64_t run_canghui_int_task(void *(*task)(void *), void *argument) {
+    CangHuiRuntimeTaskResult result =
+        canghui_runtime_run_task(task, argument, CangHuiProbeTimeoutNanos);
+    return result.status == 0 ? (int64_t)(intptr_t)result.value : -100;
+}
+
+static void *write_canghui_stale_resize(void *rawGeneration) {
+    int64_t generation = (int64_t)(intptr_t)rawGeneration;
+    return (void *)(intptr_t)canghui_ios_surface_resize(
+        360000, 640000, 720, 1280, 2000, generation);
+}
+
+static void *write_canghui_stale_touch(void *rawGeneration) {
+    int64_t generation = (int64_t)(intptr_t)rawGeneration;
+    return (void *)(intptr_t)canghui_ios_surface_touch(
+        CANGHUI_IOS_TOUCH_BEGAN, 3, 1000, 1000, 2000, generation);
+}
+
+static void *write_canghui_stale_pointer(void *rawGeneration) {
+    int64_t generation = (int64_t)(intptr_t)rawGeneration;
+    return (void *)(intptr_t)canghui_ios_surface_pointer(
+        CANGHUI_IOS_POINTER_BEGAN, 3, 1000, 1000, 2000,
+        CANGHUI_IOS_POINTER_KIND_PENCIL, generation);
+}
+
+static void *write_canghui_stale_frame(void *rawGeneration) {
+    int64_t generation = (int64_t)(intptr_t)rawGeneration;
+    return (void *)(intptr_t)canghui_ios_surface_frame(1000, 2000, generation);
+}
+
+static void *write_canghui_invalid_handle(void *unused) {
+    (void)unused;
+    return (void *)(intptr_t)canghui_ios_surface_attach(
+        -1, 320000, 480000, 640, 960, 2000, 1);
+}
+
+static void *write_canghui_future_frame(void *rawArguments) {
+    CangHuiFrameProbeArguments *arguments = rawArguments;
+    return (void *)(intptr_t)canghui_ios_surface_frame(
+        arguments->baseNanos + 1000, arguments->baseNanos + 2000,
+        arguments->generation);
+}
+
+static void *write_canghui_stale_future_frame(void *rawArguments) {
+    CangHuiFrameProbeArguments *arguments = rawArguments;
+    return (void *)(intptr_t)canghui_ios_surface_frame(
+        arguments->baseNanos + 500, arguments->baseNanos + 1500,
+        arguments->generation);
+}
+
 @interface CangHuiMetalSurfaceView : UIView
 - (int64_t)canghuiSurfaceGeneration;
 - (void)canghuiReplayCurrentResize;
@@ -77,6 +132,7 @@ static void *write_canghui_probe_traits(void *unused) {
 @property(nonatomic, strong) UILabel *statusLabel;
 @property(nonatomic, strong) CangHuiMetalSurfaceView *surfaceView;
 @property(nonatomic, assign) BOOL drawableObserved;
+@property(nonatomic, assign) BOOL negativePassed;
 @end
 
 @implementation AppDelegate
@@ -130,6 +186,50 @@ static void *write_canghui_probe_traits(void *unused) {
     [self.rootController.view layoutIfNeeded];
 }
 
+- (BOOL)runNegativeProbeWithOldGeneration:(int64_t)oldGeneration {
+    int64_t currentGeneration = canghui_ios_surface_generation();
+    int64_t staleResize = run_canghui_int_task(
+        write_canghui_stale_resize, (void *)(intptr_t)oldGeneration);
+    int64_t staleTouch = run_canghui_int_task(
+        write_canghui_stale_touch, (void *)(intptr_t)oldGeneration);
+    int64_t stalePointer = run_canghui_int_task(
+        write_canghui_stale_pointer, (void *)(intptr_t)oldGeneration);
+    int64_t staleFrame = run_canghui_int_task(
+        write_canghui_stale_frame, (void *)(intptr_t)oldGeneration);
+    int64_t invalidHandle = run_canghui_int_task(write_canghui_invalid_handle, NULL);
+    CangHuiFrameProbeArguments frameArguments = {
+        .generation = currentGeneration,
+        .baseNanos = canghui_ios_surface_last_frame_nanos() + 3600000000000LL,
+    };
+    int64_t futureFrame = run_canghui_int_task(
+        write_canghui_future_frame, &frameArguments);
+    int64_t staleFutureFrame = run_canghui_int_task(
+        write_canghui_stale_future_frame, &frameArguments);
+    BOOL passed =
+        staleResize == CANGHUI_IOS_BRIDGE_STALE_GENERATION &&
+        staleTouch == CANGHUI_IOS_BRIDGE_STALE_GENERATION &&
+        stalePointer == CANGHUI_IOS_BRIDGE_STALE_GENERATION &&
+        staleFrame == CANGHUI_IOS_BRIDGE_STALE_GENERATION &&
+        invalidHandle == CANGHUI_IOS_BRIDGE_INVALID_ARGUMENT &&
+        futureFrame == CANGHUI_IOS_BRIDGE_ACCEPTED &&
+        staleFutureFrame == CANGHUI_IOS_BRIDGE_REJECTED;
+    fprintf(stderr,
+        "CANGHUI_IOS_NEGATIVE result passed=%d stale_resize=%" PRId64
+        " stale_touch=%" PRId64 " stale_pointer=%" PRId64
+        " stale_frame=%" PRId64 " invalid_handle=%" PRId64
+        " future_frame=%" PRId64 " stale_future_frame=%" PRId64 "\n",
+        passed ? 1 : 0,
+        staleResize,
+        staleTouch,
+        stalePointer,
+        staleFrame,
+        invalidHandle,
+        futureFrame,
+        staleFutureFrame);
+    fflush(stderr);
+    return passed;
+}
+
 - (void)scheduleDetachReattachReplay {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 500000000), dispatch_get_main_queue(), ^{
         int64_t generation = self.surfaceView.canghuiSurfaceGeneration;
@@ -147,6 +247,7 @@ static void *write_canghui_probe_traits(void *unused) {
                 write_canghui_probe_pointer,
                 (void *)(intptr_t)self.surfaceView.canghuiSurfaceGeneration,
                 CangHuiProbeTimeoutNanos);
+            self.negativePassed = [self runNegativeProbeWithOldGeneration:generation];
             [self reportSurfaceWhenReadyWithAttempts:100];
         });
     });
@@ -163,7 +264,7 @@ static void *write_canghui_probe_traits(void *unused) {
     if (!self.drawableObserved && metalReady) {
         self.drawableObserved = [layer nextDrawable] != nil;
     }
-    BOOL passed = readback.status == 0 && metalReady && self.drawableObserved &&
+    BOOL passed = self.negativePassed && readback.status == 0 && metalReady && self.drawableObserved &&
         snapshot.attached == 1 && snapshot.attaches >= 2 && snapshot.detaches >= 1 &&
         snapshot.generation >= 2 && snapshot.resizes >= 1 && snapshot.frames >= 1 &&
         snapshot.touches >= 1 && snapshot.pointers >= 1 && snapshot.traits >= 1;
@@ -175,11 +276,12 @@ static void *write_canghui_probe_traits(void *unused) {
     }
 
     fprintf(stderr,
-        "CANGHUI_IOS_SURFACE result passed=%d metal=%s drawable=%s attached=%" PRId64
+        "CANGHUI_IOS_SURFACE result passed=%d negative=%s metal=%s drawable=%s attached=%" PRId64
         " attaches=%" PRId64 " resizes=%" PRId64 " detaches=%" PRId64
         " generation=%" PRId64 " frames=%" PRId64 " touches=%" PRId64
         " pointers=%" PRId64 " traits=%" PRId64 "\n",
         passed ? 1 : 0,
+        self.negativePassed ? "ready" : "null",
         metalReady ? "ready" : "null",
         self.drawableObserved ? "ready" : "null",
         snapshot.attached,

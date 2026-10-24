@@ -86,12 +86,17 @@ result. Application code should initialize it once before renderer startup.
 ## Replayable Probe
 
 The repository probe recompiles the Cangjie static library, compiles the native
-helper and UIKit app, links the final executable, installs it and requires a
-result with `passed=1`:
+helper and UIKit app, links the final executable, installs it and requires both
+the happy-path surface result and the negative/counterexample result:
 
 ```text
-CANGHUI_IOS_SURFACE result passed=1 metal=ready drawable=ready attached=1 attaches=2 resizes=1 detaches=1 generation=2 frames=<positive> touches=1 pointers=1 traits=1
+CANGHUI_IOS_NEGATIVE result passed=1 stale_resize=-2 stale_touch=-2 stale_pointer=-2 stale_frame=-2 invalid_handle=-1 future_frame=0 stale_future_frame=-3
+CANGHUI_IOS_SURFACE result passed=1 negative=ready metal=ready drawable=ready attached=1 attaches=2 resizes=2 detaches=1 generation=2 frames=<positive> touches=1 pointers=1 traits=1
 ```
+
+The negative line covers stale-generation resize/touch/pointer/frame rejection,
+an invalid native handle, a valid future frame, and a non-monotonic frame after
+reattachment. A probe that only prints the surface line is not considered passed.
 
 Run the simulator acceptance with no signing configuration:
 
@@ -102,7 +107,9 @@ CANGJIE_IOS_HOME=/path/to/cangjie-ios-sdk \
 
 The script uses a booted simulator, or boots the first available simulator when
 none is running. Set `CANGHUI_IOS_SIMULATOR_DEVICE` to a name or identifier to
-select one explicitly.
+select one explicitly. It waits for the simulator system to become ready and
+retries the install/launch once when a cold boot wins the race against
+SpringBoard; a retry is reported explicitly and is not a code-regression claim.
 
 Physical-device acceptance requires values owned by the local developer
 environment; none are stored in the repository:
