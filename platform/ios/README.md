@@ -208,6 +208,29 @@ presented scene frames, Draw IR command/action counts, the counter transition,
 IME text round-trip, key ingress and the accessibility element count. This is a
 reference consumer, not a store-distributed product or a release claim.
 
+## Device Classes and Breakpoints
+
+`chui.core.classifyIOSDevice` turns the interface family and logical viewport
+into a stable `IOSDeviceProfile`:
+
+- `IPhone` for phone-family viewports;
+- `IPhoneDuo` when a phone-family viewport is at least 500 pt on its short edge
+  and near-square (the folded/unfolded heuristic);
+- `IPadMini` when a pad viewport is below 800 pt on its short edge;
+- `IPadLarge` otherwise.
+
+The profile also carries a width breakpoint (`Compact` below 600 pt, `Medium`
+below 1024 pt, `Expanded` above), orientation, recommended column count and a
+sidebar hint. Consumers can cache the profile per resize and use it for
+navigation shape, column count and spacing instead of hard-coded widths.
+
+The UIKit host publishes the interface family through
+`canghui_ios_surface_set_idiom`. Because manually packaged bundles can report
+`.unspecified`, the host falls back to the simulator model identifier or
+`uname` machine string before the public idiom. The bridge exposes the profile
+through `canghui_ios_surface_device_profile` and the probe requires a
+`CANGHUI_IOS_PROFILE result passed=1` line.
+
 ## Host Modes
 
 - `OwnedWindow` follows SDL3's callback application model. SDL owns the iOS

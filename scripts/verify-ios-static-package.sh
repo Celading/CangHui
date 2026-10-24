@@ -17,6 +17,16 @@ case "${MODE}" in
         EXPECTED_RESULT="CANGHUI_IOS_PRODUCT result passed=1"
         EXPECTED_NEGATIVE_RESULT=""
         EXPECTED_INPUT_RESULT=""
+        EXPECTED_PROFILE_RESULT=""
+        ;;
+    desktop|desktop-simulator|desktop-device)
+        APP_KIND="desktop"
+        EXECUTABLE_NAME="CangHuiDesktopDemo"
+        APP_SOURCE_DIR="${PROJECT_ROOT}/platform/ios/desktop"
+        EXPECTED_RESULT="CANGHUI_IOS_DESKTOP result passed=1"
+        EXPECTED_NEGATIVE_RESULT=""
+        EXPECTED_INPUT_RESULT=""
+        EXPECTED_PROFILE_RESULT=""
         ;;
     *)
         APP_KIND="probe"
@@ -25,6 +35,7 @@ case "${MODE}" in
         EXPECTED_RESULT="CANGHUI_IOS_SURFACE result passed=1"
         EXPECTED_NEGATIVE_RESULT="CANGHUI_IOS_NEGATIVE result passed=1"
         EXPECTED_INPUT_RESULT="CANGHUI_IOS_INPUT result passed=1"
+        EXPECTED_PROFILE_RESULT="CANGHUI_IOS_PROFILE result passed=1"
         ;;
 esac
 
@@ -167,6 +178,9 @@ result_lines_present() {
     if [[ -n "${EXPECTED_INPUT_RESULT}" ]]; then
         grep -Fq "${EXPECTED_INPUT_RESULT}" "${log_file}" || return 1
     fi
+    if [[ -n "${EXPECTED_PROFILE_RESULT}" ]]; then
+        grep -Fq "${EXPECTED_PROFILE_RESULT}" "${log_file}" || return 1
+    fi
     return 0
 }
 
@@ -243,6 +257,8 @@ verify_simulator() {
     local default_bundle="dev.canghui.bootstrap.probe"
     if [[ "${APP_KIND}" == "product" ]]; then
         default_bundle="dev.canghui.product.demo"
+    elif [[ "${APP_KIND}" == "desktop" ]]; then
+        default_bundle="dev.canghui.desktop.demo"
     fi
     local bundle_id="${CANGHUI_IOS_SIMULATOR_BUNDLE_ID:-${default_bundle}}"
     local device
@@ -250,7 +266,7 @@ verify_simulator() {
     local log_file="${OUTPUT_ROOT}/simulator-console.log"
 
     build_static_libraries simulator
-    if [[ "${APP_KIND}" == "product" ]]; then
+    if [[ "${APP_KIND}" == "product" || "${APP_KIND}" == "desktop" ]]; then
         build_native_scene_libraries simulator
         NATIVE_SCENE_ARCHIVE="$(native_scene_archive simulator)"
     fi
@@ -389,7 +405,7 @@ verify_device() {
     fi
 
     build_static_libraries device
-    if [[ "${APP_KIND}" == "product" ]]; then
+    if [[ "${APP_KIND}" == "product" || "${APP_KIND}" == "desktop" ]]; then
         build_native_scene_libraries device
         NATIVE_SCENE_ARCHIVE="$(native_scene_archive device)"
     fi
@@ -414,10 +430,16 @@ verify_device() {
 }
 
 case "${MODE}" in
-    simulator|product-simulator)
+    simulator)
         verify_simulator
         ;;
-    device|product-device)
+    product-simulator|desktop-simulator)
+        verify_simulator
+        ;;
+    device)
+        verify_device
+        ;;
+    product-device|desktop-device)
         verify_device
         ;;
     all|product)
@@ -425,7 +447,7 @@ case "${MODE}" in
         verify_device
         ;;
     *)
-        printf 'usage: %s [simulator|device|all|product|product-simulator|product-device] [output-dir]\n' "$0" >&2
+        printf 'usage: %s [simulator|device|all|product|desktop|product-simulator|product-device|desktop-simulator|desktop-device] [output-dir]\n' "$0" >&2
         exit 2
         ;;
 esac

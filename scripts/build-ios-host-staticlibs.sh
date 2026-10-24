@@ -35,6 +35,7 @@ build_target() {
         # package code so safepoint slow paths return to their call site.
         "$CJC" \
             "$ROOT_DIR/src/core/ui_owner_queue.cj" \
+            "$ROOT_DIR/src/core/ios_device_profile.cj" \
             --target="$target" \
             --output-type=staticlib \
             -O2 \

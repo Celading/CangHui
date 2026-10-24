@@ -1,5 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <QuartzCore/QuartzCore.h>
+#include <sys/utsname.h>
 
 #import "CangHuiNativeSurface.h"
 #import "CangHuiRuntimeBootstrap.h"
@@ -85,6 +86,54 @@ static void *CangHuiTraitTask(void *rawArguments) {
         arguments->horizontalSizeClass,
         arguments->verticalSizeClass,
         arguments->scale);
+}
+
+static void *CangHuiIdiomTask(void *rawIdiom) {
+    return (void *)(intptr_t)canghui_ios_surface_set_idiom((int64_t)(intptr_t)rawIdiom);
+}
+
+/*
+ * Manually packaged bundles can report `.unspecified` or even the phone family
+ * on an iPad simulator. Prefer the simulated/real machine identifier, then the
+ * public idiom and model string.
+ */
+static NSString *CangHuiHostMachine(void) {
+#if TARGET_OS_SIMULATOR
+    NSString *simulated = NSProcessInfo.processInfo.environment[@"SIMULATOR_MODEL_IDENTIFIER"];
+    if (simulated.length > 0) {
+        return simulated;
+    }
+#endif
+    struct utsname info;
+    if (uname(&info) == 0) {
+        NSString *machine = [NSString stringWithUTF8String:info.machine];
+        if (machine.length > 0) {
+            return machine;
+        }
+    }
+    return @"";
+}
+
+static int64_t CangHuiHostDeviceFamily(void) {
+    NSString *machine = CangHuiHostMachine();
+    if ([machine hasPrefix:@"iPad"]) {
+        return 2;
+    }
+    if ([machine hasPrefix:@"iPhone"] || [machine hasPrefix:@"iPod"]) {
+        return 1;
+    }
+    int64_t idiom = (int64_t)UIDevice.currentDevice.userInterfaceIdiom;
+    if (idiom == 1 || idiom == 2) {
+        return idiom;
+    }
+    NSString *model = UIDevice.currentDevice.model;
+    if ([model hasPrefix:@"iPad"]) {
+        return 2;
+    }
+    if ([model hasPrefix:@"iPhone"] || [model hasPrefix:@"iPod"]) {
+        return 1;
+    }
+    return idiom;
 }
 
 typedef struct CangHuiKeyArguments {
@@ -306,6 +355,8 @@ static void *CangHuiImeTask(void *rawArguments) {
 }
 
 - (void)canghuiForwardTraits {
+    (void)canghui_runtime_run_task(CangHuiIdiomTask,
+        (void *)(intptr_t)CangHuiHostDeviceFamily(), CangHuiTaskTimeoutNanos);
     UIUserInterfaceStyle style = UIUserInterfaceStyleUnspecified;
     if (@available(iOS 12.0, *)) {
         style = self.traitCollection.userInterfaceStyle;

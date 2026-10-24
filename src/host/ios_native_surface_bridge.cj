@@ -1,6 +1,6 @@
 package chui.host
 
-import chui.core.{UiOwnerQueue, UiOwnerTaskStatus}
+import chui.core.{UiOwnerQueue, UiOwnerTaskStatus, IOSDeviceProfile, classifyIOSDevice}
 import std.collection.ArrayList
 import std.sync.Mutex
 
@@ -50,6 +50,7 @@ public class IOSNativeSurfaceBridge {
     private var traitHorizontalSizeClass: Int64 = 0
     private var traitVerticalSizeClass: Int64 = 0
     private var traitScaleMilli: Int64 = 1000
+    private var deviceIdiom: Int64 = 0
     private var lastFrameTimestampNanos: Int64 = 0
     private var lastFrameTargetNanos: Int64 = 0
     private var attachCount: Int64 = 0
@@ -251,6 +252,11 @@ public class IOSNativeSurfaceBridge {
         })
     }
 
+    public func updateIdiom(idiom: Int64): Int64 {
+        if (idiom < 0 || idiom > 6) { return IOS_BRIDGE_INVALID_ARGUMENT }
+        submit(None, {=> synchronized(stateMutex) { deviceIdiom = idiom }})
+    }
+
     public func frame(timestampNanos: Int64, targetTimestampNanos: Int64, generation: Int64): Int64 {
         if (timestampNanos < 0 || targetTimestampNanos < timestampNanos) {
             return IOS_BRIDGE_INVALID_ARGUMENT
@@ -351,6 +357,28 @@ public class IOSNativeSurfaceBridge {
     public func currentTraitHorizontalSizeClass(): Int64 { synchronized(stateMutex) { traitHorizontalSizeClass } }
     public func currentTraitVerticalSizeClass(): Int64 { synchronized(stateMutex) { traitVerticalSizeClass } }
     public func currentTraitScaleMilli(): Int64 { synchronized(stateMutex) { traitScaleMilli } }
+    public func currentIdiom(): Int64 { synchronized(stateMutex) { deviceIdiom } }
+
+    /** Classified viewport for framework consumers; safe before the first attach. */
+    public func deviceProfile(): IOSDeviceProfile {
+        synchronized(stateMutex) {
+            if (logicalWidthMilli <= 0 || logicalHeightMilli <= 0) {
+                return classifyIOSDevice(deviceIdiom, 1.0, 1.0, scale: 1.0)
+            }
+            let resolvedScale = if (scaleMilli > 0) {
+                Float32(scaleMilli) / Float32(1000)
+            } else {
+                Float32(1.0)
+            }
+            classifyIOSDevice(
+                deviceIdiom,
+                Float32(logicalWidthMilli) / Float32(1000),
+                Float32(logicalHeightMilli) / Float32(1000),
+                scale: resolvedScale,
+                horizontalSizeClass: traitHorizontalSizeClass,
+                verticalSizeClass: traitVerticalSizeClass)
+        }
+    }
     public func currentFrameTimestampNanos(): Int64 { synchronized(stateMutex) { lastFrameTimestampNanos } }
     public func currentFrameTargetNanos(): Int64 { synchronized(stateMutex) { lastFrameTargetNanos } }
     public func totalAttachCount(): Int64 { synchronized(stateMutex) { attachCount } }
@@ -607,6 +635,33 @@ public func canghui_ios_surface_last_ime_text(
 }
 @C public func canghui_ios_surface_last_trait_scale_milli(): Int64 {
     iosNativeSurfaceBridge.currentTraitScaleMilli()
+}
+@C public func canghui_ios_surface_set_idiom(idiom: Int64): Int64 {
+    iosNativeSurfaceBridge.updateIdiom(idiom)
+}
+@C public func canghui_ios_surface_idiom(): Int64 { iosNativeSurfaceBridge.currentIdiom() }
+@C public func canghui_ios_surface_device_class(): Int64 {
+    iosNativeSurfaceBridge.deviceProfile().deviceClass.code()
+}
+@C public func canghui_ios_surface_layout_breakpoint(): Int64 {
+    iosNativeSurfaceBridge.deviceProfile().breakpoint.code()
+}
+@C
+public func canghui_ios_surface_device_profile(
+    output: CPointer<UInt8>,
+    capacity: Int64,
+    length: CPointer<Int64>
+): Int32 {
+    if (length.isNull() || capacity < 0) { return -1 }
+    let bytes = iosNativeSurfaceBridge.deviceProfile().json().toArray()
+    unsafe {
+        length.write(Int64(bytes.size))
+        if (output.isNull() || capacity < Int64(bytes.size)) { return -2 }
+        for (i in 0..bytes.size) {
+            output.write(i, UInt8(bytes[i]))
+        }
+    }
+    0
 }
 @C public func canghui_ios_surface_last_frame_nanos(): Int64 { iosNativeSurfaceBridge.currentFrameTimestampNanos() }
 @C public func canghui_ios_surface_clear_color_argb(): Int64 { iosNativeSurfaceBridge.clearColorArgb() }

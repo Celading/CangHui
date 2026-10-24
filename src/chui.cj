@@ -395,6 +395,12 @@ public import chui.component.ComponentPackageDescriptor
 public import chui.component.ViewportClass
 public import chui.component.ViewportSpec
 public import chui.component.classifyViewport
+public import chui.core.IOSDeviceClass
+public import chui.core.IOSDeviceOrientation
+public import chui.core.IOSDeviceProfile
+public import chui.core.IOSLayoutBreakpoint
+public import chui.core.classifyIOSDevice
+public import chui.core.classifyIOSLayoutBreakpoint
 public import chui.component.componentApiVersion
 public import chui.desktop.DesktopApp
 public import chui.desktop.DesktopApplication

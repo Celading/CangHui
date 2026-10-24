@@ -61,10 +61,14 @@ for symbol in \
     canghui_ios_surface_touch \
     canghui_ios_surface_pointer \
     canghui_ios_surface_traits \
+    canghui_ios_surface_set_idiom \
     canghui_ios_surface_frame
 do
     rg -q "int64_t ${symbol}\\(" "$PROJECT_ROOT/platform/ios/include/CangHuiNativeSurface.h"
 done
+
+rg -q "int32_t canghui_ios_surface_device_profile\\(" \
+    "$PROJECT_ROOT/platform/ios/include/CangHuiNativeSurface.h"
 
 private_home='/''Users/'
 private_helper='_''helper/'

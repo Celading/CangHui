@@ -121,6 +121,25 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
         arguments->generation);
 }
 
+typedef struct CangHuiProfileSnapshot {
+    int64_t idiom;
+    int64_t deviceClass;
+    int64_t breakpoint;
+    int32_t profileStatus;
+    int64_t profileLength;
+} CangHuiProfileSnapshot;
+
+static void *read_canghui_profile(void *rawSnapshot) {
+    CangHuiProfileSnapshot *snapshot = rawSnapshot;
+    snapshot->idiom = canghui_ios_surface_idiom();
+    snapshot->deviceClass = canghui_ios_surface_device_class();
+    snapshot->breakpoint = canghui_ios_surface_layout_breakpoint();
+    int64_t required = 0;
+    snapshot->profileStatus = canghui_ios_surface_device_profile(NULL, 0, &required);
+    snapshot->profileLength = required;
+    return rawSnapshot;
+}
+
 @interface CangHuiMetalSurfaceView : UIView
 - (int64_t)canghuiSurfaceGeneration;
 - (void)canghuiReplayCurrentResize;
@@ -136,6 +155,7 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
 @property(nonatomic, assign) BOOL drawableObserved;
 @property(nonatomic, assign) BOOL negativePassed;
 @property(nonatomic, assign) BOOL inputProbePassed;
+@property(nonatomic, assign) BOOL profileProbePassed;
 @end
 
 @implementation AppDelegate
@@ -287,6 +307,24 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
     return passed;
 }
 
+- (BOOL)runProfileProbe {
+    CangHuiProfileSnapshot snapshot = {0};
+    CangHuiRuntimeTaskResult readback = canghui_runtime_run_task(
+        read_canghui_profile, &snapshot, CangHuiProbeTimeoutNanos);
+    BOOL passed = readback.status == 0 &&
+        snapshot.idiom >= 1 && snapshot.idiom <= 2 &&
+        snapshot.deviceClass >= 1 && snapshot.deviceClass <= 4 &&
+        snapshot.breakpoint >= 1 && snapshot.breakpoint <= 3 &&
+        snapshot.profileStatus == -2 && snapshot.profileLength > 32;
+    fprintf(stderr,
+        "CANGHUI_IOS_PROFILE result passed=%d idiom=%" PRId64 " device=%" PRId64
+        " breakpoint=%" PRId64 " json_bytes=%" PRId64 "\n",
+        passed ? 1 : 0, snapshot.idiom, snapshot.deviceClass,
+        snapshot.breakpoint, snapshot.profileLength);
+    fflush(stderr);
+    return passed;
+}
+
 - (void)scheduleDetachReattachReplay {
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 500000000), dispatch_get_main_queue(), ^{
         int64_t generation = self.surfaceView.canghuiSurfaceGeneration;
@@ -307,6 +345,7 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
             self.negativePassed = [self runNegativeProbeWithOldGeneration:generation];
             self.inputProbePassed =
                 [self runInputProbeWithGeneration:self.surfaceView.canghuiSurfaceGeneration];
+            self.profileProbePassed = [self runProfileProbe];
             [self reportSurfaceWhenReadyWithAttempts:100];
         });
     });
@@ -323,7 +362,7 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
     if (!self.drawableObserved && metalReady) {
         self.drawableObserved = [layer nextDrawable] != nil;
     }
-    BOOL passed = self.negativePassed && self.inputProbePassed &&
+    BOOL passed = self.negativePassed && self.inputProbePassed && self.profileProbePassed &&
         readback.status == 0 && metalReady && self.drawableObserved &&
         snapshot.attached == 1 && snapshot.attaches >= 2 && snapshot.detaches >= 1 &&
         snapshot.generation >= 2 && snapshot.resizes >= 1 && snapshot.frames >= 1 &&
@@ -336,13 +375,14 @@ static void *write_canghui_stale_future_frame(void *rawArguments) {
     }
 
     fprintf(stderr,
-        "CANGHUI_IOS_SURFACE result passed=%d negative=%s input=%s metal=%s drawable=%s attached=%" PRId64
+        "CANGHUI_IOS_SURFACE result passed=%d negative=%s input=%s profile=%s metal=%s drawable=%s attached=%" PRId64
         " attaches=%" PRId64 " resizes=%" PRId64 " detaches=%" PRId64
         " generation=%" PRId64 " frames=%" PRId64 " touches=%" PRId64
         " pointers=%" PRId64 " traits=%" PRId64 "\n",
         passed ? 1 : 0,
         self.negativePassed ? "ready" : "null",
         self.inputProbePassed ? "ready" : "null",
+        self.profileProbePassed ? "ready" : "null",
         metalReady ? "ready" : "null",
         self.drawableObserved ? "ready" : "null",
         snapshot.attached,

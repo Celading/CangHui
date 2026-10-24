@@ -58,8 +58,43 @@ func iosNativeSurfaceBridgeCapturesPointerAndTraitIngress(): Unit {
 }
 
 @Test
+func iosNativeSurfaceBridgeClassifiesDeviceProfile(): Unit {
+    let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.updateIdiom(2), 0)
+    @Expect(bridge.attach(31, 834000, 1210000, 1668, 2420, 2000, 1), 0)
+    @Expect(bridge.updateTraits(1, 2, 2, 2000), 0)
+    var profile = bridge.deviceProfile()
+    @Expect(profile.deviceClass.name(), "ipad-large")
+    @Expect(profile.breakpoint.name(), "medium")
+    @Expect(profile.usesSidebar)
+    @Expect(profile.width, 834.0)
+
+    let mini = IOSNativeSurfaceBridge()
+    @Expect(mini.updateIdiom(2), 0)
+    @Expect(mini.attach(33, 744000, 1133000, 1488, 2266, 2000, 1), 0)
+    profile = mini.deviceProfile()
+    @Expect(profile.deviceClass.name(), "ipad-mini")
+    @Expect(profile.breakpoint.name(), "medium")
+
+    let phone = IOSNativeSurfaceBridge()
+    @Expect(phone.updateIdiom(1), 0)
+    @Expect(phone.attach(35, 402000, 874000, 1206, 2622, 3000, 1), 0)
+    profile = phone.deviceProfile()
+    @Expect(profile.deviceClass.name(), "iphone")
+    @Expect(profile.breakpoint.name(), "compact")
+    @Expect(!profile.usesSidebar)
+
+    let beforeAttach = IOSNativeSurfaceBridge()
+    @Expect(beforeAttach.updateIdiom(1), 0)
+    profile = beforeAttach.deviceProfile()
+    @Expect(profile.deviceClass.name(), "iphone")
+    @Expect(profile.breakpoint.name(), "compact")
+}
+
+@Test
 func iosNativeSurfaceBridgeValidatesIntegerAbiInputs(): Unit {
     let bridge = IOSNativeSurfaceBridge()
+    @Expect(bridge.updateIdiom(9), -1)
     @Expect(bridge.attach(0, 320000, 480000, 640, 960, 2000, 1), -1)
     @Expect(bridge.attach(17, 0, 480000, 640, 960, 2000, 1), -1)
     @Expect(bridge.updateSafeArea(-1, 0, 0, 0), -1)

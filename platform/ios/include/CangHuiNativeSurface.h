@@ -94,6 +94,7 @@ int64_t canghui_ios_surface_traits(
     int64_t horizontal_size_class,
     int64_t vertical_size_class,
     int64_t scale_milli);
+int64_t canghui_ios_surface_set_idiom(int64_t idiom);
 int64_t canghui_ios_surface_frame(
     int64_t timestamp_nanos,
     int64_t target_timestamp_nanos,
@@ -130,6 +131,13 @@ int64_t canghui_ios_surface_last_trait_style(void);
 int64_t canghui_ios_surface_last_trait_horizontal_size_class(void);
 int64_t canghui_ios_surface_last_trait_vertical_size_class(void);
 int64_t canghui_ios_surface_last_trait_scale_milli(void);
+int64_t canghui_ios_surface_idiom(void);
+int64_t canghui_ios_surface_device_class(void);
+int64_t canghui_ios_surface_layout_breakpoint(void);
+int32_t canghui_ios_surface_device_profile(
+    uint8_t * _Nullable output,
+    int64_t capacity,
+    int64_t * _Nonnull length);
 int64_t canghui_ios_surface_last_frame_nanos(void);
 int64_t canghui_ios_surface_key_count(void);
 int64_t canghui_ios_surface_last_key_phase(void);

@@ -8,6 +8,7 @@
 #include <string.h>
 
 #import "CangHuiNativeSceneSurfaceView.h"
+#import "CangHuiNativeSurface.h"
 #import "CangHuiProductScene.h"
 #import "CangHuiRuntimeBootstrap.h"
 
@@ -220,6 +221,17 @@ static NSString *CangHuiProductReadString(
     NSInteger sceneFrames = self.sceneView.canghuiPresentedSceneFrameCount;
     NSInteger accessibility = self.sceneView.canghuiAccessibilityElementCount;
     NSString *inputText = CangHuiProductReadString(canghui_ios_product_input_text);
+    NSString *profileString = CangHuiProductReadString(canghui_ios_surface_device_profile);
+    NSDictionary *profile = nil;
+    if (profileString != nil) {
+        profile = [NSJSONSerialization JSONObjectWithData:
+            [profileString dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
+    }
+    NSString *deviceName = [profile[@"deviceClass"] isKindOfClass:NSString.class]
+        ? profile[@"deviceClass"] : nil;
+    NSString *breakpointName = [profile[@"breakpoint"] isKindOfClass:NSString.class]
+        ? profile[@"breakpoint"] : nil;
+    int64_t idiom = canghui_ios_surface_idiom();
     int64_t counter = canghui_ios_product_counter();
     int64_t keyCount = canghui_ios_product_key_count();
     int64_t imeCount = canghui_ios_product_ime_count();
@@ -233,7 +245,8 @@ static NSString *CangHuiProductReadString(
     BOOL ready = state != nil && protocolOk && generation > 0 && sceneFrames >= 1 &&
         renderCount > 0 && commands >= 10 && actions == 2 && textLayout &&
         counter == 1 && keyCount >= 1 && imeCount >= 1 && textMatches &&
-        accessibility == 4;
+        accessibility == 4 && deviceName != nil && breakpointName != nil &&
+        idiom >= 1 && idiom <= 2;
     if (!ready && attempts > 0) {
         [self.sceneView canghuiMarkNativeSceneDirty];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 100000000),
@@ -249,7 +262,8 @@ static NSString *CangHuiProductReadString(
         "CANGHUI_IOS_PRODUCT result passed=%d frames=%ld generation=%" PRId64
         " renders=%" PRId64 " commands=%" PRId64 " actions=%" PRId64
         " counter=%" PRId64 " keys=%" PRId64 " ime=%" PRId64
-        " accessibility=%ld text_ok=%d text_layout=%d protocol=%s\n",
+        " accessibility=%ld text_ok=%d text_layout=%d protocol=%s"
+        " idiom=%" PRId64 " device=%s breakpoint=%s bounds=%.0fx%.0f\n",
         passed ? 1 : 0,
         (long)sceneFrames,
         generation,
@@ -262,7 +276,12 @@ static NSString *CangHuiProductReadString(
         (long)accessibility,
         textMatches ? 1 : 0,
         textLayout ? 1 : 0,
-        protocolOk ? "ready" : "null");
+        protocolOk ? "ready" : "null",
+        idiom,
+        deviceName.UTF8String ?: "null",
+        breakpointName.UTF8String ?: "null",
+        self.sceneView.bounds.size.width,
+        self.sceneView.bounds.size.height);
     fflush(stderr);
 
     if (!passed) {
