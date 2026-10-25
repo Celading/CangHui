@@ -56,6 +56,7 @@ public import sdl.Point
 public import sdl.Rect
 public import sdl.Renderer
 public import sdl.BackdropEffectRequest
+public import sdl.BackdropLensOptics
 public import sdl.RendererEffectAdapter
 public import sdl.RendererEffectCapabilities
 public import sdl.RendererEffectCapability

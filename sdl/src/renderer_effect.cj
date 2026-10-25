@@ -85,6 +85,56 @@ public struct RendererEffectFrame {
 }
 
 /**
+ * Bounded local lens optics for one backdrop request.
+ *
+ * A flat scalar `refraction` can only express a uniform shift; the reference material instead
+ * bends structure locally and, in the lens window, magnifies/inverts content around an optical
+ * centre. Carrying centre, radius and displacement strength here keeps that difference expressible
+ * without letting a style package own any renderer fork.
+ *
+ * `centerX`/`centerY` are normalized to the resolved bounds (0..1); `radius` is a fraction of the
+ * shorter resolved bounds edge. `sampleRadius` bounds how far a provider may read behind the shape.
+ * All values are clamped, so an over-eager request degrades instead of escaping the surface.
+ */
+public struct BackdropLensOptics <: Equatable<BackdropLensOptics> {
+    public let centerX: Float32
+    public let centerY: Float32
+    public let radius: Float32
+    public let displacementStrength: Float32
+    public let sampleRadius: Float32
+    public let invertInsideLens: Bool
+
+    public init(
+        centerX!: Float32 = 0.5,
+        centerY!: Float32 = 0.5,
+        radius!: Float32 = 0.5,
+        displacementStrength!: Float32 = 0.0,
+        sampleRadius!: Float32 = 0.0,
+        invertInsideLens!: Bool = false
+    ) {
+        this.centerX = max(0.0, min(1.0, centerX))
+        this.centerY = max(0.0, min(1.0, centerY))
+        this.radius = max(0.0, min(1.0, radius))
+        this.displacementStrength = max(0.0, min(1.0, displacementStrength))
+        this.sampleRadius = max(0.0, min(1.0, sampleRadius))
+        this.invertInsideLens = invertInsideLens
+    }
+
+    /** A lens only exists when it can actually displace something. */
+    public func active(): Bool {
+        displacementStrength > 0.0 && radius > 0.0
+    }
+
+    public operator func ==(other: BackdropLensOptics): Bool {
+        centerX == other.centerX && centerY == other.centerY && radius == other.radius &&
+            displacementStrength == other.displacementStrength &&
+            sampleRadius == other.sampleRadius && invertInsideLens == other.invertInsideLens
+    }
+
+    public operator func !=(other: BackdropLensOptics): Bool { !(this == other) }
+}
+
+/**
  * One bounded request for pixels already drawn behind a surface. `bounds` is the layout rectangle;
  * `transformedBounds`, when present, is the final axis-aligned coverage after a caller-owned
  * transform. A non-zero expected generation rejects stale retained requests.
@@ -99,6 +149,10 @@ public class BackdropEffectRequest {
     public let groupId: String
     public let requireShapeUnion: Bool
     public let expectedFrameGeneration: UInt64
+    /** Local lens optics; inactive by default so existing uniform requests stay unchanged. */
+    public let lens: BackdropLensOptics
+    /** Edges energy already measured by the caller, used to gate transient chromatic response. */
+    public let motionEnergy: Float32
 
     public init(
         bounds: Rect,
@@ -109,7 +163,9 @@ public class BackdropEffectRequest {
         edgeResponse!: Float32 = 0.5,
         groupId!: String = "",
         requireShapeUnion!: Bool = false,
-        expectedFrameGeneration!: UInt64 = UInt64(0)
+        expectedFrameGeneration!: UInt64 = UInt64(0),
+        lens!: BackdropLensOptics = BackdropLensOptics(),
+        motionEnergy!: Float32 = 0.0
     ) {
         validateEffectRect(bounds, "backdrop bounds")
         match (transformedBounds) {
@@ -132,6 +188,21 @@ public class BackdropEffectRequest {
         this.groupId = groupId
         this.requireShapeUnion = requireShapeUnion
         this.expectedFrameGeneration = expectedFrameGeneration
+        this.lens = lens
+        this.motionEnergy = if (!effectFinite(motionEnergy)) {
+            throw IllegalArgumentException("renderer effect motion energy must be finite")
+        } else {
+            max(0.0, min(1.0, motionEnergy))
+        }
+    }
+
+    /** True when this request asks for a bounded local lens instead of a uniform shift. */
+    public func hasActiveLens(): Bool { lens.active() }
+
+    /** Chromatic separation is a transition-only response, never a settled decoration. */
+    public func requestedChromaticEdge(): Float32 {
+        if (!lens.active()) { return 0.0 }
+        max(0.0, min(1.0, motionEnergy * lens.displacementStrength))
     }
 
     public func resolvedBounds(): Rect {
@@ -320,6 +391,16 @@ extend Renderer {
                 frameGeneration: rendererEffectFrame.generation
             ), request)
         }
+        // A local lens is a stronger claim than uniform refraction: a provider that cannot refract
+        // would otherwise silently receive `hasActiveLens()` and ignore it.
+        if (request.hasActiveLens() && !capabilities.has(RendererEffectCapability.Refraction)) {
+            return rememberEffectReceipt(RendererEffectReceipt(
+                RendererEffectStatus.Degraded, "backdrop", "lens-unsupported",
+                providerId: capabilities.providerId,
+                frameGeneration: rendererEffectFrame.generation,
+                detail: "local lens displacement requires refraction capability; flat fallback selected"
+            ), request)
+        }
         if (request.edgeResponse > 0.0 && !capabilities.has(RendererEffectCapability.EdgeResponse)) {
             return rememberEffectReceipt(RendererEffectReceipt(
                 RendererEffectStatus.Unsupported, "backdrop", "edge-response-unsupported",
@@ -352,12 +433,92 @@ extend Renderer {
                 frameGeneration: rendererEffectFrame.generation
             ), request)
         }
-        let margin = request.blurRadius + request.refraction * 8.0 + 2.0
+        // The lens sample radius is an additional read region and must widen the bounded sample,
+        // otherwise a large lens could read far beyond the declared budget undetected.
+        let lensMargin: Float32 = if (request.hasActiveLens()) {
+            request.lens.sampleRadius * min(resolved.w, resolved.h)
+        } else {
+            0.0
+        }
+        let margin = request.blurRadius + request.refraction * 8.0 + lensMargin + 2.0
         let sampled = resolved.inset(-margin).intersection(rendererEffectFrame.viewport)
         let samplePixels = effectPixelRect(
             sampled, rendererEffectFrame.scaleX, rendererEffectFrame.scaleY)
         let pixels = Int64(samplePixels.w) * Int64(samplePixels.h)
         if (pixels > capabilities.maxSamplePixels) {
+            // A large surface (notably a full-screen glass container) exceeds a single readback
+            // budget on its own: its *visible* area alone is over the cap, so shrinking blur or
+            // refraction cannot help. The honest fix is to sample it in horizontal bands, each
+            // within budget, so the material still appears instead of silently vanishing.
+            let bands = effectBandCount(resolved, rendererEffectFrame, capabilities)
+            if (bands > 1) {
+                var applied: Int64 = 0
+                var degraded: ?RendererEffectReceipt = None
+                var bandIndex: Int64 = 0
+                let bandH = resolved.h / Float32(bands)
+                while (bandIndex < bands) {
+                    let band = Rect(resolved.x, resolved.y + Float32(bandIndex) * bandH,
+                        resolved.w, bandH)
+                    let bandMargin = request.blurRadius + request.refraction * 8.0 +
+                        (if (request.hasActiveLens()) {
+                            request.lens.sampleRadius * min(band.w, band.h)
+                        } else {
+                            0.0
+                        }) + 2.0
+                    let bandRect = effectPixelRect(
+                        band.inset(-bandMargin).intersection(rendererEffectFrame.viewport),
+                        rendererEffectFrame.scaleX, rendererEffectFrame.scaleY)
+                    let bandPixels = Int64(bandRect.w) * Int64(bandRect.h)
+                    if (bandPixels <= capabilities.maxSamplePixels) {
+                        rendererEffectCount += 1
+                        let bandReceipt = try {
+                            provider.apply(this, rendererEffectFrame,
+                                BackdropEffectRequest(
+                                    band,
+                                    cornerRadius: request.cornerRadius,
+                                    blurRadius: request.blurRadius,
+                                    refraction: request.refraction,
+                                    edgeResponse: request.edgeResponse,
+                                    expectedFrameGeneration: request.expectedFrameGeneration,
+                                    requireShapeUnion: request.requireShapeUnion,
+                                    lens: request.lens,
+                                    motionEnergy: request.motionEnergy))
+                        } catch (error: Exception) {
+                            RendererEffectReceipt(
+                                RendererEffectStatus.Degraded, "backdrop", "provider-failed",
+                                providerId: capabilities.providerId,
+                                frameGeneration: rendererEffectFrame.generation,
+                                detail: error.message)
+                        }
+                        match (bandReceipt.status) {
+                            case RendererEffectStatus.Applied => applied += 1
+                            case _ =>
+                                if (degraded.isNone()) { degraded = Some(bandReceipt) }
+                        }
+                    } else if (degraded.isNone()) {
+                        degraded = Some(RendererEffectReceipt(
+                            RendererEffectStatus.Degraded, "backdrop", "sample-budget-exceeded",
+                            providerId: capabilities.providerId,
+                            frameGeneration: rendererEffectFrame.generation,
+                            sampledPixels: bandPixels,
+                            detail: "bounded native readback would exceed the provider pixel budget"
+                        ))
+                    }
+                    bandIndex += 1
+                }
+                let finalReceipt = match (degraded) {
+                    case Some(value) => value
+                    case None => RendererEffectReceipt(
+                        RendererEffectStatus.Applied, "backdrop", "applied-banded",
+                        providerId: capabilities.providerId,
+                        frameGeneration: rendererEffectFrame.generation,
+                        sampledPixels: pixels,
+                        detail: "surface sampled in " + bands.toString() +
+                            " bounded bands (" + applied.toString() + " applied)"
+                    )
+                }
+                return rememberEffectReceipt(finalReceipt, request)
+            }
             return rememberEffectReceipt(RendererEffectReceipt(
                 RendererEffectStatus.Degraded, "backdrop", "sample-budget-exceeded",
                 providerId: capabilities.providerId,
@@ -535,7 +696,15 @@ private func paintSdlBackdrop(
     try {
         texture.setBlendMode(TextureBlendMode.None)
         texture.setAlpha(255)
-        renderer.texture(texture, visible, source: Some(source))
+        if (request.hasActiveLens()) {
+            // A uniform blit cannot bend a structural line: it only translates/scales the whole
+            // sample. The reference material displaces content *locally* around an optical centre,
+            // so the backdrop is composited as a grid of cells whose source rect is offset by a
+            // radial displacement field. Clipping to the shape keeps the field from escaping.
+            paintLensedBackdrop(renderer, texture, frame, request, source, visible)
+        } else {
+            renderer.texture(texture, visible, source: Some(source))
+        }
         if (request.blurRadius > 0.0) {
             texture.setBlendMode(TextureBlendMode.Blend)
             texture.setAlpha(Int64(18.0 + request.edgeResponse * 18.0))
@@ -549,6 +718,122 @@ private func paintSdlBackdrop(
     } finally {
         renderer.popClip()
     }
+}
+
+/**
+ * Local displacement field. The optical centre is normalized inside `visible`; every grid cell
+ * samples the backdrop from a position pushed along the radial direction. Strength grows toward the
+ * lens edge (spherical magnification) and falls to zero at the lens rim, so the displacement is
+ * strictly local and cannot leak past the surface.
+ *
+ * The cell grid is bounded: at most LENS_GRID x LENS_GRID quads, which keeps the synchronous
+ * readback path within its per-frame budget instead of issuing one draw per pixel.
+ */
+private let LENS_GRID: Int64 = 12
+
+private func lensDisplacementAt(dx: Float32, dy: Float32, radius: Float32,
+    strength: Float32): Float32 {
+    if (radius <= 0.0) { return 0.0 }
+    let dist = effectSqrt(dx * dx + dy * dy)
+    if (dist > radius) { return 0.0 }
+    // Normalized distance 0 at centre, 1 at rim. A convex lens bends hardest near the rim and
+    // keeps a gentler, near-flat window in the middle, which is what reads as magnification.
+    let t = dist / radius
+    strength * t * (1.0 - t) * 4.0
+}
+
+private func paintLensedBackdrop(
+    renderer: Renderer,
+    texture: Texture,
+    frame: RendererEffectFrame,
+    request: BackdropEffectRequest,
+    source: Rect,
+    visible: Rect
+): Unit {
+    let lens = request.lens
+    let cells = max(Int64(2), min(Int64(24), LENS_GRID))
+    // Destination cells live in screen space; source cells live in texture space. Mixing the two
+    // is what previously turned the lens into a uniform blit offset instead of a local bend.
+    let cellScreenW = visible.w / Float32(cells)
+    let cellScreenH = visible.h / Float32(cells)
+    let srcCellW = source.w / Float32(cells)
+    let srcCellH = source.h / Float32(cells)
+    let shorterScreen = min(visible.w, visible.h)
+    let lensRadius = max(1.0, shorterScreen * lens.radius)
+    let centerX = visible.x + visible.w * lens.centerX
+    let centerY = visible.y + visible.h * lens.centerY
+    let strength = lens.displacementStrength * shorterScreen * 0.11
+    let sign: Float32 = if (lens.invertInsideLens) { -1.0 } else { 1.0 }
+    var row: Int64 = 0
+    while (row < cells) {
+        var col: Int64 = 0
+        while (col < cells) {
+            let destX = visible.x + Float32(col) * cellScreenW
+            let destY = visible.y + Float32(row) * cellScreenH
+            let srcX = source.x + Float32(col) * srcCellW
+            let srcY = source.y + Float32(row) * srcCellH
+            var sampleX = srcX
+            var sampleY = srcY
+            // Displace around the optical centre so samples converge toward the middle of the lens.
+            let dx = (destX + cellScreenW * 0.5) - centerX
+            let dy = (destY + cellScreenH * 0.5) - centerY
+            let push = lensDisplacementAt(dx, dy, lensRadius, strength)
+            if (push > 0.0) {
+                let len = effectSqrt(dx * dx + dy * dy)
+                if (len > 0.0) {
+                    sampleX = srcX + dx / len * push * frame.scaleX * sign
+                    sampleY = srcY + dy / len * push * frame.scaleY * sign
+                }
+            }
+            let clampedX = max(source.x, min(source.x + source.w - srcCellW, sampleX))
+            let clampedY = max(source.y, min(source.y + source.h - srcCellH, sampleY))
+            renderer.texture(texture, Rect(destX, destY, cellScreenW, cellScreenH),
+                source: Some(Rect(clampedX, clampedY, srcCellW, srcCellH)))
+            col += 1
+        }
+        row += 1
+    }
+}
+
+/**
+ * How many horizontal bands a surface must be split into so every readback stays inside the
+ * provider pixel budget. Returns 1 when the surface already fits.
+ */
+private func effectBandCount(rect: Rect, frame: RendererEffectFrame,
+    capabilities: RendererEffectCapabilities): Int64 {
+    if (capabilities.maxSamplePixels <= 0) { return 1 }
+    var bands: Int64 = 1
+    var attempt: Int64 = 0
+    while (attempt < 8) {
+        let bandH = rect.h / Float32(bands)
+        let band = Rect(rect.x, rect.y, rect.w, bandH)
+        let px = effectPixelRect(band, frame.scaleX, frame.scaleY)
+        let pixels = Int64(px.w) * Int64(px.h)
+        if (pixels <= capabilities.maxSamplePixels) { return bands }
+        bands += 1
+        attempt += 1
+    }
+    bands
+}
+
+private func clamp01(value: Float32): Float32 {
+    if (value < 0.0) { return 0.0 }
+    if (value > 1.0) { return 1.0 }
+    value
+}
+
+private func effectSqrt(value: Float32): Float32 {
+    if (value <= 0.0) { return 0.0 }
+    // Newton iterations are enough for a displacement field and avoid depending on std.math here.
+    let half: Float32 = 0.5
+    let one: Float32 = 1.0
+    var x: Float32 = if (value > one) { value * half } else { one }
+    var i: Int64 = 0
+    while (i < 18) {
+        x = half * (x + value / x)
+        i += 1
+    }
+    x
 }
 
 private func effectPixelRect(rect: Rect, scaleX: Float32, scaleY: Float32): SdlRect {

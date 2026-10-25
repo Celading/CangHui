@@ -11,6 +11,7 @@ private class FrameGraphAcceptanceModel {
     let sceneVisible = State<Bool>(true)
     let dark = State<Bool>(false)
     let reducedTransparency = State<Bool>(false)
+    let variantIndex = State<Int64>(0)
 
     func tick(controller: Scene3DViewController): Unit {
         if (!animating.value) { return }
@@ -32,6 +33,23 @@ private class FrameGraphAcceptanceModel {
 
     func preferences(): LiquidGlassPreferences {
         LiquidGlassPreferences(reduceTransparency: reducedTransparency.value)
+    }
+
+    /** The three recipes must be visibly and measurably different, not just three alphas. */
+    func variant(): LiquidGlassVariant {
+        match (variantIndex.value % 3) {
+            case 0 => LiquidGlassVariant.Regular
+            case 1 => LiquidGlassVariant.Clear
+            case _ => LiquidGlassVariant.Vapor
+        }
+    }
+
+    func variantLabel(): String {
+        match (variantIndex.value % 3) {
+            case 0 => "Regular"
+            case 1 => "Clear"
+            case _ => "Vapor"
+        }
     }
 }
 
@@ -70,163 +88,190 @@ func effectGallery(): Unit {
         frameGraphAcceptanceSceneController())
 }
 
+/**
+ * The glass material is used the way the reference uses it: as the **parent container** for a
+ * whole layer of content, not as a small card with a border. The player layer sits on the
+ * material, the floating controls are their own glass surfaces, and every one of them is the
+ * same reusable `LiquidGlass` painter.
+ */
 private func effectGallery(
     model: FrameGraphAcceptanceModel,
     app: ?DesktopApp,
     controller: Scene3DViewController
 ): Unit {
     ZStack {
-        backdropMosaic()
-        VStack {
-            acceptanceToolbar(model, app)
-            HStack {
-                Spacer().width(frameGraphMotionOffset(model))
-                morphingGlassCard(model)
-                Spacer()
-                if (model.sceneVisible.value) {
-                    sceneSharedFrameCard(controller)
-                } else {
-                    settledSceneCard()
-                }
-            }.spacing(16.vp).hug().fillWidth()
-            stableSibling(model)
-        }.spacing(18.vp).padding(28.vp).fillWidth().fillHeight()
+        playerBackdrop()
+        playerGlassLayer(model, app, controller)
     }.fillWidth().fillHeight()
 }
 
-private func acceptanceToolbar(model: FrameGraphAcceptanceModel, app: ?DesktopApp): Unit {
-    HStack {
+/** Content behind the glass. Structure is intentional: displacement is invisible over a wash. */
+private func playerBackdrop(): Unit {
+    ZStack {
         VStack {
-            Label("Unified FrameGraph rev1").fontSize(FontSizes.TITLE).bold()
-            Label("Liquid Glass deformation · shared Scene3D pixels · deterministic idle cull")
-                .muted().fontSize(FontSizes.CAPTION)
-        }.spacing(3.vp).hug()
-        Spacer()
-        IconButton(IconName.Refresh) { model.restart() }.width(36.vp).height(36.vp)
-        IconButton(if (model.dark.value) { IconName.Sun } else { IconName.Moon }) {
-            model.dark.value = !model.dark.value
-            applyFrameGraphAcceptanceTheme(model, app)
-        }.width(36.vp).height(36.vp)
-        Button(if (model.reducedTransparency.value) { "Opaque" } else { "Glass" }, { =>
-            model.reducedTransparency.value = !model.reducedTransparency.value
-            applyFrameGraphAcceptanceTheme(model, app)
-        }).height(36.vp)
-        Button("Rotate +90°", { =>
-            match (app) {
-                case Some(value) => value.queueDeviceRotation(
-                    DeviceRotation.LandscapeClockwise,
-                    source: DeviceRotationSource.Synthetic)
-                case None => ()
-            }
-        }).height(36.vp)
-    }.spacing(8.vp).padding(12.vp).background(Color.rgba(255, 255, 255, 166), 18.0)
-        .fillWidth().height(64.vp)
+            colorBand(Color.rgb(96, 74, 116), Color.rgb(150, 116, 168))
+            colorBand(Color.rgb(178, 132, 168), Color.rgb(214, 168, 186))
+            colorBand(Color.rgb(206, 158, 176), Color.rgb(238, 202, 200))
+        }.spacing(0.vp).fillWidth().fillHeight()
+        albumArt()
+        structureLines()
+    }.fillWidth().fillHeight()
 }
 
-private func morphingGlassCard(model: FrameGraphAcceptanceModel): Unit {
-    let radius = 20.0 + Float32(model.phase.value % 7) * 2.0
-    let width = 292.0 + Float32(model.phase.value % 9) * 7.0
-    let preferences = model.preferences()
+/** Stand-in cover art: stacked tonal blocks so the lens has real edges and gradients to bend. */
+private func albumArt(): Unit {
+    VStack {
+        Spacer().height(56.vp)
+        HStack {
+            Spacer().width(86.vp)
+            VStack {
+                Spacer().height(150.vp).fillWidth().background(Color.rgba(58, 40, 74, 210), 18.0)
+                Spacer().height(3.vp)
+                Spacer().height(96.vp).fillWidth().background(Color.rgba(196, 120, 132, 190), 18.0)
+            }.hug().width(210.vp)
+            Spacer().width(20.vp)
+            VStack {
+                Spacer().height(64.vp).fillWidth().background(Color.rgba(96, 66, 110, 180), 16.0)
+                Spacer().height(3.vp)
+                Spacer().height(240.vp).fillWidth().background(Color.rgba(150, 96, 120, 170), 16.0)
+            }.hug().width(180.vp)
+            Spacer()
+        }.hug()
+        Spacer()
+    }.fillWidth().fillHeight()
+}
+
+/**
+ * The parent glass layer. This single material instance hosts the entire player UI, which is
+ * what makes the style reusable instead of a one-off card decoration.
+ */
+private func playerGlassLayer(
+    model: FrameGraphAcceptanceModel,
+    app: ?DesktopApp,
+    controller: Scene3DViewController
+): Unit {
+    let spec = LiquidGlassSpec(
+        variant: model.variant(),
+        radius: 30.0,
+        preferences: model.preferences())
+    Surface(
+        shape: Shape.rounded(30.0),
+        material: LiquidGlass.material(spec: spec),
+        painter: Some(LiquidGlass.surfacePainter(spec: spec)),
+        clip: ClipPolicy.Shape
+    ) {
+        VStack {
+            playerHeader(model, app)
+            Spacer()
+            playerLyrics()
+            Spacer()
+            playerTransport(model)
+        }.spacing(0.vp).padding(26.vp).fillWidth().fillHeight()
+    }.fillWidth().fillHeight()
+}
+
+/**
+ * Floating glass controls live inside the parent material but keep their own rounded surface.
+ * `Surface` is a block node whose size comes from its content, so the control size is applied to
+ * the inner stack rather than chained onto the surface itself.
+ */
+private func glassPill(width: Length, height: Length, content: () -> Unit): Unit {
+    let radius = min(9999.0, Float32(height.value) / 2.0)
     let spec = LiquidGlassSpec(
         variant: LiquidGlassVariant.Clear,
-        radius: radius,
-        preferences: preferences,
-        optics: LiquidGlassOptics(
-            clarity: 0.94,
-            haze: 0.38,
-            edgeEnergy: 0.96,
-            deformation: 0.94))
+        radius: radius)
     Surface(
         shape: Shape.rounded(radius),
         material: LiquidGlass.material(spec: spec),
         painter: Some(LiquidGlass.surfacePainter(spec: spec)),
         clip: ClipPolicy.Shape
     ) {
-        VStack {
-            HStack {
-                Badge("UI 2D", kind: BadgeKind.Success)
-                Spacer()
-                Label("phase ${model.phase.value}").muted().fontSize(FontSizes.CAPTION)
-            }.hug().fillWidth()
-            Label("Moving + reshaping glass").fontSize(FontSizes.TITLE).bold()
-            Label("The card changes geometry for 18 frames, then becomes stable so trace replay can prove culling.")
-                .wrap().muted().maxLines(3)
-            Spacer()
-            HStack {
-                Icon(IconName.Refresh, size: 18.vp)
-                Label(if (preferences.reduceTransparency) {
-                    "deterministic opaque fallback"
-                } else {
-                    "bounded SDL backdrop request"
-                }).fontSize(FontSizes.CAPTION)
-            }.spacing(8.vp).hug()
-        }.spacing(10.vp).padding(20.vp).width(width).height(210.vp)
+        HStack {
+            content()
+        }.hug().width(width).height(height)
     }
 }
 
-private func sceneSharedFrameCard(controller: Scene3DViewController): Unit {
-    VStack {
-        HStack {
-            Label("Simulated Scene3D resource").bold()
-            Spacer()
-            Badge("SHARED", kind: BadgeKind.Success)
-        }.hug().fillWidth()
-        Scene3DView(controller, width: 268.0, height: 116.0)
-        Label("CPU RGBA8 lease · ordinary CangHui clip/z-order")
-            .fontSize(FontSizes.CAPTION).muted()
-    }.spacing(10.vp).padding(16.vp).width(300.vp).height(210.vp)
-        .background(Color.rgba(18, 26, 40, 212), 22.0)
-}
-
-private func settledSceneCard(): Unit {
-    VStack {
-        HStack {
-            Label("Scene3D composition receipt").bold()
-            Spacer()
-            Badge("CAPTURED", kind: BadgeKind.Success)
-        }.hug().fillWidth()
-        Spacer()
-        Icon(IconName.Process, size: 34.vp)
-        Label("Shared-frame lifecycle observed").fontSize(FontSizes.TITLE).bold()
-        Label("Fake CPU provider only; native texture/fence interop remains a field gate.")
-            .muted().fontSize(FontSizes.CAPTION)
-        Spacer()
-    }.spacing(8.vp).padding(16.vp).width(300.vp).height(210.vp)
-        .background(Color.rgba(18, 26, 40, 212), 22.0)
-}
-
-private func stableSibling(model: FrameGraphAcceptanceModel): Unit {
+private func playerHeader(model: FrameGraphAcceptanceModel, app: ?DesktopApp): Unit {
     HStack {
         VStack {
-            Label("STABLE ROOT SENTINEL").fontSize(FontSizes.CAPTION).bold()
-            Label("Whole-root idle after phase ${min(model.phase.value, FRAME_GRAPH_ACCEPTANCE_STEPS)}")
-                .muted().fontSize(FontSizes.CAPTION)
-        }.spacing(2.vp).hug()
+            Label("until I found you").fontSize(FontSizes.TITLE).bold()
+            Label("Stephen Sanchez · 70人在听").muted().fontSize(FontSizes.CAPTION)
+        }.spacing(3.vp).hug()
         Spacer()
-        Label("redraw: full/bounded/idle-cull · SDL present: full/none").fontSize(FontSizes.CAPTION)
-        Badge(if (model.animating.value) { "CHANGING" } else { "CULLABLE" },
-            kind: if (model.animating.value) { BadgeKind.Warning } else { BadgeKind.Success })
-    }.spacing(12.vp).padding(14.vp).background(Color.rgba(255, 255, 255, 176), 18.0)
-        .fillWidth().height(58.vp)
+        IconButton(IconName.Refresh) { model.restart() }.width(34.vp).height(34.vp)
+        IconButton(if (model.dark.value) { IconName.Sun } else { IconName.Moon }) {
+            model.dark.value = !model.dark.value
+            applyFrameGraphAcceptanceTheme(model, app)
+        }.width(34.vp).height(34.vp)
+        Button(model.variantLabel(), { =>
+            model.variantIndex.value += 1
+            applyFrameGraphAcceptanceTheme(model, app)
+        }).height(32.vp)
+        Button(if (model.reducedTransparency.value) { "Opaque" } else { "Glass" }, { =>
+            model.reducedTransparency.value = !model.reducedTransparency.value
+            applyFrameGraphAcceptanceTheme(model, app)
+        }).height(32.vp)
+    }.spacing(8.vp).hug().fillWidth()
 }
 
-private func backdropMosaic(): Unit {
+private func playerLyrics(): Unit {
     VStack {
-        colorBand(Color.rgb(255, 91, 110), Color.rgb(255, 190, 92), "CURRENT FRAME")
-        colorBand(Color.rgb(91, 206, 250), Color.rgb(82, 107, 246), "DAMAGE PROPAGATION")
-        colorBand(Color.rgb(121, 84, 246), Color.rgb(230, 93, 184), "FULL PRESENT TRUTH")
-    }.spacing(0.vp).fillWidth().fillHeight()
+        Label("I found you").fontSize(FontSizes.TITLE).bold()
+        Label("Heaven when I held you again").muted()
+        Label("How could we ever just be friends").muted()
+    }.spacing(10.vp).hug().fillWidth()
 }
 
-private func colorBand(start: Color, end: Color, title: String): Unit {
-    HStack {
-        Label(title).foregroundColor(Color.rgba(255, 255, 255, 178)).fontSize(FontSizes.DISPLAY).bold()
-        Spacer()
-        Label("CangHui").foregroundColor(Color.rgba(255, 255, 255, 116)).fontSize(48.0).bold()
-    }.padding(34.vp).fillWidth().fillHeight().gradientBackground(
+private func playerTransport(model: FrameGraphAcceptanceModel): Unit {
+    VStack {
+        // Progress track: a thin rail plus the elapsed knob. Time labels keep their own width so
+        // the rail cannot squeeze them into ellipses.
+        HStack {
+            Label("01:02").muted().fontSize(FontSizes.CAPTION).width(46.vp)
+            Spacer().width(8.vp)
+            Spacer().height(3.vp).fillWidth().background(Color.rgba(255, 255, 255, 140), 1.5)
+            Spacer().width(8.vp)
+            Label("02:56").muted().fontSize(FontSizes.CAPTION).width(46.vp)
+        }.hug().fillWidth()
+        HStack {
+            glassPill(44.vp, 44.vp) { Icon(IconName.ChevronLeft, size: 18.vp) }
+            Spacer().width(8.vp)
+            glassPill(60.vp, 60.vp) { Icon(IconName.Process, size: 22.vp) }
+            Spacer().width(8.vp)
+            glassPill(44.vp, 44.vp) { Icon(IconName.ChevronRight, size: 18.vp) }
+            Spacer()
+            glassPill(98.vp, 44.vp) { Label(model.variantLabel()).fontSize(FontSizes.CAPTION) }
+        }.hug().fillWidth()
+    }.spacing(14.vp).hug().fillWidth()
+}
+
+private func colorBand(start: Color, end: Color): Unit {
+    Spacer().fillWidth().fillHeight().gradientBackground(
         Gradient(start: start, end: end, vertical: false),
         0.0
     )
+}
+
+/**
+ * Hard structure the glass must visibly bend. Built from the gallery-proven `Spacer().height()`
+ * + `background` pattern: this renderer has no rectangle primitive, and a flat wash would hide
+ * exactly the displacement this packet is about.
+ */
+private func structureLines(): Unit {
+    VStack {
+        Spacer().height(48.vp)
+        Spacer().height(2.vp).fillWidth().background(Color.rgba(255, 255, 255, 74), 1.0)
+        Spacer().height(96.vp)
+        Spacer().height(2.vp).fillWidth().background(Color.rgba(255, 255, 255, 62), 1.0)
+        Spacer().height(104.vp)
+        Spacer().height(3.vp).fillWidth().background(Color.rgba(255, 255, 255, 92), 1.5)
+        Spacer().height(92.vp)
+        Spacer().height(2.vp).fillWidth().background(Color.rgba(255, 255, 255, 70), 1.0)
+        Spacer().height(110.vp)
+        Spacer().height(2.vp).fillWidth().background(Color.rgba(255, 255, 255, 56), 1.0)
+        Spacer()
+    }.spacing(0.vp).fillWidth().fillHeight()
 }
 
 private func frameGraphMotionOffset(model: FrameGraphAcceptanceModel): Float32 {

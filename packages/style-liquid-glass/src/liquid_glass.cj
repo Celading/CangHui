@@ -16,19 +16,57 @@ public struct LiquidGlassOptics {
     public let edgeEnergy: Float32
     public let chromaticEdge: Float32
     public let deformation: Float32
+    /** Strength of the bounded local displacement field (0 = flat panel, 1 = strong lens). */
+    public let displacement: Float32
+    /** Lens radius as a fraction of the shorter surface edge. */
+    public let lensRadius: Float32
+    /** How far a capable provider may sample behind the shape, as a fraction of the surface. */
+    public let sampleRadius: Float32
+    /** Number of concentric edge rings used for contour depth; 1 keeps a single hairline. */
+    public let edgeRings: Int64
+    /** Tint strength mixed into the body independently of the backdrop. */
+    public let tintStrength: Float32
 
     public init(
         clarity!: Float32 = 0.86,
         haze!: Float32 = 0.34,
         edgeEnergy!: Float32 = 0.88,
         chromaticEdge!: Float32 = 0.22,
-        deformation!: Float32 = 0.82
+        deformation!: Float32 = 0.82,
+        displacement!: Float32 = 0.72,
+        lensRadius!: Float32 = 0.46,
+        sampleRadius!: Float32 = 0.5,
+        edgeRings!: Int64 = 3,
+        tintStrength!: Float32 = 0.0
     ) {
         this.clarity = clampUnit(clarity)
         this.haze = clampUnit(haze)
         this.edgeEnergy = clampUnit(edgeEnergy)
         this.chromaticEdge = clampUnit(chromaticEdge)
         this.deformation = clampUnit(deformation)
+        this.displacement = clampUnit(displacement)
+        this.lensRadius = clampUnit(lensRadius)
+        this.sampleRadius = clampUnit(sampleRadius)
+        this.edgeRings = max(1, min(6, edgeRings))
+        this.tintStrength = clampUnit(tintStrength)
+    }
+
+    /** Per-variant optical profile; the three recipes must differ in optics, not only alpha. */
+    public static func profile(variant: LiquidGlassVariant): LiquidGlassOptics {
+        match (variant) {
+            case LiquidGlassVariant.Regular => LiquidGlassOptics(
+                clarity: 0.84, haze: 0.34, edgeEnergy: 0.88, chromaticEdge: 0.22,
+                deformation: 0.82, displacement: 0.72, lensRadius: 0.46,
+                sampleRadius: 0.5, edgeRings: 3, tintStrength: 0.10)
+            case LiquidGlassVariant.Clear => LiquidGlassOptics(
+                clarity: 0.97, haze: 0.10, edgeEnergy: 0.66, chromaticEdge: 0.30,
+                deformation: 0.90, displacement: 0.94, lensRadius: 0.58,
+                sampleRadius: 0.66, edgeRings: 2, tintStrength: 0.16)
+            case LiquidGlassVariant.Vapor => LiquidGlassOptics(
+                clarity: 0.62, haze: 0.72, edgeEnergy: 0.74, chromaticEdge: 0.12,
+                deformation: 0.64, displacement: 0.44, lensRadius: 0.74,
+                sampleRadius: 0.34, edgeRings: 4, tintStrength: 0.12)
+        }
     }
 }
 
@@ -58,20 +96,29 @@ public struct LiquidGlassSpec {
     public let preferences: LiquidGlassPreferences
     public let optics: LiquidGlassOptics
 
+    /**
+     * `optics` defaults to the variant's own profile rather than one shared struct. Sharing a
+     * single default is what previously made Regular/Clear/Vapor differ mainly by alpha: the
+     * optical controls never actually diverged.
+     */
     public init(
         variant!: LiquidGlassVariant = LiquidGlassVariant.Regular,
         tint!: ?Color = None,
         interactive!: Bool = false,
         radius!: Float32 = 9999.0,
         preferences!: LiquidGlassPreferences = LiquidGlassPreferences(),
-        optics!: LiquidGlassOptics = LiquidGlassOptics()
+        optics!: ?LiquidGlassOptics = None
     ) {
+        let resolvedOptics = match (optics) {
+            case Some(value) => value
+            case None => LiquidGlassOptics.profile(variant)
+        }
         this.variant = variant
         this.tint = tint
         this.interactive = interactive
         this.radius = max(0.0, radius)
         this.preferences = preferences
-        this.optics = optics
+        this.optics = resolvedOptics
     }
 
     public func shape(): Shape { Shape.rounded(radius) }
@@ -140,7 +187,7 @@ public class LiquidGlass {
                 interactive: spec.interactive,
                 radius: min(spec.radius, shape.cornerRadius()),
                 preferences: spec.preferences,
-                optics: spec.optics
+                optics: Some(spec.optics)
             )
             let _ = paintOpticalGlass(ctx.renderer, rect, isDark(ctx.theme), resolved, 0.0)
         })
@@ -177,7 +224,7 @@ public class LiquidGlass {
                 tint: spec.tint,
                 interactive: true,
                 preferences: spec.preferences,
-                optics: spec.optics
+                optics: Some(spec.optics)
             )))
         )
     }
@@ -334,7 +381,7 @@ private func glassControlAppearance(
     var style = surfaceStyle(theme, SurfaceState(selected: selected, expanded: state.expanded,
         focused: state.focused, hovered: state.hover > 0.001, pressed: state.press > 0.001),
         LiquidGlassSpec(variant: spec.variant, tint: spec.tint, interactive: spec.interactive,
-            radius: radius, preferences: spec.preferences, optics: spec.optics))
+            radius: radius, preferences: spec.preferences, optics: Some(spec.optics)))
     let acceptsSelectedFill = match (kind) {
         case ComponentControlKind.Dropdown => false
         case _ => true
@@ -401,6 +448,217 @@ private func tintStrength(variant: LiquidGlassVariant): Float32 {
     }
 }
 
+/**
+ * Five explicit material layers. Keeping them separate is the point of this repair: a single
+ * translucent fill previously stood in for the whole material, which is exactly what reads as
+ * plastic. Each layer is independently testable through the recording renderer.
+ */
+private enum GlassLayer {
+    | Backdrop
+    | Body
+    | Edge
+    | Lens
+    | State
+}
+
+private func glassLayerName(layer: GlassLayer): String {
+    match (layer) {
+        case GlassLayer.Backdrop => "glass.backdrop"
+        case GlassLayer.Body => "glass.body"
+        case GlassLayer.Edge => "glass.edge"
+        case GlassLayer.Lens => "glass.lens"
+        case GlassLayer.State => "glass.state"
+    }
+}
+
+/**
+ * Motion-following highlight travel. A fixed gleam slab is the other half of the plastic read;
+ * the reference instead moves the specular response with the live lens and with state energy,
+ * and keeps it clipped to the actual shape instead of painting a rectangle across the surface.
+ */
+private func paintGlassHighlight(renderer: Renderer, rect: Rect, radius: Float32,
+    spec: LiquidGlassSpec, stretch: Float32): Unit {
+    let optics = spec.optics
+    if (isVaporVariant(spec.variant)) {
+        // Vapor carries a wide soft bloom in the body layer; a defined band would fight it.
+        return
+    }
+    let travel = clampUnit(0.16 + clampUnit(stretch) * 0.66)
+    // The highlight must stay inside the rounded silhouette: a capsule surface has no wide flat
+    // top edge, so the band narrows as the corner radius approaches half the shorter edge.
+    let cornerRatio = clampUnit(radius / max(1.0, min(rect.w, rect.h) * 0.5))
+    let usableW = rect.w * (1.0 - cornerRatio * 0.35)
+    let bandW = min(usableW * 0.46, max(6.0, usableW * (0.16 + travel * 0.30)))
+    let bandH = min(6.5, max(1.6, rect.h * 0.055))
+    let x = rect.x + max(0.0, (rect.w - bandW) * (0.10 + travel * 0.70))
+    let y = rect.y + min(rect.h * 0.22, 1.0 + travel * 3.0)
+    // Alpha stays edge-energy weighted so a large surface never receives a white slab.
+    let alpha = Int64(26.0 + 58.0 * optics.edgeEnergy * (0.55 + 0.45 * travel))
+    renderer.fillRoundedRectSoft(Rect(x, y, bandW, bandH), bandH / 2.0,
+        Color.rgba(255, 255, 255, min(255, alpha)), feather: 4.0)
+}
+
+private func paintGlassBackdropLayer(renderer: Renderer, rect: Rect, radius: Float32,
+    spec: LiquidGlassSpec, stretch: Float32): RendererEffectReceipt {
+    let optics = spec.optics
+    let lens = BackdropLensOptics(
+        centerX: 0.5 + (clampUnit(stretch) - 0.5) * 0.28,
+        centerY: 0.46,
+        radius: optics.lensRadius,
+        displacementStrength: optics.displacement,
+        sampleRadius: optics.sampleRadius,
+        invertInsideLens: isClearVariant(spec.variant))
+    return renderer.applyBackdropEffect(BackdropEffectRequest(
+        rect,
+        cornerRadius: radius,
+        blurRadius: 4.0 + optics.haze * 16.0,
+        refraction: 0.10 + optics.clarity * 0.40,
+        edgeResponse: optics.edgeEnergy,
+        lens: lens,
+        motionEnergy: clampUnit(stretch)))
+}
+
+private func paintGlassBodyLayer(renderer: Renderer, rect: Rect, radius: Float32,
+    dark: Bool, spec: LiquidGlassSpec): Unit {
+    let optics = spec.optics
+    let base = glassFill(dark, spec.variant, spec.preferences)
+    let tint = match (spec.tint) {
+        case Some(value) => value
+        case None => if (dark) { Color.rgb(126, 174, 255) } else { Color.rgb(210, 231, 255) }
+    }
+    let topAlpha = Int64(34.0 + 70.0 * optics.haze)
+    let bottomAlpha = Int64(18.0 + 62.0 * (1.0 - optics.clarity))
+    let top = base.lerp(Color.rgba(255, 255, 255, topAlpha), 0.56)
+    let bottom = base.lerp(tint.withAlpha(bottomAlpha), 0.34)
+    match (spec.variant) {
+        case LiquidGlassVariant.Vapor =>
+            // A large translucent gradient can expose the portable renderer's triangle fan on
+            // dark SDR targets. Vapor favours a seamless body plus local mist bands instead.
+            renderer.fillRoundedRect(rect, radius, top.lerp(bottom, 0.52))
+        case _ => renderer.fillRoundedRectGradient(rect, radius, top, bottom)
+    }
+    if (optics.tintStrength > 0.001) {
+        match (spec.tint) {
+            case Some(value) =>
+                let tintAlpha = Int64(optics.tintStrength * 90.0)
+                renderer.fillRoundedRect(rect, radius, value.withAlpha(min(255, tintAlpha)))
+            case None => ()
+        }
+    }
+    match (spec.variant) {
+        case LiquidGlassVariant.Vapor =>
+            let mistInset = max(2.0, min(rect.w, rect.h) * 0.06)
+            let mist = Rect(rect.x + mistInset, rect.y + mistInset,
+                max(1.0, rect.w - mistInset * 2.0), min(42.0, max(8.0, rect.h * 0.09)))
+            renderer.fillRoundedRectSoft(mist, mist.h / 2.0,
+                Color.rgba(255, 255, 255, Int64(16.0 + 32.0 * optics.haze)),
+                feather: 10.0 + 10.0 * optics.haze)
+        case _ => ()
+    }
+}
+
+/**
+ * Contour depth. The reference edge is not one hairline: it shows several brightness contours.
+ * `edgeRings` draws converging inset rings, which is what makes the boundary read as a bevel
+ * instead of a drawn border.
+ */
+private func paintGlassEdgeLayer(renderer: Renderer, rect: Rect, radius: Float32,
+    dark: Bool, spec: LiquidGlassSpec): Unit {
+    let optics = spec.optics
+    let rings = optics.edgeRings
+    var index: Int64 = 0
+    while (index < rings) {
+        let step = Float32(index)
+        let inset = 0.6 + step * (1.15 + optics.haze * 0.5)
+        let ringRadius = max(0.0, radius - inset)
+        // Outer ring is the brightest; inner rings fall off so contours converge inward.
+        let falloff = 1.0 - step / Float32(rings)
+        let alpha = Int64((52.0 + 122.0 * optics.edgeEnergy) * (0.28 + 0.72 * falloff))
+        let width: Float32 = if (index == 0) {
+            if (spec.preferences.increaseContrast) { 1.8 } else { 1.25 }
+        } else {
+            max(0.55, 0.9 - step * 0.12)
+        }
+        renderer.strokeRoundedRect(rect.inset(inset), ringRadius,
+            Pen(width: width, color: Color.rgba(255, 255, 255, min(255, alpha))))
+        index += 1
+    }
+    let inner = rect.inset(2.0 + Float32(rings) * 0.8)
+    if (inner.w > 2.0 && inner.h > 2.0) {
+        renderer.strokeRoundedRect(inner, max(0.0, radius - 2.0 - Float32(rings) * 0.8),
+            Pen(width: 0.8, color: if (dark) {
+                Color.rgba(15, 23, 42, Int64(54.0 * optics.edgeEnergy))
+            } else {
+                Color.rgba(88, 111, 145, Int64(34.0 * optics.edgeEnergy))
+            }))
+    }
+}
+
+/**
+ * The bounded local lens. This is the layer the reference demands and the old implementation had
+ * no way to express: an optical centre with a radius, an interior reflection ring, and chromatic
+ * separation that only exists while the material is moving. Settled frames of the source are free
+ * of colour fringing, so a permanent chromatic outline is a defect, not a feature.
+ */
+private func paintGlassLensLayer(renderer: Renderer, rect: Rect, radius: Float32,
+    dark: Bool, spec: LiquidGlassSpec, stretch: Float32): Unit {
+    let optics = spec.optics
+    if (isVaporVariant(spec.variant)) {
+        // Vapor is a haze material; a hard lens would contradict its recipe.
+        return
+    }
+    let motion = clampUnit(stretch)
+    // The lens itself is produced by backdrop displacement, not by drawing a ring. Visible
+    // contours are a *transition* cue only: a settled surface must show no ring at all, which is
+    // what the reference's stable frame shows. Drawing a permanent circle outline is exactly the
+    // decoration this repair removed.
+    if (motion <= 0.02) { return }
+    let shorter = min(rect.w, rect.h)
+    let cornerRatio = clampUnit(radius / max(1.0, shorter * 0.5))
+    let flatWindow = shorter * (0.5 - cornerRatio * 0.12)
+    let lensRadius = max(2.0, min(flatWindow, shorter * optics.lensRadius * 0.5))
+    if (lensRadius * 2.0 > shorter) { return }
+    let cx = rect.x + rect.w * (0.5 + (motion - 0.5) * 0.3)
+    let cy = rect.y + rect.h * 0.46
+
+    // Interior reflection contour, fading in and out with motion energy.
+    let ringAlpha = Int64(motion * (30.0 + 34.0 * optics.edgeEnergy))
+    let ringDark: Int64 = if (dark) { 226 } else { 20 }
+    let ringDarkG: Int64 = if (dark) { 238 } else { 28 }
+    let ringDarkB: Int64 = if (dark) { 250 } else { 44 }
+    renderer.strokeCircle(cx, cy, lensRadius,
+        Pen(width: 1.0, color: Color.rgba(ringDark, ringDarkG, ringDarkB,
+            min(255, ringAlpha))))
+    renderer.strokeCircle(cx, cy, max(1.0, lensRadius - 1.6),
+        Pen(width: 0.9, color: Color.rgba(255, 255, 255,
+            min(255, Int64(motion * (38.0 + 46.0 * optics.edgeEnergy))))))
+
+    // Chromatic separation is strictly transient: gated by motion, absent when settled.
+    let chroma = optics.chromaticEdge * motion
+    if (chroma > 0.02) {
+        let chromaAlpha = min(255, Int64(26.0 * chroma))
+        let offset = 0.6 + 1.8 * chroma
+        renderer.strokeCircle(cx - offset, cy, lensRadius,
+            Pen(width: 1.0, color: Color.rgba(102, 180, 255, chromaAlpha)))
+        renderer.strokeCircle(cx + offset, cy, lensRadius,
+            Pen(width: 1.0, color: Color.rgba(255, 128, 179, chromaAlpha)))
+    }
+}
+
+private func paintGlassStateLayer(renderer: Renderer, rect: Rect, radius: Float32,
+    spec: LiquidGlassSpec, stretch: Float32): Unit {
+    let optics = spec.optics
+    // Boundary halo sits outside the body so it cannot create a false seam inside the shape.
+    let haloAlpha = Int64(18.0 + 40.0 * optics.edgeEnergy)
+    renderer.fillRoundedRectSoft(
+        Rect(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 5.0),
+        radius + 2.0,
+        Color.rgba(255, 255, 255, haloAlpha),
+        feather: 5.0 + 4.0 * optics.haze
+    )
+    paintGlassHighlight(renderer, rect, radius, spec, stretch)
+}
+
 private func paintOpticalGlass(
     renderer: Renderer,
     rect: Rect,
@@ -409,6 +667,8 @@ private func paintOpticalGlass(
     stretch: Float32
 ): RendererEffectReceipt {
     let radius = min(spec.radius, rect.h / 2.0 + stretch * 3.0)
+
+    // Accessibility path is deliberately opaque and never requests backdrop sampling.
     if (spec.preferences.reduceTransparency) {
         renderer.fillRoundedRect(rect, radius, glassFill(dark, spec.variant, spec.preferences))
         renderer.strokeRoundedRect(rect.inset(0.5), max(0.0, radius - 0.5),
@@ -423,82 +683,26 @@ private func paintOpticalGlass(
         )
     }
 
-    let optics = spec.optics
-    let effectReceipt = renderer.applyBackdropEffect(BackdropEffectRequest(
-        rect,
-        cornerRadius: radius,
-        blurRadius: 6.0 + optics.haze * 18.0,
-        refraction: 0.12 + optics.clarity * 0.42,
-        edgeResponse: optics.edgeEnergy
-    ))
-    let haloAlpha = Int64(24.0 + 44.0 * optics.edgeEnergy)
-    let halo = if (dark) { Color.rgba(118, 169, 255, haloAlpha) } else {
-        Color.rgba(255, 255, 255, haloAlpha)
-    }
-    renderer.fillRoundedRectSoft(
-        Rect(rect.x - 2.0, rect.y - 2.0, rect.w + 4.0, rect.h + 5.0),
-        radius + 2.0,
-        halo,
-        feather: 5.0 + 4.0 * optics.haze
-    )
+    let backdropReceipt = paintGlassBackdropLayer(renderer, rect, radius, spec, stretch)
+    paintGlassBodyLayer(renderer, rect, radius, dark, spec)
+    paintGlassEdgeLayer(renderer, rect, radius, dark, spec)
+    paintGlassLensLayer(renderer, rect, radius, dark, spec, stretch)
+    paintGlassStateLayer(renderer, rect, radius, spec, stretch)
+    backdropReceipt
+}
 
-    if (optics.chromaticEdge > 0.01) {
-        let chromaAlpha = Int64(34.0 * optics.chromaticEdge)
-        renderer.strokeRoundedRect(Rect(rect.x - 0.8, rect.y, rect.w, rect.h), radius,
-            Pen(width: 1.1, color: Color.rgba(102, 180, 255, chromaAlpha)))
-        renderer.strokeRoundedRect(Rect(rect.x + 0.8, rect.y, rect.w, rect.h), radius,
-            Pen(width: 1.1, color: Color.rgba(255, 128, 179, chromaAlpha)))
+private func isVaporVariant(variant: LiquidGlassVariant): Bool {
+    match (variant) {
+        case LiquidGlassVariant.Vapor => true
+        case _ => false
     }
+}
 
-    let base = glassFill(dark, spec.variant, spec.preferences)
-    let tint = match (spec.tint) {
-        case Some(value) => value
-        case None => if (dark) { Color.rgb(126, 174, 255) } else { Color.rgb(210, 231, 255) }
+private func isClearVariant(variant: LiquidGlassVariant): Bool {
+    match (variant) {
+        case LiquidGlassVariant.Clear => true
+        case _ => false
     }
-    let topAlpha = Int64(38.0 + 74.0 * optics.haze)
-    let bottomAlpha = Int64(22.0 + 68.0 * (1.0 - optics.clarity))
-    let top = base.lerp(Color.rgba(255, 255, 255, topAlpha), 0.56)
-    let bottom = base.lerp(tint.withAlpha(bottomAlpha), 0.34)
-    match (spec.variant) {
-        case LiquidGlassVariant.Vapor =>
-            // A large translucent gradient can expose the portable renderer's triangle fan on
-            // dark SDR targets. Vapor favours a seamless body plus local mist bands instead.
-            renderer.fillRoundedRect(rect, radius, top.lerp(bottom, 0.52))
-        case _ => renderer.fillRoundedRectGradient(rect, radius, top, bottom)
-    }
-
-    match (spec.variant) {
-        case LiquidGlassVariant.Vapor =>
-            let mistInset = max(2.0, min(rect.w, rect.h) * 0.06)
-            let mist = Rect(rect.x + mistInset, rect.y + mistInset,
-                max(1.0, rect.w - mistInset * 2.0), min(42.0, max(8.0, rect.h * 0.09)))
-            renderer.fillRoundedRectSoft(mist, mist.h / 2.0,
-                Color.rgba(255, 255, 255, Int64(16.0 + 32.0 * optics.haze)),
-                feather: 10.0 + 10.0 * optics.haze)
-        case _ => ()
-    }
-
-    let edgeAlpha = Int64(84.0 + 128.0 * optics.edgeEnergy)
-    renderer.strokeRoundedRect(rect.inset(0.6), max(0.0, radius - 0.6),
-        Pen(width: if (spec.preferences.increaseContrast) { 1.8 } else { 1.25 },
-            color: Color.rgba(255, 255, 255, edgeAlpha)))
-    let inner = rect.inset(2.0)
-    renderer.strokeRoundedRect(inner, max(0.0, radius - 2.0),
-        Pen(width: 0.8, color: if (dark) {
-            Color.rgba(15, 23, 42, Int64(54.0 * optics.edgeEnergy))
-        } else {
-            Color.rgba(88, 111, 145, Int64(34.0 * optics.edgeEnergy))
-        }))
-
-    // Keep the highlight as edge energy, not as an opaque white slab on large surfaces.
-    // The width still grows with the live lens deformation so motion changes the optics too.
-    let gleamW = min(180.0, max(1.0, rect.w * (0.42 + stretch * 0.14)))
-    let gleamH = min(8.0, max(2.0, rect.h * 0.08))
-    let gleam = Rect(rect.x + min(18.0, rect.w * 0.12), rect.y + 1.0, gleamW, gleamH)
-    renderer.fillRoundedRectSoft(gleam, gleam.h / 2.0,
-        Color.rgba(255, 255, 255, Int64(38.0 + 54.0 * optics.edgeEnergy)),
-        feather: 4.0)
-    effectReceipt
 }
 
 private func clampUnit(value: Float32): Float32 {
