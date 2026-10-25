@@ -56,15 +56,15 @@ public struct LiquidGlassOptics {
         match (variant) {
             case LiquidGlassVariant.Regular => LiquidGlassOptics(
                 clarity: 0.84, haze: 0.34, edgeEnergy: 0.88, chromaticEdge: 0.22,
-                deformation: 0.82, displacement: 0.72, lensRadius: 0.46,
+                deformation: 0.82, displacement: 0.86, lensRadius: 0.23,
                 sampleRadius: 0.5, edgeRings: 3, tintStrength: 0.10)
             case LiquidGlassVariant.Clear => LiquidGlassOptics(
                 clarity: 0.97, haze: 0.10, edgeEnergy: 0.66, chromaticEdge: 0.30,
-                deformation: 0.90, displacement: 0.94, lensRadius: 0.58,
+                deformation: 0.90, displacement: 1.00, lensRadius: 0.29,
                 sampleRadius: 0.66, edgeRings: 2, tintStrength: 0.16)
             case LiquidGlassVariant.Vapor => LiquidGlassOptics(
                 clarity: 0.62, haze: 0.72, edgeEnergy: 0.74, chromaticEdge: 0.12,
-                deformation: 0.64, displacement: 0.44, lensRadius: 0.74,
+                deformation: 0.64, displacement: 0.44, lensRadius: 0.34,
                 sampleRadius: 0.34, edgeRings: 4, tintStrength: 0.12)
         }
     }
@@ -504,21 +504,41 @@ private func paintGlassHighlight(renderer: Renderer, rect: Rect, radius: Float32
 private func paintGlassBackdropLayer(renderer: Renderer, rect: Rect, radius: Float32,
     spec: LiquidGlassSpec, stretch: Float32): RendererEffectReceipt {
     let optics = spec.optics
+    let motion = clampUnit(stretch)
+    let shorter = min(rect.w, rect.h)
+    let lensRadius = max(2.0, shorter * optics.lensRadius)
+    let cx = rect.x + rect.w * (0.5 + (motion - 0.5) * 0.18)
+    let cy = rect.y + rect.h * 0.46
+
+    // Sample ONLY the lens disc, not the whole surface.
+    //
+    // A full-screen glass container cannot be read back in one bound: its visible area alone is
+    // larger than the provider pixel budget, and splitting it into bands misaligns the lens grid and
+    // leaves visible seams. But a full-surface readback is also unnecessary: in the reference the
+    // optical element is a bounded circular lens (frame 61), while the rest of the panel is plain
+    // composition. So the bounded sample follows the lens, which fits the budget comfortably.
+    var sampleRect = rect
+    if (optics.lensRadius > 0.0) {
+        let diameter = lensRadius * 2.0
+        sampleRect = Rect(cx - lensRadius, cy - lensRadius, diameter, diameter)
+            .intersection(rect)
+    }
     let lens = BackdropLensOptics(
-        centerX: 0.5 + (clampUnit(stretch) - 0.5) * 0.28,
-        centerY: 0.46,
-        radius: optics.lensRadius,
+        centerX: 0.5,
+        centerY: 0.5,
+        radius: 0.5,
         displacementStrength: optics.displacement,
         sampleRadius: optics.sampleRadius,
         invertInsideLens: isClearVariant(spec.variant))
     return renderer.applyBackdropEffect(BackdropEffectRequest(
-        rect,
-        cornerRadius: radius,
+        sampleRect,
+        cornerRadius: min(radius, lensRadius),
         blurRadius: 4.0 + optics.haze * 16.0,
         refraction: 0.10 + optics.clarity * 0.40,
         edgeResponse: optics.edgeEnergy,
         lens: lens,
-        motionEnergy: clampUnit(stretch)))
+        motionEnergy: motion,
+        lensFrame: sampleRect))
 }
 
 private func paintGlassBodyLayer(renderer: Renderer, rect: Rect, radius: Float32,
@@ -570,31 +590,46 @@ private func paintGlassBodyLayer(renderer: Renderer, rect: Rect, radius: Float32
 private func paintGlassEdgeLayer(renderer: Renderer, rect: Rect, radius: Float32,
     dark: Bool, spec: LiquidGlassSpec): Unit {
     let optics = spec.optics
-    let rings = optics.edgeRings
+    let rings = max(Int64(2), optics.edgeRings)
+    // Reference frame 52: the border is not one bright stroke. It is a band of alternating bright
+    // and dark contours — light bends differently at each rim step, so the eye reads thickness.
     var index: Int64 = 0
     while (index < rings) {
         let step = Float32(index)
-        let inset = 0.6 + step * (1.15 + optics.haze * 0.5)
+        let inset = 0.5 + step * (1.35 + optics.haze * 0.7)
         let ringRadius = max(0.0, radius - inset)
-        // Outer ring is the brightest; inner rings fall off so contours converge inward.
         let falloff = 1.0 - step / Float32(rings)
-        let alpha = Int64((52.0 + 122.0 * optics.edgeEnergy) * (0.28 + 0.72 * falloff))
-        let width: Float32 = if (index == 0) {
-            if (spec.preferences.increaseContrast) { 1.8 } else { 1.25 }
+        // Even rings are the lit contour, odd rings the shadowed one that sits just inside it.
+        let bright = index % 2 == 0
+        let alpha = if (bright) {
+            Int64((62.0 + 116.0 * optics.edgeEnergy) * (0.40 + 0.60 * falloff))
         } else {
-            max(0.55, 0.9 - step * 0.12)
+            Int64((26.0 + 40.0 * optics.edgeEnergy) * (0.30 + 0.70 * falloff))
         }
-        renderer.strokeRoundedRect(rect.inset(inset), ringRadius,
-            Pen(width: width, color: Color.rgba(255, 255, 255, min(255, alpha))))
+        let width: Float32 = if (index == 0) {
+            if (spec.preferences.increaseContrast) { 2.0 } else { 1.5 }
+        } else {
+            max(0.7, 1.15 - step * 0.10)
+        }
+        let color = if (bright) {
+            Color.rgba(255, 255, 255, min(255, alpha))
+        } else if (dark) {
+            Color.rgba(12, 18, 32, min(255, alpha))
+        } else {
+            Color.rgba(74, 96, 128, min(255, alpha))
+        }
+        renderer.strokeRoundedRect(rect.inset(inset), ringRadius, Pen(width: width, color: color))
         index += 1
     }
-    let inner = rect.inset(2.0 + Float32(rings) * 0.8)
+    // Deep inner shadow: the rim of real glass gathers the backdrop and goes darker just inside.
+    let insetDeep = 2.0 + Float32(rings) * 1.1
+    let inner = rect.inset(insetDeep)
     if (inner.w > 2.0 && inner.h > 2.0) {
-        renderer.strokeRoundedRect(inner, max(0.0, radius - 2.0 - Float32(rings) * 0.8),
-            Pen(width: 0.8, color: if (dark) {
-                Color.rgba(15, 23, 42, Int64(54.0 * optics.edgeEnergy))
+        renderer.strokeRoundedRect(inner, max(0.0, radius - insetDeep),
+            Pen(width: 1.4, color: if (dark) {
+                Color.rgba(8, 12, 24, min(255, Int64(48.0 + 56.0 * optics.edgeEnergy)))
             } else {
-                Color.rgba(88, 111, 145, Int64(34.0 * optics.edgeEnergy))
+                Color.rgba(64, 84, 116, min(255, Int64(26.0 + 34.0 * optics.edgeEnergy)))
             }))
     }
 }
@@ -613,40 +648,68 @@ private func paintGlassLensLayer(renderer: Renderer, rect: Rect, radius: Float32
         return
     }
     let motion = clampUnit(stretch)
-    // The lens itself is produced by backdrop displacement, not by drawing a ring. Visible
-    // contours are a *transition* cue only: a settled surface must show no ring at all, which is
-    // what the reference's stable frame shows. Drawing a permanent circle outline is exactly the
-    // decoration this repair removed.
-    if (motion <= 0.02) { return }
     let shorter = min(rect.w, rect.h)
     let cornerRatio = clampUnit(radius / max(1.0, shorter * 0.5))
     let flatWindow = shorter * (0.5 - cornerRatio * 0.12)
     let lensRadius = max(2.0, min(flatWindow, shorter * optics.lensRadius * 0.5))
     if (lensRadius * 2.0 > shorter) { return }
-    let cx = rect.x + rect.w * (0.5 + (motion - 0.5) * 0.3)
+    let cx = rect.x + rect.w * (0.5 + (motion - 0.5) * 0.18)
     let cy = rect.y + rect.h * 0.46
 
-    // Interior reflection contour, fading in and out with motion energy.
-    let ringAlpha = Int64(motion * (30.0 + 34.0 * optics.edgeEnergy))
-    let ringDark: Int64 = if (dark) { 226 } else { 20 }
-    let ringDarkG: Int64 = if (dark) { 238 } else { 28 }
-    let ringDarkB: Int64 = if (dark) { 250 } else { 44 }
-    renderer.strokeCircle(cx, cy, lensRadius,
-        Pen(width: 1.0, color: Color.rgba(ringDark, ringDarkG, ringDarkB,
-            min(255, ringAlpha))))
-    renderer.strokeCircle(cx, cy, max(1.0, lensRadius - 1.6),
-        Pen(width: 0.9, color: Color.rgba(255, 255, 255,
-            min(255, Int64(motion * (38.0 + 46.0 * optics.edgeEnergy))))))
+    // Reference frame 61 brightens inside the lens, but that brightness is *magnified backdrop*,
+    // not a white overlay: painting opaque white discs here turned the lens into a spotlight and
+    // washed the content out. Only a faint interior sheen survives, and the displacement job belongs
+    // to the backdrop sampler.
+    renderer.fillCircle(cx, cy, lensRadius,
+        Color.rgba(255, 255, 255, min(255, Int64(4.0 + 7.0 * optics.clarity))))
 
-    // Chromatic separation is strictly transient: gated by motion, absent when settled.
+    // Concentric contour rings: the reference shows several brightness steps inside the rim
+    // (frames 61 and 71), which is what makes the boundary read as a lens rather than a stroke.
+    let ringCount = max(Int64(2), optics.edgeRings)
+    var ring: Int64 = 0
+    while (ring < ringCount) {
+        let t = Float32(ring) / Float32(ringCount - 1)
+        let ringR = lensRadius * (0.78 + 0.20 * t)
+        let ringAlpha = Int64(10.0 + 18.0 * (1.0 - t) * (0.4 + optics.edgeEnergy))
+        renderer.strokeCircle(cx, cy, ringR,
+            Pen(width: 0.9, color: Color.rgba(255, 255, 255, min(255, ringAlpha))))
+        ring += 1
+    }
+
+    // Hard inner rim: one darker contour so the lens edge separates from the body.
+    let rimAlpha = Int64(20.0 + 26.0 * optics.edgeEnergy)
+    let rimR: Int64 = if (dark) { 24 } else { 120 }
+    let rimG: Int64 = if (dark) { 28 } else { 124 }
+    let rimB: Int64 = if (dark) { 38 } else { 140 }
+    renderer.strokeCircle(cx, cy, max(1.0, lensRadius - 0.8),
+        Pen(width: 1.1, color: Color.rgba(rimR, rimG, rimB, min(255, rimAlpha))))
+
+    // Specular arc: reference frames 61 and 71 show a bright glint travelling along the sphere, not
+    // a straight band across the panel. Its position follows motion so the glint sweeps the rim.
+    let arcStart = -2.35 + motion * 1.6
+    let arcAlpha = Int64(30.0 + 70.0 * optics.edgeEnergy * (0.35 + 0.65 * motion))
+    var arcSegment: Int64 = 0
+    while (arcSegment < 7) {
+        let a = arcStart + Float32(arcSegment) * 0.085
+        let ax = cx + effectCosApprox(a) * (lensRadius - 1.4)
+        let ay = cy + effectSinApprox(a) * (lensRadius - 1.4)
+        renderer.fillCircle(ax, ay, max(1.2, lensRadius * 0.075),
+            Color.rgba(255, 255, 255, min(255, arcAlpha / 7 + 6)))
+        arcSegment += 1
+    }
+
+    // Chromatic separation stays strictly transient: frame 73 is clean. Only the *amount* is gated.
     let chroma = optics.chromaticEdge * motion
     if (chroma > 0.02) {
-        let chromaAlpha = min(255, Int64(26.0 * chroma))
-        let offset = 0.6 + 1.8 * chroma
-        renderer.strokeCircle(cx - offset, cy, lensRadius,
-            Pen(width: 1.0, color: Color.rgba(102, 180, 255, chromaAlpha)))
-        renderer.strokeCircle(cx + offset, cy, lensRadius,
-            Pen(width: 1.0, color: Color.rgba(255, 128, 179, chromaAlpha)))
+        let chromaAlpha = min(255, Int64(30.0 * chroma))
+        let offset = 0.8 + 2.2 * chroma
+        renderer.strokeCircle(cx - offset, cy, lensRadius - 0.8,
+            Pen(width: 1.2, color: Color.rgba(102, 180, 255, chromaAlpha)))
+        renderer.strokeCircle(cx + offset, cy, lensRadius - 0.8,
+            Pen(width: 1.2, color: Color.rgba(255, 128, 179, chromaAlpha)))
+        // Reference frame 61 also shows a green fringe on the rim, not only blue/red.
+        renderer.strokeCircle(cx, cy + offset * 0.8, lensRadius - 0.6,
+            Pen(width: 1.0, color: Color.rgba(126, 226, 150, min(255, Int64(22.0 * chroma)))))
     }
 }
 
@@ -708,6 +771,22 @@ private func isClearVariant(variant: LiquidGlassVariant): Bool {
         case LiquidGlassVariant.Clear => true
         case _ => false
     }
+}
+
+/** Small-angle cosine approximation; avoids pulling a trig import into the paint path. */
+private func effectCosApprox(angle: Float32): Float32 {
+    // Wrap into [-pi, pi] by folding through the Taylor series over three cosine lobes.
+    var a = angle
+    while (a > 3.14159265) { a -= 6.2831853 }
+    while (a < -3.14159265) { a += 6.2831853 }
+    let a2 = a * a
+    let a4 = a2 * a2
+    return 1.0 - a2 * 0.5 + a4 * 0.0416667
+}
+
+/** Paired sine approximation: sin(a) = cos(a - pi/2). */
+private func effectSinApprox(angle: Float32): Float32 {
+    effectCosApprox(angle - 1.5707963)
 }
 
 private func clampUnit(value: Float32): Float32 {

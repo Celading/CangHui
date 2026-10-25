@@ -126,3 +126,27 @@ iOS、Metal、Vulkan、D3D、GLES 或 WebGPU backend 已完成的证明。
 [HIG Materials](https://developer.apple.com/design/human-interface-guidelines/materials)、
 [Applying Liquid Glass to custom views](https://developer.apple.com/documentation/SwiftUI/Applying-Liquid-Glass-to-custom-views)
 与 [Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/)。包内不含 Apple 资产。
+
+## 光学几何（对齐参考帧）
+
+实现对照 `_helper/archive/AppleGlass.mp4` 的三个窗口，机制如下：
+
+| 窗口 | 参考现象 | 实现机制 |
+|---|---|---|
+| `00:51-00:58` | 背景结构线在玻璃内局部弯曲；边缘多重轮廓与移动高光 | 透镜盘内径向位移场；边缘层亮/暗交替多道等高线；弧面高光随 motion 扫过 |
+| `00:59-01:03` | 圆形镜头穿过字标，文字被放大、压缩、倒置；内部有反射环 | 球面 sag 位移 `t / (1 - 0.86t)`，偏移量正比于透镜半径，可超过 1 倍半径产生压缩/倒置；盘内多层反射环 |
+| `01:09-01:13` | 图标边缘蓝红色散、局部旋转高光、主体稳定 | 色散严格由 `motionEnergy` 门控，settled 态为 0；蓝/红/绿三向边缘分离 |
+
+### 关键量纲约束
+
+位移强度按**透镜半径**归一化（`strength = displacement * lensRadius * 0.62`），
+不是按屏幕短边。早期实现按屏幕边长计算并额外乘 `0.11`，导致最大偏移只有半径的 1%，
+视觉上等于没有折射——这是"看起来仍是塑料"的直接原因。
+
+### 采样范围
+
+只对**透镜盘**做有界回读，不对整个表面采样。全屏容器的可见区域本身超出
+provider 像素预算（2,208,000 > 2,097,152），分带采样会让相邻 band 推导出不同的
+采样网格而产生可见接缝；而参考中的光学元件本身就是局部圆盘，所以只采圆盘既正确又省预算。
+
+参考帧 `73`（settled）无任何彩色边缘，因此色散不得常驻。

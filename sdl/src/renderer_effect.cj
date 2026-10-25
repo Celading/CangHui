@@ -153,6 +153,12 @@ public class BackdropEffectRequest {
     public let lens: BackdropLensOptics
     /** Edges energy already measured by the caller, used to gate transient chromatic response. */
     public let motionEnergy: Float32
+    /**
+     * Reference rect that the lens geometry is normalised against. Bands of one surface must share
+     * it, otherwise each band re-derives its own centre and radius and a full-surface lens silently
+     * turns into several small ones.
+     */
+    public let lensFrame: Rect
 
     public init(
         bounds: Rect,
@@ -165,7 +171,8 @@ public class BackdropEffectRequest {
         requireShapeUnion!: Bool = false,
         expectedFrameGeneration!: UInt64 = UInt64(0),
         lens!: BackdropLensOptics = BackdropLensOptics(),
-        motionEnergy!: Float32 = 0.0
+        motionEnergy!: Float32 = 0.0,
+        lensFrame!: Rect = Rect.zero()
     ) {
         validateEffectRect(bounds, "backdrop bounds")
         match (transformedBounds) {
@@ -189,6 +196,7 @@ public class BackdropEffectRequest {
         this.requireShapeUnion = requireShapeUnion
         this.expectedFrameGeneration = expectedFrameGeneration
         this.lens = lens
+        this.lensFrame = if (lensFrame.w > 0.0 && lensFrame.h > 0.0) { lensFrame } else { bounds }
         this.motionEnergy = if (!effectFinite(motionEnergy)) {
             throw IllegalArgumentException("renderer effect motion energy must be finite")
         } else {
@@ -482,7 +490,8 @@ extend Renderer {
                                     expectedFrameGeneration: request.expectedFrameGeneration,
                                     requireShapeUnion: request.requireShapeUnion,
                                     lens: request.lens,
-                                    motionEnergy: request.motionEnergy))
+                                    motionEnergy: request.motionEnergy,
+                                    lensFrame: request.lensFrame))
                         } catch (error: Exception) {
                             RendererEffectReceipt(
                                 RendererEffectStatus.Degraded, "backdrop", "provider-failed",
@@ -635,7 +644,8 @@ internal class SdlReadbackRendererEffectAdapter <: RendererEffectAdapter {
         }
         let sampledTexture = texture.getOrThrow()
         try {
-            paintSdlBackdrop(renderer, sampledTexture, frame, request, capture, visible)
+            paintSdlBackdrop(renderer, sampledTexture, frame, request, capture, visible,
+                sourceFrame: request.lensFrame)
         } finally {
             sampledTexture.close()
         }
@@ -678,12 +688,16 @@ private func paintSdlBackdrop(
     frame: RendererEffectFrame,
     request: BackdropEffectRequest,
     capture: Rect,
-    visible: Rect
+    visible: Rect,
+    sourceFrame!: Rect = Rect.zero()
 ): Unit {
-    let localX = (visible.x - capture.x) * frame.scaleX
-    let localY = (visible.y - capture.y) * frame.scaleY
-    let localW = visible.w * frame.scaleX
-    let localH = visible.h * frame.scaleY
+    // Source geometry must be normalised against the *whole* surface, not against the band being
+    // painted, otherwise neighbouring bands derive different sample rects and leave a visible seam.
+    let refVisible = if (sourceFrame.w > 0.0 && sourceFrame.h > 0.0) { sourceFrame } else { visible }
+    let localX = (refVisible.x - capture.x) * frame.scaleX
+    let localY = (refVisible.y - capture.y) * frame.scaleY
+    let localW = refVisible.w * frame.scaleX
+    let localH = refVisible.h * frame.scaleY
     let lensInsetX = min(localW * 0.08, request.refraction * 4.0 * frame.scaleX)
     let lensInsetY = min(localH * 0.08, request.refraction * 3.0 * frame.scaleY)
     let source = Rect(
@@ -729,17 +743,24 @@ private func paintSdlBackdrop(
  * The cell grid is bounded: at most LENS_GRID x LENS_GRID quads, which keeps the synchronous
  * readback path within its per-frame budget instead of issuing one draw per pixel.
  */
-private let LENS_GRID: Int64 = 12
+private let LENS_GRID: Int64 = 32
 
 private func lensDisplacementAt(dx: Float32, dy: Float32, radius: Float32,
     strength: Float32): Float32 {
     if (radius <= 0.0) { return 0.0 }
     let dist = effectSqrt(dx * dx + dy * dy)
     if (dist > radius) { return 0.0 }
-    // Normalized distance 0 at centre, 1 at rim. A convex lens bends hardest near the rim and
-    // keeps a gentler, near-flat window in the middle, which is what reads as magnification.
+    // Normalized distance 0 at centre, 1 at rim.
+    //
+    // A convex sphere seen through a circular aperture magnifies near the axis and compresses hard
+    // toward the rim; the radial sample offset therefore has to grow steeply at large t, not
+    // linearly. `t / (1 - t * 0.86)` approaches a real spherical sag without ever dividing by zero,
+    // and because the offset can exceed t * radius the middle of the disc compresses its content —
+    // which is what makes a wordmark read as squeezed, and at high strength as inverted, exactly as
+    // the reference frames show.
     let t = dist / radius
-    strength * t * (1.0 - t) * 4.0
+    let sag = t / max(0.14, 1.0 - t * 0.86)
+    strength * sag
 }
 
 private func paintLensedBackdrop(
@@ -751,18 +772,27 @@ private func paintLensedBackdrop(
     visible: Rect
 ): Unit {
     let lens = request.lens
-    let cells = max(Int64(2), min(Int64(24), LENS_GRID))
+    let cells = max(Int64(2), min(Int64(48), LENS_GRID))
     // Destination cells live in screen space; source cells live in texture space. Mixing the two
     // is what previously turned the lens into a uniform blit offset instead of a local bend.
     let cellScreenW = visible.w / Float32(cells)
     let cellScreenH = visible.h / Float32(cells)
     let srcCellW = source.w / Float32(cells)
     let srcCellH = source.h / Float32(cells)
-    let shorterScreen = min(visible.w, visible.h)
+    // Normalise the lens against the whole surface (lensFrame), never against this band: a band is
+    // an implementation detail of the pixel budget and must not change the optics.
+    let ref = if (request.lensFrame.w > 0.0 && request.lensFrame.h > 0.0) {
+        request.lensFrame
+    } else {
+        visible
+    }
+    let shorterScreen = min(ref.w, ref.h)
     let lensRadius = max(1.0, shorterScreen * lens.radius)
-    let centerX = visible.x + visible.w * lens.centerX
-    let centerY = visible.y + visible.h * lens.centerY
-    let strength = lens.displacementStrength * shorterScreen * 0.11
+    let centerX = ref.x + ref.w * lens.centerX
+    let centerY = ref.y + ref.h * lens.centerY
+    // Offset is proportional to the lens radius, so a larger lens bends proportionally more
+    // and the optical strength stays resolution independent.
+    let strength = lens.displacementStrength * lensRadius * 0.62
     let sign: Float32 = if (lens.invertInsideLens) { -1.0 } else { 1.0 }
     var row: Int64 = 0
     while (row < cells) {

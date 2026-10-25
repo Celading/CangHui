@@ -39,6 +39,7 @@ class CoverArt <: Widget {
         drawHead(ctx, frame.x + frame.w * 0.40, frame.y + frame.h * 0.44,
             frame.h * 0.185, Color.rgba(40, 18, 50, 238), Color.rgba(222, 142, 146, 232))
         drawWarmBounce(ctx)
+        drawStructureLines(ctx)
         drawLettering(ctx)
     }
 
@@ -144,6 +145,32 @@ class CoverArt <: Widget {
             i += 1
         }
         ctx.renderer.fillPolygon(polygon.toArray(), fill)
+    }
+
+    /**
+     * Oblique structure lines across the cover. A radial displacement field barely changes how a
+     * horizontal line looks, but it visibly changes the *angle* of a diagonal one — this is what
+     * makes the lens measurable instead of a vague brightness change.
+     */
+    private func drawStructureLines(ctx: UiContext): Unit {
+        let colors = [
+            Color.rgba(255, 255, 255, 88),
+            Color.rgba(232, 244, 255, 70),
+            Color.rgba(255, 236, 244, 62)
+        ]
+        var index: Int64 = 0
+        while (index < 7) {
+            let c = colors[Int64(index) % colors.size]
+            let startY = frame.y + frame.h * (0.10 + 0.13 * Float32(index))
+            let endY = startY - frame.h * 0.30
+            ctx.renderer.line(frame.x, startY, frame.x + frame.w, endY, c)
+            index += 1
+        }
+        // Two near-vertical strokes so the field also bends in the other axis.
+        ctx.renderer.line(frame.x + frame.w * 0.34, frame.y, frame.x + frame.w * 0.30,
+            frame.y + frame.h, Color.rgba(255, 255, 255, 54))
+        ctx.renderer.line(frame.x + frame.w * 0.72, frame.y, frame.x + frame.w * 0.76,
+            frame.y + frame.h, Color.rgba(255, 255, 255, 48))
     }
 
     /** Warm bounce along the lower edge, matching the reference cover's lighting falloff. */
