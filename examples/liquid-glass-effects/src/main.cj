@@ -9,7 +9,7 @@ private class FrameGraphAcceptanceModel {
     let phase = State<Int64>(0)
     let animating = State<Bool>(true)
     let sceneVisible = State<Bool>(true)
-    let dark = State<Bool>(false)
+    let dark = State<Bool>(true)
     let reducedTransparency = State<Bool>(false)
     let variantIndex = State<Int64>(0)
 
@@ -105,39 +105,14 @@ private func effectGallery(
     }.fillWidth().fillHeight()
 }
 
-/** Content behind the glass. Structure is intentional: displacement is invisible over a wash. */
+/**
+ * Content behind the glass. Must look like real cover art, not UI chrome: the material only reads
+ * as glass when it sits on a dense, saturated image with hard structure to bend.
+ */
 private func playerBackdrop(): Unit {
     ZStack {
-        VStack {
-            colorBand(Color.rgb(96, 74, 116), Color.rgb(150, 116, 168))
-            colorBand(Color.rgb(178, 132, 168), Color.rgb(214, 168, 186))
-            colorBand(Color.rgb(206, 158, 176), Color.rgb(238, 202, 200))
-        }.spacing(0.vp).fillWidth().fillHeight()
-        albumArt()
+        CoverArt()
         structureLines()
-    }.fillWidth().fillHeight()
-}
-
-/** Stand-in cover art: stacked tonal blocks so the lens has real edges and gradients to bend. */
-private func albumArt(): Unit {
-    VStack {
-        Spacer().height(56.vp)
-        HStack {
-            Spacer().width(86.vp)
-            VStack {
-                Spacer().height(150.vp).fillWidth().background(Color.rgba(58, 40, 74, 210), 18.0)
-                Spacer().height(3.vp)
-                Spacer().height(96.vp).fillWidth().background(Color.rgba(196, 120, 132, 190), 18.0)
-            }.hug().width(210.vp)
-            Spacer().width(20.vp)
-            VStack {
-                Spacer().height(64.vp).fillWidth().background(Color.rgba(96, 66, 110, 180), 16.0)
-                Spacer().height(3.vp)
-                Spacer().height(240.vp).fillWidth().background(Color.rgba(150, 96, 120, 170), 16.0)
-            }.hug().width(180.vp)
-            Spacer()
-        }.hug()
-        Spacer()
     }.fillWidth().fillHeight()
 }
 
@@ -160,14 +135,78 @@ private func playerGlassLayer(
         painter: Some(LiquidGlass.surfacePainter(spec: spec)),
         clip: ClipPolicy.Shape
     ) {
-        VStack {
-            playerHeader(model, app)
-            Spacer()
-            playerLyrics()
-            Spacer()
-            playerTransport(model)
-        }.spacing(0.vp).padding(26.vp).fillWidth().fillHeight()
+        // Reference layout: cover and transport on the left, metadata/lyrics/progress on the right,
+        // with a vertical tool rail hugging the right edge.
+        HStack {
+            VStack {
+                Spacer()
+                playerTransport(model)
+            }.spacing(0.vp).padding(22.vp).width(430.vp).fillHeight()
+            VStack {
+                playerHeader(model, app)
+                Spacer().height(18.vp)
+                playerLyrics()
+                Spacer()
+                playerProgress()
+            }.spacing(0.vp).padding(26.vp).fillWidth().fillHeight()
+            playerRail(model)
+        }.spacing(0.vp).fillWidth().fillHeight()
     }.fillWidth().fillHeight()
+}
+
+/** Vertical tool rail on the right edge, as in the reference. */
+private func playerRail(model: FrameGraphAcceptanceModel): Unit {
+    VStack {
+        Spacer()
+        VStack {
+            glassPill(44.vp, 44.vp) {
+                IconButton(IconName.Process) {
+                    => ()
+                }
+            }
+            glassPill(44.vp, 44.vp) {
+                IconButton(IconName.Brush) {
+                    => ()
+                }
+            }
+            glassPill(44.vp, 44.vp) {
+                IconButton(IconName.Save) {
+                    => ()
+                }
+            }
+            glassPill(44.vp, 44.vp) {
+                IconButton(IconName.Copy) {
+                    => ()
+                }
+            }
+            glassPill(44.vp, 44.vp) {
+                IconButton(IconName.Calculator) {
+                    => ()
+                }
+            }
+        }.spacing(10.vp)
+        Spacer()
+    }.spacing(0.vp).width(64.vp).fillHeight()
+}
+
+/** Progress rail and elapsed/remaining times, bottom of the right column. */
+private func playerProgress(): Unit {
+    VStack {
+        // Knob sits on the rail, as in the reference.
+        ZStack {
+            Spacer().height(3.vp).fillWidth().background(Color.rgba(255, 255, 255, 130), 1.5)
+            HStack {
+                Spacer().width(196.vp)
+                Spacer().width(12.vp).height(12.vp).background(Color.rgba(255, 255, 255, 240), 6.0)
+                Spacer()
+            }.fillWidth()
+        }.fillWidth()
+        HStack {
+            Label("01:02").fontSize(FontSizes.CAPTION).muted().width(46.vp)
+            Spacer()
+            Label("02:56").fontSize(FontSizes.CAPTION).muted().width(46.vp)
+        }.hug().fillWidth()
+    }.spacing(12.vp).hug().width(320.vp)
 }
 
 /**
@@ -212,7 +251,7 @@ private func playerHeader(model: FrameGraphAcceptanceModel, app: ?DesktopApp): U
             model.reducedTransparency.value = !model.reducedTransparency.value
             applyFrameGraphAcceptanceTheme(model, app)
         }).height(32.vp)
-    }.spacing(8.vp).hug().fillWidth()
+    }.spacing(8.vp).fillWidth()
 }
 
 private func playerLyrics(): Unit {
@@ -224,26 +263,25 @@ private func playerLyrics(): Unit {
 }
 
 private func playerTransport(model: FrameGraphAcceptanceModel): Unit {
-    VStack {
-        // Progress track: a thin rail plus the elapsed knob. Time labels keep their own width so
-        // the rail cannot squeeze them into ellipses.
-        HStack {
-            Label("01:02").muted().fontSize(FontSizes.CAPTION).width(46.vp)
-            Spacer().width(8.vp)
-            Spacer().height(3.vp).fillWidth().background(Color.rgba(255, 255, 255, 140), 1.5)
-            Spacer().width(8.vp)
-            Label("02:56").muted().fontSize(FontSizes.CAPTION).width(46.vp)
-        }.hug().fillWidth()
-        HStack {
-            glassPill(44.vp, 44.vp) { Icon(IconName.ChevronLeft, size: 18.vp) }
-            Spacer().width(8.vp)
-            glassPill(60.vp, 60.vp) { Icon(IconName.Process, size: 22.vp) }
-            Spacer().width(8.vp)
-            glassPill(44.vp, 44.vp) { Icon(IconName.ChevronRight, size: 18.vp) }
-            Spacer()
-            glassPill(98.vp, 44.vp) { Label(model.variantLabel()).fontSize(FontSizes.CAPTION) }
-        }.hug().fillWidth()
-    }.spacing(14.vp).hug().fillWidth()
+    // Transport only: the progress rail lives in the right column, so it is not drawn twice.
+    HStack {
+        glassPill(46.vp, 46.vp) {
+            IconButton(IconName.ChevronLeft) {
+                => ()
+            }
+        }
+        glassPill(62.vp, 62.vp) {
+            IconButton(IconName.Process) {
+                => ()
+            }
+        }
+        glassPill(46.vp, 46.vp) {
+            IconButton(IconName.ChevronRight) {
+                => ()
+            }
+        }
+        Spacer()
+    }.spacing(12.vp).hug().fillWidth()
 }
 
 private func colorBand(start: Color, end: Color): Unit {

@@ -405,21 +405,24 @@ private func glassFill(dark: Bool, variant: LiquidGlassVariant, preferences: Liq
     if (preferences.reduceTransparency) {
         return if (dark) { Color.rgb(43, 50, 63) } else { Color.rgb(244, 247, 251) }
     }
+    // Optical glass is a thin layer over a dense image, not a fogged panel. The previous alphas
+    // (up to 166/255 for dark Regular) veiled the backdrop until it read as grey plastic, so the
+    // body stays deliberately light and lets the cover art carry the colour.
     match (variant) {
         case LiquidGlassVariant.Regular => if (dark) {
-            Color.rgba(62, 70, 86, 166)
+            Color.rgba(30, 34, 46, 84)
         } else {
-            Color.rgba(255, 255, 255, 164)
+            Color.rgba(255, 255, 255, 96)
         }
         case LiquidGlassVariant.Clear => if (dark) {
-            Color.rgba(82, 90, 106, 98)
+            Color.rgba(34, 38, 52, 44)
         } else {
-            Color.rgba(255, 255, 255, 92)
+            Color.rgba(255, 255, 255, 46)
         }
         case LiquidGlassVariant.Vapor => if (dark) {
-            Color.rgba(92, 102, 122, 126)
+            Color.rgba(44, 50, 66, 128)
         } else {
-            Color.rgba(246, 250, 255, 122)
+            Color.rgba(246, 250, 255, 132)
         }
     }
 }
@@ -526,10 +529,12 @@ private func paintGlassBodyLayer(renderer: Renderer, rect: Rect, radius: Float32
         case Some(value) => value
         case None => if (dark) { Color.rgb(126, 174, 255) } else { Color.rgb(210, 231, 255) }
     }
-    let topAlpha = Int64(34.0 + 70.0 * optics.haze)
-    let bottomAlpha = Int64(18.0 + 62.0 * (1.0 - optics.clarity))
-    let top = base.lerp(Color.rgba(255, 255, 255, topAlpha), 0.56)
-    let bottom = base.lerp(tint.withAlpha(bottomAlpha), 0.34)
+    // The white veil must be a sheen, not a wash. Halving it is what lets saturated cover art read
+    // through the material instead of turning the whole frame grey.
+    let topAlpha = Int64(14.0 + 30.0 * optics.haze)
+    let bottomAlpha = Int64(8.0 + 26.0 * (1.0 - optics.clarity))
+    let top = base.lerp(Color.rgba(255, 255, 255, topAlpha), 0.30)
+    let bottom = base.lerp(tint.withAlpha(bottomAlpha), 0.20)
     match (spec.variant) {
         case LiquidGlassVariant.Vapor =>
             // A large translucent gradient can expose the portable renderer's triangle fan on

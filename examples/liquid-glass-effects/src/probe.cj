@@ -10,7 +10,7 @@ func liquidGlassEffectsProbe(script: String): String {
         "liquid-glass-effects",
         width: 920.0,
         height: 600.0,
-        theme: LiquidGlass.light(tint: Color.rgb(55, 126, 246))
+        theme: LiquidGlass.dark(tint: Color.rgb(72, 156, 255))
     ).run(script) {
         ProbeNode(
             "liquid-glass-effects-root",
