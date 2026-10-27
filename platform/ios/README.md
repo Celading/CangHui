@@ -231,6 +231,67 @@ The UIKit host publishes the interface family through
 through `canghui_ios_surface_device_profile` and the probe requires a
 `CANGHUI_IOS_PROFILE result passed=1` line.
 
+## iPad Desktop Shell (macOS-style)
+
+`platform/ios/desktop` is a second reference consumer that reproduces the macOS
+reading order on iPad: window chrome with traffic lights, a sidebar, a toolbar
+with search and a compose button, a "continue playing" hero, a card grid, a
+play queue, an inspector and a status bar. Cangjie owns every pixel; UIKit owns
+the surface, hover, hardware keys, IME and accessibility.
+
+- `src/native_scene/ios_desktop_scene.cj` — scene state, layout rules and the
+  `CangHuiDesktopScene.h` C ABI;
+- `platform/ios/desktop/AppDelegate.m` — surface host, safe-area pinning,
+  `UIHoverGestureRecognizer`, `pressesBegan/Ended` with modifiers and repeat,
+  a hidden text field for IME, five accessibility nodes and the acceptance flow;
+- `platform/ios/desktop/Info.plist` — `CangHuiDesktopDemo` / `dev.canghui.desktop.demo`.
+
+Layout follows the device profile instead of fixed widths:
+
+| viewport | panels | sidebar | cards | inspector | queue |
+| --- | --- | --- | --- | --- | --- |
+| expanded, width >= 1180 pt | three-pane | 252 pt | 3 | visible | visible |
+| expanded, narrower | two-pane | 252 pt | 3 | hidden | when it fits |
+| medium | two-pane | 208 pt | 2 | hidden | when it fits |
+| compact | single pane | hidden | 1 | hidden | when it fits |
+
+```bash
+CANGJIE_IOS_HOME=/path/to/cangjie-ios-sdk \
+    CANGHUI_IOS_SIMULATOR_DEVICE=<simulator-name-or-id> \
+    ./scripts/verify-ios-static-package.sh desktop-simulator
+```
+
+Set `SIMCTL_CHILD_CANGHUI_IOS_DESKTOP_ORIENTATION=portrait|landscape` to drive
+the acceptance orientation through `requestGeometryUpdate`. The run asserts one
+line per configuration; these are the recorded simulator results:
+
+```text
+CANGHUI_IOS_DESKTOP result passed=1 layout=two-pane-desktop breakpoint=expanded device=ipad-large orientation=portrait sidebar=1 inspector=0 cards=3 commands=122 actions=17 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=3 text_layout=1 last=play.toggle bounds=1032x1327
+CANGHUI_IOS_DESKTOP result passed=1 layout=three-pane-desktop breakpoint=expanded device=ipad-large orientation=landscape sidebar=1 inspector=1 cards=3 commands=136 actions=20 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=2 text_layout=1 last=play.toggle bounds=1376x983
+CANGHUI_IOS_DESKTOP result passed=1 layout=two-pane-desktop breakpoint=medium device=ipad-mini orientation=portrait sidebar=1 inspector=0 cards=2 commands=122 actions=17 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=2 text_layout=1 last=play.toggle bounds=744x1084
+CANGHUI_IOS_DESKTOP result passed=1 layout=two-pane-desktop breakpoint=expanded device=ipad-mini orientation=landscape sidebar=1 inspector=0 cards=3 commands=109 actions=14 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=2 text_layout=1 last=play.toggle bounds=1133x695
+```
+
+The scene covers section switching (`⌘1`–`⌘4`), play/pause (`space`), hover
+highlighting, search text, card selection and five accessibility nodes.
+Screenshots live in `proofs/20261024-canghui-ios-desktop-shell/`; landscape
+captures are rotated with `sips` because the simulator framebuffer stays
+portrait while the app runs in landscape.
+
+Known gaps are filed as shared broker work requests rather than worked around
+silently:
+
+- Framework-level native-scene input ingress is still a follow-up capability;
+  every consumer currently re-implements hover, hardware keys and IME.
+- Scroll and virtualized-list primitives are still a follow-up capability; the
+  queue is hidden when the viewport is too short instead of scrolling.
+- The desktop widget tree and `Renderer.recordingHeadless()` are not link-safe
+  on iOS, so this shell is a parallel hand-written scene rather than reuse of
+  the macOS widget tree.
+
+This is a simulator reference shell. It is not a signed product, a store
+distribution, or a claim that the full desktop renderer runs on iOS.
+
 ## Host Modes
 
 - `OwnedWindow` follows SDL3's callback application model. SDL owns the iOS

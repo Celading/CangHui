@@ -1,0 +1,51 @@
+{
+  "schema": "canghui.proof.v0",
+  "id": "20261024-canghui-ios-desktop-shell-v0",
+  "project": "CangHui",
+  "capability": "iPad desktop shell: macOS-style reading order built from the native-scene Draw IR with host-owned hover, hardware keys, IME and accessibility",
+  "checkpoint": "atomic member commit containing this proof",
+  "baseCommit": "fa90b28",
+  "evidence": {
+    "hostToolchain": "Xcode 16.4 simulator runtimes on aarch64-apple-darwin",
+    "iosToolchain": "Cangjie 1.3.0-alpha iOS static runtime inputs",
+    "package": "pass: scripts/build-ios-native-scene-staticlibs.sh simulator builds ios_desktop_scene.cj into the native-scene archive",
+    "verifyMode": "pass: scripts/verify-ios-static-package.sh desktop-simulator compiles, installs, launches and asserts CANGHUI_IOS_DESKTOP result passed=1",
+    "ipadPro13Portrait": "pass: layout=two-pane-desktop breakpoint=expanded device=ipad-large sidebar=1 inspector=0 cards=3 commands=122 actions=17 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=3 text_layout=1 last=play.toggle bounds=1032x1327",
+    "ipadPro13Landscape": "pass: layout=three-pane-desktop breakpoint=expanded device=ipad-large sidebar=1 inspector=1 cards=3 commands=136 actions=20 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=2 text_layout=1 last=play.toggle bounds=1376x983",
+    "ipadMiniPortrait": "pass: layout=two-pane-desktop breakpoint=medium device=ipad-mini sidebar=1 inspector=0 cards=2 commands=122 actions=17 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=2 text_layout=1 last=play.toggle bounds=744x1084",
+    "ipadMiniLandscape": "pass: layout=two-pane-desktop breakpoint=expanded device=ipad-mini sidebar=1 inspector=0 cards=3 commands=109 actions=14 section=2 play=1 hover=section.3 keys=1 ime=1 a11y=5 frames=2 text_layout=1 last=play.toggle bounds=1133x695",
+    "interactionTruth": "section switch via cmd-3, play toggle via space/tap, hover highlight, IME search text and five accessibility nodes are driven through the same UIKit entry points the host uses",
+    "screenshots": {
+      "ipad-pro-13-portrait.jpg": "sha256:7229e7a91e1ff3e369b28a71419c7f018bc702a51af693e3cfbb6affb7b9b0a1",
+      "ipad-pro-13-landscape.jpg": "sha256:a4a8657e075518d6a291a247479d75d3af7d5726c2808307ca575ec05995787e",
+      "ipad-mini-portrait.jpg": "sha256:c6dbbd8e2d89460f8e633ef34539c9a71b6dcb3974752ade148e906aceec9a24",
+      "ipad-mini-landscape.jpg": "sha256:c18e6b28b718ef1ff3301dea76d50b214cb75836cfda85f090c753224823ea5e"
+    },
+    "filedInterfaceGaps": [
+      "framework-level native-scene input ingress",
+      "scroll and virtualized-list primitives",
+      "desktop widget tree and recordingHeadless link safety on iOS"
+    ]
+  },
+  "stageTruth": {
+    "simulatorRenderProven": true,
+    "breakpointAdaptationProven": true,
+    "inputIngressProven": true,
+    "accessibilityProven": true,
+    "macosWidgetTreeReuseProven": false,
+    "scrollProven": false,
+    "physicalDeviceProven": false,
+    "signedReleaseProven": false
+  },
+  "nonClaims": [
+    "no physical iPad run for this shell; the physical-device proof under 20260819 covers the native-surface probe only",
+    "no signing, provisioning, store distribution or release claim",
+    "the shell is a hand-written parallel scene, not reuse of the macOS widget tree; reuse is blocked and filed as a work request",
+    "the play queue is hidden when the viewport is too short because the Draw IR has no scroll container",
+    "landscape captures are rotated with sips for readability; the simulator framebuffer itself stays portrait"
+  ],
+  "privacy": [
+    "no simulator or device identifier, serial number or device path retained",
+    "no signing identity, team identifier or provisioning profile contents retained"
+  ]
+}

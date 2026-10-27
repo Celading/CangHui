@@ -23,6 +23,7 @@ build_target() {
     "$CJC" \
         "$ROOT_DIR/src/native_scene/native_scene.cj" \
         "$ROOT_DIR/src/native_scene/ios_product_scene.cj" \
+        "$ROOT_DIR/src/native_scene/ios_desktop_scene.cj" \
         --target="$target" \
         --output-type=staticlib \
         -O2 \

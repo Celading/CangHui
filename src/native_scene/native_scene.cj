@@ -202,6 +202,18 @@ public class NativeScene {
         actions.add(NativeSceneAction(id, rect))
     }
 
+    /**
+     * Registers a hit region for a control this scene paints itself.
+     *
+     * Desktop surfaces need hover/selection rows and cards whose visuals do not
+     * match [button]. The command stream stays caller-owned; only the pointer
+     * contract is registered here, with later regions winning ties.
+     */
+    public func action(id: String, rect: NativeRect): Unit {
+        requireActionId(id)
+        actions.add(NativeSceneAction(id, rect))
+    }
+
     public func progress(
         rect: NativeRect,
         value: Float32,
