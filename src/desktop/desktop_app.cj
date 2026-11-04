@@ -33,6 +33,7 @@ import sdl.WindowShapeReceipt
 // Long enough for the first paint to settle and for background work started at launch
 // (dialog-free examples fetch data on worker threads) to land in the frame.
 private let SNAPSHOT_SETTLE_FRAMES: UInt64 = 48
+private let HIDDEN_RESIDENT_POLL_MS: UInt32 = UInt32(50)
 
 /*
  * The desktop shell: owns the SDL window and runs the frame loop that rebuilds the widget tree from
@@ -235,6 +236,12 @@ public class DesktopApp {
 
     /** Raises the existing native window when it is already visible. */
     public func raiseWindow(): Unit {
+        // Raising a hidden native window can make AppKit/SDL emit a continuous
+        // window-event stream while the declarative shell still treats it as hidden.
+        // Showing is a separate operation; focus/raise must be a no-op while hidden.
+        if (!windowVisible) {
+            return
+        }
         window.raiseWindow()
         ctx.requestFrame()
     }
@@ -502,11 +509,10 @@ public class DesktopApp {
                         }
                         let _ = ctx.takeFrameRequest(frame.elapsedMs)
                         continuousRequested = false
-                        let hiddenDelay = framePacingDelay(resolvedPacing,
-                            tickDelta(loopStart, window.ticks()), false)
-                        if (hiddenDelay > UInt32(0)) {
-                            window.delay(hiddenDelay)
-                        }
+                        // A hidden resident may still receive UI-owner commands. Poll at a
+                        // bounded idle cadence: 50 ms keeps command/show latency comfortably
+                        // below the product target without running the full display cadence.
+                        window.delay(HIDDEN_RESIDENT_POLL_MS)
                         continue
                     }
                 }
