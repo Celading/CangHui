@@ -77,6 +77,7 @@ public class DesktopApp {
     // The caret rectangle last forwarded to the OS for IME anchoring (logical pixels).
     private let inputAnchor = TextInputAnchorState()
     private var loopEntered = false
+    private var windowVisible = true
     private var currentWidget: ?Widget = None
     private var themeTransition: ?ThemeTransition = None
     private var deviceRotationTransition: ?DeviceRotationTransition = None
@@ -216,6 +217,26 @@ public class DesktopApp {
     /** Minimizes the owned desktop window. */
     public func minimizeWindow(): Unit {
         window.minimize()
+    }
+
+    /** Shows and raises the existing native window without rebuilding the application. */
+    public func showWindow(): Unit {
+        windowVisible = true
+        window.show()
+        window.raiseWindow()
+        ctx.requestFrame()
+    }
+
+    /** Hides the existing native window while keeping the application loop alive. */
+    public func hideWindow(): Unit {
+        windowVisible = false
+        window.hide()
+    }
+
+    /** Raises the existing native window when it is already visible. */
+    public func raiseWindow(): Unit {
+        window.raiseWindow()
+        ctx.requestFrame()
     }
 
     /** Maximizes a restored window or restores a maximized one. */
@@ -450,6 +471,7 @@ public class DesktopApp {
                 let frame = nextFrame(previousTick)
                 previousTick = frame.elapsedMs
                 ctx.frame = frame
+                let requestedAtStart = ctx.takeFrameRequest(frame.elapsedMs)
                 advanceThemeTransition(frame.deltaMs)
                 advanceDeviceRotationTransition(frame.deltaMs)
                 var viewportW = window.width
@@ -459,13 +481,38 @@ public class DesktopApp {
 
                 let events = collectPendingEvents()
                 if (let Some(shell) <- applicationShell) { let _ = shell.dispatchPendingActions() }
+                // A hidden resident window still services UI-owner commands, but it does not rebuild
+                // and draw its tree. The first frame is retained so a login-hidden launcher is warm
+                // before its first show.
+                if (!windowVisible && frames > UInt64(0)) {
+                    if (uiOwnerQueue.hasPending()) {
+                        let _ = uiOwnerQueue.drain()
+                    }
+                    if (!windowVisible) {
+                        for (collected in events) {
+                            match (collected.event) {
+                                case UiEvent.Quit => ctx.requestClose()
+                                case _ => ()
+                            }
+                        }
+                        let _ = ctx.takeFrameRequest(frame.elapsedMs)
+                        continuousRequested = false
+                        let hiddenDelay = framePacingDelay(resolvedPacing,
+                            tickDelta(loopStart, window.ticks()), false)
+                        if (hiddenDelay > UInt32(0)) {
+                            window.delay(hiddenDelay)
+                        }
+                        continue
+                    }
+                }
                 if (let Some(native) <- semanticAccessibility) {
                     native.updateGeometry(window)
                     native.service(window.windowFlags().inputFocus)
                 }
                 let observedStateGen = currentStateGeneration()
                 let ownerWorkPending = uiOwnerQueue.hasPending()
-                let nonStateInvalidation = continuousRequested || ownerWorkPending || !events.isEmpty() ||
+                let nonStateInvalidation = continuousRequested || requestedAtStart ||
+                    ownerWorkPending || !events.isEmpty() ||
                     debugUiScript.active() ||
                     viewportW != renderedWidth || viewportH != renderedHeight || captureRequest.isSome() ||
                     profiler.isSome() || themeTransition.isSome() || deviceRotationTransition.isSome()
@@ -544,7 +591,7 @@ public class DesktopApp {
                         }
                     }
                     lastRenderedGen = frameStateGen
-                    continuousRequested = ctx.takeFrameRequest() || themeTransition.isSome() ||
+                    continuousRequested = ctx.takeFrameRequest(frame.elapsedMs) || themeTransition.isSome() ||
                         deviceRotationTransition.isSome()
                     renderedWidth = viewportW
                     renderedHeight = viewportH
@@ -554,9 +601,13 @@ public class DesktopApp {
                         case None => ()
                     }
                 } else {
-                    continuousRequested = ctx.takeFrameRequest()
+                    continuousRequested = false
                 }
-                let delay = framePacingDelay(resolvedPacing, tickDelta(loopStart, window.ticks()), rendered)
+                var delay = framePacingDelay(resolvedPacing, tickDelta(loopStart, window.ticks()), rendered)
+                if (!rendered) {
+                    delay = frameLoopDelayWithScheduledRequest(delay,
+                        ctx.scheduledFrameDelayMs(window.ticks()))
+                }
                 if (delay > UInt32(0)) {
                     window.delay(delay)
                 }
@@ -1392,6 +1443,20 @@ internal func tickDelta(previousTick: UInt64, currentTick: UInt64): UInt64 {
         currentTick - previousTick
     } else {
         UInt64(0)
+    }
+}
+
+internal func frameLoopDelayWithScheduledRequest(baseDelayMs: UInt32, scheduledDelayMs: ?UInt64): UInt32 {
+    match (scheduledDelayMs) {
+        case Some(value) =>
+            let atLeastOne = if (value < UInt64(1)) { UInt64(1) } else { value }
+            let bounded = if (atLeastOne > UInt64(4294967295)) {
+                UInt32(4294967295)
+            } else {
+                UInt32(atLeastOne)
+            }
+            if (bounded < baseDelayMs) { bounded } else { baseDelayMs }
+        case None => baseDelayMs
     }
 }
 
