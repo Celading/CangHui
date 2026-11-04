@@ -239,6 +239,11 @@ public class DesktopApp {
         ctx.requestFrame()
     }
 
+    /** Whether the latest frame published an editable text/IME caret anchor. */
+    public func isTextInputFocused(): Bool {
+        ctx.textInputAnchorRect().isSome()
+    }
+
     /** Maximizes a restored window or restores a maximized one. */
     public func toggleMaximizeWindow(): Unit {
         if (window.windowFlags().maximized) {
