@@ -88,6 +88,10 @@ internal class MacShellApi {
     func integer(receiver: ShellRef, selector: String, value: Int64): Unit {
         unsafe { CFunc<(ShellRef, ShellRef, Int64) -> Unit>(symbol("objc_msgSend"))(receiver, sel(selector), value) }
     }
+    func setActivationPolicy(receiver: ShellRef, policy: Int64): Bool {
+        unsafe { CFunc<(ShellRef, ShellRef, Int64) -> Bool>(symbol("objc_msgSend"))(
+            receiver, sel("setActivationPolicy:"), policy) }
+    }
     func boolean(receiver: ShellRef, selector: String, value: Bool): Unit {
         unsafe { CFunc<(ShellRef, ShellRef, Bool) -> Unit>(symbol("objc_msgSend"))(receiver, sel(selector), value) }
     }
