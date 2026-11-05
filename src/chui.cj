@@ -316,6 +316,7 @@ public import chui.core.handlePointerClick
 public import chui.core.derive
 public import chui.core.drawFocusRing
 public import chui.core.emit
+public import chui.core.buildDetachedChild
 public import chui.core.focusableControlIdentity
 public import chui.core.rememberState
 public import chui.core.probeActivation
