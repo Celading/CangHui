@@ -83,6 +83,33 @@ func eventHandlerOrdinaryDeclineFallsThroughToChild(): Unit {
 }
 
 @Test
+func contextEventHandlerReceivesFocusAndEventTimeModifiers(): Unit {
+    let ctx = testContext()
+    let seenFocus = State<String>("")
+    let seenGui = State<Bool>(false)
+    ctx.focus("context.focus")
+    let handler = ContextEventHandler(onContextEvent: {
+        context, event =>
+        seenFocus.value = context.focusId
+        seenGui.value = context.keyModifiers().gui
+        match (event) {
+            case UiEvent.KeyDown(Key.Letter(_), _) => true
+            case _ => false
+        }
+    }) {
+        Label("context child")
+    }
+
+    let consumed = ctx.withEventModifiers(Some(UInt16(1024)), {=>
+        handler.handle(ctx, UiEvent.KeyDown(Key.Letter(UInt8(70)), false))
+    })
+
+    @Expect(consumed)
+    @Expect(seenFocus.value, "context.focus")
+    @Expect(seenGui.value)
+}
+
+@Test
 func frameHandlerRequestsEveryFrameAndCannotBeConsumedByChild(): Unit {
     let ctx = testContext()
     let trace = State<String>("")

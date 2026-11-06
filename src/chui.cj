@@ -223,6 +223,7 @@ public import chui.core.Divider
 public import chui.core.DeviceRotationLayout
 public import chui.core.Easing
 public import chui.core.EventHandler
+public import chui.core.ContextEventHandler
 public import chui.core.Flexible
 public import chui.core.FlowRow
 public import chui.core.ForEach
