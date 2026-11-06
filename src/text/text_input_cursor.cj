@@ -133,12 +133,19 @@ internal func textInputViewport(frame: Rect): Rect {
     frame.inset(8.0)
 }
 
-/*
- * The caret blinks on the shared frame clock. The UI redraws every frame, so phase
- * toggling is enough; no per-control timer state is needed.
- */
+/* The caret blinks on the shared frame clock. */
 internal func textCursorVisible(ctx: UiContext): Bool {
     (ctx.frame.elapsedMs / TEXT_CURSOR_BLINK_MS) % UInt64(2) == UInt64(0)
+}
+
+private func requestNextTextCursorPhase(ctx: UiContext): Unit {
+    let phaseMs = ctx.frame.elapsedMs % (TEXT_CURSOR_BLINK_MS * UInt64(2))
+    let delay = if (phaseMs < TEXT_CURSOR_BLINK_MS) {
+        TEXT_CURSOR_BLINK_MS - phaseMs
+    } else {
+        TEXT_CURSOR_BLINK_MS * UInt64(2) - phaseMs
+    }
+    ctx.requestFrameAfter(delay)
 }
 
 /*
@@ -252,9 +259,8 @@ internal func drawTextFieldCursor(ctx: UiContext, frame: Rect, id: String, text:
     if (!ctx.hasFocus(id)) {
         return
     }
-    // A focused field blinks its caret on the frame clock, so keep frames flowing even while the
-    // screen is otherwise idle; without this the dirty-frame loop (档 0) would freeze the blink.
-    ctx.requestFrame()
+    // Wake only when the blink phase changes instead of redrawing the whole window every frame.
+    requestNextTextCursorPhase(ctx)
     let position = normalizedTextCursor(text, cursor)
     let prefixW = textCaretOffset(ctx, text, position, typography: typography)
     let x = frame.x + TEXT_FIELD_PAD_X - xShift + prefixW
@@ -339,9 +345,8 @@ internal func drawTextAreaCursor(
     if (!ctx.hasFocus(id)) {
         return
     }
-    // A focused area blinks its caret on the frame clock; keep frames flowing so the dirty-frame
-    // loop (档 0) does not freeze the blink even when nothing else changes.
-    ctx.requestFrame()
+    // Wake only when the blink phase changes instead of redrawing the whole window every frame.
+    requestNextTextCursorPhase(ctx)
     let position = normalizedTextCursor(content.text, content.cursor)
     let line = textCursorLineIndex(content.text, position)
     let lineStart = lineStartBeforeOrAt(content.text, position)

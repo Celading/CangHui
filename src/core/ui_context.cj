@@ -394,6 +394,7 @@ public class UiContext {
     // per-frame FrameHandler. The desktop loop reads and clears it each rendered frame (takeFrameRequest)
     // so these animations stay alive while the loop otherwise skips idle frames (档 0).
     private var continuousFrameRequested = false
+    private var scheduledFrameAtMs: ?UInt64 = None
 
     /**
      * Requests that the next frame be rendered even if no input arrived and no state changed. Call this
@@ -404,11 +405,47 @@ public class UiContext {
         continuousFrameRequested = true
     }
 
+    /**
+     * Requests a frame after a delay without keeping every intervening frame alive.
+     * Repeated requests keep the earliest deadline.
+     */
+    public func requestFrameAfter(delayMs: UInt64): Unit {
+        let delay = max(UInt64(1), delayMs)
+        let dueAt = frame.elapsedMs + delay
+        match (scheduledFrameAtMs) {
+            case Some(existing) =>
+                if (dueAt < existing) { scheduledFrameAtMs = Some(dueAt) }
+            case None => scheduledFrameAtMs = Some(dueAt)
+        }
+    }
+
     /** Reads and clears the continuous-frame request. The desktop loop calls this once per rendered frame. */
     protected func takeFrameRequest(): Bool {
-        let requested = continuousFrameRequested
+        takeFrameRequest(frame.elapsedMs)
+    }
+
+    /** Reads and clears immediate or due scheduled frame work at the supplied frame clock. */
+    protected func takeFrameRequest(nowMs: UInt64): Bool {
+        var scheduledDue = false
+        match (scheduledFrameAtMs) {
+            case Some(dueAt) =>
+                if (nowMs >= dueAt) {
+                    scheduledFrameAtMs = None
+                    scheduledDue = true
+                }
+            case None => ()
+        }
+        let requested = continuousFrameRequested || scheduledDue
         continuousFrameRequested = false
         requested
+    }
+
+    /** Milliseconds until the next scheduled frame request, if one exists. */
+    protected func scheduledFrameDelayMs(nowMs: UInt64): ?UInt64 {
+        match (scheduledFrameAtMs) {
+            case Some(dueAt) => Some(if (nowMs >= dueAt) { UInt64(0) } else { dueAt - nowMs })
+            case None => None
+        }
     }
 
     /** Starts or restarts one control-local InkWell ripple. */
