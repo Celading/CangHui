@@ -98,6 +98,15 @@ protected func buildChild(body: () -> Unit): Widget {
     }
 }
 
+/**
+ * Builds one subtree without registering it in the enclosing declarative
+ * block. This is for retained composite widgets that own an array of children
+ * internally; callers must emit the returned widget exactly once themselves.
+ */
+public func buildDetachedChild(body: () -> Unit): Widget {
+    buildChild(body)
+}
+
 /** Builds an application root while retaining and pruning its keyed local state. */
 protected func buildRoot(body: () -> Unit, stateStore: StateStore): Widget {
     let previous = activeStateStore
