@@ -1,6 +1,7 @@
 package chui.text
 
-import chui.core.{ComponentProbe, ProbeProperty, State, VStack}
+import sdl.{Rect, Renderer}
+import chui.core.{ComponentProbe, ProbeProperty, State, Theme, UiContext, VStack}
 
 @Test
 func asciiFocusHintUsesControlKeyRatherThanObservationId(): Unit {
@@ -104,4 +105,38 @@ func secureTextFieldRedactsValueAndAdvertisesPasswordRole(): Unit {
     @Expect(report.contains("\"role\":\"password\""))
     @Expect(report.contains("\"label\":\"SSH password\""))
     @Expect(!report.contains("päss秘密"))
+}
+
+@Test
+func plainTextFieldOmitsChromeButKeepsText(): Unit {
+    let chromeRenderer = Renderer.recordingHeadless()
+    let chrome = TextField(State<String>("plain"), key: "chrome")
+    let chromeCtx = UiContext(chromeRenderer, Theme.light())
+    chrome.layout(chromeCtx, Rect(0.0, 0.0, 160.0, 38.0))
+    chrome.draw(chromeCtx)
+
+    let plainRenderer = Renderer.recordingHeadless()
+    let plain = TextField(State<String>("plain"), key: "plain").plain()
+    let plainCtx = UiContext(plainRenderer, Theme.light())
+    plain.layout(plainCtx, Rect(0.0, 0.0, 160.0, 38.0))
+    plain.draw(plainCtx)
+
+    var chromeSurfaces: Int64 = 0
+    var plainSurfaces: Int64 = 0
+    var plainText = false
+    for (command in chromeRenderer.drawIr()) {
+        if (command.kind == "paint.fill-rounded-rect") {
+            chromeSurfaces += 1
+        }
+    }
+    for (command in plainRenderer.drawIr()) {
+        if (command.kind == "paint.fill-rounded-rect") {
+            plainSurfaces += 1
+        }
+        if (command.kind == "text") {
+            plainText = true
+        }
+    }
+    @Expect(chromeSurfaces > plainSurfaces)
+    @Expect(plainText)
 }

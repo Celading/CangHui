@@ -59,6 +59,7 @@ main(): Unit {
 | 成员 | 说明 |
 |---|---|
 | [`autofocus()`](#autofocus) | 控件首次出现时申请键盘焦点，返回自身以便链式声明。 |
+| [`plain()`](#plain) | 省略内建输入框表面，只保留文本、选择、光标、输入法与语义。 |
 | [`undo()`](#undo) | 回退最近一组编辑；同时绑定在 Ctrl+Z。 |
 | [`redo()`](#redo) | 重做最近撤销的编辑；同时绑定在 Ctrl+Y 与 Ctrl+Shift+Z。 |
 | `placeholder(value: String)` | 设置字段为空时显示的暗色提示文本，不改变编辑行为。 |
@@ -111,6 +112,17 @@ public init(
 
 ```cangjie
 public func autofocus(): TextField
+```
+
+**返回值** `TextField` — 控件自身。
+
+### plain
+
+只绘制文本、选区、光标和输入法预编辑内容，不绘制主题提供的输入框背景与焦点边框。
+调用方负责在外层容器绘制产品自己的表面。编辑、命中测试、水平跟随和无障碍语义保持不变。
+
+```cangjie
+public func plain(): TextField
 ```
 
 **返回值** `TextField` — 控件自身。

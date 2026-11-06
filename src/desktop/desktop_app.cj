@@ -194,6 +194,15 @@ public class DesktopApp {
         window.setMinimumSize(width, height)
     }
 
+    /** Resizes the owned native window; the next frame lays out against the reported metrics. */
+    public func setWindowSize(width: Int32, height: Int32): Unit {
+        if (width <= 0 || height <= 0) {
+            throw IllegalArgumentException("window size must be positive")
+        }
+        window.setSize(width, height)
+        ctx.requestFrame()
+    }
+
     /** Sets a live window icon where supported; bundle/Dock identity is configured separately. */
     public func setWindowIcon(icon: Surface): Unit {
         window.setIcon(icon)

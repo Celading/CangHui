@@ -4,8 +4,36 @@ import std.collection.ArrayList
 import std.env.getVariable
 import chui.core.{Button, ControlSemantics, FrameHandler, SemanticActionKind, SemanticInteractionPolicy,
     SemanticNativeSnapshot, SemanticNode, SemanticRuntime, SemanticTreeSnapshot,
-    UiOwnerQueue, UiOwnerTaskStatus}
-import sdl.{Rect, WindowSpec, WindowScaleSettings, UiEvent, MouseButton, Key}
+    UiContext, UiOwnerQueue, UiOwnerTaskStatus, Widget, emit}
+import sdl.{Rect, Size, WindowSpec, WindowScaleSettings, UiEvent, MouseButton, Key}
+
+private class ResizeLayoutProbe <: Widget {
+    private let onLayout: (Rect) -> Unit
+
+    init(onLayout: (Rect) -> Unit) {
+        this.onLayout = onLayout
+        emit(this)
+    }
+
+    public func measure(_: UiContext, available: Size): Size {
+        available
+    }
+
+    public func layout(_: UiContext, assigned: Rect): Unit {
+        onLayout(assigned)
+    }
+
+    public func draw(_: UiContext): Unit {}
+
+    public func handle(_: UiContext, _: UiEvent): Bool {
+        false
+    }
+}
+
+private class ResizeProbeState {
+    var observed = Rect.zero()
+    var frames: Int64 = 0
+}
 
 private class AccessibilityTestAdapter <: DesktopAccessibilityAdapter {
     var latest: ?SemanticNativeSnapshot = None
@@ -232,6 +260,29 @@ private func accessibilityWindowTestSkipped(): Bool {
         return true
     }
     false
+}
+
+@Test
+func desktopAppSetWindowSizeReflowsTheOwnedWindow(): Unit {
+    if (accessibilityWindowTestSkipped()) { return }
+    let app = DesktopApp(WindowSpec("DesktopApp requested resize", 180, 120, vsync: false,
+        highDpi: false, supersample: 1))
+    let probe = ResizeProbeState()
+    app.run {
+        FrameHandler(onFrame: {_ =>
+            probe.frames += 1
+            if (probe.frames == 1) {
+                app.setWindowSize(240, 160)
+            }
+            if ((probe.observed.w == 240.0 && probe.observed.h == 160.0) || probe.frames >= 12) {
+                app.requestWindowClose()
+            }
+        }) {
+            ResizeLayoutProbe({rect => probe.observed = rect})
+        }
+    }
+    @Expect(probe.observed.w, 240.0)
+    @Expect(probe.observed.h, 160.0)
 }
 
 @Test
