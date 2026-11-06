@@ -5,7 +5,7 @@ import std.convert.*
 import std.env.{getCommandLine, getVariable}
 import sdl.{DeviceRotation, DeviceRotationEvent, DeviceRotationSource, FrameInfo, Key, MouseButton, Rect,
     SdlWindow, Surface, UiEvent, WindowFlags, WindowMetrics, WindowPosition, WindowSpec, WindowScaleSettings, pointerEventToLegacyUiEvent}
-import sdl.input.{Cursor, SystemCursor}
+import sdl.input.{Cursor, Mouse, SystemCursor}
 import sdl.dialogs.FileDialogOptions
 import sdl.dialogs.FileDialogRequest
 import sdl.dialogs.FileDialogs
@@ -27,7 +27,7 @@ import chui.graphics.{DamageRegion, FrameDamageRect, FrameExecutionReceipt, Fram
     SdlFrameGraphExecutor, bridgeScene3DExternalSurface, bridgeScene3DSharedFrameImport,
     sdlFramePhysicalPixelCount}
 import chui.kmode.kModeEnabled
-import chui.system.ApplicationShell
+import chui.system.{ApplicationShell, SystemShellResult, setMacApplicationDockIconVisible}
 import sdl.WindowShapeReceipt
 
 // Long enough for the first paint to settle and for background work started at launch
@@ -79,6 +79,11 @@ public class DesktopApp {
     private let inputAnchor = TextInputAnchorState()
     private var loopEntered = false
     private var windowVisible = true
+    private var windowDragActive = false
+    private var windowDragMouseX: Float32 = 0.0
+    private var windowDragMouseY: Float32 = 0.0
+    private var windowDragWindowX: Int32 = 0
+    private var windowDragWindowY: Int32 = 0
     private var currentWidget: ?Widget = None
     private var themeTransition: ?ThemeTransition = None
     private var deviceRotationTransition: ?DeviceRotationTransition = None
@@ -201,6 +206,11 @@ public class DesktopApp {
         window.setIcon(icon)
     }
 
+    /** Hides or restores the macOS Dock presence while retaining windows and status items. */
+    public func setDockIconVisible(visible: Bool): SystemShellResult {
+        setMacApplicationDockIconVisible(visible)
+    }
+
     /** Change native corner clipping, not widget backgrounds. Alpha support is a creation option. */
     public func setWindowCornerRadius(radius: Float32): WindowShapeReceipt {
         let result = window.setCornerRadius(radius)
@@ -230,6 +240,7 @@ public class DesktopApp {
 
     /** Hides the existing native window while keeping the application loop alive. */
     public func hideWindow(): Unit {
+        let _ = endWindowDrag()
         windowVisible = false
         window.hide()
     }
@@ -263,6 +274,49 @@ public class DesktopApp {
     /** Moves the owned window in desktop coordinates. */
     public func setWindowPosition(x: Int32, y: Int32): Unit {
         window.setPosition(x, y)
+    }
+
+    /** Starts a client-owned drag from the current global pointer position. */
+    public func beginWindowDrag(): Bool {
+        if (!windowVisible || window.windowFlags().maximized) {
+            return false
+        }
+        let mouse = Mouse.globalState()
+        let position = window.position()
+        windowDragMouseX = mouse.x
+        windowDragMouseY = mouse.y
+        windowDragWindowX = position.x
+        windowDragWindowY = position.y
+        windowDragActive = true
+        Mouse.capture(true)
+        true
+    }
+
+    /** Moves an active client-owned drag by the global pointer delta. */
+    public func updateWindowDrag(): Bool {
+        if (!windowDragActive) {
+            return false
+        }
+        let mouse = Mouse.globalState()
+        window.setPosition(
+            Int32(Float32(windowDragWindowX) + mouse.x - windowDragMouseX),
+            Int32(Float32(windowDragWindowY) + mouse.y - windowDragMouseY)
+        )
+        true
+    }
+
+    /** Ends a client-owned drag and releases pointer capture. */
+    public func endWindowDrag(): Bool {
+        if (!windowDragActive) {
+            return false
+        }
+        windowDragActive = false
+        Mouse.capture(false)
+        true
+    }
+
+    public func isWindowDragActive(): Bool {
+        windowDragActive
     }
 
     /** Returns the owned window's desktop position. */
