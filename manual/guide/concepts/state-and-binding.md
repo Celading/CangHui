@@ -26,6 +26,58 @@
 
 `rememberState(key)` 把局部状态放进应用状态存储。键在同一作用域必须非空、唯一且类型稳定；一次构建中重复同键会报错，未再访问的条目会随离开构建树而移除。动态列表需要稳定的数据键，否则项目重排后局部状态可能跟错行。
 
+## 用数据模态驱动布局
+
+这里的“模态”是产品界面的一种数据变体，例如快速搜索、详细搜索、命令启动器，不等同于
+`Modal` 浮层控件。推荐把当前模态和该模态的数据都放进稳定模型，让构建函数只读取并映射：
+
+```cangjie role=trace
+@Derive[Equatable]
+enum SurfaceMode {
+    | Quick
+    | Detailed
+    | Launcher
+}
+
+class SurfaceModel {
+    let mode = State<SurfaceMode>(SurfaceMode.Quick)
+    let query = State<String>("")
+    let selected = State<Int64>(0)
+    let results = State<Array<FileHit>>([])
+}
+
+func surface(model: SurfaceModel): Unit {
+    match (model.mode.value) {
+        case SurfaceMode.Quick => quickLayout(model.query.value, model.results.value)
+        case SurfaceMode.Detailed => detailedLayout(model.query.value, model.results.value)
+        case SurfaceMode.Launcher => launcherLayout(model.query.value)
+    }
+}
+```
+
+切换动作只修改 `mode` 与对应数据，不持有或替换布局对象。窗口尺寸、标题、筛选条件等也可以
+放进一个由 `mode` 派生的 presentation 数据对象，让原生窗口和界面树读取同一份事实：
+
+```cangjie role=contrast
+class SurfacePresentation {
+    let width: Int32
+    let height: Int32
+    let cornerRadius: Float32
+}
+
+func presentation(mode: SurfaceMode): SurfacePresentation {
+    match (mode) {
+        case SurfaceMode.Quick => SurfacePresentation(690, 460, 20.0)
+        case SurfaceMode.Detailed => SurfacePresentation(1220, 730, 15.0)
+        case SurfaceMode.Launcher => SurfacePresentation(730, 530, 22.0)
+    }
+}
+```
+
+结果列表通过 `LazyColumn.of(model.results.value, itemHeight, key: ...)` 构建，只为视口
+附近的行创建控件。不要把完整的 `ForEach` 和条件 `if` 分散在命令式“显示/隐藏面板”函数里，
+否则模态事实会出现第二份，窗口、数据和可见布局很难保持一致。
+
 ## 选择与取舍
 
 - **外部模型/State**：业务事实、多个页面共享、需要持久化或测试的值。
