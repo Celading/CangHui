@@ -57,7 +57,7 @@ Claims below are deliberately scoped to the proof that exists.
 | Windows / Linux | Code paths and cuic readiness probes exist | Host-verified runtime proof |
 | Android | Native-surface bootstrap for arm64-v8a and x86_64 | Cangjie SDK, renderer/input bridge, APK packaging and device proof |
 
-The [HarmonyOS end-to-end guide](manual/reference/harmony-end-to-end.zh-CN.md)
+The [HarmonyOS provider guide](manual/reference/harmony-provider-sdk.zh-CN.md)
 separates framework ingress, provider rendering, HAP hosting and device proof.
 A native-surface contract is not an application package.
 
@@ -213,7 +213,7 @@ is shipped and verified.
 - [Architecture](manual/reference/architecture.md)
 - [Doctor and readiness](manual/reference/doctor.md)
 - [Probe and kMode](manual/reference/probe.md)
-- [HarmonyOS end to end](manual/reference/harmony-end-to-end.zh-CN.md)
+- [HarmonyOS provider guide](manual/reference/harmony-provider-sdk.zh-CN.md)
 - [Desktop multi-window runtime](manual/reference/desktop-multi-window.md)
 - [Scene3D semantic projection](manual/reference/scene3d.md)
 - [Symbols and providers](manual/reference/symbols.md)
