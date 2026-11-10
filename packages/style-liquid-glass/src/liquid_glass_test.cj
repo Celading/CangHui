@@ -118,7 +118,7 @@ func liquidGlassReceiptExposesFallbackAndReducedTransparencySkipsEffectRequest()
 }
 
 // ---------------------------------------------------------------------------
-// Optical fidelity repair tests (HN-ISSUE-20261025-007)
+// Optical fidelity regression tests
 // ---------------------------------------------------------------------------
 
 private class StubEffectAdapter <: RendererEffectAdapter {
