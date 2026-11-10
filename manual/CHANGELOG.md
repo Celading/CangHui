@@ -2,6 +2,15 @@
 
 本 changelog 只记录开发者可观察的公开变化。
 
+## Unreleased — Frameless launcher composition
+
+- `TextField.plain()` 保留文本、选择、光标、输入法和语义，只省略内建输入框表面；
+  `DesktopApp.setWindowSize(width, height)` 允许数据驱动的界面模态同步调整原生窗口。
+- 手册补充数据模态驱动的布局模式、`LazyColumn` 完整行盒预算和标签行纵向伸展陷阱，
+  避免选中背景与文字内容错位。
+  Add chrome-free text fields and owned-window resizing for data-driven launcher modes.
+  Document lazy-row line-box budgeting and the stretched-label-row failure mode.
+
 ## Unreleased — Public API consumer compatibility
 
 - Complete root exports for measured TextArea rows, rich pointer normalization,

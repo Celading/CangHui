@@ -223,6 +223,7 @@ public import chui.core.Divider
 public import chui.core.DeviceRotationLayout
 public import chui.core.Easing
 public import chui.core.EventHandler
+public import chui.core.ContextEventHandler
 public import chui.core.Flexible
 public import chui.core.FlowRow
 public import chui.core.ForEach
@@ -316,6 +317,7 @@ public import chui.core.handlePointerClick
 public import chui.core.derive
 public import chui.core.drawFocusRing
 public import chui.core.emit
+public import chui.core.buildDetachedChild
 public import chui.core.focusableControlIdentity
 public import chui.core.rememberState
 public import chui.core.probeActivation

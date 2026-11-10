@@ -67,6 +67,7 @@ main(): Unit {
 |---|---|
 | [`manage(...)`](#manage) | 注册退出时自动关闭的资源（逆序关闭）。 |
 | [`setMinimumSize(...)`](#setminimumsize) | 阻止窗口被缩小到给定逻辑尺寸以下。 |
+| [`setWindowSize(...)`](#setwindowsize) | 在运行中调整应用拥有的原生窗口尺寸，并请求下一帧重排。 |
 | [`useBaseCursor(...)`](#usebasecursor) | 设置窗口的基础光标——没有控件申请其它形状时显示的形状（如绘图画布上的十字线）。 |
 | [`clearRememberedState()`](#clearrememberedstate) | 在下一次重建前丢弃全部 `rememberState` 局部值。 |
 | [`postToUi(...)`](#posttoui) | 从任意线程投递任务，在下一次声明式构建前由 UI owner 串行执行。 |
@@ -147,6 +148,26 @@ public func setMinimumSize(width: Int32, height: Int32): Unit
 **异常**
 
 - `CuiException` — SDL 拒绝设置窗口最小尺寸时；CangHui 不捕获或改写该异常。
+
+### setWindowSize
+
+调整应用拥有的原生窗口逻辑尺寸，并请求下一帧按新视口重新布局。适合由数据模态驱动的
+启动器、工作台或可切换布局；尺寸必须为正数。窗口管理器可以异步处理请求，因此不要把
+调用返回本身当成实际像素尺寸已经提交的证明。
+
+```cangjie
+public func setWindowSize(width: Int32, height: Int32): Unit
+```
+
+**参数**
+
+- `width`: `Int32` — 目标逻辑宽度，必须大于零。
+- `height`: `Int32` — 目标逻辑高度，必须大于零。
+
+**异常**
+
+- `IllegalArgumentException` — 宽或高小于等于零时。
+- `CuiException` — 底层 SDL 窗口调整失败时；CangHui 不捕获或改写该异常。
 
 ### useBaseCursor
 

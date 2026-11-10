@@ -20,6 +20,47 @@
 
 `LazyColumn(count, itemHeight)` 依靠固定行高直接计算可见索引，开销最低。若每行正文长度不同并会换行，改用 `LazyList`；不要给出假的固定高度再让内容溢出。
 
+固定行高必须按**完整行盒预算**计算，不能直接拿最大字号当高度。双行结果行至少包含：
+
+```text
+itemHeight
+  >= 第一行 textHeight
+   + 行间距
+   + 第二行 textHeight
+   + 上下 padding
+   + 需要计入的边框/分隔
+```
+
+`textHeight` 是渲染器给出的行盒高度，通常明显大于 `fontSize`；中文、拉丁文和不同
+字体回退还可能得到不同结果。把行高常量放在行构建函数旁边，并用真实窗口、真实字体在
+常用缩放比例下截图验证。只检查 `13.5.fp < 49.0` 会漏掉行盒、间距和 padding，表现为
+选中背景只包住标题、副标题掉到卡片外，或相邻行看似重叠。
+
+```cangjie role=contrast
+let SEARCH_TITLE_LINE = 20.0
+let SEARCH_META_LINE = 18.0
+let SEARCH_ROW_GAP = 2.0
+let SEARCH_ROW_PADDING_Y = 7.0
+let SEARCH_ROW_H =
+    SEARCH_TITLE_LINE + SEARCH_META_LINE + SEARCH_ROW_GAP + SEARCH_ROW_PADDING_Y * 2.0
+
+LazyColumn.of(hits, SEARCH_ROW_H, spacing: 1.0, key: {hit => hit.path}) {
+    hit => HStack {
+        Icon(IconName.NewDocument)
+        VStack(spacing: 2.0.vp) {
+            Label(hit.title).maxLines(1)
+            Label(hit.path).muted().maxLines(1)
+        }
+    }
+        .padding(13.vp, 7.vp)
+        .height(Length(SEARCH_ROW_H - 1.0, LengthUnit.Vp))
+}
+```
+
+行内背景、选中底色和标签胶囊也要避免意外继承父容器的剩余高度。横向排列的标签行使用
+`HStack(...).hug().crossAxisAlignment(CrossAxisAlignment.Center)`，否则它可能在纵向
+栈里吃掉剩余空间，把短标签拉成整列高的色块。
+
 ### 2. 把业务状态上提
 
 虚拟列表只创建视口附近的行，滚远后行会卸载。选择、编辑草稿、加载状态等必须按业务 id 放进模型。`key` 返回稳定 id，不能返回当前索引。
@@ -69,6 +110,8 @@ LazyColumn.of(messages, 52.0,
 - 使用数组索引作 key：插入或重排后状态串到别项。
 - 在行构建器里筛选整个数组：每个可见行都重复做同一工作。
 - 外层和内层同时强制消费滚轮：内容不足一屏时形成滚动死区。
+- 用 `fontSize` 估行高：行盒、行距和 padding 未计入，固定槽位会装不下内容。
+- 给短标签所在 `HStack` 保留默认纵向伸展：胶囊可能被拉满整块剩余高度。
 
 ## 相关 API
 

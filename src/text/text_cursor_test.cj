@@ -175,19 +175,26 @@ func focusedCaretReportsImeAnchorInBothBlinkPhases(): Unit {
     @Expect(ctx.textInputAnchorRect().getOrThrow().x, Float32(26.25))
 }
 
-// A focused caret blinks on the frame clock, so drawing it must request the next frame — otherwise the
-// dirty-frame loop (档 0) would idle and freeze the blink. An unfocused field asks for nothing.
+// A focused caret wakes the dirty-frame loop only when the blink phase changes. Redrawing every
+// frame would keep a resident launcher at a full core even while its window is idle.
 @Test
-func focusedCaretRequestsContinuousFrame(): Unit {
+func focusedCaretSchedulesOnlyTheNextBlinkPhase(): Unit {
     let ctx = UiContext(Renderer.headless(), Theme.light())
     let frame = Rect(0.0, 0.0, 200.0, 38.0)
 
     let _ = ctx.takeFrameRequest()
     drawTextFieldCursor(ctx, frame, "field", "abc", 1)
     @Expect(!ctx.takeFrameRequest()) // unfocused: no request
+    @Expect(ctx.scheduledFrameDelayMs(UInt64(0)).isNone())
 
     ctx.focus("field")
     let _ = ctx.takeFrameRequest()
     drawTextFieldCursor(ctx, frame, "field", "abc", 1)
-    @Expect(ctx.takeFrameRequest()) // focused: keep frames flowing for the blink
+    @Expect(!ctx.takeFrameRequest()) // no continuous redraw request
+    @Expect(ctx.scheduledFrameDelayMs(UInt64(0)).getOrThrow(), UInt64(530))
+
+    ctx.frame = FrameInfo(UInt64(530), UInt64(530))
+    let _ = ctx.takeFrameRequest()
+    drawTextFieldCursor(ctx, frame, "field", "abc", 1)
+    @Expect(ctx.scheduledFrameDelayMs(UInt64(530)).getOrThrow(), UInt64(530))
 }

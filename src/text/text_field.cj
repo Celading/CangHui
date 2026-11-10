@@ -41,6 +41,7 @@ public class TextField <: Widget {
     private let autofocusDone: State<Bool>
     private let isEditable: Bool
     private var secureEntryEnabled = false
+    private var chromeVisible = true
     private var submitHandler: ?() -> Unit = None
     private var frame = Rect.zero()
 
@@ -114,6 +115,12 @@ public class TextField <: Widget {
      */
     public func secureEntry(): TextField {
         secureEntryEnabled = true
+        this
+    }
+
+    /** Draws only text, selection and caret; the caller owns the surrounding surface. */
+    public func plain(): TextField {
+        chromeVisible = false
         this
     }
 
@@ -196,7 +203,7 @@ public class TextField <: Widget {
             textGeometry: geometry,
             typedActions: [SemanticActionKind.Focus]
         ))
-        drawTextBoxChrome(ctx, frame, id)
+        if (chromeVisible) { drawTextBoxChrome(ctx, frame, id) }
         // Values longer than the field must not paint past its surface; selection, text and
         // caret are clipped together, and all three share the same follow shift.
         ctx.renderer.pushClip(frame.inset(2.0))
